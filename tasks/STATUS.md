@@ -8,7 +8,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | Fase | Total | 🟢 | ⏸️ | 🟡 | 🔵 | 🟣 | ✅ |
 |---|---|---|---|---|---|---|---|
-| F0 | 8 | 8 | 0 | 0 | 0 | 0 | 0 |
+| F0 | 8 | 7 | 0 | 0 | 0 | 0 | 1 |
 | F1 | 23 | 11 | 12 | 0 | 0 | 0 | 0 |
 | F2 | — | a destrinchar após F1 | | | | | |
 | F3 | — | a destrinchar | | | | | |
@@ -21,7 +21,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID | Título | Status | Prioridade | Depende de |
 |---|---|---|---|---|
-| F0-S01 | Lockfiles (pnpm + python) | 🟣 review | critical | — |
+| F0-S01 | Lockfiles (pnpm + python) | ✅ done | critical | — |
 | F0-S02 | ESLint + Prettier nos workspaces | 🟢 available | high | F0-S01 |
 | F0-S03 | Boot da API + healthcheck | 🟢 available | high | F0-S01 |
 | F0-S04 | Drizzle migration inicial | 🟢 available | high | F0-S01 |
