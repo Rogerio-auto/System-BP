@@ -21,7 +21,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID | Título | Status | Prioridade | Depende de |
 |---|---|---|---|---|
-| F0-S01 | Lockfiles (pnpm + python) | 🟢 available | critical | — |
+| F0-S01 | Lockfiles (pnpm + python) | 🔵 in-progress | critical | — |
 | F0-S02 | ESLint + Prettier nos workspaces | 🟢 available | high | F0-S01 |
 | F0-S03 | Boot da API + healthcheck | 🟢 available | high | F0-S01 |
 | F0-S04 | Drizzle migration inicial | 🟢 available | high | F0-S01 |
