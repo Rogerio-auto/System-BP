@@ -3,7 +3,7 @@ id: F0-S01
 title: Verificar e travar lockfiles (pnpm + python)
 phase: F0
 task_ref: T0.1
-status: in-progress
+status: review
 priority: critical
 estimated_size: S
 agent_id: backend-engineer
