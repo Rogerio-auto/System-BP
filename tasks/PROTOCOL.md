@@ -1,0 +1,106 @@
+# PROTOCOL.md — Regras invioláveis para agentes IA
+
+> Leia este arquivo **antes** de pegar o primeiro slot. Releia se algo parecer ambíguo. **Em qualquer conflito, este protocolo + a documentação em `docs/` vencem o slot individual.**
+
+## 1. Regras gerais (NUNCA violar)
+
+1. **Não saia do escopo do slot.** Se você precisa tocar em arquivos não listados em `files_allowed`, pare e abra um slot novo (ou um issue). Nunca "aproveite" para refatorar fora do escopo.
+2. **Não invente decisões.** Stack, padrões, naming, e arquitetura estão em [docs/](../docs/) e [ARCHITECTURE.md](../ARCHITECTURE.md). Se a doc é silente, escolha a opção mais simples e registre no PR para revisão humana.
+3. **Não introduza dependências sem justificar.** Cada nova entrada em `package.json` ou `pyproject.toml` precisa de uma frase no PR explicando por que ela é a melhor escolha.
+4. **Sem `any`. Sem `as unknown as ...`.** TS estrito é obrigatório. Resolva o tipo de verdade.
+5. **Sem código placeholder.** Nada de `// TODO: implementar` em código que entra em `done`. Se algo falta, é fora de escopo do slot — diga isso explicitamente.
+6. **Validação Zod nas bordas.** Toda rota HTTP nova tem schema de request e response. Toda integração externa valida o payload.
+7. **Eventos via outbox.** Mutação que emite evento grava em `event_outbox` na **mesma transação** da mutação. Não emita eventos fora de transação.
+8. **Permissão por cidade é first-class.** Repository injeta filtro automaticamente para roles com `scope=city`. Bypass exige flag explícita testada.
+9. **Auditoria** em mutações sensíveis (criar/editar lead, mover card, alterar análise, etc).
+10. **Idempotência** em rotas POST que webhooks ou clientes podem repetir.
+11. **Feature flags em 4 camadas** (UI + API + worker + tool) quando a doc do módulo pede.
+12. **Logs estruturados** com `request_id` e `correlation_id`. Sem `console.log` em código de produção (apenas em scripts e mensagens de inicialização).
+13. **Segurança** — nunca commite secret, nunca exponha porta desnecessária, sempre valide HMAC em webhooks, sempre rate-limit endpoints públicos.
+
+## 2. Workflow do agente
+
+### 2.1 Antes de começar
+1. Ler `tasks/PROTOCOL.md` (este arquivo).
+2. Ler `tasks/STATUS.md`.
+3. Ler `ARCHITECTURE.md` na primeira sessão.
+4. Identificar slot com:
+   - `status: available`
+   - todas as `depends_on` em `done`
+   - você possui contexto/competência para o domínio
+5. Reservar o slot:
+   - Atualizar frontmatter: `status: claimed`, `agent_id: <seu-id>`, `claimed_at: <ISO>`.
+   - Atualizar `tasks/STATUS.md` com a mesma mudança.
+   - Commit pequeno: `chore(tasks): claim <SLOT-ID>`.
+
+### 2.2 Durante a execução
+1. Criar branch: `feat/<slot-id-lowercase>` (ex: `feat/f1-s03-auth-jwt-tokens`).
+2. Atualizar slot para `status: in-progress`.
+3. Implementar **somente** o escopo. Tocar **somente** arquivos em `files_allowed`. Não tocar arquivos em `files_forbidden`.
+4. Rodar todos os comandos em `validation` localmente. Todos precisam passar.
+5. Cobrir testes obrigatórios listados em `dod`.
+
+### 2.3 Ao terminar
+1. Atualizar slot para `status: review`.
+2. Abrir PR com:
+   - Título: `[<SLOT-ID>] <título do slot>`
+   - Descrição contendo a checklist do DoD com cada item marcado.
+   - Link para o slot.
+   - Screenshots/recordings se mexeu em UI.
+3. Após merge, atualizar `tasks/STATUS.md` e o frontmatter do slot para `status: done`, `completed_at: <ISO>`, `pr_url: <url>`.
+
+### 2.4 Se travar
+- Faltou contexto na doc? Abra issue rotulado `docs-gap` linkando o slot. Mantenha slot em `blocked` com motivo.
+- Slot mal-dimensionado (escopo muito grande)? Quebre em sub-slots: `<SLOT-ID>a`, `<SLOT-ID>b`. O slot original vira `cancelled` com link para os filhos.
+- Dependência apareceu durante a execução? Abra slot novo e marque o atual como `blocked`.
+
+## 3. Padrões de código (resumo executivo)
+
+### TypeScript (apps/api e apps/web)
+- `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true` — já configurados, não enfraquecer.
+- Imports: `import type { X }` para tipos. ESM (.js extension nos imports relativos no backend).
+- Naming: `camelCase` para variáveis/funções, `PascalCase` para tipos/componentes, `UPPER_SNAKE` para constantes.
+- Erros: nunca `throw new Error("string")` em service. Use erros tipados (`AppError` quando criado em F1).
+- Sem `console.log` (use `app.log` / `request.log`).
+
+### Python (apps/langgraph-service)
+- `mypy strict`, `ruff` configurado.
+- Type hints em **toda** função pública.
+- Sem `print` (use `structlog`).
+- Pydantic v2 para tudo que cruza fronteira (HTTP, tool I/O).
+
+### Banco
+- Tudo em `snake_case`.
+- IDs: `uuid` com default `gen_random_uuid()` (pgcrypto).
+- Timestamps: `created_at`, `updated_at` com `default now()` e trigger de update.
+- Soft-delete: `deleted_at nullable`. Query padrão filtra `deleted_at IS NULL`.
+- Toda FK declara `on delete` explicitamente (CASCADE, SET NULL ou RESTRICT — escolha pensada).
+- Índices em colunas de filtro frequente, índices únicos parciais para dedupe.
+
+### Commits
+- Convencional Commits: `feat(modulo): ...`, `fix(modulo): ...`, `chore(tasks): ...`, `docs: ...`, `test(modulo): ...`.
+- Mensagem em português ou inglês — consistente dentro do PR.
+
+## 4. Verificações automáticas
+
+Antes de marcar um slot como `review`:
+```powershell
+pnpm lint
+pnpm typecheck
+pnpm test
+# Se mexeu em apps/langgraph-service:
+cd apps/langgraph-service ; ruff check . ; mypy app ; pytest -q
+```
+Tudo verde, ou o slot não está pronto.
+
+## 5. Limites do agente
+
+- **Não execute migrations destrutivas** em ambientes compartilhados.
+- **Não rode `pnpm install` adicionando dep sem registrar no PR.**
+- **Não toque em `.env` reais.** Apenas em `.env.example`.
+- **Não merge no `main` sem revisão humana** salvo orientação explícita do fundador.
+- **Não desligue verificações** (`--no-verify`, `eslint-disable`, `# type: ignore`) sem justificativa documentada no PR.
+
+## 6. Comunicação
+
+Tudo o que o agente decide ou questiona vai no PR (ou issue). Não há "memória externa". O próximo agente que pegar um slot relacionado precisa conseguir entender o contexto pela leitura do repositório.

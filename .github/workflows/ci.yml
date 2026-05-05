@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 20.11.0
+  PNPM_VERSION: 9.12.0
+  PYTHON_VERSION: 3.12
+
+jobs:
+  node:
+    name: Node — lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: elemento
+          POSTGRES_PASSWORD: elemento
+          POSTGRES_DB: elemento_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U elemento"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgres://elemento:elemento@localhost:5432/elemento_test
+      JWT_ACCESS_SECRET: ci-access-secret-please-rotate-this-is-only-for-tests-xxxxxx
+      JWT_REFRESH_SECRET: ci-refresh-secret-please-rotate-this-is-only-for-tests-xxxxx
+      API_PUBLIC_URL: http://localhost:3333
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      LANGGRAPH_INTERNAL_TOKEN: ci-internal-token-rotate-regularly-32chars
+      LANGGRAPH_SERVICE_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.12.0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run lint typecheck test build
+
+  python:
+    name: Python — lint, typecheck, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/langgraph-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: mypy app
+      - run: pytest -q

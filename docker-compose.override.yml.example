@@ -1,0 +1,43 @@
+# =============================================================================
+# docker-compose.override.yml — DEV ONLY
+# Renomeie de docker-compose.override.yml.example para docker-compose.override.yml
+# Habilita hot reload, volume mounts e Dockerfile.dev em cada serviço.
+# =============================================================================
+name: elemento
+
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.dev
+    command: ["pnpm", "dev"]
+    volumes:
+      - ./apps/api/src:/app/src:cached
+      - ./apps/api/drizzle.config.ts:/app/drizzle.config.ts:cached
+      - api_node_modules:/app/node_modules
+    environment:
+      NODE_ENV: development
+
+  langgraph-service:
+    build:
+      context: ./apps/langgraph-service
+      dockerfile: Dockerfile.dev
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./apps/langgraph-service/app:/app/app:cached
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    command: ["pnpm", "--filter", "@elemento/web", "dev", "--host", "0.0.0.0"]
+    volumes:
+      - ./apps/web/src:/app/apps/web/src:cached
+      - ./apps/web/index.html:/app/apps/web/index.html:cached
+      - web_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+
+volumes:
+  api_node_modules:
+  web_node_modules:

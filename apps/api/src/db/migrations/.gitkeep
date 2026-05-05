@@ -1,0 +1,2 @@
+# Migrations Drizzle são geradas automaticamente.
+# Não editar manualmente arquivos .sql aqui — gerar via `pnpm db:generate`.
