@@ -61,7 +61,8 @@ function LoginForm(): React.JSX.Element {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>): void {
     e.preventDefault();
     // Placeholder — lógica real de autenticação em F1-S08
-    console.warn('login submit (placeholder)', form);
+    // LGPD doc 17: proibido logar CPF/senha no client — form payload omitido
+    console.warn('[F0-S05 placeholder] login submit — credenciais não logadas por segurança');
   }
 
   return (
@@ -180,7 +181,7 @@ function HeroColumn(): React.JSX.Element {
 /**
  * Tela de login — 2 colunas no desktop (hero esquerda + card direita).
  * Mobile: coluna única, hero oculto, card centralizado.
- * Submit: console.warn — sem chamada à API (F1-S08).
+ * Submit: console.warn sem payload sensível — sem chamada à API (F1-S08).
  */
 export function LoginPage(): React.JSX.Element {
   return (
