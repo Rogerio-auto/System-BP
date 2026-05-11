@@ -6,16 +6,17 @@ Veja [docs/02-arquitetura-sistema.md](../../docs/02-arquitetura-sistema.md). Pad
 
 ## Comandos
 
-| Comando | O que faz |
-|---|---|
-| `pnpm dev` | Vite dev server (porta 5173) |
-| `pnpm build` | Build de produção em `dist/` |
-| `pnpm preview` | Serve o build localmente |
-| `pnpm typecheck` | TS project references |
-| `pnpm lint` | ESLint |
-| `pnpm test` | Vitest |
+| Comando          | O que faz                    |
+| ---------------- | ---------------------------- |
+| `pnpm dev`       | Vite dev server (porta 5173) |
+| `pnpm build`     | Build de produção em `dist/` |
+| `pnpm preview`   | Serve o build localmente     |
+| `pnpm typecheck` | TS project references        |
+| `pnpm lint`      | ESLint                       |
+| `pnpm test`      | Vitest                       |
 
 ## Estrutura prevista (criada conforme as tasks)
+
 ```
 src/
 ├── features/         # CRM, Kanban, Auth, etc — agrupado por domínio

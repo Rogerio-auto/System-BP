@@ -7,11 +7,13 @@
 **Rota:** `POST /api/whatsapp/webhook`
 
 Validações:
+
 - `hub.verify_token` no GET de verificação inicial.
 - HMAC SHA-256 via header `X-Hub-Signature-256` em toda requisição.
 - Idempotência: `wa_message.id` → `idempotency_keys` impede duplo processamento.
 
 Pipeline:
+
 1. Validar assinatura.
 2. Persistir bruto em `whatsapp_messages` (status `received`, `direction='in'`).
 3. Upsert `chatwoot_conversations` (criar se não existir, com `status='open'`).
@@ -25,6 +27,7 @@ Pipeline:
 **Rota interna:** `POST /api/whatsapp/send`
 
 Tipos:
+
 - `text` (dentro da janela 24h).
 - `template` (fora da janela; usa `whatsapp_templates`).
 - `interactive` (botões/listas) — Fase futura.
@@ -56,6 +59,7 @@ Toda chamada exige `Idempotency-Key`. Resposta do WhatsApp persistida com `wa_me
 ### 2.1 Webhooks recebidos
 
 Eventos suportados:
+
 - `conversation_created`
 - `conversation_updated`
 - `message_created` (incluindo direction `incoming` e `outgoing` de agente humano)
@@ -64,10 +68,12 @@ Eventos suportados:
 **Rota:** `POST /api/chatwoot/webhook`
 
 Segurança:
+
 - Header `Api-Access-Token` ou validação por shared secret + `X-Chatwoot-Signature` se disponível.
 - Idempotência por `(event_type, message_id|conversation_id, updated_at)`.
 
 Tratamento:
+
 - `message_created` (incoming): geralmente já recebido via WhatsApp webhook. Caso o canal seja Chatwoot direto, segue o mesmo pipeline da seção 1.
 - `message_created` (outgoing por humano): persistir `interactions` + atualizar `last_inbound_at` se aplicável; **pausa follow-up** ativo via evento `customer_interaction_recorded`.
 - `conversation_status_changed`: atualiza `chatwoot_conversations.status`.
@@ -76,6 +82,7 @@ Tratamento:
 ### 2.2 Chamadas ao Chatwoot (saída)
 
 API REST do Chatwoot. Endpoints usados:
+
 - Atualizar custom attributes da conversa.
 - Atribuir agente.
 - Criar mensagem.
@@ -86,14 +93,14 @@ Cliente HTTP encapsulado em `apps/api/src/integrations/chatwoot/client.ts`. Retr
 
 ### 2.3 Mapeamento de identidade
 
-| Manager | Chatwoot |
-|---------|----------|
-| `leads.id` | `conversation.custom_attributes.lead_id` |
-| `customers.id` | `contact.custom_attributes.customer_id` |
-| `agents.user_id` | `assignee.id` (mapeamento via `agents.chatwoot_user_id`) |
-| `cities.name` | `conversation.custom_attributes.cidade` |
-| `kanban_cards.stage_key` | `conversation.custom_attributes.estagio` |
-| `credit_simulations.id` | `conversation.custom_attributes.simulacao_id` |
+| Manager                  | Chatwoot                                                 |
+| ------------------------ | -------------------------------------------------------- |
+| `leads.id`               | `conversation.custom_attributes.lead_id`                 |
+| `customers.id`           | `contact.custom_attributes.customer_id`                  |
+| `agents.user_id`         | `assignee.id` (mapeamento via `agents.chatwoot_user_id`) |
+| `cities.name`            | `conversation.custom_attributes.cidade`                  |
+| `kanban_cards.stage_key` | `conversation.custom_attributes.estagio`                 |
+| `credit_simulations.id`  | `conversation.custom_attributes.simulacao_id`            |
 
 Tabela auxiliar `chatwoot_user_map` (`user_id`, `chatwoot_user_id`) — preenchida em onboarding.
 
@@ -140,6 +147,7 @@ Mudança de status no Chatwoot (resolved) → backend pode mover card para `conc
 ### 2.7 Reprocessamento
 
 Tela admin `/admin/integrations/chatwoot` com:
+
 - Lista de webhooks recentes.
 - Status (processado, falho).
 - Botão reprocessar.
@@ -150,6 +158,7 @@ Tela admin `/admin/integrations/chatwoot` com:
 ## 3. Estratégia de duplicidade
 
 Caso o cliente envie mensagem que chegue tanto pelo webhook do WhatsApp quanto pelo do Chatwoot:
+
 - Backend deduplica por `(channel='whatsapp', wa_message_id)` em `whatsapp_messages`.
 - Apenas o primeiro webhook processado dispara LangGraph.
 - Idempotency key combina origem do webhook + id externo.
@@ -158,15 +167,15 @@ Caso o cliente envie mensagem que chegue tanto pelo webhook do WhatsApp quanto p
 
 ## 4. Resumo das diferenças de responsabilidade
 
-| Responsabilidade | Manager (Postgres) | Chatwoot |
-|------------------|--------------------|----------|
-| Estado canônico do lead/cliente | sim | não |
-| Stage/outcome | sim | espelho via custom attributes |
-| Histórico de mensagens autoritativo | sim (`whatsapp_messages` + `interactions`) | espelho operacional |
-| Atribuição de agente | sim (`assigned_agent_id`) | espelhado |
-| Decisões da IA | sim (`ai_decision_logs`) | nota interna humanamente legível |
-| Templates de mensagem | sim (`whatsapp_templates`) | leitura |
-| Conversa visualizada pelo agente humano | não | sim |
+| Responsabilidade                        | Manager (Postgres)                         | Chatwoot                         |
+| --------------------------------------- | ------------------------------------------ | -------------------------------- |
+| Estado canônico do lead/cliente         | sim                                        | não                              |
+| Stage/outcome                           | sim                                        | espelho via custom attributes    |
+| Histórico de mensagens autoritativo     | sim (`whatsapp_messages` + `interactions`) | espelho operacional              |
+| Atribuição de agente                    | sim (`assigned_agent_id`)                  | espelhado                        |
+| Decisões da IA                          | sim (`ai_decision_logs`)                   | nota interna humanamente legível |
+| Templates de mensagem                   | sim (`whatsapp_templates`)                 | leitura                          |
+| Conversa visualizada pelo agente humano | não                                        | sim                              |
 
 Chatwoot é **interface**, não estado.
 

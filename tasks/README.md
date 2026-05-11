@@ -1,6 +1,3 @@
-
-
-
 # Tasks — Sistema de slots para agentes IA
 
 Este projeto é desenvolvido por agentes IA em paralelo. Cada unidade de trabalho é um **slot**: uma cápsula com escopo fechado, dependências explícitas, contratos de entrada/saída e Definition of Done verificável.
@@ -61,15 +58,15 @@ Cada slot é dimensionado para ser executável por **um agente em uma única ses
 
 ## Estados
 
-| Estado | Significado |
-|---|---|
-| `available` | Pronto para ser pego (dependências resolvidas) |
-| `blocked` | Aguardando dependência |
-| `claimed` | Reservado por um agente |
-| `in-progress` | Agente trabalhando |
-| `review` | PR aberto, aguardando revisão |
-| `done` | Mergeado em main |
-| `cancelled` | Descartado (com justificativa) |
+| Estado        | Significado                                    |
+| ------------- | ---------------------------------------------- |
+| `available`   | Pronto para ser pego (dependências resolvidas) |
+| `blocked`     | Aguardando dependência                         |
+| `claimed`     | Reservado por um agente                        |
+| `in-progress` | Agente trabalhando                             |
+| `review`      | PR aberto, aguardando revisão                  |
+| `done`        | Mergeado em main                               |
+| `cancelled`   | Descartado (com justificativa)                 |
 
 ## Documentação fonte
 

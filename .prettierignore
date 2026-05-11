@@ -1,0 +1,27 @@
+# Build artifacts
+dist/
+build/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Python
+.venv/
+__pycache__/
+
+# Coverage
+coverage/
+htmlcov/
+
+# Generated / lock files
+pnpm-lock.yaml
+
+# Migrations (SQL, não formatar com prettier)
+**/migrations/**
+
+# Infra
+infra/

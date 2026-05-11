@@ -19,9 +19,11 @@ source_docs:
 # F1-S22 — Sync atributos Chatwoot
 
 ## Objetivo
+
 Handler do outbox que reage a `leads.created`, `kanban.stage_updated`, `simulations.generated` e atualiza atributos da conversa Chatwoot via cliente.
 
 ## Definition of Done
+
 - [ ] Handler registrado no worker outbox
 - [ ] Falha de Chatwoot retenta (max 5) e vai pra DLQ
 - [ ] PR aberto

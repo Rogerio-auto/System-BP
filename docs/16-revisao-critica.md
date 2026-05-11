@@ -18,51 +18,61 @@
 ## 2. Pontos frágeis e tensões reais
 
 ### 2.1 — 45 dias é apertado mesmo com fasing
+
 A divisão Fases 0–4 + 7 + parte de 5 ainda exige execução muito enxuta. Qualquer imprevisto (dificuldade de export do Notion, latência de aprovação de templates Meta, prompt da IA exigindo iteração maior) pode empurrar o go-live.
 
 **Recomendação:** acordar com cliente um marco intermediário no dia 30 de "operação interna funcionando com dados de teste". Se não estiver verde no dia 30, replanejar entrega final em vez de comprimir qualidade.
 
 ### 2.2 — Postgres como event broker no MVP
+
 Decisão acertada para reduzir complexidade, mas tem um teto: sob carga alta de eventos (centenas/segundo), Postgres pode virar gargalo. Para o volume do Banco do Povo no MVP, é mais que suficiente. Mas precisamos de plano de migração para Redis Streams ou similar quando passar de N eventos/min.
 
 **Recomendação:** instrumentar métricas de outbox desde o dia 1. Definir threshold para reavaliação.
 
 ### 2.3 — Sem cache (Redis) no MVP
+
 Aumenta carga no Postgres em queries repetidas (feature flags, cidades, produtos). No volume do MVP, aceitável. Mas é ponto de atenção quando o sistema crescer.
 
 **Recomendação:** cache em memória do processo (LRU) para feature flags e cidades. Migrar para Redis quando passar de 1 réplica de API.
 
 ### 2.4 — LangGraph + memória do estado
+
 A persistência via API tem latência adicional vs persistência local. Em conversas longas, pode somar. Em troca, ganha-se reset-safety e horizontal scaling.
 
 **Recomendação:** medir p95 de turno em produção e otimizar (cache de estado quente em memória do worker, com invalidação por timestamp) se passar de 4s.
 
 ### 2.5 — Multi-tenant futuro
+
 O schema tem `organization_id` em todo lugar, mas não foi testado para uma segunda organização real. Pode ter assumption ainda não detectada.
 
 **Recomendação:** quando segunda org chegar, dedicar uma fase para revisão tenant-isolation antes de onboard.
 
 ### 2.6 — Dependência operacional do Chatwoot
+
 Chatwoot não é parte de "nossa stack". Bug ou indisponibilidade dele afeta agentes diretamente. O fallback descrito (sync via attributes) é melhor caso, não pior caso.
 
 **Recomendação:** plano de contingência: se Chatwoot cair, agente consegue usar Manager standalone com viewer mínimo de mensagens (read-only) para responder via WhatsApp diretamente. Isso é evolução pós-MVP, mas precisa estar no radar.
 
 ### 2.7 — Cobertura de teste mínima é 70%, mas não cobre o que é mais importante
+
 Cobertura por linha não é cobertura por risco. Pode-se ter 70% e não testar o caminho de RBAC.
 
 **Recomendação:** adicionar suite de "smoke crítica" obrigatória: auth, escopo de cidade, idempotência de webhook, permissão de tool, simulação com regra versionada. Se essas quebrarem, deploy bloqueado independente de cobertura.
 
 ### 2.8 — Sem definição de SLO/SLI formal
+
 Performance está como "p95 < X" sem instrumentação detalhada de quais endpoints e qual a definição de erro budget.
 
 **Recomendação:** após go-live, definir SLOs por categoria de endpoint (read CRUD, write CRUD, tools de IA, webhooks).
 
 ### 2.9 — Sem load test planejado pré go-live
+
 O documento não obriga teste de carga. Em volume MVP isso é tolerável, mas em pico de campanha/marketing pode estourar.
 
 **Recomendação:** smoke load test (k6 ou similar) antes do go-live cobrindo 3x o volume esperado.
 
 ### 2.10 — Custo de LLM não dimensionado
+
 Não há projeção de custo mensal de inferência. Pode ser materialmente diferente do que se assume.
 
 **Recomendação:** estimar antes do go-live com base em conversas reais simuladas, definir alerta de custo, definir circuito breaker se gasto diário ultrapassar X.
@@ -82,13 +92,13 @@ Não há projeção de custo mensal de inferência. Pode ser materialmente difer
 
 ## 4. Riscos de prazo (priorizados)
 
-| # | Risco | Provável quando | Plano B |
-|---|-------|-----------------|---------|
-| 1 | LangGraph (Fase 3) atrasa | Semana 3-4 | Atrasar Fase 6, manter Fase 7 |
-| 2 | Migração com dados sujos | Semana 6 | Aceitar dados parciais + arquivar resto |
-| 3 | Aprovação de template Meta | Semana 5+ | Manter follow-up desligado no go-live |
-| 4 | Bug grave em RBAC descoberto tarde | Semana 5+ | Adiar go-live até resolver |
-| 5 | Cliente pede mudança de escopo durante execução | Qualquer | Bloquear novas features; ir para backlog pós-MVP |
+| #   | Risco                                           | Provável quando | Plano B                                          |
+| --- | ----------------------------------------------- | --------------- | ------------------------------------------------ |
+| 1   | LangGraph (Fase 3) atrasa                       | Semana 3-4      | Atrasar Fase 6, manter Fase 7                    |
+| 2   | Migração com dados sujos                        | Semana 6        | Aceitar dados parciais + arquivar resto          |
+| 3   | Aprovação de template Meta                      | Semana 5+       | Manter follow-up desligado no go-live            |
+| 4   | Bug grave em RBAC descoberto tarde              | Semana 5+       | Adiar go-live até resolver                       |
+| 5   | Cliente pede mudança de escopo durante execução | Qualquer        | Bloquear novas features; ir para backlog pós-MVP |
 
 ## 5. O que ficou de fora deste PRD que ainda precisa ser decidido
 

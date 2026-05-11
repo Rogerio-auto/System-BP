@@ -21,7 +21,12 @@ const envSchema = z.object({
 
   CORS_ALLOWED_ORIGINS: z
     .string()
-    .transform((v) => v.split(',').map((s) => s.trim()).filter(Boolean))
+    .transform((v) =>
+      v
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
     .pipe(z.array(z.string().url()).min(1, 'CORS_ALLOWED_ORIGINS não pode ser vazio')),
 
   LANGGRAPH_INTERNAL_TOKEN: z.string().min(32),
@@ -32,9 +37,7 @@ export type Env = z.infer<typeof envSchema>;
 
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
-  // eslint-disable-next-line no-console
   console.error('❌ Variáveis de ambiente inválidas:');
-  // eslint-disable-next-line no-console
   console.error(parsed.error.flatten().fieldErrors);
   process.exit(1);
 }

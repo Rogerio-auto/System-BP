@@ -17,10 +17,12 @@
 11. **Feature flags em 4 camadas** (UI + API + worker + tool) quando a doc do módulo pede.
 12. **Logs estruturados** com `request_id` e `correlation_id`. Sem `console.log` em código de produção (apenas em scripts e mensagens de inicialização).
 13. **Segurança** — nunca commite secret, nunca exponha porta desnecessária, sempre valide HMAC em webhooks, sempre rate-limit endpoints públicos.
+14. **LGPD** — `docs/17-lgpd-protecao-dados.md` vence este protocolo em qualquer conflito sobre tratamento de dados pessoais. Qualquer PR que toque PII (ver §14.1 do doc 17) recebe label `lgpd-impact` e exige o checklist do §14.2 do doc 17 preenchido na descrição. PR sem checklist = merge bloqueado. CPF/RG/document_number **sempre** cifrado + hash HMAC; logs **sempre** com `pino.redact` canônico; prompt LLM **sempre** passa por DLP antes do gateway; outbox **nunca** carrega PII bruta.
 
 ## 2. Workflow do agente
 
 ### 2.1 Antes de começar
+
 1. Ler `tasks/PROTOCOL.md` (este arquivo).
 2. Ler `tasks/STATUS.md`.
 3. Ler `ARCHITECTURE.md` na primeira sessão.
@@ -34,6 +36,7 @@
    - Commit pequeno: `chore(tasks): claim <SLOT-ID>`.
 
 ### 2.2 Durante a execução
+
 1. Criar branch: `feat/<slot-id-lowercase>` (ex: `feat/f1-s03-auth-jwt-tokens`).
 2. Atualizar slot para `status: in-progress`.
 3. Implementar **somente** o escopo. Tocar **somente** arquivos em `files_allowed`. Não tocar arquivos em `files_forbidden`.
@@ -41,6 +44,7 @@
 5. Cobrir testes obrigatórios listados em `dod`.
 
 ### 2.3 Ao terminar
+
 1. Atualizar slot para `status: review`.
 2. Abrir PR com:
    - Título: `[<SLOT-ID>] <título do slot>`
@@ -50,6 +54,7 @@
 3. Após merge, atualizar `tasks/STATUS.md` e o frontmatter do slot para `status: done`, `completed_at: <ISO>`, `pr_url: <url>`.
 
 ### 2.4 Se travar
+
 - Faltou contexto na doc? Abra issue rotulado `docs-gap` linkando o slot. Mantenha slot em `blocked` com motivo.
 - Slot mal-dimensionado (escopo muito grande)? Quebre em sub-slots: `<SLOT-ID>a`, `<SLOT-ID>b`. O slot original vira `cancelled` com link para os filhos.
 - Dependência apareceu durante a execução? Abra slot novo e marque o atual como `blocked`.
@@ -57,6 +62,7 @@
 ## 3. Padrões de código (resumo executivo)
 
 ### TypeScript (apps/api e apps/web)
+
 - `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true` — já configurados, não enfraquecer.
 - Imports: `import type { X }` para tipos. ESM (.js extension nos imports relativos no backend).
 - Naming: `camelCase` para variáveis/funções, `PascalCase` para tipos/componentes, `UPPER_SNAKE` para constantes.
@@ -64,12 +70,14 @@
 - Sem `console.log` (use `app.log` / `request.log`).
 
 ### Python (apps/langgraph-service)
+
 - `mypy strict`, `ruff` configurado.
 - Type hints em **toda** função pública.
 - Sem `print` (use `structlog`).
 - Pydantic v2 para tudo que cruza fronteira (HTTP, tool I/O).
 
 ### Banco
+
 - Tudo em `snake_case`.
 - IDs: `uuid` com default `gen_random_uuid()` (pgcrypto).
 - Timestamps: `created_at`, `updated_at` com `default now()` e trigger de update.
@@ -78,12 +86,14 @@
 - Índices em colunas de filtro frequente, índices únicos parciais para dedupe.
 
 ### Commits
+
 - Convencional Commits: `feat(modulo): ...`, `fix(modulo): ...`, `chore(tasks): ...`, `docs: ...`, `test(modulo): ...`.
 - Mensagem em português ou inglês — consistente dentro do PR.
 
 ## 4. Verificações automáticas
 
 Antes de marcar um slot como `review`:
+
 ```powershell
 pnpm lint
 pnpm typecheck
@@ -91,7 +101,23 @@ pnpm test
 # Se mexeu em apps/langgraph-service:
 cd apps/langgraph-service ; ruff check . ; mypy app ; pytest -q
 ```
+
 Tudo verde, ou o slot não está pronto.
+
+### 4.1 Gate LGPD (slots `lgpd-impact`)
+
+Aplica-se a slots que tocam: schema/coluna com PII (doc 17 §3.4), rota que recebe/retorna PII, payload de evento envolvendo entidade com PII, prompt do LangGraph ou DLP, integração com terceiros, logging/audit/retenção/criptografia, RBAC ou escopo de cidade.
+
+Para esses slots, **além** do bloco acima:
+
+- [ ] Checklist do `docs/17-lgpd-protecao-dados.md` §14.2 copiado para a descrição do PR e cada item marcado (ou justificado).
+- [ ] Label `lgpd-impact` aplicado ao PR.
+- [ ] Se introduzir novo suboperador ou nova finalidade → DPIA referenciada (doc 17 §11) + atualização do RoPA (doc 17 §3.3) na mesma PR.
+- [ ] `pino.redact` cobre qualquer novo campo PII (doc 17 §8.3).
+- [ ] Outbox não carrega PII bruta (doc 17 §8.5).
+- [ ] DLP cobre qualquer novo padrão de PII no LangGraph (doc 17 §8.4).
+
+Sem isso, a PR não passa de `review` para `done`.
 
 ## 5. Limites do agente
 

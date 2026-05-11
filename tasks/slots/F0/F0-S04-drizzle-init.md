@@ -20,9 +20,11 @@ source_docs:
 # F0-S04 — Drizzle migration inicial
 
 ## Objetivo
+
 `pnpm db:generate` + `pnpm db:migrate` funcionam end-to-end contra o Postgres do compose. Pipeline de migration validado antes da Fase 1 começar.
 
 ## Escopo
+
 - Criar uma migration "marco zero" em `apps/api/src/db/migrations/0000_init.sql` que:
   - Garante extensions (no-op se já existem via `init/01-extensions.sql`).
   - Cria tabela técnica `_schema_meta(applied_at timestamptz default now())` com 1 linha.
@@ -30,20 +32,24 @@ source_docs:
 - Atualizar README do `apps/api` com fluxo `generate → review → migrate`.
 
 ## Fora de escopo
+
 - Schemas de domínio (cada um vira slot próprio em F1+).
 
 ## Arquivos permitidos
+
 - `apps/api/src/db/migrations/0000_init.sql`
 - `apps/api/src/db/migrations/meta/_journal.json` (gerado pelo drizzle-kit)
 - `apps/api/README.md`
 
 ## Definition of Done
+
 - [ ] Migration aplica em DB limpo
 - [ ] Re-rodar migration não falha
 - [ ] CI roda migration em job dedicado
 - [ ] PR aberto
 
 ## Validação
+
 ```powershell
 docker compose up -d postgres
 pnpm --filter @elemento/api db:migrate

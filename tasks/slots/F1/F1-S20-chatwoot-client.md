@@ -20,9 +20,11 @@ source_docs:
 # F1-S20 — Cliente Chatwoot
 
 ## Objetivo
+
 `apps/api/src/integrations/chatwoot/client.ts` com métodos: `updateAttributes`, `createMessage`, `createNote`, `assignAgent`. Mocks para testes.
 
 ## Definition of Done
+
 - [ ] Métodos tipados com Zod nos retornos
 - [ ] Retry em 5xx
 - [ ] Testes com `nock`/`msw`

@@ -20,9 +20,11 @@ source_docs:
 # F1-S19 — Webhook WhatsApp
 
 ## Objetivo
+
 Endpoints `GET/POST /api/whatsapp/webhook` Cloud API Meta com verificação `hub.verify_token`, validação HMAC `X-Hub-Signature-256`, idempotência, persistência em `whatsapp_messages`.
 
 ## Escopo
+
 - Schema `whatsapp_messages` (id, wa_message_id unique, conversation_id, direction, payload, received_at, ...).
 - Schema `idempotency_keys` (key, endpoint, request_hash, response_body, created_at).
 - Validação HMAC com `WHATSAPP_APP_SECRET`.
@@ -31,6 +33,7 @@ Endpoints `GET/POST /api/whatsapp/webhook` Cloud API Meta com verificação `hub
 - Testes: assinatura inválida → 401, duplicado não cria duas linhas.
 
 ## Definition of Done
+
 - [ ] Verificação webhook Meta funciona
 - [ ] HMAC inválido → 401
 - [ ] Duplicado é no-op

@@ -20,9 +20,11 @@ source_docs:
 # F0-S03 — Boot da API + healthcheck
 
 ## Objetivo
+
 `docker compose up -d postgres` + `pnpm --filter @elemento/api dev` + `curl /health` retorna `{ status: "ok", checks: { db: "ok" } }`.
 
 ## Escopo
+
 - Confirmar que `apps/api/src/app.ts` e `server.ts` sobem sem erro com `.env` válido.
 - Adicionar teste de integração mínimo em `apps/api/src/modules/health/health.test.ts` que:
   1. Sobe app via `buildApp()`.
@@ -31,10 +33,12 @@ source_docs:
 - Configurar Vitest base em `apps/api/vitest.config.ts`.
 
 ## Fora de escopo
+
 - Login, auth, qualquer rota além de `/health`.
 - Migrations (slot F0-S04).
 
 ## Arquivos permitidos
+
 - `apps/api/vitest.config.ts`
 - `apps/api/src/modules/health/health.test.ts`
 - `apps/api/src/test/setup.ts` (se necessário)
@@ -43,19 +47,23 @@ source_docs:
 - `pnpm-lock.yaml` (regeração após override)
 
 ## Arquivos proibidos
+
 - `apps/api/src/app.ts` (já implementado — só altere se houver bug)
 - `apps/api/src/server.ts`
 
 ## Contratos de saída
+
 - `pnpm --filter @elemento/api test` passa.
 
 ## Definition of Done
+
 - [ ] Vitest configurado
 - [ ] Teste de `/health` passando (com mock de pool se DB não disponível em CI)
 - [ ] `pnpm test` verde
 - [ ] PR aberto
 
 ## Validação
+
 ```powershell
 docker compose up -d postgres
 pnpm --filter @elemento/api dev

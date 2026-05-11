@@ -19,19 +19,23 @@ source_docs:
 # F1-S06 — CRUD cities
 
 ## Objetivo
+
 Endpoints `/api/admin/cities` (list, create, update, delete) protegidos por `permissions: ['admin:cities:write']`. UI virá em outro slot.
 
 ## Escopo
+
 - Módulo `modules/cities/` (routes/controller/service/repository/schemas).
 - Validação Zod com `aliases` opcional.
 - Audit log em mutações.
 - Testes integração + permissão.
 
 ## Arquivos permitidos
+
 - `apps/api/src/modules/cities/**`
 - `packages/shared-schemas/src/cities.ts`
 
 ## Definition of Done
+
 - [ ] Endpoints com testes (200/400/401/403/404/409)
 - [ ] Audit log presente
 - [ ] PR aberto

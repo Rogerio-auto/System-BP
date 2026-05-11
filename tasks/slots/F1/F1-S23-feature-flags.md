@@ -20,9 +20,11 @@ source_docs:
 # F1-S23 — Feature flags (4 camadas)
 
 ## Objetivo
+
 Sistema de flags real bloqueando UI + API + worker + tools de IA. Admin alterna via UI.
 
 ## Escopo
+
 - Schema `feature_flags` (key, status: enabled|disabled|hidden, ui_label, audience, updated_by, ...).
 - Endpoints CRUD admin + endpoint público autenticado `/api/feature-flags/me`.
 - Middleware Fastify `featureGate('crm.import.enabled')` retornando 403 com payload claro quando `disabled`.
@@ -32,6 +34,7 @@ Sistema de flags real bloqueando UI + API + worker + tools de IA. Admin alterna 
 - Audit log em toggle.
 
 ## Definition of Done
+
 - [ ] Toggle pela UI atualiza em ≤ 30s no client
 - [ ] 4 camadas testadas
 - [ ] Hidden no UI esconde, Disabled mostra "Em desenvolvimento"
