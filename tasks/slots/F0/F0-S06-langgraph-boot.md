@@ -3,12 +3,12 @@ id: F0-S06
 title: LangGraph service — boot + health + cliente HTTP base
 phase: F0
 task_ref: T0.6
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-11T00:00:00Z
-completed_at: null
+completed_at: 2026-05-11T00:00:00Z
 pr_url: null
 depends_on: [F0-S01]
 blocks: [F3-S01]
@@ -49,9 +49,9 @@ class InternalApiClient:
 ```
 
 ## Definition of Done
-- [ ] `pytest -q` verde
-- [ ] `ruff check .` verde
-- [ ] `mypy app` verde
+- [x] `pytest -q` verde
+- [x] `ruff check .` verde
+- [x] `mypy app` verde
 - [ ] PR aberto
 
 ## Validação
