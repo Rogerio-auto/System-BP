@@ -3,12 +3,12 @@ id: F0-S04
 title: Drizzle — primeira migration vazia + smoke test
 phase: F0
 task_ref: T0.3
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: claude-opus-4-7
 claimed_at: 2026-05-11T00:00:00Z
-completed_at: null
+completed_at: 2026-05-11T10:40:00Z
 pr_url: null
 depends_on: [F0-S01]
 blocks: [F1-S01]

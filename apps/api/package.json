@@ -5,16 +5,16 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx --env-file=../../.env watch src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "lint": "eslint src --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:generate": "node --env-file=../../.env node_modules/drizzle-kit/bin.cjs generate",
+    "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
+    "db:studio": "node --env-file=../../.env node_modules/drizzle-kit/bin.cjs studio"
   },
   "dependencies": {
     "@elemento/shared-schemas": "workspace:*",
