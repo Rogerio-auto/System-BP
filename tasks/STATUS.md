@@ -8,7 +8,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | Fase | Total | 🟢 | ⏸️ | 🟡 | 🔵 | 🟣 | ✅ |
 |---|---|---|---|---|---|---|---|
-| F0 | 8 | 8 | 0 | 0 | 0 | 0 | 0 |
+| F0 | 8 | 7 | 0 | 0 | 1 | 0 | 0 |
 | F1 | 23 | 11 | 12 | 0 | 0 | 0 | 0 |
 | F2 | — | a destrinchar após F1 | | | | | |
 | F3 | — | a destrinchar | | | | | |
@@ -28,7 +28,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0-S05 | Web dev server + login placeholder | 🟢 available | medium | F0-S01 |
 | F0-S06 | LangGraph boot + cliente HTTP base | 🟢 available | high | F0-S01 |
 | F0-S07 | Compose ponta a ponta | 🟢 available | high | F0-S03,04,05,06 |
-| F0-S08 | Husky + lint-staged + commitlint | 🟢 available | low | F0-S02 |
+| F0-S08 | Husky + lint-staged + commitlint | 🔵 in-progress | low | F0-S02 |
 
 ## Fase 1 — Base operacional
 
