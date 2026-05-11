@@ -3,7 +3,7 @@ id: F0-S03
 title: Validar boot da API + healthcheck contra Postgres
 phase: F0
 task_ref: T0.4
-status: claimed
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: claude-opus-4-7

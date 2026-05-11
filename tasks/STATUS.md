@@ -8,7 +8,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | Fase | Total | 🟢 | ⏸️ | 🟡 | 🔵 | 🟣 | ✅ |
 |---|---|---|---|---|---|---|---|
-| F0 | 8 | 6 | 0 | 1 | 0 | 0 | 1 |
+| F0 | 8 | 6 | 0 | 0 | 1 | 0 | 1 |
 | F1 | 23 | 11 | 12 | 0 | 0 | 0 | 0 |
 | F2 | — | a destrinchar após F1 | | | | | |
 | F3 | — | a destrinchar | | | | | |
@@ -23,7 +23,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 |---|---|---|---|---|
 | F0-S01 | Lockfiles (pnpm + python) | ✅ done | critical | — |
 | F0-S02 | ESLint + Prettier nos workspaces | 🟢 available | high | F0-S01 |
-| F0-S03 | Boot da API + healthcheck | 🟡 claimed | high | F0-S01 |
+| F0-S03 | Boot da API + healthcheck | 🔵 in-progress | high | F0-S01 |
 | F0-S04 | Drizzle migration inicial | 🟢 available | high | F0-S01 |
 | F0-S05 | Web dev server + login placeholder | 🟢 available | medium | F0-S01 |
 | F0-S06 | LangGraph boot + cliente HTTP base | 🟢 available | high | F0-S01 |
