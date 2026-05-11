@@ -1,18 +1,378 @@
+/* =============================================================
+   BANCO DO POVO DE RONDÔNIA — globals.css
+   Tokens CSS canônicos conforme docs/18-design-system.md v2.0
+   Ponto de verdade dos valores; Tailwind apenas referencia.
+   ============================================================= */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    color-scheme: dark;
+/* ─────────────────────────────────────────────────────────────
+   TOKENS ESTRUTURAIS (não variam por tema)
+   ───────────────────────────────────────────────────────────── */
+:root {
+  /* Tipografia */
+  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-sans: 'Geist', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Escala tipográfica (modular 1.25) */
+  --text-xs:   0.75rem;   /* 12px */
+  --text-sm:   0.875rem;  /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg:   1.125rem;  /* 18px */
+  --text-xl:   1.25rem;   /* 20px */
+  --text-2xl:  1.5rem;    /* 24px */
+  --text-3xl:  2rem;      /* 32px */
+  --text-4xl:  2.75rem;   /* 44px */
+  --text-5xl:  3.75rem;   /* 60px */
+  --text-6xl:  5rem;      /* 80px */
+
+  /* Espaçamento (escala 4px) */
+  --space-1: 0.25rem;  /* 4px  */
+  --space-2: 0.5rem;   /* 8px  */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.5rem;   /* 24px */
+  --space-6: 2rem;     /* 32px */
+  --space-7: 3rem;     /* 48px */
+  --space-8: 4rem;     /* 64px */
+  --space-9: 6rem;     /* 96px */
+
+  /* Raios */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-pill: 999px;
+
+  /* Easings curados */
+  --ease:          cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Durações */
+  --dur-fast: 150ms;
+  --dur:      250ms;
+  --dur-slow: 400ms;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TEMA LIGHT (default)
+   Suporta as 3 estratégias: data-attribute, classe Tailwind, raiz
+   ───────────────────────────────────────────────────────────── */
+:root,
+:root[data-theme="light"],
+html.light {
+  /* Marca */
+  --brand-azul:         #1B3A8C;
+  --brand-azul-deep:    #0F2563;
+  --brand-azul-light:   #2E54B0;
+  --brand-verde:        #2E9B3E;
+  --brand-verde-deep:   #1F7A2D;
+  --brand-verde-light:  #4FB55F;
+  --brand-amarelo:      #F5C518;
+  --brand-amarelo-deep: #D4A510;
+  --brand-branco:       #FFFFFF;
+
+  /* Neutros — creme suave */
+  --bg:           #F7F4ED;
+  --bg-elev-1:    #FFFFFF;
+  --bg-elev-2:    #FBF8F1;
+  --bg-elev-3:    #FFFFFF;
+  --bg-inset:     #EFEBE0;
+  --surface-muted: #E8E2D3;
+  --surface-hover: #FAF6EC;
+
+  /* Tipografia */
+  --text:         #14213D;
+  --text-2:       #3C4A6B;
+  --text-3:       #6B7896;
+  --text-4:       #9AA3B8;
+  --text-on-brand:#FFFFFF;
+
+  /* Bordas */
+  --border:          #DCD4C0;
+  --border-strong:   #B8AE94;
+  --border-subtle:   #E8E2D3;
+  --border-hairline: rgba(20, 33, 61, 0.06);
+  --border-inner-light: rgba(255, 255, 255, 0.8);
+  --border-inner-dark:  rgba(20, 33, 61, 0.04);
+
+  /* ── Sistema de Profundidade (6 níveis) ──
+     Cada nível: sombra ext + inset top (highlight) + inset bottom (peso) */
+  --elev-0: 0 0 0 0 transparent;
+
+  --elev-1:
+    0 1px 2px rgba(20, 33, 61, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  --elev-2:
+    0 2px 4px rgba(20, 33, 61, 0.05),
+    0 4px 12px rgba(20, 33, 61, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(20, 33, 61, 0.03);
+
+  --elev-3:
+    0 4px 8px rgba(20, 33, 61, 0.06),
+    0 8px 24px rgba(20, 33, 61, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(20, 33, 61, 0.04);
+
+  --elev-4:
+    0 8px 16px rgba(20, 33, 61, 0.08),
+    0 16px 40px rgba(20, 33, 61, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(20, 33, 61, 0.05);
+
+  --elev-5:
+    0 12px 24px rgba(20, 33, 61, 0.10),
+    0 24px 56px rgba(20, 33, 61, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(20, 33, 61, 0.06);
+
+  /* Glows brand (hover de primários) */
+  --glow-azul:
+    0 0 0 1px rgba(27, 58, 140, 0.12),
+    0 8px 24px rgba(27, 58, 140, 0.20);
+  --glow-verde:
+    0 0 0 1px rgba(46, 155, 62, 0.15),
+    0 8px 24px rgba(46, 155, 62, 0.22);
+  --glow-amarelo:
+    0 0 0 1px rgba(245, 197, 24, 0.20),
+    0 8px 24px rgba(245, 197, 24, 0.28);
+
+  /* Estado */
+  --success:    #2E9B3E;
+  --success-bg: #E3F4E6;
+  --warning:    #B89500;
+  --warning-bg: #FBF1CF;
+  --danger:     #C8341F;
+  --danger-bg:  #FBE5E1;
+  --info:       #1B3A8C;
+  --info-bg:    #DFE5F2;
+
+  /* Gradientes */
+  --grad-rondonia: linear-gradient(135deg, #1B3A8C 0%, #1B3A8C 45%, #2E9B3E 45%, #2E9B3E 100%);
+  --grad-azul:     linear-gradient(135deg, #1B3A8C 0%, #0F2563 100%);
+  --grad-verde:    linear-gradient(135deg, #2E9B3E 0%, #1F7A2D 100%);
+  --grad-amarelo:  linear-gradient(135deg, #F5C518 0%, #D4A510 100%);
+
+  /* Grain */
+  --grain-opacity: 0.045;
+  --grain-mode:    multiply;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TEMA DARK
+   ───────────────────────────────────────────────────────────── */
+:root[data-theme="dark"],
+html.dark {
+  /* Marca — aclarada para contraste WCAG AA sobre fundo escuro */
+  --brand-azul:         #5E80E0;
+  --brand-azul-deep:    #3D5FBA;
+  --brand-azul-light:   #8AA3EC;
+  --brand-verde:        #4FB55F;
+  --brand-verde-deep:   #2E9B3E;
+  --brand-verde-light:  #7BCE89;
+  --brand-amarelo:      #F5C518;
+  --brand-amarelo-deep: #D4A510;
+  --brand-branco:       #FFFFFF;
+
+  /* Neutros — azul-noite */
+  --bg:            #0A1228;
+  --bg-elev-1:     #131D38;
+  --bg-elev-2:     #1C2748;
+  --bg-elev-3:     #243156;
+  --bg-inset:      #08101F;
+  --surface-muted: #243156;
+  --surface-hover: #1F2A4D;
+
+  /* Tipografia */
+  --text:         #F1EEE3;
+  --text-2:       #C8C3B0;
+  --text-3:       #8E8A78;
+  --text-4:       #5D5A4E;
+  --text-on-brand:#FFFFFF;
+
+  /* Bordas */
+  --border:          #2A3760;
+  --border-strong:   #3D4D7E;
+  --border-subtle:   #1C2748;
+  --border-hairline: rgba(255, 255, 255, 0.06);
+  /* highlight superior CRUCIAL no dark — dá dimensão à borda */
+  --border-inner-light: rgba(255, 255, 255, 0.05);
+  --border-inner-dark:  rgba(0, 0, 0, 0.4);
+
+  /* Elevação dark — sombra mais forte, highlight superior é identidade */
+  --elev-0: 0 0 0 0 transparent;
+
+  --elev-1:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  --elev-2:
+    0 2px 4px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+
+  --elev-3:
+    0 4px 8px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+
+  --elev-4:
+    0 8px 16px rgba(0, 0, 0, 0.45),
+    0 16px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+
+  --elev-5:
+    0 12px 24px rgba(0, 0, 0, 0.5),
+    0 24px 56px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+
+  --glow-azul:
+    0 0 0 1px rgba(94, 128, 224, 0.3),
+    0 8px 24px rgba(94, 128, 224, 0.35);
+  --glow-verde:
+    0 0 0 1px rgba(79, 181, 95, 0.3),
+    0 8px 24px rgba(79, 181, 95, 0.35);
+  --glow-amarelo:
+    0 0 0 1px rgba(245, 197, 24, 0.3),
+    0 8px 24px rgba(245, 197, 24, 0.4);
+
+  /* Estado */
+  --success:    #4FB55F;
+  --success-bg: #1A3A20;
+  --warning:    #F5C518;
+  --warning-bg: #3D3210;
+  --danger:     #E55A45;
+  --danger-bg:  #3D1A15;
+  --info:       #5E80E0;
+  --info-bg:    #1A2545;
+
+  /* Gradientes dark (azuis/verdes aclarados) */
+  --grad-rondonia: linear-gradient(135deg, #3D5FBA 0%, #3D5FBA 45%, #2E9B3E 45%, #2E9B3E 100%);
+  --grad-azul:     linear-gradient(135deg, #5E80E0 0%, #3D5FBA 100%);
+  --grad-verde:    linear-gradient(135deg, #4FB55F 0%, #2E9B3E 100%);
+  --grad-amarelo:  linear-gradient(135deg, #F5C518 0%, #D4A510 100%);
+
+  /* Grain dark — mais opaco pra compensar fundo escuro */
+  --grain-opacity: 0.08;
+  --grain-mode:    overlay;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   BASE GLOBAL
+   ───────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  font-size: var(--text-base);
+  font-feature-settings: 'ss01', 'cv01', 'cv11';
+  letter-spacing: -0.005em;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+  min-height: 100vh;
+  position: relative;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GRAIN — textura SVG fina sobre todo o app (identidade visual)
+   Mix-blend-mode garante que não opaca as cores.
+   Remover é reprovado — é parte da identidade.
+   ───────────────────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-mode);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   GLOWS AMBIENTE — cores da bandeira difusas nos cantos
+   Light: verde top-left, azul bottom-right, amarelo bottom-center
+   ───────────────────────────────────────────────────────────── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 50% 40% at 12% 18%, rgba(46, 155, 62, 0.10), transparent 60%),
+    radial-gradient(ellipse 40% 35% at 88% 75%, rgba(27, 58, 140, 0.08), transparent 60%),
+    radial-gradient(ellipse 30% 25% at 50% 100%, rgba(245, 197, 24, 0.06), transparent 60%);
+}
+
+:root[data-theme="dark"] body::after,
+html.dark body::after {
+  background:
+    radial-gradient(ellipse 60% 50% at 10% 15%, rgba(79, 181, 95, 0.06), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 75%, rgba(94, 128, 224, 0.08), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 50% 100%, rgba(245, 197, 24, 0.04), transparent 60%);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ANIMAÇÕES DE ENTRADA
+   ───────────────────────────────────────────────────────────── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
   }
-  html,
-  body,
-  #root {
-    height: 100%;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-  body {
-    @apply bg-ink-950 text-ink-100 font-sans;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ACESSIBILIDADE — respeitar prefers-reduced-motion
+   ───────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
+
+  body::before,
+  body::after {
+    /* Grain e glows permanecem — são estáticos, não animados */
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   FOCUS GLOBAL — todo interativo expõe ring azul 3px
+   ───────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(27, 58, 140, 0.15);
 }
