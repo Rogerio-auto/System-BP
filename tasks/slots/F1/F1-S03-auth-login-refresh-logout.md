@@ -3,12 +3,12 @@ id: F1-S03
 title: Auth — login, refresh, logout
 phase: F1
 task_ref: T1.2
-status: available
+status: review
 priority: critical
 estimated_size: L
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: claude-code
+claimed_at: 2026-05-12T03:12:47Z
+completed_at: 2026-05-12T03:30:10Z
 pr_url: null
 depends_on: [F1-S01, F1-S02]
 blocks: [F1-S04, F1-S08]
@@ -17,7 +17,6 @@ source_docs:
   - docs/10-seguranca-permissoes.md
   - docs/12-tasks-tecnicas.md#T1.2
 ---
-
 # F1-S03 — Auth (login, refresh, logout)
 
 ## Objetivo
