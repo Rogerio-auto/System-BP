@@ -14,13 +14,22 @@
 //   - cpf_hash usado para identificação em logs de falha (nunca CPF bruto).
 //   - IP e UA armazenados na sessão — retenção 90d após expiração (repository).
 // =============================================================================
+import { timingSafeEqual } from 'node:crypto';
+
 import type { FastifyBaseLogger } from 'fastify';
 
+import { env } from '../../config/env.js';
 import type { Database } from '../../db/client.js';
 import { UnauthorizedError } from '../../shared/errors.js';
-import { hashRefreshToken, parseTtlToSeconds, signAccessToken, signRefreshToken, verifyRefreshToken } from '../../shared/jwt.js';
+import {
+  hashRefreshToken,
+  parseTtlToSeconds,
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+} from '../../shared/jwt.js';
 import { passwordVerify } from '../../shared/password.js';
-import { env } from '../../config/env.js';
+
 import {
   createSession,
   findSessionByTokenHash,
@@ -31,6 +40,15 @@ import {
   revokeSession,
   updateUserLastLogin,
 } from './repository.js';
+
+/**
+ * Comparação timing-safe de strings (defesa contra timing oracle no CSRF).
+ * Retorna false imediatamente se comprimentos diferirem.
+ */
+function timingSafeEqualString(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 // ---------------------------------------------------------------------------
 // Tipos de saída
@@ -102,24 +120,30 @@ export async function login(
     : await passwordVerify(password, dummyHash).then(() => false);
 
   if (!user || !passwordOk) {
-    log.warn({
-      event: 'auth.login.failed',
-      // Não logar email bruto — é PII (doc 17). Logar apenas IP e razão.
-      ip,
-      reason: user ? 'invalid_password' : 'user_not_found',
-    }, 'login attempt failed');
+    log.warn(
+      {
+        event: 'auth.login.failed',
+        // Não logar email bruto — é PII (doc 17). Logar apenas IP e razão.
+        ip,
+        reason: user ? 'invalid_password' : 'user_not_found',
+      },
+      'login attempt failed',
+    );
 
     // Mesma mensagem para ambos os casos (evita enumeração de usuários)
     throw new UnauthorizedError('Credenciais inválidas');
   }
 
   if (user.status !== 'active') {
-    log.warn({
-      event: 'auth.login.blocked',
-      user_id: user.id,
-      status: user.status,
-      ip,
-    }, 'login blocked: user not active');
+    log.warn(
+      {
+        event: 'auth.login.blocked',
+        user_id: user.id,
+        status: user.status,
+        ip,
+      },
+      'login blocked: user not active',
+    );
 
     throw new UnauthorizedError('Conta inativa ou pendente. Contate o administrador.');
   }
@@ -148,13 +172,16 @@ export async function login(
 
   await updateUserLastLogin(db, user.id);
 
-  log.info({
-    event: 'auth.login.success',
-    user_id: user.id,
-    org_id: user.organizationId,
-    session_id: sessionId,
-    ip,
-  }, 'login successful');
+  log.info(
+    {
+      event: 'auth.login.success',
+      user_id: user.id,
+      org_id: user.organizationId,
+      session_id: sessionId,
+      ip,
+    },
+    'login successful',
+  );
 
   return {
     accessToken,
@@ -194,12 +221,16 @@ export async function refresh(
   // 2. Validar CSRF: o jti do token é a base do CSRF token esperado.
   //    O cookie CSRF gerado no login é idêntico ao jti — validação simples e segura.
   //    (Padrão "Double Submit Cookie" sem dependência extra.)
-  if (csrfToken !== tokenPayload.jti) {
-    log.warn({
-      event: 'auth.refresh.csrf_mismatch',
-      session_id: tokenPayload.jti,
-      ip,
-    }, 'refresh failed: CSRF mismatch');
+  //    Comparação timing-safe para fechar oracle contra atacante com refresh token roubado.
+  if (!timingSafeEqualString(csrfToken, tokenPayload.jti)) {
+    log.warn(
+      {
+        event: 'auth.refresh.csrf_mismatch',
+        session_id: tokenPayload.jti,
+        ip,
+      },
+      'refresh failed: CSRF mismatch',
+    );
     throw new UnauthorizedError('CSRF token inválido');
   }
 
@@ -208,22 +239,28 @@ export async function refresh(
   const session = await findSessionByTokenHash(db, tokenHash);
 
   if (!session) {
-    log.warn({
-      event: 'auth.refresh.session_not_found',
-      session_id: tokenPayload.jti,
-      ip,
-    }, 'refresh failed: session not found or revoked');
+    log.warn(
+      {
+        event: 'auth.refresh.session_not_found',
+        session_id: tokenPayload.jti,
+        ip,
+      },
+      'refresh failed: session not found or revoked',
+    );
     throw new UnauthorizedError('Sessão inválida ou revogada');
   }
 
   // 4. Verificar usuário ainda ativo
   const user = await findUserById(db, session.userId);
   if (!user || user.status !== 'active') {
-    log.warn({
-      event: 'auth.refresh.user_inactive',
-      user_id: session.userId,
-      ip,
-    }, 'refresh failed: user inactive');
+    log.warn(
+      {
+        event: 'auth.refresh.user_inactive',
+        user_id: session.userId,
+        ip,
+      },
+      'refresh failed: user inactive',
+    );
     throw new UnauthorizedError('Usuário inativo');
   }
 
@@ -249,13 +286,16 @@ export async function refresh(
     expiresAt: newExpiresAt,
   });
 
-  log.info({
-    event: 'auth.refresh.success',
-    user_id: user.id,
-    old_session_id: session.id,
-    new_session_id: newSessionId,
-    ip,
-  }, 'token refresh successful');
+  log.info(
+    {
+      event: 'auth.refresh.success',
+      user_id: user.id,
+      old_session_id: session.id,
+      new_session_id: newSessionId,
+      ip,
+    },
+    'token refresh successful',
+  );
 
   return {
     accessToken: newAccessToken,
@@ -292,9 +332,12 @@ export async function logout(
   // Limpeza de sessões expiradas do usuário (housekeeping LGPD)
   await purgeExpiredSessions(db, userId);
 
-  log.info({
-    event: 'auth.logout.success',
-    user_id: userId,
-    session_id: tokenPayload.jti,
-  }, 'logout successful');
+  log.info(
+    {
+      event: 'auth.logout.success',
+      user_id: userId,
+      session_id: tokenPayload.jti,
+    },
+    'logout successful',
+  );
 }

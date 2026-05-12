@@ -8,8 +8,8 @@ import { and, eq, isNull, lt } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import { userSessions, users } from '../../db/schema/index.js';
-import type { User } from '../../db/schema/users.js';
 import type { UserSession } from '../../db/schema/user_sessions.js';
+import type { User } from '../../db/schema/users.js';
 
 // ---------------------------------------------------------------------------
 // Users
@@ -19,10 +19,7 @@ import type { UserSession } from '../../db/schema/user_sessions.js';
  * Busca usuário pelo email (citext — case insensitive no banco).
  * Retorna null se não encontrado ou soft-deletado.
  */
-export async function findUserByEmail(
-  db: Database,
-  email: string,
-): Promise<User | null> {
+export async function findUserByEmail(db: Database, email: string): Promise<User | null> {
   const rows = await db
     .select()
     .from(users)
@@ -36,10 +33,7 @@ export async function findUserByEmail(
  * Busca usuário pelo ID.
  * Retorna null se não encontrado ou soft-deletado.
  */
-export async function findUserById(
-  db: Database,
-  id: string,
-): Promise<User | null> {
+export async function findUserById(db: Database, id: string): Promise<User | null> {
   const rows = await db
     .select()
     .from(users)
@@ -52,14 +46,8 @@ export async function findUserById(
 /**
  * Atualiza o timestamp de último login do usuário.
  */
-export async function updateUserLastLogin(
-  db: Database,
-  userId: string,
-): Promise<void> {
-  await db
-    .update(users)
-    .set({ lastLoginAt: new Date() })
-    .where(eq(users.id, userId));
+export async function updateUserLastLogin(db: Database, userId: string): Promise<void> {
+  await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, userId));
 }
 
 // ---------------------------------------------------------------------------
@@ -78,10 +66,7 @@ export interface CreateSessionInput {
 /**
  * Cria uma nova sessão de refresh.
  */
-export async function createSession(
-  db: Database,
-  input: CreateSessionInput,
-): Promise<void> {
+export async function createSession(db: Database, input: CreateSessionInput): Promise<void> {
   await db.insert(userSessions).values({
     id: input.id,
     userId: input.userId,
@@ -136,12 +121,7 @@ export async function findSessionById(
   const rows = await db
     .select()
     .from(userSessions)
-    .where(
-      and(
-        eq(userSessions.id, sessionId),
-        isNull(userSessions.revokedAt),
-      ),
-    )
+    .where(and(eq(userSessions.id, sessionId), isNull(userSessions.revokedAt)))
     .limit(1);
 
   const session = rows[0] ?? null;
@@ -154,10 +134,7 @@ export async function findSessionById(
  * Revoga uma sessão pelo ID (logout).
  * Idempotente: se já revogada, é no-op.
  */
-export async function revokeSession(
-  db: Database,
-  sessionId: string,
-): Promise<void> {
+export async function revokeSession(db: Database, sessionId: string): Promise<void> {
   await db
     .update(userSessions)
     .set({ revokedAt: new Date() })
@@ -182,21 +159,15 @@ export async function rotateSession(
 }
 
 /**
- * Remove sessões expiradas de um usuário (limpeza periódica — chamada no logout).
- * Retenção: IP retido 90 dias após expiração conforme doc 17 §3.4.
- * Este helper remove apenas as expiradas sem IP relevante para retenção.
+ * Remove sessões com IP/UA já fora da janela de retenção (LGPD doc 17 §3.4).
+ * Mantém sessões expiradas dentro de 90 dias para auditoria/forensics; deleta
+ * apenas as expiradas há mais de 90 dias. Chamado em logout (housekeeping leve).
  */
-export async function purgeExpiredSessions(
-  db: Database,
-  userId: string,
-): Promise<void> {
-  const cutoff = new Date();
+const SESSION_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+
+export async function purgeExpiredSessions(db: Database, userId: string): Promise<void> {
+  const cutoff = new Date(Date.now() - SESSION_RETENTION_MS);
   await db
     .delete(userSessions)
-    .where(
-      and(
-        eq(userSessions.userId, userId),
-        lt(userSessions.expiresAt, cutoff),
-      ),
-    );
+    .where(and(eq(userSessions.userId, userId), lt(userSessions.expiresAt, cutoff)));
 }
