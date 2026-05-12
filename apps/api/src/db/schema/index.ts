@@ -41,3 +41,6 @@ export * from './interactions.js';
 export * from './kanbanStages.js';
 export * from './kanbanCards.js';
 export * from './kanbanStageHistory.js';
+
+// LGPD — direitos do titular + retenção (F1-S25)
+export * from './data_subject.js';

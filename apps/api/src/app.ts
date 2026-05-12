@@ -19,6 +19,7 @@ import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/rout
 import { kanbanRoutes } from './modules/kanban/routes.js';
 import { usersRoutes } from './modules/users/routes.js';
 import { whatsappRoutes } from './modules/whatsapp/routes.js';
+import { dataSubjectRoutes } from './routes/data-subject.routes.js';
 import { isAppError } from './shared/errors.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -98,6 +99,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(kanbanRoutes);
   await app.register(whatsappRoutes);
   await app.register(usersRoutes);
+  // LGPD — direitos do titular (F1-S25)
+  await app.register(dataSubjectRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.

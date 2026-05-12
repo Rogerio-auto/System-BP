@@ -311,6 +311,67 @@ export interface FeatureFlagChangedData {
   actor_user_id: string;
 }
 
+// --- Domínio: LGPD direitos do titular (F1-S25) ---
+// REGRA ABSOLUTA: nenhum payload contém PII bruta (§8.5).
+// Apenas IDs opacos + metadata estrutural.
+
+export interface DataSubjectAccessRequestedData {
+  /** UUID da solicitação em data_subject_requests. */
+  request_id_db: string;
+  /** Chave de idempotência da solicitação. */
+  request_id: string;
+  customer_id: string | null;
+  organization_id: string;
+  /** 'access' | 'portability' */
+  request_type: string;
+  /** 'whatsapp' | 'email' — canal de entrega do export. */
+  channel: string;
+}
+
+export interface DataSubjectAccessFulfilledData {
+  request_id_db: string;
+  request_id: string;
+  customer_id: string | null;
+  organization_id: string;
+  fulfilled_by_user_id: string | null;
+  /** Latência em ms entre requested_at e fulfilled_at. */
+  latency_ms: number;
+}
+
+export interface DataSubjectConsentRevokedData {
+  customer_id: string;
+  organization_id: string;
+  /** ISO 8601 do momento da revogação. */
+  revoked_at: string;
+}
+
+export interface DataSubjectAnonymizedData {
+  /** 'customer' | 'lead' */
+  entity_type: string;
+  entity_id: string;
+  organization_id: string;
+  /** ISO 8601 do momento da anonimização. */
+  anonymized_at: string;
+}
+
+export interface DataSubjectDeletionCompletedData {
+  request_id_db: string;
+  request_id: string;
+  customer_id: string | null;
+  organization_id: string;
+  /** Número de registros fisicamente eliminados (sem PII no count). */
+  records_deleted: number;
+}
+
+export interface DataSubjectReviewRequestedData {
+  request_id_db: string;
+  request_id: string;
+  customer_id: string | null;
+  organization_id: string;
+  /** UUID da análise de crédito que deve ser revisada. */
+  analysis_id: string;
+}
+
 // --- Domínio: auth/users ---
 
 export interface UserEventData {
@@ -379,6 +440,13 @@ export interface AppEventDataMap {
   'user.role_assigned': UserRoleAssignedData;
   'user.city_scope_changed': UserCityScopeChangedData;
   'user.session_revoked': UserEventData;
+  // --- LGPD direitos do titular (F1-S25) ---
+  'data_subject.access_requested': DataSubjectAccessRequestedData;
+  'data_subject.access_fulfilled': DataSubjectAccessFulfilledData;
+  'data_subject.consent_revoked': DataSubjectConsentRevokedData;
+  'data_subject.anonymized': DataSubjectAnonymizedData;
+  'data_subject.deletion_completed': DataSubjectDeletionCompletedData;
+  'data_subject.review_requested': DataSubjectReviewRequestedData;
 }
 
 /** Union de todos os nomes de evento válidos no sistema. */
