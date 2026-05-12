@@ -5,4 +5,5 @@
  * Convenção: <Entidade>Schema, Create<Entidade>Schema, Update<Entidade>Schema.
  */
 
-export {};
+// Auth (F1-S03)
+export * from './auth.js';
