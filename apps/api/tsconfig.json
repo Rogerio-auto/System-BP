@@ -10,5 +10,5 @@
     "rootDir": "src",
     "noEmit": true
   },
-  "include": ["src", "drizzle.config.ts"]
+  "include": ["src"]
 }
