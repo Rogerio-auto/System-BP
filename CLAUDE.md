@@ -38,8 +38,15 @@
 2. Identificar o slot atual (passado pelo Rogério ou orquestrador).
 3. Ler **apenas** os docs listados em `source_docs` do slot.
 4. Implementar **somente** dentro de `files_allowed`. Tocar em `files_forbidden` é bloqueio.
-5. Validar localmente com os comandos da seção `Validação` do slot.
-6. Atualizar frontmatter do slot e `tasks/STATUS.md` antes de abrir PR.
+5. Validar com `python scripts/slot.py validate <SLOT-ID>`.
+6. **NUNCA** editar `tasks/STATUS.md` à mão ou criar branch manualmente — usar `scripts/slot.py`.
+
+## Regras anti-bug (aprendidas em 2026-05-11)
+
+1. **1 working tree = 1 agente.** Mais que isso só com `isolation: "worktree"` no `Task`. Sem exceções.
+2. **`scripts/slot.py` é a única forma de claim/finish/sync.** STATUS.md é view derivada dos frontmatters — edição direta é proibida.
+3. **Pre-flight obrigatório:** `git status --short && git rev-parse --abbrev-ref HEAD` no início de qualquer agente. Sujo ou branch errado = abortar.
+4. **Sem `--no-verify`.** Se o hook falhar, conserte o root cause.
 
 ## Comandos canônicos
 
@@ -55,7 +62,15 @@ docker compose up -d
 pnpm dev                      # turbo orquestra api + web
 # Python: cd apps/langgraph-service; uv sync; uv run uvicorn app.main:app --reload
 
-# Validações antes de PR
+# Slot lifecycle (SEMPRE estes — nunca git manual em frontmatter/STATUS.md)
+python scripts/slot.py status                    # resumo do board
+python scripts/slot.py list-available            # slots prontos
+python scripts/slot.py claim   <SLOT-ID>         # reserva + branch + frontmatter + commit chore
+python scripts/slot.py validate <SLOT-ID>        # roda bloco Validação do slot
+python scripts/slot.py finish  <SLOT-ID>         # frontmatter review + commit chore
+python scripts/slot.py reconcile-merged --write  # pós-merge: marca slots done
+
+# Validações antes de fechar slot
 pnpm typecheck
 pnpm lint
 pnpm test
