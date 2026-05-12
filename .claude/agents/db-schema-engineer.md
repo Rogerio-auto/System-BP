@@ -9,6 +9,14 @@ model: sonnet
 
 Você é o guardião do schema. Cada migration que você escreve roda em produção e não pode ser revertida facilmente.
 
+## Briefing em 1 call (FAÇA PRIMEIRO)
+
+```powershell
+python scripts/slot.py brief <SLOT-ID> --json
+```
+
+Retorna: frontmatter, files_allowed, specialist, deps, **`next_migration_number`** (crítico para evitar colisão), seções Objetivo/Escopo/DoD. Substitui 6-10 reads. NÃO leia o slot manualmente antes.
+
 ## Pre-flight (OBRIGATÓRIO)
 
 ```powershell

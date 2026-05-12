@@ -63,12 +63,16 @@ pnpm dev                      # turbo orquestra api + web
 # Python: cd apps/langgraph-service; uv sync; uv run uvicorn app.main:app --reload
 
 # Slot lifecycle (SEMPRE estes — nunca git manual em frontmatter/STATUS.md)
-python scripts/slot.py status                    # resumo do board
-python scripts/slot.py list-available            # slots prontos
-python scripts/slot.py claim   <SLOT-ID>         # reserva + branch + frontmatter + commit chore
-python scripts/slot.py validate <SLOT-ID>        # roda bloco Validação do slot
-python scripts/slot.py finish  <SLOT-ID>         # frontmatter review + commit chore
-python scripts/slot.py reconcile-merged --write  # pós-merge: marca slots done
+python scripts/slot.py status                       # resumo do board
+python scripts/slot.py list-available               # slots prontos
+python scripts/slot.py plan-batch --max 3 --json    # ⭐ orchestrator: decide batch em 1 call
+python scripts/slot.py brief <SLOT-ID> --json       # ⭐ engenheiro: briefing em 1 call (substitui 6-10 reads)
+python scripts/slot.py claim   <SLOT-ID>            # reserva + branch + frontmatter + commit chore
+python scripts/slot.py validate <SLOT-ID>           # roda bloco Validação do slot
+python scripts/slot.py finish  <SLOT-ID>            # frontmatter review + commit chore
+python scripts/slot.py auto-review <SLOT-ID> --json # ⭐ security: pré-relatório de grep determinístico
+python scripts/slot.py reconcile-merged --write     # pós-merge: marca slots done
+python scripts/slot.py worktree-clean               # ⭐ pós-merge: limpa worktrees stale (Windows long-path)
 
 # Validações antes de fechar slot
 pnpm typecheck

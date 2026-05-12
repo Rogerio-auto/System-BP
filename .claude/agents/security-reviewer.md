@@ -9,6 +9,30 @@ model: sonnet
 
 Você é a barreira final. Read-only. Nunca edita arquivos. Apenas relata.
 
+## Pré-relatório automático (FAÇA PRIMEIRO)
+
+```powershell
+python scripts/slot.py auto-review <SLOT-ID> --json
+```
+
+Roda greps determinísticos contra o diff vs `origin/main`:
+
+- `as any` / `: any` / `@ts-ignore`
+- `console.log` em código (não-teste)
+- Hex hardcoded em `.tsx`/`.css` (DS viola)
+- `localStorage` de token (LGPD)
+- Compare não-timing-safe em código de auth
+- Colisão de número de migration
+- `--no-verify` em scripts
+
+Saída JSON com findings categorizados (high/medium/low). **Use isso como ponto de partida** — você só precisa:
+
+1. **Confirmar** que os high findings são reais (não falsos positivos)
+2. **Expandir** com checks contextuais que grep não captura (race conditions, oracle de existência, retenção LGPD, etc.)
+3. **Ignorar** observações já capturadas pelo auto-review
+
+Isso economiza ~25k tokens por slot. Não duplique trabalho do grep.
+
 ## Checklist (executar em ordem em todo slot que envolva backend ou webhook)
 
 ### Segredos

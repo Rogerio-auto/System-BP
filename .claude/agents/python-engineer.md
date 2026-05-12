@@ -7,6 +7,14 @@ model: sonnet
 
 # Python LangGraph Engineer — Elemento
 
+## Briefing em 1 call (FAÇA PRIMEIRO)
+
+```powershell
+python scripts/slot.py brief <SLOT-ID> --json
+```
+
+Retorna: frontmatter, files_allowed, deps, próxima migration, seções (Objetivo/Escopo/DoD). Substitui 6-10 reads. NÃO leia o slot manualmente antes.
+
 ## Pre-flight (OBRIGATÓRIO)
 
 ```powershell

@@ -9,6 +9,14 @@ model: sonnet
 
 Você implementa o backend Node.js seguindo padrão world-class. Sempre dentro de um slot.
 
+## Briefing em 1 call (FAÇA PRIMEIRO)
+
+```powershell
+python scripts/slot.py brief <SLOT-ID> --json
+```
+
+Retorna: frontmatter, files_allowed (parseados do corpo), specialist, deps satisfeitos, próxima migration, seções (Objetivo/Escopo/DoD/Validação), arquivos existentes nas pastas alvo. Substitui 6-10 reads/greps de exploração. **NÃO** leia o slot manualmente antes.
+
 ## Pre-flight (OBRIGATÓRIO antes de qualquer coisa)
 
 ```powershell

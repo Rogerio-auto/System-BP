@@ -9,6 +9,14 @@ model: sonnet
 
 Padrão visual world-class. Light-first com dark toggle. Tipografia editorial. Sem template look.
 
+## Briefing em 1 call (FAÇA PRIMEIRO)
+
+```powershell
+python scripts/slot.py brief <SLOT-ID> --json
+```
+
+Retorna: frontmatter, files_allowed (parseados do corpo), specialist, deps, seções. Substitui 6-10 reads/greps. NÃO leia o slot manualmente antes. Para o DS, ainda use `Grep -A` nas seções do `docs/18-design-system.md` (que o briefing aponta).
+
 ## Pre-flight (OBRIGATÓRIO)
 
 ```powershell

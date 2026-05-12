@@ -51,6 +51,27 @@ Subcomandos
       Mergeia PR via `gh pr merge --merge`. Com --reconcile, sincroniza
       main local e roda reconcile-merged --write em sequência.
 
+  brief <slot-id> [--json]
+      Briefing self-contained: frontmatter, deps satisfeitos, especialista
+      sugerido, files_allowed parseados do corpo, arquivos existentes,
+      próximo número de migration, seções (Objetivo/Escopo/DoD/Validação).
+      Reduz o overhead inicial de 6-10 reads para 1 call.
+
+  plan-batch [--max N] [--json]
+      Recomenda batch de até N slots paralelos respeitando prioridade e
+      detectando colisão de files_allowed. Saída pronta para o orchestrator.
+
+  auto-review <slot-id> [--against REF] [--json]
+      Pré-relatório determinístico de segurança via grep no diff vs main.
+      Detecta: `as any`, `@ts-ignore`, `console.log`, hex hardcoded,
+      `localStorage` de token, compare não timing-safe, colisão de migration.
+      Saída JSON consumida pelo security-reviewer (que só confirma achados).
+
+  worktree-clean
+      Remove todos os worktrees .claude/worktrees/agent-* — unlock + git
+      worktree remove --force + cmd rmdir com prefix \\?\\ para long-path
+      no Windows + git worktree prune.
+
 Princípios
 ----------
 - Stdlib only (sem PyYAML / sem deps). Frontmatter é regex-friendly.
@@ -863,6 +884,490 @@ def cmd_sync(args: argparse.Namespace) -> int:
 
 
 # -----------------------------------------------------------------------------
+# Subcommand: brief — Briefing self-contained para o agente especialista.
+# Reduz overhead inicial: 1 call em vez de 6-10 (frontmatter, escopo, deps,
+# arquivos vizinhos, migration counter, source_docs, sections...).
+# -----------------------------------------------------------------------------
+
+_SPECIALIST_PATTERNS: list[tuple[str, str]] = [
+    (r"^apps/api/src/db/", "db-schema-engineer"),
+    (r"^apps/api/", "backend-engineer"),
+    (r"^packages/shared-", "backend-engineer"),
+    (r"^apps/web/", "frontend-engineer"),
+    (r"^apps/langgraph-service/", "python-engineer"),
+]
+
+
+def _infer_specialist(files_paths: list[str], phase: str) -> str:
+    if not files_paths:
+        # Heurística por phase
+        return "python-engineer" if phase.startswith("F3") else "backend-engineer"
+    score: Counter[str] = Counter()
+    for fp in files_paths:
+        for pat, name in _SPECIALIST_PATTERNS:
+            if re.match(pat, fp):
+                score[name] += 1
+                break
+    if not score:
+        return "backend-engineer"
+    return score.most_common(1)[0][0]
+
+
+def _extract_files_allowed(body_text: str) -> list[str]:
+    """Extrai paths de uma seção 'files_allowed' do corpo do slot.
+
+    Suporta:
+      ## files_allowed   (markdown heading)
+      **files_allowed:**
+      ### Files allowed
+      ## Arquivos permitidos
+    """
+    headings = [
+        r"##\s+files[_ ]allowed",
+        r"##\s+arquivos\s+permitidos",
+        r"###\s+files[_ ]allowed",
+        r"\*\*files[_ ]allowed\*\*\s*:?",
+    ]
+    block = None
+    for h in headings:
+        m = re.search(rf"^{h}\s*\n(.*?)(?=^##|\Z)", body_text, re.MULTILINE | re.DOTALL | re.IGNORECASE)
+        if m:
+            block = m.group(1)
+            break
+    if not block:
+        return []
+    paths: list[str] = []
+    for line in block.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        # bullets: "- foo" / "* foo" / "+ foo"
+        m = re.match(r"^[-*+]\s+`?([^`\s]+)`?", line)
+        if m:
+            p = m.group(1).strip()
+            if p:
+                paths.append(p)
+            continue
+        # backticks inline em linha de prosa
+        for inner in re.findall(r"`([^`]+)`", line):
+            if "/" in inner or inner.endswith(".ts") or inner.endswith(".py"):
+                paths.append(inner.strip())
+    return paths
+
+
+def _migration_next_number() -> int:
+    mig_dir = REPO_ROOT / "apps" / "api" / "src" / "db" / "migrations"
+    if not mig_dir.is_dir():
+        return 0
+    last = -1
+    for p in mig_dir.glob("[0-9][0-9][0-9][0-9]_*.sql"):
+        try:
+            n = int(p.name[:4])
+            if n > last:
+                last = n
+        except ValueError:
+            continue
+    return last + 1
+
+
+def _existing_files_in_globs(globs: list[str], limit: int = 40) -> list[str]:
+    """Lista arquivos existentes que casam com os globs de files_allowed."""
+    out: list[str] = []
+    for g in globs:
+        # Remove trailing /** ou /* para listar parent
+        base = g.rstrip("*").rstrip("/")
+        path = REPO_ROOT / base
+        if path.is_file():
+            out.append(g)
+        elif path.is_dir():
+            # Lista até `limit` arquivos do dir
+            for p in sorted(path.rglob("*")):
+                if p.is_file() and not p.suffix in (".lock", ""):
+                    rel = p.relative_to(REPO_ROOT).as_posix()
+                    out.append(rel)
+                    if len(out) >= limit:
+                        return out
+    return out[:limit]
+
+
+def cmd_brief(args: argparse.Namespace) -> int:
+    slot_id = args.slot_id
+    path = find_slot_file(slot_id)
+    slot = parse_slot(path)
+    text = path.read_text(encoding="utf-8")
+
+    body = re.sub(_FRONTMATTER_RE, "", text, count=1)
+    fm_match = _FRONTMATTER_RE.match(text)
+    raw_fm = fm_match.group(1) if fm_match else ""
+
+    # Source docs (parseia bloco source_docs:)
+    source_docs: list[str] = []
+    sd_match = re.search(r"^source_docs:\s*\n((?:\s+-\s+\S.*\n?)+)", raw_fm, re.MULTILINE)
+    if sd_match:
+        for line in sd_match.group(1).splitlines():
+            m = re.match(r"\s+-\s+(\S+)", line)
+            if m:
+                source_docs.append(m.group(1))
+
+    files_allowed = _extract_files_allowed(body)
+    specialist = _infer_specialist(files_allowed, slot.phase)
+    existing = _existing_files_in_globs(files_allowed) if files_allowed else []
+
+    # Deps satisfeitos?
+    by_id = {s.id: s for s in all_slots()}
+    deps_status: list[dict] = []
+    for d in slot.depends_on:
+        st = by_id.get(d)
+        deps_status.append({"id": d, "status": st.status if st else "unknown"})
+
+    # Sections-chave do body (Objetivo, Escopo, DoD, Validação)
+    sections: dict[str, str] = {}
+    for h in ["Objetivo", "Escopo", "Definition of Done", "DoD", "Validação", "Resumo"]:
+        s = _extract_section(text, h)
+        if s:
+            sections[h] = s
+
+    # Pre-flight summary
+    dirty = working_tree_dirty()
+    branch = current_branch()
+
+    out = {
+        "slot": slot.to_dict(),
+        "specialist": specialist,
+        "files_allowed": files_allowed,
+        "existing_files": existing,
+        "source_docs": source_docs,
+        "depends_on": deps_status,
+        "deps_satisfied": all(d["status"] == "done" for d in deps_status),
+        "preflight": {"branch": branch, "dirty": dirty},
+        "next_migration_number": _migration_next_number(),
+        "sections": sections,
+    }
+
+    if args.json:
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+    else:
+        print(f"# Briefing: {slot.id} — {slot.title}")
+        print(f"phase={slot.phase}  priority={slot.priority}  status={slot.status}")
+        print(f"specialist (sugerido): {specialist}")
+        print()
+        print(f"Pre-flight: branch={branch}  dirty={dirty}")
+        print(f"Deps satisfeitos: {out['deps_satisfied']} — {deps_status}")
+        print(f"Próxima migration: {out['next_migration_number']:04d}")
+        print()
+        print("Source docs:")
+        for d in source_docs:
+            print(f"  {d}")
+        print()
+        if files_allowed:
+            print("files_allowed:")
+            for f in files_allowed:
+                print(f"  {f}")
+        else:
+            print("files_allowed: (não declarado — buscar no corpo do slot)")
+        if existing:
+            print()
+            print(f"Existing files ({len(existing)}):")
+            for f in existing[:20]:
+                print(f"  {f}")
+        print()
+        for k, v in sections.items():
+            print(f"## {k}")
+            print(v[:600])
+            print()
+    return 0
+
+
+# -----------------------------------------------------------------------------
+# Subcommand: plan-batch — recomenda batch paralelo respeitando colisões.
+# -----------------------------------------------------------------------------
+
+_PRIORITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def _files_overlap(a: list[str], b: list[str]) -> bool:
+    """True se quaisquer dois globs/paths se sobrepõem ao nível de pasta."""
+    def norm(g: str) -> str:
+        # Compara só o prefixo até o primeiro '*' ou fim
+        return g.split("*")[0].rstrip("/")
+    pa = [norm(x) for x in a]
+    pb = [norm(x) for x in b]
+    for x in pa:
+        for y in pb:
+            if x.startswith(y) or y.startswith(x):
+                # path identico OU um é prefixo do outro
+                return True
+    return False
+
+
+def cmd_plan_batch(args: argparse.Namespace) -> int:
+    by_id = {s.id: s for s in all_slots()}
+    available: list[Slot] = []
+    for s in all_slots():
+        if s.status != "available":
+            continue
+        if all(by_id.get(dep) and by_id[dep].status == "done" for dep in s.depends_on):
+            available.append(s)
+
+    available.sort(key=lambda s: (_PRIORITY_ORDER.get(s.priority, 9), s.id))
+
+    # Resolve files_allowed por slot (para detectar colisão)
+    enriched: list[dict] = []
+    for s in available:
+        text = s.path.read_text(encoding="utf-8")
+        body = re.sub(_FRONTMATTER_RE, "", text, count=1)
+        fa = _extract_files_allowed(body)
+        enriched.append({
+            "slot": s,
+            "files_allowed": fa,
+            "specialist": _infer_specialist(fa, s.phase),
+        })
+
+    batch: list[dict] = []
+    deferred: list[dict] = []
+    max_n = args.max
+    for entry in enriched:
+        if len(batch) >= max_n:
+            deferred.append({"slot_id": entry["slot"].id, "reason": f"max-batch={max_n}"})
+            continue
+        collides_with = None
+        for in_batch in batch:
+            if _files_overlap(entry["files_allowed"] or [entry["slot"].id], in_batch["files_allowed"] or [in_batch["slot"].id]):
+                collides_with = in_batch["slot"].id
+                break
+        if collides_with:
+            deferred.append({"slot_id": entry["slot"].id, "reason": f"files_overlap with {collides_with}"})
+            continue
+        batch.append(entry)
+
+    next_mig = _migration_next_number()
+    out = {
+        "batch": [
+            {
+                "slot_id": e["slot"].id,
+                "title": e["slot"].title,
+                "priority": e["slot"].priority,
+                "specialist": e["specialist"],
+                "files_allowed": e["files_allowed"],
+                "isolation": "worktree",
+            }
+            for e in batch
+        ],
+        "deferred": deferred,
+        "next_migration_number": next_mig,
+        "note": (
+            "Disparar com isolation='worktree' obrigatório. "
+            f"Próxima migration disponível: {next_mig:04d}."
+        ),
+    }
+
+    if args.json:
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+    else:
+        print(f"## Batch recomendado ({len(batch)} slot(s) em paralelo)")
+        for b in out["batch"]:
+            print(f"  - {b['slot_id']} [{b['priority']}] → {b['specialist']}  (worktree isolada)")
+        if deferred:
+            print()
+            print("## Adiados (próximo ciclo)")
+            for d in deferred:
+                print(f"  - {d['slot_id']}: {d['reason']}")
+        print()
+        print(out["note"])
+    return 0
+
+
+# -----------------------------------------------------------------------------
+# Subcommand: auto-review — pré-flight de security review.
+# Roda greps determinísticos contra o diff. Saída JSON consumida pelo agente
+# security-reviewer, que só precisa confirmar/expandir achados ambíguos.
+# -----------------------------------------------------------------------------
+
+# (pattern, label, severity, glob_filter)
+_REVIEW_CHECKS: list[tuple[str, str, str, str]] = [
+    (r"\bas\s+any\b", "ts:as-any", "high", "*.ts"),
+    (r":\s*any\b", "ts:annotation-any", "medium", "*.ts"),
+    (r"//\s*@ts-ignore", "ts:ts-ignore", "medium", "*.ts"),
+    (r"--no-verify", "git:no-verify", "high", "*"),
+    (r"console\.(log|warn|error)\s*\(", "log:console", "low", "*.ts"),
+    (r"process\.env\[", "env:direct-access", "low", "*.ts"),
+    (r"#[0-9a-fA-F]{6}\b", "design:hex-color", "medium", "*.tsx"),
+    (r"#[0-9a-fA-F]{6}\b", "design:hex-color", "medium", "*.css"),
+    (r"localStorage\.(setItem|getItem).*['\"](token|access|refresh|jwt)", "lgpd:token-storage", "high", "*.ts"),
+    (r"document\.cookie\s*=", "lgpd:cookie-write-client", "medium", "*.ts"),
+    (r"==\s*tokenPayload|tokenPayload\s*==", "auth:non-timing-safe-compare", "high", "*.ts"),
+    (r"crypto\.timingSafeEqual", "auth:timing-safe-ok", "info", "*.ts"),
+]
+
+
+def _git_diff_files(against: str) -> list[str]:
+    res = run_git(["diff", "--name-only", f"{against}..HEAD"], check=False)
+    if res.returncode != 0:
+        return []
+    files = [f for f in res.stdout.splitlines() if f.strip()]
+    return files
+
+
+def _git_show_lines(file_path: str, against: str) -> str:
+    """Retorna apenas as linhas adicionadas (sem '+' prefix)."""
+    res = run_git(["diff", "--unified=0", f"{against}..HEAD", "--", file_path], check=False)
+    if res.returncode != 0:
+        return ""
+    out: list[str] = []
+    for line in res.stdout.splitlines():
+        if line.startswith("+++") or line.startswith("---"):
+            continue
+        if line.startswith("+"):
+            out.append(line[1:])
+    return "\n".join(out)
+
+
+def cmd_auto_review(args: argparse.Namespace) -> int:
+    slot_id = args.slot_id
+    path = find_slot_file(slot_id)
+    slot = parse_slot(path)
+    against = args.against or "origin/main"
+
+    files = _git_diff_files(against)
+    files = [f for f in files if not f.endswith(".md") or "tasks/" in f]
+
+    findings: list[dict] = []
+    for f in files:
+        # filtro de glob (suffix)
+        diff_text = _git_show_lines(f, against)
+        if not diff_text:
+            continue
+        for pat, label, severity, glob in _REVIEW_CHECKS:
+            if glob != "*" and not f.endswith(glob.lstrip("*")):
+                continue
+            for ln_no, ln in enumerate(diff_text.splitlines(), 1):
+                if re.search(pat, ln):
+                    findings.append({
+                        "file": f,
+                        "line": ln_no,
+                        "check": label,
+                        "severity": severity,
+                        "snippet": ln.strip()[:160],
+                    })
+
+    # Migration numbering collision check
+    mig_files = [f for f in files if "/migrations/" in f and f.endswith(".sql")]
+    if mig_files:
+        mig_numbers = []
+        for f in mig_files:
+            m = re.search(r"/(\d{4})_", f)
+            if m:
+                mig_numbers.append((int(m.group(1)), f))
+        if mig_numbers:
+            existing = []
+            for p in (REPO_ROOT / "apps" / "api" / "src" / "db" / "migrations").glob("[0-9][0-9][0-9][0-9]_*.sql"):
+                try:
+                    existing.append((int(p.name[:4]), p.name))
+                except ValueError:
+                    continue
+            for n, f in mig_numbers:
+                dups = [name for x, name in existing if x == n and name != Path(f).name]
+                if dups:
+                    findings.append({
+                        "file": f,
+                        "check": "db:migration-number-collision",
+                        "severity": "high",
+                        "snippet": f"conflicts with {dups}",
+                    })
+
+    # Bloqueio rápido: count of high
+    high_count = sum(1 for x in findings if x["severity"] == "high")
+    out = {
+        "slot_id": slot_id,
+        "diff_against": against,
+        "files_changed": len(files),
+        "findings": findings,
+        "high_count": high_count,
+        "summary_by_severity": dict(Counter(x["severity"] for x in findings)),
+    }
+
+    if args.json:
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+    else:
+        print(f"## Auto-review: {slot_id} (vs {against})")
+        print(f"Files changed: {len(files)}  |  Findings: {len(findings)}  |  High: {high_count}")
+        if not findings:
+            print("(nenhum achado automático — passar ao security-reviewer humano)")
+        else:
+            by_sev: dict[str, list[dict]] = {}
+            for x in findings:
+                by_sev.setdefault(x["severity"], []).append(x)
+            for sev in ("high", "medium", "low", "info"):
+                if sev not in by_sev:
+                    continue
+                print(f"\n[{sev.upper()}]")
+                for x in by_sev[sev]:
+                    print(f"  {x['file']}:{x.get('line','?')}  [{x['check']}]  {x['snippet']}")
+    return 0 if high_count == 0 else 2
+
+
+# -----------------------------------------------------------------------------
+# Subcommand: worktree-clean — remove worktrees stale (Windows long-path safe).
+# -----------------------------------------------------------------------------
+
+def cmd_worktree_clean(args: argparse.Namespace) -> int:
+    r"""Limpa worktrees em .claude/worktrees/agent-*.
+
+    No Windows, node_modules profundos batem em MAX_PATH; usamos prefixo \\?\.
+    """
+    base = REPO_ROOT / ".claude" / "worktrees"
+    if not base.is_dir():
+        info("[worktree-clean] no worktrees dir — nothing to do")
+        return 0
+
+    res = run_git(["worktree", "list"], check=False)
+    targets: list[Path] = []
+    for line in res.stdout.splitlines():
+        parts = line.split()
+        if not parts:
+            continue
+        p = parts[0]
+        path = Path(p)
+        try:
+            rel = path.relative_to(REPO_ROOT)
+        except ValueError:
+            continue
+        if "worktrees" in rel.parts and "agent-" in path.name:
+            targets.append(path)
+
+    # Unlock e remoção via git
+    for p in targets:
+        run_git(["worktree", "unlock", str(p)], check=False)
+        run_git(["worktree", "remove", "--force", str(p)], check=False)
+
+    # Limpeza física residual (long-path safe via Windows API)
+    leftover = [p for p in base.iterdir() if p.is_dir() and p.name.startswith("agent-")]
+    if leftover and sys.platform == "win32":
+        import ctypes  # local import
+        kernel32 = ctypes.windll.kernel32
+        for d in leftover:
+            try:
+                subprocess.run(
+                    ["cmd", "/c", "rmdir", "/S", "/Q", f"\\\\?\\{d}"],
+                    check=False, capture_output=True,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+    elif leftover:
+        for d in leftover:
+            try:
+                subprocess.run(["rm", "-rf", str(d)], check=False)
+            except Exception:  # noqa: BLE001
+                pass
+
+    run_git(["worktree", "prune"], check=False)
+
+    remaining = [p for p in base.iterdir() if p.is_dir() and p.name.startswith("agent-")] if base.is_dir() else []
+    info(f"[worktree-clean] git worktrees removed: {len(targets)}  filesystem leftover: {len(remaining)}")
+    return 0 if not remaining else 1
+
+
+# -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
 
@@ -921,6 +1426,25 @@ def build_parser() -> argparse.ArgumentParser:
     pr_merge.add_argument("pr_number", type=int)
     pr_merge.add_argument("--reconcile", action="store_true")
     pr_merge.set_defaults(func=cmd_pr_merge)
+
+    s = sub.add_parser("brief", help="Briefing self-contained do slot (substitui 6-10 reads)")
+    s.add_argument("slot_id")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_brief)
+
+    s = sub.add_parser("plan-batch", help="Recomenda batch paralelo respeitando colisões")
+    s.add_argument("--max", type=int, default=3, help="Máximo de slots em paralelo (default 3)")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_plan_batch)
+
+    s = sub.add_parser("auto-review", help="Pré-relatório de segurança via grep determinístico")
+    s.add_argument("slot_id")
+    s.add_argument("--against", default="origin/main", help="Ref para diff (default origin/main)")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_auto_review)
+
+    s = sub.add_parser("worktree-clean", help="Remove worktrees stale (Windows long-path safe)")
+    s.set_defaults(func=cmd_worktree_clean)
 
     return p
 
