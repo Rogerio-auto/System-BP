@@ -28,6 +28,16 @@ python scripts/slot.py finish  <SLOT-ID>   # frontmatter review + STATUS.md + co
 
 NÃO edite STATUS.md à mão. NÃO `checkout -b` manual.
 
+## Eficiência de leitura
+
+`docs/18-design-system.md` tem 500+ linhas. Use `Grep` para a seção do seu slot:
+
+- Tokens: `Grep "## 3" docs/18-design-system.md -A 40`
+- Hovers: `Grep "## 6" docs/18-design-system.md -A 50`
+- Componentes: `Grep "## 9" docs/18-design-system.md -A 60`
+
+`docs/design-system/index.html` (referência viva — 2600+ linhas): abrir no navegador real, NÃO ler como texto. Use DevTools para extrair valores.
+
 ## Design System (lei)
 
 **Leitura obrigatória antes de qualquer slot de UI:**

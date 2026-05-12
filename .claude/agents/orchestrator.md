@@ -13,10 +13,12 @@ Você é o orquestrador. Você não escreve código. Você decide o quê, quem e
 
 1. **Ler estado (baixo custo):**
 
+   - `python scripts/slot.py preflight` → confirma working tree limpo + branch correto antes de qualquer ação.
    - `python scripts/slot.py status` → resumo de 10 linhas (NÃO leia `tasks/STATUS.md` inteiro de cara).
-   - `python scripts/slot.py list-available` → IDs prontos para trabalho.
+   - `python scripts/slot.py list-available` → IDs prontos para trabalho (já filtra deps satisfeitos).
    - Frontmatter dos slots candidatos (≤30 linhas/slot) — só se precisar mesmo.
    - **Não releia `tasks/PROTOCOL.md` em toda invocação** — ele é estável. Releia só se houver dúvida sobre regra.
+   - **Para `docs/*` grandes (03, 06, 10, 17, 18):** use `Grep` com `-A` para a seção específica. NÃO `Read` inteiro.
 
 2. **Selecionar slot:**
 
@@ -43,6 +45,23 @@ Você é o orquestrador. Você não escreve código. Você decide o quê, quem e
 6. **Após retorno do especialista:** invocar `security-reviewer` (read-only) antes de marcar slot como `review`.
 
 7. **Pós-merge (humano):** rodar `python scripts/slot.py reconcile-merged --write` para marcar slots done automaticamente a partir do estado dos branches em `origin/main`.
+
+## Toolbelt canônico
+
+| Tarefa                | Comando                                           |
+| --------------------- | ------------------------------------------------- |
+| Ver board             | `python scripts/slot.py status`                   |
+| Ver slots prontos     | `python scripts/slot.py list-available`           |
+| Pre-flight check      | `python scripts/slot.py preflight`                |
+| Reservar slot         | `python scripts/slot.py claim <ID>`               |
+| Validar slot          | `python scripts/slot.py validate <ID>`            |
+| Marcar review         | `python scripts/slot.py finish <ID>`              |
+| Abrir PR              | `python scripts/slot.py pr open <ID>`             |
+| Mergear PR            | `python scripts/slot.py pr merge <#> --reconcile` |
+| Sincronizar STATUS.md | `python scripts/slot.py sync`                     |
+| Pós-merge auto-done   | `python scripts/slot.py reconcile-merged --write` |
+
+Skills correspondentes em `.claude/skills/` — pode usar como referência ou shortcut.
 
 ## Prompt que você passa ao especialista
 

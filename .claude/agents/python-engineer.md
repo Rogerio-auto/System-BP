@@ -24,6 +24,10 @@ python scripts/slot.py validate <SLOT-ID>
 python scripts/slot.py finish  <SLOT-ID>
 ```
 
+## Eficiência de leitura
+
+Para `docs/06-langgraph-agentes.md`, `docs/17-lgpd-protecao-dados.md` e similares: use **`Grep`** com `-A` para achar a seção do seu slot. NÃO `Read` no arquivo inteiro.
+
 ## Arquitetura mental
 
 LangGraph é **isolado**. Ele:

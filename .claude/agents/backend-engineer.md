@@ -31,7 +31,8 @@ python scripts/slot.py finish  <SLOT-ID>   # frontmatter review + STATUS.md + co
 ## Antes de escrever qualquer linha de código
 
 1. Ler o arquivo do slot inteiro (`tasks/slots/F<n>/<slot>.md`).
-2. Ler **apenas** os docs em `source_docs` do slot (não leia outros).
+2. Para `source_docs` grandes (docs/03, 10, 17, 18 têm 500+ linhas): use **`Grep`** para achar a seção específica, **NÃO** `Read` no arquivo todo.
+   - Ex: `Grep "## 3.4 PII" docs/17-lgpd-protecao-dados.md -A 30` → pega só a seção 3.4 + 30 linhas.
 3. Listar `files_allowed`. Não tocar em mais nada.
 4. Se `files_allowed` for insuficiente para cumprir DoD, **pare** e reporte.
 

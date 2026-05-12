@@ -39,6 +39,18 @@ Subcomandos
       Detecta slots cujo branch foi mergeado em main e marca como done.
       Por default só lista; passe --write para aplicar.
 
+  preflight [--json]
+      Checa estado do working tree antes de qualquer agente começar.
+      Aborta com código 1 se sujo ou em main com pull pendente.
+
+  pr open <slot-id> [--draft]
+      Abre PR no GitHub a partir do branch do slot. Título/body
+      derivados do frontmatter + summary block do slot. Usa `gh`.
+
+  pr merge <pr-number> [--reconcile]
+      Mergeia PR via `gh pr merge --merge`. Com --reconcile, sincroniza
+      main local e roda reconcile-merged --write em sequência.
+
 Princípios
 ----------
 - Stdlib only (sem PyYAML / sem deps). Frontmatter é regex-friendly.
@@ -688,6 +700,153 @@ def cmd_reconcile_merged(args: argparse.Namespace) -> int:
 
 
 # -----------------------------------------------------------------------------
+# Subcommand: preflight
+# -----------------------------------------------------------------------------
+
+def cmd_preflight(args: argparse.Namespace) -> int:
+    """Validação rápida do working tree — primeiro comando de qualquer agente."""
+    branch = current_branch()
+    dirty = working_tree_dirty()
+
+    # Ignorar arquivo de config local + warnings de line-ending
+    status_lines = []
+    raw = run_git(["status", "--porcelain"]).stdout.splitlines()
+    for line in raw:
+        path = line[3:].strip()
+        if path == ".claude/settings.local.json":
+            continue
+        status_lines.append(line)
+
+    # Verificar se main está sync com origin (se estamos em main)
+    main_behind = 0
+    if branch == "main":
+        run_git(["fetch", "origin", "main"], check=False)
+        res = run_git(["rev-list", "--count", "main..origin/main"], check=False)
+        if res.returncode == 0:
+            try:
+                main_behind = int(res.stdout.strip())
+            except ValueError:
+                main_behind = 0
+
+    payload = {
+        "branch": branch,
+        "dirty": bool(status_lines),
+        "dirty_paths": [l[3:].strip() for l in status_lines],
+        "on_main": branch == "main",
+        "main_behind_origin": main_behind,
+        "ok": (not status_lines) and (main_behind == 0 or branch != "main"),
+    }
+
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+    else:
+        status_symbol = "OK" if payload["ok"] else "BLOCK"
+        print(f"[{status_symbol}] branch={branch}  dirty={'yes' if payload['dirty'] else 'no'}  main_behind={main_behind}")
+        if payload["dirty"]:
+            print("  Arquivos modificados:")
+            for p in payload["dirty_paths"]:
+                print(f"    {p}")
+        if main_behind > 0 and branch == "main":
+            print(f"  main está {main_behind} commits atrás de origin/main — rode `git pull --ff-only`")
+
+    return 0 if payload["ok"] else 1
+
+
+# -----------------------------------------------------------------------------
+# Subcommands: pr open / pr merge
+# -----------------------------------------------------------------------------
+
+def _extract_section(text: str, heading: str) -> str | None:
+    """Extrai uma seção de markdown por heading (## Heading) até próximo ## ou EOF."""
+    pattern = rf"^##\s+{re.escape(heading)}\s*\n(.*?)(?=^##\s+|\Z)"
+    m = re.search(pattern, text, re.MULTILINE | re.DOTALL)
+    return m.group(1).strip() if m else None
+
+
+def cmd_pr_open(args: argparse.Namespace) -> int:
+    """Abre PR no GitHub usando `gh`. Body derivado do slot."""
+    slot_id = args.slot_id
+    path = find_slot_file(slot_id)
+    slot = parse_slot(path)
+    text = path.read_text(encoding="utf-8")
+
+    tip = _find_slot_branch_tip(slot_id, "origin")
+    if not tip:
+        die(f"Branch do slot {slot_id} não encontrada em origin (push primeiro).")
+
+    # Branch real (não o id-baseado) — pega o nome do ref
+    branch = None
+    res = run_git(["for-each-ref", "--format=%(refname:short)", f"refs/remotes/origin"], check=False)
+    needle = f"feat/{slot_id.lower()}"
+    for line in res.stdout.splitlines():
+        short = line[len("origin/"):] if line.startswith("origin/") else line
+        if short.lower().startswith(needle):
+            branch = short
+            break
+    if not branch:
+        die(f"Não encontrei branch remoto para {slot_id}")
+
+    # Title: do feat commit mais recente do branch
+    res = run_git(["log", "-1", "--format=%s", branch], check=False)
+    title = res.stdout.strip() or f"[{slot_id}] {slot.title}"
+
+    # Body: estrutura mínima a partir do slot
+    relative = path.relative_to(REPO_ROOT).as_posix()
+    parts = [
+        f"## Slot",
+        f"[{slot_id} — {slot.title}]({relative})",
+    ]
+
+    summary = _extract_section(text, "Resumo") or _extract_section(text, "Objetivo")
+    if summary:
+        parts += ["", "## Resumo", summary]
+
+    dod = _extract_section(text, "Definition of Done") or _extract_section(text, "DoD")
+    if dod:
+        parts += ["", "## Definition of Done", dod]
+
+    body = "\n".join(parts)
+
+    cmd = ["gh", "pr", "create", "--base", "main", "--head", branch, "--title", title, "--body", body]
+    if args.draft:
+        cmd.append("--draft")
+
+    info(f"[pr] opening PR for {slot_id} ({branch} → main)")
+    proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, encoding="utf-8")
+    if proc.returncode != 0:
+        die(f"gh pr create failed:\n{proc.stderr}")
+
+    url = proc.stdout.strip()
+    print(url)
+    return 0
+
+
+def cmd_pr_merge(args: argparse.Namespace) -> int:
+    """Mergeia PR via gh + opcionalmente reconcilia main."""
+    pr_number = args.pr_number
+    info(f"[pr] merging PR #{pr_number}")
+    proc = subprocess.run(
+        ["gh", "pr", "merge", str(pr_number), "--merge", "--delete-branch=false"],
+        cwd=REPO_ROOT, capture_output=True, text=True, encoding="utf-8",
+    )
+    if proc.returncode != 0:
+        die(f"gh pr merge failed:\n{proc.stderr}")
+    info(f"[pr] #{pr_number} merged")
+
+    if args.reconcile:
+        info("[pr] pulling main + reconciling slots")
+        run_git(["fetch", "origin", "main"], check=False)
+        cur = current_branch()
+        if cur != "main":
+            run_git(["checkout", "main"])
+        run_git(["pull", "--ff-only", "origin", "main"], check=False)
+        # Chama a si mesmo para reconcile
+        return cmd_reconcile_merged(argparse.Namespace(remote="origin", write=True))
+
+    return 0
+
+
+# -----------------------------------------------------------------------------
 # Subcommand: sync
 # -----------------------------------------------------------------------------
 
@@ -747,6 +906,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("sync", help="Re-renderiza STATUS.md a partir dos frontmatters")
     s.set_defaults(func=cmd_sync)
+
+    s = sub.add_parser("preflight", help="Checa working tree antes de começar slot")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_preflight)
+
+    pr = sub.add_parser("pr", help="Helpers de PR (gh wrapper)")
+    pr_sub = pr.add_subparsers(dest="pr_cmd", required=True)
+    pr_open = pr_sub.add_parser("open", help="Abre PR do slot")
+    pr_open.add_argument("slot_id")
+    pr_open.add_argument("--draft", action="store_true")
+    pr_open.set_defaults(func=cmd_pr_open)
+    pr_merge = pr_sub.add_parser("merge", help="Mergeia PR + reconcile")
+    pr_merge.add_argument("pr_number", type=int)
+    pr_merge.add_argument("--reconcile", action="store_true")
+    pr_merge.set_defaults(func=cmd_pr_merge)
 
     return p
 

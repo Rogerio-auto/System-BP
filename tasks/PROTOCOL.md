@@ -168,3 +168,84 @@ Sem isso, a PR não passa de `review` para `done`.
 ## 6. Comunicação
 
 Tudo o que o agente decide ou questiona vai no PR (ou issue). Não há "memória externa". O próximo agente que pegar um slot relacionado precisa conseguir entender o contexto pela leitura do repositório.
+
+## 7. Lições aprendidas (sessão 2026-05-11/12)
+
+Resumo do que rolou no primeiro ciclo de implementação real (8 slots F0 + 4 slots F1) e o que mudou no protocolo por causa disso. Detalhes em `docs/sessions/2026-05-12-cycle1.md`.
+
+### 7.1 Bug do "1 working tree para N agentes" (CRÍTICO)
+
+**Sintoma:** disparei 4 backend-engineers em paralelo. Cada um fez `git checkout` no mesmo working tree → swap de branch entre agentes → commits em branch errado + claim duplicado + arquivos órfãos.
+
+**Causa:** git só tem 1 working tree por repo. Agentes paralelos sem isolamento pisam um no outro.
+
+**Mitigação (já no protocolo, §2.0):**
+
+- Pre-flight `git status --short` + `git rev-parse --abbrev-ref HEAD` no início de TODO agente.
+- Sujo ou branch inesperado = abortar imediatamente.
+- Paralelismo só com `isolation: "worktree"` no `Task` tool — sem exceções.
+
+### 7.2 Token waste em leituras redundantes
+
+**Sintoma:** cada agente lia `tasks/STATUS.md` (260+ linhas), `tasks/PROTOCOL.md`, e às vezes docs grandes (03, 10, 17) inteiros.
+
+**Mitigação:**
+
+- `python scripts/slot.py status` produz resumo de 10 linhas.
+- `python scripts/slot.py list-available` filtra slots prontos.
+- Agentes não releem PROTOCOL.md em toda invocação — só se houver dúvida.
+- **Para docs:** use `Grep` em `docs/` para achar a seção específica. **NÃO** leia docs grandes inteiros.
+
+### 7.3 STATUS.md como view derivada
+
+**Sintoma:** cada agente editava STATUS.md à mão, gerando divergência entre branches paralelos. Após merge, STATUS.md ficava inconsistente (slots `available` que já estavam em `review`, etc.).
+
+**Mitigação:**
+
+- Slot frontmatters são a **fonte única da verdade**.
+- `tasks/STATUS.md` é **view derivada** — regenerada por `python scripts/slot.py sync`.
+- **Proibido editar STATUS.md à mão.** Mude o frontmatter do slot e rode sync.
+- Pós-merge: `python scripts/slot.py reconcile-merged --write` detecta automaticamente quais branches caíram em `origin/main` e marca slots como `done`.
+
+### 7.4 Hooks/lint quebrados não bloqueados
+
+**Sintoma:** F0-S08 mergeou um `lint-staged` que chamava ESLint sem config na raiz → todos os commits subsequentes de `.ts` falhavam.
+
+**Mitigação:**
+
+- F1-S10 (`lint-staged.config.mjs`) corrigiu com config workspace-aware.
+- Regra adicional: depois de slot que mexe em hooks/tooling, rodar smoke test (`git commit --allow-empty`) antes de pushar.
+
+### 7.5 Commitlint subject-case
+
+**Sintoma:** `chore(tasks): F1-S01 in-progress` rejeitado por `subject-case` (uppercase).
+
+**Mitigação:**
+
+- Scripts geram subject em lowercase: `chore(tasks): f1-s01 in-progress`.
+- Mensagens manuais: usar lowercase para slot IDs, OU envolver em backticks/aspas (tratado como code-fence pelo commitlint).
+
+### 7.6 CRLF/LF noise em Windows
+
+**Sintoma:** todo `git add` ou `git commit` gera warnings `LF will be replaced by CRLF`. Não bloqueante mas polui output.
+
+**Mitigação proposta (slot follow-up):** `.gitattributes` com `* text=auto eol=lf`. Slot dedicado quando incomodar.
+
+### 7.7 Pre-existente `tsc --noEmit` quebrado
+
+**Sintoma:** `drizzle.config.ts` fora de `rootDir` (F0-S04 não fechou) + `app.ts` com `exactOptionalPropertyTypes` strict (F1-S02 não cobriu inteiro).
+
+**Mitigação proposta (slot follow-up):** slot dedicado para fechar typecheck verde. Bloqueante antes de F1-S03 (auth) entrar.
+
+### 7.8 Custos cognitivos a evitar
+
+| Anti-padrão                                                                                 | Custo               | Substituto                                           |
+| ------------------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------- |
+| Ler `STATUS.md` inteiro                                                                     | ~260 linhas         | `slot.py status` (~10 linhas)                        |
+| Ler PROTOCOL.md em toda invocação                                                           | ~200 linhas         | Confiar no contexto; releitura só sob dúvida         |
+| Ler `docs/<X>.md` inteiro                                                                   | 500+ linhas         | `Grep` na seção específica                           |
+| `git checkout main && pull && checkout -b ...` + edit frontmatter + edit STATUS.md + commit | 5-7 comandos        | `slot.py claim <id>` (1 comando)                     |
+| Rodar `pnpm typecheck && pnpm lint && pnpm test` à mão                                      | 3 comandos          | `slot.py validate <id>` (1 comando, parseia do slot) |
+| Editar STATUS.md à mão                                                                      | propenso a drift    | `slot.py sync` (re-renderiza)                        |
+| Marcar slot done à mão pós-merge                                                            | propenso a esquecer | `slot.py reconcile-merged --write`                   |
+| Gerar body de PR à mão                                                                      | 30+ linhas          | `slot.py pr open <id>` (extrai do slot)              |

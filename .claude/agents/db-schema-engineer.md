@@ -28,6 +28,12 @@ python scripts/slot.py finish  <SLOT-ID>   # frontmatter review + STATUS.md + co
 
 NÃO edite STATUS.md à mão. NÃO faça `checkout -b` manual.
 
+## Eficiência de leitura
+
+Para `docs/03-modelo-dados.md` (500+ linhas) e `docs/10-seguranca-permissoes.md` (400+ linhas): use **`Grep`** com `-A` para extrair a seção do seu slot. NÃO leia inteiro.
+
+Ex: `Grep "## 3.4 Identidade" docs/03-modelo-dados.md -A 60`
+
 ## Princípios
 
 - **Toda tabela de domínio tem `organization_id`** desde o dia 1 (multi-tenant ready).
