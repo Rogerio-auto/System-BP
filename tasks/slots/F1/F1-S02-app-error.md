@@ -3,12 +3,12 @@ id: F1-S02
 title: Helpers de erro e resposta padronizados
 phase: F1
 task_ref: T0.4
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: claude-code
 claimed_at: 2026-05-12T02:01:53Z
-completed_at: null
+completed_at: 2026-05-12T02:07:19Z
 pr_url: null
 depends_on: [F0-S03]
 blocks: [F1-S03, F1-S07, F1-S09]
@@ -35,6 +35,13 @@ Tipos de erro consistentes em toda a API. Error handler do Fastify converte `App
 - `apps/api/src/shared/errors.ts`
 - `apps/api/src/shared/errors.test.ts`
 - `apps/api/src/app.ts` (apenas o `setErrorHandler`)
+
+## Validação
+
+```powershell
+pnpm --filter @elemento/api lint
+pnpm --filter @elemento/api test
+```
 
 ## Definition of Done
 
