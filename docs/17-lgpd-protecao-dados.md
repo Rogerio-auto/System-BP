@@ -510,7 +510,7 @@ Itens binários para auditoria do projeto.
 - [ ] `docs/17-lgpd-protecao-dados.md` existe e é referenciado em CLAUDE.md, PROTOCOL.md, docs/00 e docs/10.
 - [ ] `customers.document_number` é cifrado em coluna; existe `document_hash` para dedupe.
 - [ ] Logger Pino tem redact configurado com a lista do §8.3 e há teste cobrindo o redact.
-- [ ] Função `redact_pii` no LangGraph cobre CPF/CNPJ/email/telefone/RG com cobertura ≥95% e é chamada antes de qualquer envio ao gateway.
+- [x] Função `redact_pii` no LangGraph cobre CPF/CNPJ/email/telefone/RG com cobertura ≥95% e é chamada antes de qualquer envio ao gateway. **IMPLEMENTADO em F1-S26 (PR #...)**
 - [ ] Endpoint `/api/v1/data-subject/access-request` existe e gera export JSON cobrindo todas tabelas do §3.4.
 - [ ] Endpoint `/api/v1/data-subject/consent/revoke` existe e é idempotente.
 - [ ] Job diário de retenção (`cron-retention`) roda em produção e está coberto por teste.

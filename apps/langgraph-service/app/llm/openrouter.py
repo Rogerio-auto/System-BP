@@ -93,10 +93,31 @@ class OpenRouterGateway:
         temperature: float = 0.2,
         max_tokens: int = 1024,
         metadata: dict[str, Any] | None = None,
+        conversation_id: str = "",
+        dlp: bool = True,
     ) -> LLMResponse:
-        """Envia requisição de completion ao OpenRouter com retry e DLP."""
-        # DLP: nunca enviar PII bruta ao suboperador internacional
-        clean_messages = redact_messages(messages)
+        """Envia requisição de completion ao OpenRouter com retry e DLP.
+
+        Args:
+            dlp: Se True (default), aplica DLP antes de enviar ao OpenRouter.
+                 Se False, exige permissão ``assistant:bypass_dlp``.
+        """
+        if not dlp:
+            # LGPD §8.4: dlp=False requer permissão explícita.
+            # Enquanto o slot de permissões não implementar assistant:bypass_dlp,
+            # bloquear completamente para evitar vazamento acidental de PII.
+            log.warning(
+                "dlp_bypass",
+                conversation_id=conversation_id,
+                model=model,
+                dlp_bypass_warning="permission assistant:bypass_dlp not yet implemented",
+            )
+            raise NotImplementedError(
+                "dlp=False not yet permitted — open slot to implement assistant:bypass_dlp"
+            )
+
+        # DLP: nunca enviar PII bruta ao suboperador internacional (LGPD §8.4)
+        clean_messages, _reverse_map, pii_counts = redact_messages(messages)
 
         meta = metadata or {}
         log.info(
@@ -104,6 +125,8 @@ class OpenRouterGateway:
             provider=_PROVIDER,
             model=model,
             message_count=len(clean_messages),
+            conversation_id=conversation_id,
+            pii_tokens_redacted=pii_counts,
             **meta,
         )
 
@@ -125,6 +148,7 @@ class OpenRouterGateway:
             prompt_tokens=response.usage.prompt_tokens,
             completion_tokens=response.usage.completion_tokens,
             finish_reason=response.finish_reason,
+            conversation_id=conversation_id,
             **meta,
         )
         return response

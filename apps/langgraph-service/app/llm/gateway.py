@@ -1,67 +1,53 @@
-"""Contrato público do gateway LLM + tipos compartilhados + filtro DLP.
+"""Contrato público do gateway LLM + tipos compartilhados.
 
 Nenhum código de nó deve importar um provider concreto. Toda chamada LLM
 passa por ``LLMGateway.complete()`` — obtido via ``factory.get_gateway()``.
 
-DLP (Data Loss Prevention)
----------------------------
-LGPD §14 proíbe enviar PII bruta a suboperadores internacionais.
-``redact_pii()`` remove CPF, e-mail e telefone de qualquer string de mensagem
-antes que ela saia pela rede. Chamado internamente pelos providers; não precisa
-ser invocado pelo código de nó.
+DLP (Data Loss Prevention) — LGPD §8.4
+----------------------------------------
+LGPD §8.4 proíbe enviar PII bruta a suboperadores internacionais.
+O módulo ``app.llm.dlp`` implementa a função canônica ``redact_pii()`` que
+aplica regex com DV-validation em CPF, CNPJ, email, telefone E.164/nacional,
+RG (heurística) e datas de nascimento em contexto.
+
+``gateway.complete(dlp=True)`` — padrão e obrigatório para agentes externos.
+``gateway.complete(dlp=False)`` — requer permissão ``assistant:bypass_dlp``.
+    Enquanto essa permissão não existir, levanta ``NotImplementedError``.
+
+Logs
+----
+Nenhum log neste módulo carrega tokens reais de PII. Toda mensagem logada
+está no formato mascarado. Tokens são apenas contadores por tipo.
+
+Reverse-map
+-----------
+``complete()`` retorna ``CompletionResult`` com ``reverse_map`` — **nunca**
+persistir em log, banco, outbox ou resposta HTTP. Usar apenas em memória,
+escopado à conversa pelo chamador.
 """
 from __future__ import annotations
 
-import re
 import time
 from typing import Any, Protocol, runtime_checkable
 
 import structlog
 from pydantic import BaseModel, Field
 
+from app.llm.dlp import redact_messages, redact_pii  # re-export para importadores externos
+
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
-# ---------------------------------------------------------------------------
-# DLP — expressões regulares
-# ---------------------------------------------------------------------------
-
-# CPF: 000.000.000-00 ou 00000000000
-_RE_CPF = re.compile(r"\b\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[-\s]?\d{2}\b")
-
-# E-mail: padrão RFC simplificado — suficiente para DLP
-_RE_EMAIL = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
-
-# Telefone brasileiro: (XX) XXXXX-XXXX / +55XXXXXXXXXXX / variações
-_RE_PHONE = re.compile(
-    r"(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)(?:9\s?)?\d{4}[\s\-]?\d{4}"
-)
-
-
-def redact_pii(text: str) -> str:
-    """Remove CPF, e-mail e telefone de ``text``, substituindo por marcadores.
-
-    Deve ser aplicado em todo conteúdo de mensagem antes de envio ao LLM.
-    Não persiste — opera apenas na cópia em memória.
-    """
-    text = _RE_CPF.sub("[CPF_REDACTED]", text)
-    text = _RE_EMAIL.sub("[EMAIL_REDACTED]", text)
-    text = _RE_PHONE.sub("[PHONE_REDACTED]", text)
-    return text
-
-
-def redact_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Aplica ``redact_pii()`` no campo ``content`` de cada mensagem.
-
-    Mensagens sem campo ``content`` (ex.: tool calls) são passadas sem alteração.
-    Retorna uma nova lista; a original não é mutada.
-    """
-    result: list[dict[str, Any]] = []
-    for msg in messages:
-        if isinstance(msg.get("content"), str):
-            result.append({**msg, "content": redact_pii(msg["content"])})
-        else:
-            result.append(dict(msg))
-    return result
+__all__ = [
+    "BudgetExceededError",
+    "CompletionResult",
+    "LLMGateway",
+    "LLMProviderError",
+    "LLMResponse",
+    "TokenUsage",
+    "measure_latency",
+    "redact_messages",
+    "redact_pii",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +76,58 @@ class LLMResponse(BaseModel):
         description="Payload bruto do provider para debugging.",
         exclude=True,  # não serializar em logs estruturados
     )
+
+
+class CompletionResult(BaseModel):
+    """Resultado enriquecido de ``LLMGateway.complete()``.
+
+    Extende ``LLMResponse`` com metadados DLP para uso no chamador.
+    """
+
+    model_config = {"arbitrary_types_allowed": True}
+
+    content: str = Field(description="Texto gerado pelo modelo (validado pelo pós-validador).")
+    model: str = Field(description="Identificador do modelo que respondeu.")
+    usage: TokenUsage = Field(default_factory=TokenUsage)
+    latency_ms: float = Field(default=0.0)
+    finish_reason: str = Field(default="stop")
+
+    pii_tokens_redacted: dict[str, int] = Field(
+        default_factory=dict,
+        description="Contagem de tokens PII redactados por tipo antes do envio.",
+    )
+    suspicious_output: bool = Field(
+        default=False,
+        description="True se o validador pós-LLM detectou possível PII na resposta.",
+    )
+    reverse_map: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Mapeamento token→original para devolução ao chamador. "
+            "NUNCA persistir em log, banco ou outbox."
+        ),
+        exclude=True,  # excluído de serialização — segurança
+    )
+
+    @classmethod
+    def from_llm_response(
+        cls,
+        resp: LLMResponse,
+        *,
+        pii_tokens_redacted: dict[str, int],
+        suspicious_output: bool,
+        reverse_map: dict[str, str],
+    ) -> CompletionResult:
+        return cls(
+            content=resp.content,
+            model=resp.model,
+            usage=resp.usage,
+            latency_ms=resp.latency_ms,
+            finish_reason=resp.finish_reason,
+            pii_tokens_redacted=pii_tokens_redacted,
+            suspicious_output=suspicious_output,
+            reverse_map=reverse_map,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -139,17 +177,22 @@ class LLMGateway(Protocol):
         temperature: float = 0.2,
         max_tokens: int = 1024,
         metadata: dict[str, Any] | None = None,
+        conversation_id: str = "",
+        dlp: bool = True,
     ) -> LLMResponse:
         """Executa uma chamada de completions ao LLM configurado.
 
         Args:
             model: Identificador do modelo (ex.: ``"anthropic/claude-3.5-haiku"``).
-            messages: Lista de mensagens no formato OpenAI
-                      (``{"role": "user"|"system"|"assistant", "content": "..."}``)
+            messages: Lista de mensagens no formato OpenAI.
             tools: Definições de ferramentas no schema OpenAI (opcional).
             temperature: Temperatura de amostragem (0.0-2.0). Default: 0.2.
             max_tokens: Limite de tokens na resposta. Default: 1024.
             metadata: Dados extras para logging/tracing (ex.: node, lead_id).
+            conversation_id: ID da conversa para escopo do reverse_map DLP.
+            dlp: Se True (default), aplica DLP antes de enviar ao LLM.
+                 Se False, exige permissão ``assistant:bypass_dlp`` (não implementada
+                 — levanta ``NotImplementedError`` até o slot correspondente).
 
         Returns:
             ``LLMResponse`` com o texto gerado e métricas de uso.
@@ -157,25 +200,13 @@ class LLMGateway(Protocol):
         Raises:
             ``BudgetExceededError``: orçamento diário esgotado.
             ``LLMProviderError``: erro não-recuperável do provider.
+            ``NotImplementedError``: dlp=False sem permissão.
             ``tenacity.RetryError``: retries esgotados em falha transitória.
         """
         ...
 
     async def check_budget(self, org_id: str) -> bool:
-        """Verifica se a organização tem orçamento disponível para uma chamada.
-
-        Stub neste slot — retorna sempre ``True``.
-        Implementação real no slot de billing (consulta ``llm_usage_daily``).
-
-        Args:
-            org_id: Identificador da organização (tenant).
-
-        Returns:
-            ``True`` se houver orçamento; ``False`` caso contrário.
-
-        Raises:
-            ``BudgetExceededError``: quando budget está esgotado (alternativa a retornar False).
-        """
+        """Verifica se a organização tem orçamento disponível para uma chamada."""
         ...
 
 
@@ -187,3 +218,11 @@ class LLMGateway(Protocol):
 def measure_latency(start: float) -> float:
     """Retorna a latência em ms desde ``start`` (resultado de ``time.monotonic()``)."""
     return (time.monotonic() - start) * 1000
+
+
+# ---------------------------------------------------------------------------
+# Helpers de compatibilidade retroativa (importados por openrouter.py)
+# ---------------------------------------------------------------------------
+
+# redact_messages já foi importado no topo deste módulo via dlp.py
+# e está disponível como app.llm.gateway.redact_messages

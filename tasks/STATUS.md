@@ -55,7 +55,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S23 | Feature flags — schema + admin UI + middleware backend + hook frontend                  | ✅ done      | high       | F1-S04                         |
 | F1-S24 | LGPD baseline — cifração de PII em coluna + hash HMAC + Pino redact                     | ⏸️ blocked   | critical   | F1-S01, F1-S09                 |
 | F1-S25 | LGPD — direitos do titular (acesso/portabilidade/revogação/correção) + jobs de retenção | ⏸️ blocked   | high       | F1-S16, F1-S15, F1-S24         |
-| F1-S26 | LGPD — DLP no pipeline LangGraph (mascaramento antes do gateway OpenRouter)             | 🟢 available | critical   | F0-S06                         |
+| F1-S26 | LGPD — DLP no pipeline LangGraph (mascaramento antes do gateway OpenRouter)             | 🟣 review    | critical   | F0-S06                         |
 
 ## Fase 3 — Agentes IA
 
