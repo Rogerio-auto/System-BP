@@ -3,11 +3,11 @@ id: F1-S04
 title: Middlewares authenticate + authorize com escopo de cidade
 phase: F1
 task_ref: T1.3
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
-agent_id: null
-claimed_at: null
+agent_id: backend-engineer
+claimed_at: "2026-05-12T00:00:00Z"
 completed_at: null
 pr_url: null
 depends_on: [F1-S03]
