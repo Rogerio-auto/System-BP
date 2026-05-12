@@ -10,3 +10,6 @@ export * from './auth.js';
 
 // Leads (F1-S11)
 export * from './leads.js';
+
+// Cities (F1-S06)
+export * from './cities.js';
