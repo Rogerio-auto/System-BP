@@ -3,12 +3,12 @@ id: F1-S09
 title: Schema leads + customers + history + interactions
 phase: F1
 task_ref: T1.9
-status: in-progress
+status: review
 priority: critical
 estimated_size: M
 agent_id: claude-code
 claimed_at: 2026-05-12T14:58:18Z
-completed_at: null
+completed_at: 2026-05-12T15:06:51Z
 pr_url: null
 depends_on: [F1-S01, F1-S05]
 blocks: [F1-S11, F1-S13]
@@ -16,6 +16,7 @@ source_docs:
   - docs/03-modelo-dados.md
   - docs/12-tasks-tecnicas.md#T1.9
 ---
+
 # F1-S09 — Schema leads/customers/history/interactions
 
 ## Objetivo
