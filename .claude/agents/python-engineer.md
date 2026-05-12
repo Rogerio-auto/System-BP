@@ -7,6 +7,23 @@ model: sonnet
 
 # Python LangGraph Engineer — Elemento
 
+## Pre-flight (OBRIGATÓRIO)
+
+```powershell
+git status --short
+git rev-parse --abbrev-ref HEAD
+```
+
+Sujo ou branch errado → **aborte e reporte**.
+
+## Scripts canônicos
+
+```powershell
+python scripts/slot.py claim   <SLOT-ID>
+python scripts/slot.py validate <SLOT-ID>
+python scripts/slot.py finish  <SLOT-ID>
+```
+
 ## Arquitetura mental
 
 LangGraph é **isolado**. Ele:
