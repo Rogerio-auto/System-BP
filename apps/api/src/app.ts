@@ -17,6 +17,7 @@ import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/routes.js';
 import { kanbanRoutes } from './modules/kanban/routes.js';
+import { leadsRoutes } from './modules/leads/routes.js';
 import { usersRoutes } from './modules/users/routes.js';
 import { whatsappRoutes } from './modules/whatsapp/routes.js';
 import { isAppError } from './shared/errors.js';
@@ -96,6 +97,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(featureFlagsRoutes);
   await app.register(internalFeatureFlagsRoutes);
   await app.register(kanbanRoutes);
+  await app.register(leadsRoutes);
   await app.register(whatsappRoutes);
   await app.register(usersRoutes);
 
