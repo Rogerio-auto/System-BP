@@ -31,6 +31,13 @@ const envSchema = z.object({
 
   LANGGRAPH_INTERNAL_TOKEN: z.string().min(32),
   LANGGRAPH_SERVICE_URL: z.string().url(),
+
+  // ---- WhatsApp Cloud API --------------------------------------------------
+  // Shared secret usado para validar HMAC SHA-256 dos webhooks (X-Hub-Signature-256).
+  // Mínimo 16 chars; em produção deve ter entropia alta (>= 32 chars).
+  WHATSAPP_APP_SECRET: z.string().min(16),
+  // Token de verificação para o handshake inicial GET do Meta.
+  WHATSAPP_VERIFY_TOKEN: z.string().min(8),
 });
 
 export type Env = z.infer<typeof envSchema>;
