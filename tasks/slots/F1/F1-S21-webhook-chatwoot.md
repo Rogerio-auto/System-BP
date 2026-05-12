@@ -3,13 +3,13 @@ id: F1-S21
 title: Webhook Chatwoot — entrada + idempotência
 phase: F1
 task_ref: T1.21
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: claude-code
 claimed_at: 2026-05-12T17:49:44Z
 completed_at: 2026-05-12T23:39:30Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/44
 depends_on: [F1-S20, F1-S15]
 blocks: []
 source_docs:
