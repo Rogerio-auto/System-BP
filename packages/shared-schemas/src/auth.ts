@@ -16,9 +16,7 @@ export const loginBodySchema = z.object({
     .string({ required_error: 'Email é obrigatório' })
     .email('Email inválido')
     .max(255, 'Email muito longo'),
-  password: z
-    .string({ required_error: 'Senha é obrigatória' })
-    .min(1, 'Senha é obrigatória'),
+  password: z.string({ required_error: 'Senha é obrigatória' }).min(1, 'Senha é obrigatória'),
 });
 
 export type LoginBody = z.infer<typeof loginBodySchema>;

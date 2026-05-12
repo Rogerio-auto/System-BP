@@ -14,10 +14,12 @@
 //   adicionar preHandler: [authenticate()] no logout.
 // =============================================================================
 import cookie from '@fastify/cookie';
-import rateLimit from '@fastify/rate-limit';
+// NOTA: @fastify/rate-limit precisa ser registrado em app.ts (follow-up). A config
+// `rateLimit:` por rota abaixo só ativa quando o plugin estiver registrado globalmente.
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
+import { loginController, refreshController, logoutController } from './controller.js';
 import {
   loginBodySchema,
   loginResponseSchema,
@@ -25,7 +27,6 @@ import {
   refreshResponseSchema,
   logoutBodySchema,
 } from './schemas.js';
-import { loginController, refreshController, logoutController } from './controller.js';
 
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
   // Registrar @fastify/cookie neste escopo.
@@ -51,10 +52,13 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
           // o Fastify defina corretamente o status HTTP 429.
           // O objeto simples não funciona — o plugin faz `throw` do retorno deste builder.
           errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
-            const err = Object.assign(new Error('Muitas tentativas de login. Aguarde 15 minutos.'), {
-              statusCode: context.statusCode,
-              code: 'RATE_LIMITED',
-            });
+            const err = Object.assign(
+              new Error('Muitas tentativas de login. Aguarde 15 minutos.'),
+              {
+                statusCode: context.statusCode,
+                code: 'RATE_LIMITED',
+              },
+            );
             return err;
           },
         },

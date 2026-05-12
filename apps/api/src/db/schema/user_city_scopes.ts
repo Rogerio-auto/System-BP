@@ -7,14 +7,11 @@
 //   - roles 'admin' e 'gestor_geral' ignoram esta tabela → acesso global.
 //   - 'gestor_regional', 'agente', 'operador', 'leitura' são filtrados por ela.
 //   - is_primary indica a cidade principal de trabalho (usada em defaults de UI).
-//   - city_id referencia cities (F1-S05) — tabela ainda não existe nesta migration;
-//     a FK será adicionada em F1-S05 para não bloquear este slot.
-//
-// NOTA: city_id é uuid sem FK nesta migration por dependência circular com F1-S05.
-// A FK fk_user_city_scopes_city será adicionada em 0002_cities.sql.
+//   - FK city_id → cities adicionada em F1-S05 (0002_cities_agents.sql).
 // =============================================================================
 import { pgTable, uuid, boolean, primaryKey, foreignKey, index } from 'drizzle-orm/pg-core';
 
+import { cities } from './cities';
 import { users } from './users';
 
 export const userCityScopes = pgTable(
@@ -23,8 +20,8 @@ export const userCityScopes = pgTable(
     userId: uuid('user_id').notNull(),
 
     /**
-     * Referencia cities.id — FK adicionada em F1-S05
-     * para evitar dependência de migration neste slot.
+     * Referencia cities.id — FK fk_user_city_scopes_city adicionada em F1-S05
+     * (0002_cities_agents.sql) para evitar dependência circular no F1-S01.
      */
     cityId: uuid('city_id').notNull(),
 
@@ -41,6 +38,12 @@ export const userCityScopes = pgTable(
       name: 'fk_user_city_scopes_user',
       columns: [table.userId],
       foreignColumns: [users.id],
+    }).onDelete('cascade'),
+
+    foreignKey({
+      name: 'fk_user_city_scopes_city',
+      columns: [table.cityId],
+      foreignColumns: [cities.id],
     }).onDelete('cascade'),
 
     // B-tree em city_id para queries "quais usuários têm acesso a esta cidade?"

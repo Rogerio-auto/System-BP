@@ -13,6 +13,7 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 
 import { env } from '../config/env.js';
+
 import { UnauthorizedError } from './errors.js';
 
 // ---------------------------------------------------------------------------
@@ -60,7 +61,9 @@ export function parseTtlToSeconds(ttl: string): number {
  * Assina um access token JWT com payload tipado.
  * Expira em JWT_ACCESS_TTL (padrão: 15m).
  */
-export async function signAccessToken(payload: Omit<AccessTokenPayload, 'iat' | 'exp'>): Promise<string> {
+export async function signAccessToken(
+  payload: Omit<AccessTokenPayload, 'iat' | 'exp'>,
+): Promise<string> {
   const secret = encodeSecret(env.JWT_ACCESS_SECRET);
   const ttlSeconds = parseTtlToSeconds(env.JWT_ACCESS_TTL);
 

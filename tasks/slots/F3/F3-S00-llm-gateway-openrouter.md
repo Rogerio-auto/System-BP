@@ -7,8 +7,8 @@ status: review
 priority: critical
 estimated_size: M
 agent_id: python-engineer
-claimed_at: "2026-05-11T23:00:00Z"
-completed_at: "2026-05-11T23:30:00Z"
+claimed_at: '2026-05-11T23:00:00Z'
+completed_at: '2026-05-11T23:30:00Z'
 pr_url: null
 depends_on: [F0-S06]
 blocks: [F3-S15, F3-S18, F3-S19]

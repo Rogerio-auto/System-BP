@@ -15,11 +15,12 @@
 //   No login/refresh: cookie csrf_token = sessionId.
 //   No refresh: header X-CSRF-Token deve bater com o sessionId do refresh token.
 // =============================================================================
+import type { LoginBody, RefreshBody, LogoutBody } from '@elemento/shared-schemas';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
 import { UnauthorizedError } from '../../shared/errors.js';
-import type { LoginBody, RefreshBody, LogoutBody } from '@elemento/shared-schemas';
+
 import { login, logout, refresh } from './service.js';
 
 // Nomes canônicos dos cookies
@@ -104,11 +105,7 @@ export async function refreshController(
   const ip = request.ip;
   const userAgent = request.headers['user-agent'] ?? null;
 
-  const result = await refresh(
-    db,
-    { refreshToken, csrfToken, ip, userAgent },
-    request.log,
-  );
+  const result = await refresh(db, { refreshToken, csrfToken, ip, userAgent }, request.log);
 
   const baseOpts = cookieOptions(isProduction, result.refreshExpiresIn);
 

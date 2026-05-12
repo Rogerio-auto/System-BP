@@ -17,6 +17,7 @@ source_docs:
   - docs/10-seguranca-permissoes.md
   - docs/12-tasks-tecnicas.md#T1.2
 ---
+
 # F1-S03 — Auth (login, refresh, logout)
 
 ## Objetivo

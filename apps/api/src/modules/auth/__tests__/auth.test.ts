@@ -16,7 +16,7 @@
 //   8. rate-limit em /login → 429 após 5 tentativas
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock pg — evita conexão real com Postgres
@@ -50,7 +50,7 @@ vi.mock('../repository.js', () => ({
   updateUserLastLogin: (...args: unknown[]) => mockUpdateUserLastLogin(...args),
   createSession: (...args: unknown[]) => mockCreateSession(...args),
   findSessionByTokenHash: (...args: unknown[]) => mockFindSessionByTokenHash(...args),
-  findSessionById: (...args: unknown[]) => vi.fn(),
+  findSessionById: () => vi.fn(),
   revokeSession: (...args: unknown[]) => mockRevokeSession(...args),
   rotateSession: (...args: unknown[]) => mockRotateSession(...args),
   purgeExpiredSessions: (...args: unknown[]) => mockPurgeExpiredSessions(...args),
