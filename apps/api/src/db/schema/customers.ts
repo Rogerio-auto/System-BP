@@ -17,17 +17,37 @@
 //
 // Sem soft-delete: customer é permanente (registro contábil/auditoria).
 // Se precisar invalidar, usar metadata.{ status: 'inactive' } como escape hatch.
+//
+// LGPD (doc 17 §8.1 — F1-S24):
+//   - document_number: bytea — CPF/CNPJ cifrado com AES-256-GCM.
+//     Usar encryptPii/decryptPii de lib/crypto/pii.ts para acesso.
+//   - document_hash: text — HMAC-SHA256 do document_number original para dedupe/busca.
+//     Usar hashDocument de lib/crypto/pii.ts para gerar.
+//     Índice único parcial garante 1 customer por documento por org.
 // =============================================================================
 import { sql } from 'drizzle-orm';
 import {
   pgTable,
   uuid,
+  text,
   jsonb,
   timestamp,
   index,
   uniqueIndex,
   foreignKey,
+  customType,
 } from 'drizzle-orm/pg-core';
+
+/**
+ * bytea: tipo PostgreSQL para dados binários cifrados.
+ * Usado para document_number (AES-256-GCM via lib/crypto/pii.ts).
+ * Node.js serializa como Buffer.
+ */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 import { leads } from './leads.js';
 import { organizations } from './organizations.js';
@@ -55,6 +75,24 @@ export const customers = pgTable(
      * Imutável após criação (auditoria financeira).
      */
     convertedAt: timestamp('converted_at', { withTimezone: true }).notNull().defaultNow(),
+
+    /**
+     * CPF/CNPJ cifrado com AES-256-GCM (F1-S24 — LGPD doc 17 §8.1).
+     * Armazenado como bytea — o plaintext NUNCA é persistido em texto claro.
+     * Para ler: decryptPii(customer.documentNumber) da lib/crypto/pii.ts.
+     * Para escrever: encryptPii(plainCpf) antes de inserir/atualizar.
+     * null = documento ainda não coletado (migração gradual via F1-S25+).
+     */
+    documentNumber: bytea('document_number'),
+
+    /**
+     * Hash HMAC-SHA256 do document_number em claro + LGPD_DEDUPE_PEPPER.
+     * Propósito: busca/dedupe de clientes por CPF sem expor o plaintext.
+     * Determinístico: hashDocument(plainCpf) sempre produz o mesmo resultado.
+     * Para gerar: hashDocument(plainCpf) da lib/crypto/pii.ts.
+     * null = documento ainda não coletado.
+     */
+    documentHash: text('document_hash'),
 
     /**
      * Dados adicionais do cliente sem schema fixo.
@@ -100,6 +138,16 @@ export const customers = pgTable(
      * Suporta: dashboard de conversões, relatório de clientes ativos.
      */
     index('idx_customers_org_converted').on(table.organizationId, table.convertedAt),
+
+    /**
+     * Índice único parcial em (organization_id, document_hash) para dedupe de CPF.
+     * WHERE document_hash IS NOT NULL: documentos pendentes (null) não participam
+     * da constraint — permite inserção antes do CPF ser coletado.
+     * Suporta: busca por CPF hash para verificar duplicidade antes de criar customer.
+     */
+    uniqueIndex('uq_customers_org_document_hash')
+      .on(table.organizationId, table.documentHash)
+      .where(sql`${table.documentHash} IS NOT NULL`),
   ],
 );
 

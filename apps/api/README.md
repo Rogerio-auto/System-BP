@@ -58,3 +58,42 @@ Via tabela tecnica do marco zero (confirma que o pipeline rodou):
 ```sql
 SELECT * FROM _schema_meta;
 ```
+
+## LGPD — Proteção de PII (F1-S24)
+
+Este módulo implementa o baseline técnico de proteção de dados pessoais conforme `docs/17-lgpd-protecao-dados.md`.
+
+### Cifração em coluna
+
+- `customers.document_number` e `leads.cpf_encrypted`: CPF/CNPJ cifrado com **AES-256-GCM** via `src/lib/crypto/pii.ts`.
+- `users.totp_secret`: TOTP secret cifrado com **AES-256-GCM**.
+- Chave: `LGPD_DATA_KEY` (base64, 32 bytes). **Obrigatória em produção.**
+
+### Hash de dedupe
+
+- `customers.document_hash` e `leads.cpf_hash`: **HMAC-SHA256** com pepper `LGPD_DEDUPE_PEPPER`.
+- Permite buscar cliente por CPF sem expor plaintext.
+- Determinístico: mesmo input + mesmo pepper = mesmo hash.
+
+### Proibições
+
+> **Clonar dados de produção para dev/staging é proibido** (doc 17 §9.3).
+> Use `pnpm --filter @elemento/api db:seed-fake` para gerar dados sintéticos
+> com CPFs fictícios (DV correto, mas explicitamente não reais).
+
+### Redact de logs
+
+- Logger Pino configurado em `src/lib/logger.ts` com lista canônica de redact (doc 17 §8.3).
+- Campos como `cpf`, `document_number`, `password`, `totp_secret` são censurados com `[redacted]` em todos os logs.
+- Testes em `src/lib/logger.test.ts` validam cada campo.
+
+### Rotação de chaves
+
+Ver `docs/runbook-key-rotation.md` para procedimento de rotação anual obrigatória.
+
+### Variáveis de ambiente LGPD
+
+| Variável             | Obrigatória em produção | Descrição                             |
+| -------------------- | ----------------------- | ------------------------------------- |
+| `LGPD_DATA_KEY`      | Sim                     | Chave AES-256-GCM (base64 32 bytes)   |
+| `LGPD_DEDUPE_PEPPER` | Sim                     | Pepper HMAC-SHA256 (base64 ≥32 bytes) |
