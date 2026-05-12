@@ -3,12 +3,12 @@ id: F1-S15
 title: Outbox — schema + emit() + worker outbox-publisher
 phase: F1
 task_ref: T1.15
-status: review
+status: done
 priority: critical
 estimated_size: L
 agent_id: backend-engineer
 claimed_at: 2026-05-12T00:00:00Z
-completed_at: null
+completed_at: 2026-05-12T04:53:40Z
 pr_url: null
 depends_on: [F0-S04]
 blocks: [F1-S11, F1-S13, F1-S22]

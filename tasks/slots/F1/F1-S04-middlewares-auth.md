@@ -3,7 +3,7 @@ id: F1-S04
 title: Middlewares authenticate + authorize com escopo de cidade
 phase: F1
 task_ref: T1.3
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: backend-engineer
