@@ -3,12 +3,12 @@ id: F1-S06
 title: CRUD cities (admin)
 phase: F1
 task_ref: T1.6
-status: done
+status: available
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: 2026-05-12T21:08:34Z
+completed_at: null
 pr_url: null
 depends_on: [F1-S04, F1-S05]
 blocks: []

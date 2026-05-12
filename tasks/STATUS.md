@@ -9,7 +9,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F1   | 28    | 1   | 0   | 0   | 0   | 1   | 26  |
+| F1   | 28    | 2   | 0   | 0   | 0   | 0   | 26  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
@@ -35,7 +35,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S03 | Auth — login, refresh, logout                                                           | ✅ done      | critical   | F1-S01, F1-S02                 |
 | F1-S04 | Middlewares authenticate + authorize com escopo de cidade                               | ✅ done      | critical   | F1-S03                         |
 | F1-S05 | Schema cities + agents + seed cidades de Rondônia                                       | ✅ done      | high       | F1-S01                         |
-| F1-S06 | CRUD cities (admin)                                                                     | ✅ done      | medium     | F1-S04, F1-S05                 |
+| F1-S06 | CRUD cities (admin)                                                                     | 🟢 available | medium     | F1-S04, F1-S05                 |
 | F1-S07 | CRUD users + assign roles + city scopes                                                 | ✅ done      | high       | F1-S04, F1-S05                 |
 | F1-S08 | Frontend — login real + hook useAuth + layout autenticado                               | ✅ done      | critical   | F1-S03, F0-S05                 |
 | F1-S09 | Schema leads + customers + history + interactions                                       | ✅ done      | critical   | F1-S01, F1-S05                 |
@@ -47,7 +47,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S15 | Outbox — schema + emit() + worker outbox-publisher                                      | ✅ done      | critical   | F0-S04                         |
 | F1-S16 | Audit logs — schema + helper auditLog()                                                 | ✅ done      | high       | F1-S01                         |
 | F1-S17 | Pipeline de importação genérico (com adapter de leads)                                  | ✅ done      | high       | F1-S11, F1-S15                 |
-| F1-S18 | Frontend importação — wizard 4 passos                                                   | 🟣 review    | medium     | F1-S17                         |
+| F1-S18 | Frontend importação — wizard 4 passos                                                   | ✅ done      | medium     | F1-S17                         |
 | F1-S19 | Webhook WhatsApp — entrada + idempotência + persistência                                | ✅ done      | high       | F1-S15                         |
 | F1-S20 | Cliente HTTP Chatwoot                                                                   | ✅ done      | medium     | F0-S03                         |
 | F1-S21 | Webhook Chatwoot — entrada + idempotência                                               | 🟢 available | medium     | F1-S20, F1-S15                 |
