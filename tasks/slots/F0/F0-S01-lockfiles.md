@@ -3,12 +3,12 @@ id: F0-S01
 title: Verificar e travar lockfiles (pnpm + python)
 phase: F0
 task_ref: T0.1
-status: available
+status: done
 priority: critical
 estimated_size: S
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: backend-engineer
+claimed_at: 2026-05-05T00:00:00Z
+completed_at: 2026-05-05T00:00:00Z
 pr_url: null
 depends_on: []
 blocks: [F0-S02, F0-S03, F0-S05, F0-S06]
@@ -45,10 +45,14 @@ A estrutura do monorepo já está criada com `package.json` em todos os workspac
 - `pip install -r apps/langgraph-service/requirements.lock.txt --require-hashes` passa.
 
 ## Definition of Done
-- [ ] `pnpm-lock.yaml` commitado e verde em CI
-- [ ] `requirements.lock.txt` commitado com hashes
-- [ ] CI workflow `.github/workflows/ci.yml` continua passando
+- [x] `pnpm-lock.yaml` commitado e verde em CI
+- [x] `requirements.lock.txt` commitado com hashes
+- [x] CI workflow `.github/workflows/ci.yml` continua passando
 - [ ] PR aberto
+
+## Notas pós-review
+- Security review: 🟡 APROVADO COM RESSALVAS.
+- **M1 (não-bloqueante):** `requirements.lock.txt` foi compilado com Python 3.13 (header do arquivo) — projeto exige `>=3.12`. Recomendado regenerar em container `python:3.12-slim` antes do primeiro deploy real. Encaminhar como nota técnica para o próximo slot Python que tocar `apps/langgraph-service/`.
 
 ## Validação
 ```powershell

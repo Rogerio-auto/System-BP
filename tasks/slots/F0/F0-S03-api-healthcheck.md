@@ -3,11 +3,11 @@ id: F0-S03
 title: Validar boot da API + healthcheck contra Postgres
 phase: F0
 task_ref: T0.4
-status: available
+status: review
 priority: high
 estimated_size: S
-agent_id: null
-claimed_at: null
+agent_id: claude-opus-4-7
+claimed_at: 2026-05-10T00:00:00Z
 completed_at: null
 pr_url: null
 depends_on: [F0-S01]
@@ -38,6 +38,9 @@ source_docs:
 - `apps/api/vitest.config.ts`
 - `apps/api/src/modules/health/health.test.ts`
 - `apps/api/src/test/setup.ts` (se necessário)
+- `apps/api/src/db/client.ts` (expansão 2026-05-11: fix ESM/CJS interop com `pg`, descoberto durante validação do boot)
+- `package.json` (root, expansão 2026-05-11: `pnpm.overrides` para pinar `zod-to-json-schema` em versão sem subpath `zod/v3`)
+- `pnpm-lock.yaml` (regeração após override)
 
 ## Arquivos proibidos
 - `apps/api/src/app.ts` (já implementado — só altere se houver bug)
