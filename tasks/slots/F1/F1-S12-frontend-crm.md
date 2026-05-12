@@ -3,13 +3,13 @@ id: F1-S12
 title: Frontend CRM — lista + detalhe + form de lead
 phase: F1
 task_ref: T1.12
-status: review
+status: done
 priority: high
 estimated_size: L
-agent_id: claude-code
-claimed_at: 2026-05-12T00:00:00Z
-completed_at: 2026-05-12T03:00:00Z
-pr_url: null
+agent_id: frontend-engineer
+claimed_at: 2026-05-12T16:40:00Z
+completed_at: 2026-05-12T17:05:00Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/32
 depends_on: [F1-S08, F1-S11]
 blocks: []
 source_docs:
