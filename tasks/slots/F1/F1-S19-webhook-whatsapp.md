@@ -3,13 +3,13 @@ id: F1-S19
 title: Webhook WhatsApp — entrada + idempotência + persistência
 phase: F1
 task_ref: T1.19
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: claude-code
 claimed_at: '2026-05-12T00:00:00Z'
 completed_at: '2026-05-12T01:45:00Z'
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/20
 depends_on: [F1-S15]
 blocks: []
 source_docs:

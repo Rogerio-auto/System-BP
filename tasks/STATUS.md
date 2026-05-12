@@ -9,7 +9,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F1   | 26    | 4   | 14  | 0   | 0   | 0   | 8   |
+| F1   | 26    | 1   | 14  | 0   | 0   | 0   | 11  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
@@ -45,14 +45,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S13 | Schema kanban + service de transições válidas                                           | ⏸️ blocked   | high       | F1-S04, F1-S09                 |
 | F1-S14 | Frontend Kanban (board + detalhe modal)                                                 | ⏸️ blocked   | medium     | F1-S08, F1-S13                 |
 | F1-S15 | Outbox — schema + emit() + worker outbox-publisher                                      | ✅ done      | critical   | F0-S04                         |
-| F1-S16 | Audit logs — schema + helper auditLog()                                                 | 🟢 available | high       | F1-S01                         |
+| F1-S16 | Audit logs — schema + helper auditLog()                                                 | ✅ done      | high       | F1-S01                         |
 | F1-S17 | Pipeline de importação genérico (com adapter de leads)                                  | ⏸️ blocked   | high       | F1-S11, F1-S15                 |
 | F1-S18 | Frontend importação — wizard 4 passos                                                   | ⏸️ blocked   | medium     | F1-S17                         |
-| F1-S19 | Webhook WhatsApp — entrada + idempotência + persistência                                | 🟢 available | high       | F1-S15                         |
+| F1-S19 | Webhook WhatsApp — entrada + idempotência + persistência                                | ✅ done      | high       | F1-S15                         |
 | F1-S20 | Cliente HTTP Chatwoot                                                                   | 🟢 available | medium     | F0-S03                         |
 | F1-S21 | Webhook Chatwoot — entrada + idempotência                                               | ⏸️ blocked   | medium     | F1-S20, F1-S15                 |
 | F1-S22 | Sync de atributos do Chatwoot (handler de eventos)                                      | ⏸️ blocked   | medium     | F1-S20, F1-S15, F1-S11         |
-| F1-S23 | Feature flags — schema + admin UI + middleware backend + hook frontend                  | 🟢 available | high       | F1-S04                         |
+| F1-S23 | Feature flags — schema + admin UI + middleware backend + hook frontend                  | ✅ done      | high       | F1-S04                         |
 | F1-S24 | LGPD baseline — cifração de PII em coluna + hash HMAC + Pino redact                     | ⏸️ blocked   | critical   | F1-S01, F1-S09                 |
 | F1-S25 | LGPD — direitos do titular (acesso/portabilidade/revogação/correção) + jobs de retenção | ⏸️ blocked   | high       | F1-S16, F1-S15, F1-S24         |
 | F1-S26 | LGPD — DLP no pipeline LangGraph (mascaramento antes do gateway OpenRouter)             | ⏸️ blocked   | critical   | F0-S06                         |
