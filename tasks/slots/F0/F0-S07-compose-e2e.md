@@ -3,11 +3,11 @@ id: F0-S07
 title: docker-compose — validação ponta a ponta
 phase: F0
 task_ref: T0.2
-status: available
+status: in-progress
 priority: high
 estimated_size: S
-agent_id: null
-claimed_at: null
+agent_id: backend-engineer
+claimed_at: 2026-05-11T00:00:00Z
 completed_at: null
 pr_url: null
 depends_on: [F0-S03, F0-S04, F0-S05, F0-S06]
