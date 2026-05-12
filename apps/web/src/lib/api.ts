@@ -2,7 +2,7 @@
 // lib/api.ts — HTTP client canônico do frontend.
 //
 // Responsabilidades:
-//   - Base URL via env (VITE_API_URL, default http://localhost:3000)
+//   - Base URL via env (VITE_API_URL, default http://localhost:3333)
 //   - credentials: 'include' em toda requisição (cookies httpOnly)
 //   - Interceptor 401 → tenta POST /api/auth/refresh 1× → retry original
 //   - Se refresh falhar → limpa store + redireciona /login
@@ -18,8 +18,11 @@ import type { LoginBody, LoginResponse, RefreshResponse } from '@elemento/shared
 
 import { useAuthStore } from './auth-store';
 
-// URL base — sem trailing slash
-const API_BASE = (import.meta.env['VITE_API_URL'] as string | undefined) ?? 'http://localhost:3000';
+// URL base — sem trailing slash.
+// Default 3333 alinhado ao API_PORT do backend Fastify (apps/api/src/server.ts).
+// O fallback so e usado quando VITE_API_URL nao for injetado (dev server iniciado
+// antes do envDir ser configurado em apps/web/vite.config.ts).
+const API_BASE = (import.meta.env['VITE_API_URL'] as string | undefined) ?? 'http://localhost:3333';
 
 // ─── Erros tipados ────────────────────────────────────────────────────────────
 
