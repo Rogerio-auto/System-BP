@@ -1,5 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import * as React from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+
+import { LoginPage } from './features/auth/LoginPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -7,25 +10,16 @@ const queryClient = new QueryClient({
   },
 });
 
-function PlaceholderHome(): JSX.Element {
-  return (
-    <main className="min-h-screen flex items-center justify-center">
-      <div className="text-center space-y-3">
-        <p className="text-xs uppercase tracking-[0.2em] text-ink-400">Manager Banco do Povo</p>
-        <h1 className="font-display text-4xl text-ink-50">Em construção.</h1>
-        <p className="text-ink-300">Frontend bootstrapped — aguardando tasks de UI.</p>
-      </div>
-    </main>
-  );
-}
-
-export function App(): JSX.Element {
+export function App(): React.JSX.Element {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<PlaceholderHome />} />
-          <Route path="*" element={<PlaceholderHome />} />
+          {/* Raiz redireciona para /login (AuthGuard chegará em F1-S08) */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<LoginPage />} />
+          {/* Catch-all — envia para login enquanto não há guard */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

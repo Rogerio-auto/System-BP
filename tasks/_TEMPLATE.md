@@ -19,33 +19,44 @@ source_docs:
 # <SLOT-ID> — <Título>
 
 ## Objetivo
+
 Uma frase clara explicando o resultado pretendido em termos de capacidade entregue (não em termos de "criar arquivo X").
 
 ## Contexto
+
 Por que este slot existe, o que ele desbloqueia, qual o trecho da doc que o origina.
 
 ## Escopo (faz)
+
 - Bullet 1 — ação concreta.
 - Bullet 2 — ação concreta.
 
 ## Fora de escopo (NÃO faz)
+
 - Listar tudo que pode parecer relacionado mas pertence a outro slot.
 
 ## Arquivos permitidos (`files_allowed`)
+
 Caminhos que este slot pode criar ou modificar.
+
 - `apps/api/src/...`
 
 ## Arquivos proibidos (`files_forbidden`)
+
 Caminhos que NÃO podem ser tocados (mesmo se "fizer sentido").
+
 - `apps/api/src/db/schema/index.ts` (outro slot é dono)
 
 ## Contratos de entrada
+
 O que precisa existir antes (já garantido por `depends_on`, mas explicite o contrato concreto).
 
 ## Contratos de saída
+
 O que este slot DEVE entregar para os dependentes consumirem (assinaturas de funções, schemas, endpoints, eventos).
 
 ## Definition of Done
+
 - [ ] Código implementado conforme escopo
 - [ ] `pnpm typecheck` verde
 - [ ] `pnpm lint` verde
@@ -58,10 +69,12 @@ O que este slot DEVE entregar para os dependentes consumirem (assinaturas de fun
 - [ ] PR aberto com checklist preenchida e link para o slot
 
 ## Comandos de validação
+
 ```powershell
 pnpm --filter @elemento/api typecheck
 pnpm --filter @elemento/api test
 ```
 
 ## Notas para o agente
+
 - Convenções específicas, gotchas conhecidos, exemplos.

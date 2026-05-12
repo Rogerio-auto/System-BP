@@ -50,6 +50,7 @@ Abra o Claude Code na raiz e mande:
 ```
 
 O orquestrador vai:
+
 1. Ler `tasks/STATUS.md`.
 2. Filtrar por `available` + `critical`.
 3. Resolver dependências.
@@ -100,53 +101,66 @@ Ou pular o orquestrador (uso avançado, quando você sabe o especialista):
 ## 4. Debug — quando algo trava
 
 ### 4.1 O agente "não viu" o slot
+
 **Sintoma:** Pediu "implemente F1-S03" e ele inventou caminho.
 **Causa:** Sessão aberta fora da raiz do repo, ou `.claude/agents/` não foi reconhecido.
 **Fix:**
+
 ```powershell
 pwd                       # confirma raiz do repo
 claude /agents            # lista os agentes carregados
 ```
+
 Se vazio, `Stop` a sessão e reabra na raiz.
 
 ### 4.2 Agente delegou pro especialista errado
+
 **Sintoma:** Slot de schema foi pro `backend-engineer`.
 **Causa:** Description do orquestrador ambígua ou frontmatter do slot sem `task_ref` claro.
 **Fix:** Edite `.claude/agents/orchestrator.md`, seção "Delegar via Task tool", sendo mais explícito. Reabra a sessão.
 
 ### 4.3 Engineer modificou arquivo fora de `files_allowed`
+
 **Sintoma:** PR mexe em arquivo não listado.
 **Causa:** Engineer ignorou a restrição (acontece com modelos menores).
 **Fix imediato:**
+
 ```
 @security-reviewer rejeite o slot. Liste arquivos modificados fora de files_allowed e reverta os diffs nesses arquivos.
 ```
+
 **Fix preventivo:** Inclua na próxima invocação: "Listei files_allowed abaixo. NÃO toque em mais nada. Pare e pergunte se precisar."
 
 ### 4.4 Testes verdes mas comportamento errado
+
 **Sintoma:** Suite passa, mas rotinas reais falham.
 **Causa:** Testes mocaram demais.
 **Fix:**
+
 ```
 @qa-tester audite os testes do slot <id> e identifique mocks que escondem regressão. Substitua por integração real onde fizer sentido.
 ```
 
 ### 4.5 Loop infinito de "preciso de mais contexto"
+
 **Sintoma:** Agente lê 30 arquivos e não decide.
 **Causa:** Slot mal escrito, `source_docs` faltando, ou DoD vaga.
 **Fix:** Edite o slot. Recarregue a sessão. Se persistir, é problema do slot, não do agente.
 
 ### 4.6 Conflito entre dois agentes simultâneos
+
 **Sintoma:** Dois slots em paralelo tocaram no mesmo arquivo.
 **Causa:** Você não usou o `orchestrator`, despachou dois especialistas direto.
 **Fix preventivo:** Sempre via orquestrador. Ele garante que `files_allowed` não colidem.
 
 ### 4.7 OpenRouter retornando 401/403
+
 **Sintoma:** LangGraph lança erro de auth ao chamar LLM.
 **Causa:** Headers `HTTP-Referer` ou `X-Title` ausentes (OpenRouter exige).
 **Fix:** Use **sempre** `app/llm/gateway.py`. Nunca instancie `ChatOpenAI`/`ChatAnthropic` diretamente em código novo.
 
 ### 4.8 Agente alucina nome de função que não existe
+
 **Sintoma:** Importa `applyCityScope` mas o helper ainda não foi implementado.
 **Causa:** Slot de dependência (`F1-S04`) ainda é `available`, não `done`.
 **Fix:** O orquestrador deveria ter pegado isso. Se passou, edite `.claude/agents/orchestrator.md` reforçando "todos os depends_on devem estar `done` antes de delegar".
@@ -168,14 +182,14 @@ Quando algo der errado em produção, esses 4 lugares contam a história.
 
 ## 6. Convenções de comando
 
-| Você quer | Comando |
-|---|---|
-| Pegar próximo slot | `@orchestrator próximo slot critical disponível` |
-| Slot específico | `@orchestrator implemente F<n>-S<nn>` |
-| Auditar algo | `@security-reviewer audite <caminho ou slot>` |
-| Mais testes | `@qa-tester reforce cobertura do slot <id>` |
-| Decompor slot | `@orchestrator quebre F<n>-S<nn> em sub-slots` |
-| Status do board | `@orchestrator resumo do STATUS.md` |
+| Você quer             | Comando                                              |
+| --------------------- | ---------------------------------------------------- |
+| Pegar próximo slot    | `@orchestrator próximo slot critical disponível`     |
+| Slot específico       | `@orchestrator implemente F<n>-S<nn>`                |
+| Auditar algo          | `@security-reviewer audite <caminho ou slot>`        |
+| Mais testes           | `@qa-tester reforce cobertura do slot <id>`          |
+| Decompor slot         | `@orchestrator quebre F<n>-S<nn> em sub-slots`       |
+| Status do board       | `@orchestrator resumo do STATUS.md`                  |
 | Debug de slot travado | `@orchestrator slot <id> está travado, diagnostique` |
 
 ---

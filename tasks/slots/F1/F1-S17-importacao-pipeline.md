@@ -20,9 +20,11 @@ source_docs:
 # F1-S17 — Pipeline de importação
 
 ## Objetivo
+
 Pipeline genérico CSV/XLSX com 4 fases: upload → parse → validate → preview → confirm → process. Cobertura para `leads`. Worker dedicado.
 
 ## Escopo
+
 - Schemas: `import_batches`, `import_rows`.
 - Endpoints `POST /api/imports/leads` (upload), `GET /api/imports/:id/preview`, `POST /api/imports/:id/confirm`.
 - Worker `import-processor`.
@@ -32,6 +34,7 @@ Pipeline genérico CSV/XLSX com 4 fases: upload → parse → validate → previ
 - Limite de tamanho, MIME validation.
 
 ## Definition of Done
+
 - [ ] Importar 100 leads CSV ponta a ponta
 - [ ] Preview mostra válidas/inválidas com erros claros
 - [ ] Idempotência por hash do arquivo

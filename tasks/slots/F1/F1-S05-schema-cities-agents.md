@@ -20,9 +20,11 @@ source_docs:
 # F1-S05 — Schema cities + agents
 
 ## Objetivo
+
 Tabelas `cities` (com `aliases text[]` para fuzzy match) e `agents` (operadores humanos), com índices `pg_trgm` em `name_normalized` e seed das cidades de Rondônia atendidas.
 
 ## Escopo
+
 - `apps/api/src/db/schema/cities.ts` — `id, organization_id, name, name_normalized (unaccent+lower), aliases (text[]), state, is_active, ...`
 - `apps/api/src/db/schema/agents.ts` — `id, organization_id, user_id (nullable, FK), full_name, primary_city_id (FK), is_active, ...`
 - `apps/api/src/db/schema/agent_cities.ts` — `(agent_id, city_id)` PK composta (assignments multi-cidade)
@@ -30,10 +32,12 @@ Tabelas `cities` (com `aliases text[]` para fuzzy match) e `agents` (operadores 
 - Seed em `apps/api/scripts/seed-cities.ts` populando Porto Velho + cidades atendidas (lista completa em `docs/01-prd-produto.md` ou aproximação razoável — registrar fonte no PR).
 
 ## Fora de escopo
+
 - CRUD endpoints (slot F1-S06).
 - Resolução fuzzy (slot dedicado em F3 ou helper aqui se trivial).
 
 ## Arquivos permitidos
+
 - `apps/api/src/db/schema/cities.ts`
 - `apps/api/src/db/schema/agents.ts`
 - `apps/api/src/db/schema/agent_cities.ts`
@@ -42,6 +46,7 @@ Tabelas `cities` (com `aliases text[]` para fuzzy match) e `agents` (operadores 
 - `apps/api/scripts/seed-cities.ts`
 
 ## Definition of Done
+
 - [ ] Migration aplica
 - [ ] Seed popula >= 8 cidades reais
 - [ ] Aliases preenchidos (variações de grafia comuns)

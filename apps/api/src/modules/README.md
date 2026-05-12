@@ -14,6 +14,7 @@ modules/<modulo>/
 ```
 
 **Regras invioláveis**
+
 - Regra de negócio só vive em `service`.
 - `controller` apenas valida entrada e chama `service`.
 - `repository` é o único que importa Drizzle.

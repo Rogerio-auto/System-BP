@@ -20,9 +20,11 @@ source_docs:
 # F1-S15 — Outbox pattern
 
 ## Objetivo
+
 Outbox completo: schema, helper `emit(tx, event)`, worker dedicado `outbox-publisher` com `LISTEN/NOTIFY`, idempotência por `(event_id, handler_name)`, DLQ após N tentativas.
 
 ## Escopo
+
 - Schemas: `event_outbox`, `event_processing_logs`, `event_dlq`.
 - `apps/api/src/events/types.ts` — discriminated union dos eventos do sistema.
 - `apps/api/src/events/emit.ts` — `emit(tx: DrizzleTx, event: AppEvent): Promise<void>`.
@@ -36,6 +38,7 @@ Outbox completo: schema, helper `emit(tx, event)`, worker dedicado `outbox-publi
 - Testes de idempotência e DLQ.
 
 ## Arquivos permitidos
+
 - `apps/api/src/db/schema/events.ts`
 - `apps/api/src/db/migrations/000X_*.sql`
 - `apps/api/src/events/**`
@@ -44,6 +47,7 @@ Outbox completo: schema, helper `emit(tx, event)`, worker dedicado `outbox-publi
 - `apps/api/package.json` (script `worker:outbox`)
 
 ## Definition of Done
+
 - [ ] Emit + worker testados em integração
 - [ ] Idempotência por `(event_id, handler)`
 - [ ] DLQ funcional

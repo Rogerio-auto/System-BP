@@ -20,9 +20,11 @@ source_docs:
 # F1-S09 — Schema leads/customers/history/interactions
 
 ## Objetivo
+
 Schemas Drizzle do core do CRM com índices, constraints, dedupe por telefone.
 
 ## Escopo
+
 - `leads` — `id, organization_id, city_id, agent_id?, name, phone_e164, phone_normalized, source, status, last_simulation_id?, ...`
 - `customers` — `id, organization_id, primary_lead_id, ...`
 - `lead_history` — append-only, `lead_id, action, before, after, actor_user_id, created_at`
@@ -31,6 +33,7 @@ Schemas Drizzle do core do CRM com índices, constraints, dedupe por telefone.
 - Índice trgm em `name`.
 
 ## Definition of Done
+
 - [ ] Migration aplica
 - [ ] Constraints únicas testadas (criar duplicado falha)
 - [ ] PR aberto

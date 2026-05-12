@@ -26,7 +26,7 @@ jobs:
           POSTGRES_USER: elemento
           POSTGRES_PASSWORD: elemento
           POSTGRES_DB: elemento_test
-        ports: ["5432:5432"]
+        ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U elemento"
           --health-interval 10s --health-timeout 5s --health-retries 5

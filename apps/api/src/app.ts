@@ -21,7 +21,10 @@ export async function buildApp(): Promise<FastifyInstance> {
       level: env.LOG_LEVEL,
       transport:
         env.NODE_ENV === 'development'
-          ? { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss.l', ignore: 'pid,hostname' } }
+          ? {
+              target: 'pino-pretty',
+              options: { translateTime: 'HH:MM:ss.l', ignore: 'pid,hostname' },
+            }
           : undefined,
     },
     disableRequestLogging: false,

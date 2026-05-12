@@ -21,9 +21,11 @@ source_docs:
 # F1-S01 — Schema base de identidade
 
 ## Objetivo
+
 Schema Drizzle e migration aplicada com todas as tabelas de identidade, índices, FKs e seed inicial (org default + 1 admin com senha forte gerada e logada uma única vez).
 
 ## Escopo
+
 - Em `apps/api/src/db/schema/`:
   - `organizations.ts` — `id, slug, name, created_at, updated_at`
   - `users.ts` — `id, organization_id, email (citext unique), password_hash, name, status, created_at, updated_at, deleted_at`
@@ -42,11 +44,13 @@ Schema Drizzle e migration aplicada com todas as tabelas de identidade, índices
   - 1 user admin com senha forte aleatória (logada **apenas** no stdout do seed)
 
 ## Fora de escopo
+
 - Cidades (slot F1-S05).
 - Endpoints de auth (slot F1-S03).
 - UI (slot F1-S08).
 
 ## Arquivos permitidos
+
 - `apps/api/src/db/schema/organizations.ts`
 - `apps/api/src/db/schema/users.ts`
 - `apps/api/src/db/schema/roles.ts`
@@ -61,10 +65,12 @@ Schema Drizzle e migration aplicada com todas as tabelas de identidade, índices
 - `apps/api/package.json` — adicionar script `db:seed`
 
 ## Contratos de saída
+
 - Tipos derivados disponíveis para os repositories (`InferSelectModel<typeof users>` etc).
 - `pnpm db:seed` cria org + roles + admin idempotentemente.
 
 ## Definition of Done
+
 - [ ] Migration aplica em DB limpo
 - [ ] Seed idempotente (rodar 2x não duplica)
 - [ ] Constraints únicas verificadas (`email`, `slug`)
@@ -73,6 +79,7 @@ Schema Drizzle e migration aplicada com todas as tabelas de identidade, índices
 - [ ] PR aberto
 
 ## Validação
+
 ```powershell
 docker compose up -d postgres
 pnpm --filter @elemento/api db:migrate

@@ -20,9 +20,11 @@ source_docs:
 # F1-S04 — Middlewares authenticate + authorize
 
 ## Objetivo
+
 Decoradores Fastify `authenticate()` e `authorize({ permissions, scope })` que toda rota protegida usa. Repository helpers para injetar filtro de cidade automaticamente.
 
 ## Escopo
+
 - `apps/api/src/modules/auth/middlewares/authenticate.ts` — valida JWT, popula `request.user` com `{ id, organization_id, role, city_scope_ids[] }`.
 - `apps/api/src/modules/auth/middlewares/authorize.ts` — valida que `request.user` tem todas as permissões pedidas.
 - `apps/api/src/shared/scope.ts` — helper `applyCityScope(qb, request.user, columnRef)` para repositories.
@@ -30,17 +32,20 @@ Decoradores Fastify `authenticate()` e `authorize({ permissions, scope })` que t
 - Testes: 401 sem token, 401 token inválido, 403 sem permissão, 404 fora de escopo (não vaza existência).
 
 ## Arquivos permitidos
+
 - `apps/api/src/modules/auth/middlewares/**`
 - `apps/api/src/shared/scope.ts`
 - `apps/api/src/shared/fastify.d.ts` (augmentation)
 
 ## Contratos de saída
+
 ```ts
 // Uso em rotas:
 app.get('/leads', { preHandler: [authenticate(), authorize({ permissions: ['leads:read'], scope: 'city' })] }, ...)
 ```
 
 ## Definition of Done
+
 - [ ] Testes positivos e negativos cobrem 401/403/404
 - [ ] `request.user` tipado corretamente
 - [ ] `applyCityScope` testado com role admin (bypass) e role agente (filtra)
