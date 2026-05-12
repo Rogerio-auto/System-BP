@@ -77,6 +77,8 @@ export function authenticate(): preHandlerHookHandler {
           event: 'authn.failed',
           reason: 'user_inactive_or_deleted',
           user_id: tokenPayload.sub,
+          ip: request.ip,
+          ua: request.headers['user-agent'],
           url: request.url,
         },
         'authentication failed: user inactive or deleted',
@@ -84,10 +86,28 @@ export function authenticate(): preHandlerHookHandler {
       throw new UnauthorizedError('Usuário inativo ou não encontrado');
     }
 
+    // 3.5. Cross-check: org do JWT precisa bater com org do usuário no banco.
+    //      Defesa contra token mal emitido / replay cross-tenant (LGPD doc 10 §3.5).
+    if (userCtx.organizationId !== tokenPayload.org) {
+      request.log.warn(
+        {
+          event: 'authn.failed',
+          reason: 'org_mismatch',
+          user_id: tokenPayload.sub,
+          token_org: tokenPayload.org,
+          db_org: userCtx.organizationId,
+          ip: request.ip,
+          url: request.url,
+        },
+        'authentication failed: org mismatch between token and db',
+      );
+      throw new UnauthorizedError('Token inválido para esta organização');
+    }
+
     // 4. Popular request.user — tipagem garantida por fastify.d.ts (F1-S04)
     request.user = {
       id: tokenPayload.sub,
-      organizationId: tokenPayload.org,
+      organizationId: userCtx.organizationId,
       permissions: userCtx.permissions,
       cityScopeIds: userCtx.cityScopeIds,
     };

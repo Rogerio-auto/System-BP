@@ -97,29 +97,27 @@ async function queryUserCityScopeIds(db: Database, userId: string): Promise<stri
 export async function loadUserAuthContext(
   db: Database,
   userId: string,
-): Promise<UserAuthContext | null> {
-  // Early-exit: verificar status antes de carregar o resto
+): Promise<(UserAuthContext & { organizationId: string }) | null> {
+  // Early-exit: status + organizationId numa só query
   const statusRows = await db
-    .select({ status: users.status })
+    .select({ status: users.status, organizationId: users.organizationId })
     .from(users)
     .where(and(eq(users.id, userId), isNull(users.deletedAt)))
     .limit(1);
 
-  // noUncheckedIndexedAccess: statusRows[0] pode ser undefined
   const userRow = statusRows[0];
   if (!userRow || userRow.status !== 'active') return null;
 
-  // Carregar contexto de autorização em paralelo
   const [userPermissions, roleKeys, cityScopeIds] = await Promise.all([
     queryUserPermissions(db, userId),
     queryUserRoleKeys(db, userId),
     queryUserCityScopeIds(db, userId),
   ]);
 
-  // Roles globais ignoram filtragem por cidade (null = sem filtro)
   const hasGlobalScope = roleKeys.some((k) => GLOBAL_SCOPE_ROLES.has(k));
 
   return {
+    organizationId: userRow.organizationId,
     permissions: userPermissions,
     cityScopeIds: hasGlobalScope ? null : cityScopeIds,
   };
