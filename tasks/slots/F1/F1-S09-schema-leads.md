@@ -3,7 +3,7 @@ id: F1-S09
 title: Schema leads + customers + history + interactions
 phase: F1
 task_ref: T1.9
-status: blocked
+status: available
 priority: critical
 estimated_size: M
 agent_id: null

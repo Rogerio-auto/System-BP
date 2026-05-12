@@ -3,7 +3,7 @@ id: F1-S26
 title: LGPD — DLP no pipeline LangGraph (mascaramento antes do gateway OpenRouter)
 phase: F1
 task_ref: LGPD §8.4 §13
-status: blocked
+status: available
 priority: critical
 estimated_size: M
 agent_id: null
