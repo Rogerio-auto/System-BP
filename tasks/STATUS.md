@@ -9,7 +9,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F1   | 27    | 2   | 3   | 0   | 0   | 1   | 21  |
+| F1   | 27    | 2   | 3   | 0   | 0   | 0   | 22  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
@@ -41,7 +41,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S09 | Schema leads + customers + history + interactions                                       | ✅ done      | critical   | F1-S01, F1-S05                 |
 | F1-S10 | Helper de normalização de telefone (E.164 BR)                                           | ✅ done      | high       | —                              |
 | F1-S11 | CRUD leads (manual) com escopo de cidade + dedupe + eventos                             | ✅ done      | critical   | F1-S04, F1-S09, F1-S10, F1-S15 |
-| F1-S12 | Frontend CRM — lista + detalhe + form de lead                                           | 🟢 available | high       | F1-S08, F1-S11                 |
+| F1-S12 | Frontend CRM — lista + detalhe + form de lead                                           | ✅ done      | high       | F1-S08, F1-S11                 |
 | F1-S13 | Schema kanban + service de transições válidas                                           | ✅ done      | high       | F1-S04, F1-S09                 |
 | F1-S14 | Frontend Kanban (board + detalhe modal)                                                 | ✅ done      | medium     | F1-S08, F1-S13                 |
 | F1-S15 | Outbox — schema + emit() + worker outbox-publisher                                      | ✅ done      | critical   | F0-S04                         |
@@ -51,7 +51,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S19 | Webhook WhatsApp — entrada + idempotência + persistência                                | ✅ done      | high       | F1-S15                         |
 | F1-S20 | Cliente HTTP Chatwoot                                                                   | ✅ done      | medium     | F0-S03                         |
 | F1-S21 | Webhook Chatwoot — entrada + idempotência                                               | ⏸️ blocked   | medium     | F1-S20, F1-S15                 |
-| F1-S22 | Sync de atributos do Chatwoot (handler de eventos)                                      | 🟣 review    | medium     | F1-S20, F1-S15, F1-S11         |
+| F1-S22 | Sync de atributos do Chatwoot (handler de eventos)                                      | 🟢 available | medium     | F1-S20, F1-S15, F1-S11         |
 | F1-S23 | Feature flags — schema + admin UI + middleware backend + hook frontend                  | ✅ done      | high       | F1-S04                         |
 | F1-S24 | LGPD baseline — cifração de PII em coluna + hash HMAC + Pino redact                     | ✅ done      | critical   | F1-S01, F1-S09                 |
 | F1-S25 | LGPD — direitos do titular (acesso/portabilidade/revogação/correção) + jobs de retenção | ✅ done      | high       | F1-S16, F1-S15, F1-S24         |

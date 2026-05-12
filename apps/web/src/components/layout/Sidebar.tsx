@@ -79,6 +79,22 @@ function IconAnalise(): React.JSX.Element {
   );
 }
 
+function IconCrm(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      <path d="M13 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+      <path d="M7 10a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" />
+      <path d="M1 17c0-2.8 2.69-5 6-5h6c3.31 0 6 2.2 6 5" />
+    </svg>
+  );
+}
+
 function IconContratos(): React.JSX.Element {
   return (
     <svg
@@ -133,6 +149,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     heading: 'Operações',
     items: [
+      { href: '/crm', label: 'CRM', icon: <IconCrm /> },
       { href: '/leads', label: 'Leads', icon: <IconLeads /> },
       { href: '/analise', label: 'Análise', icon: <IconAnalise /> },
       { href: '/contratos', label: 'Contratos', icon: <IconContratos /> },
