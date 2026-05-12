@@ -9,7 +9,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F1   | 26    | 0   | 14  | 0   | 0   | 1   | 11  |
+| F1   | 26    | 0   | 14  | 0   | 0   | 0   | 12  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
@@ -49,7 +49,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S17 | Pipeline de importação genérico (com adapter de leads)                                  | ⏸️ blocked | high       | F1-S11, F1-S15                 |
 | F1-S18 | Frontend importação — wizard 4 passos                                                   | ⏸️ blocked | medium     | F1-S17                         |
 | F1-S19 | Webhook WhatsApp — entrada + idempotência + persistência                                | ✅ done    | high       | F1-S15                         |
-| F1-S20 | Cliente HTTP Chatwoot                                                                   | 🟣 review  | medium     | F0-S03                         |
+| F1-S20 | Cliente HTTP Chatwoot                                                                   | ✅ done    | medium     | F0-S03                         |
 | F1-S21 | Webhook Chatwoot — entrada + idempotência                                               | ⏸️ blocked | medium     | F1-S20, F1-S15                 |
 | F1-S22 | Sync de atributos do Chatwoot (handler de eventos)                                      | ⏸️ blocked | medium     | F1-S20, F1-S15, F1-S11         |
 | F1-S23 | Feature flags — schema + admin UI + middleware backend + hook frontend                  | ✅ done    | high       | F1-S04                         |

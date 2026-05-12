@@ -3,13 +3,13 @@ id: F1-S20
 title: Cliente HTTP Chatwoot
 phase: F1
 task_ref: T1.20
-status: review
+status: done
 priority: medium
 estimated_size: M
-agent_id: null
-claimed_at: null
+agent_id: backend-engineer
+claimed_at: 2026-05-12T05:55:00Z
 completed_at: 2026-05-12T06:06:31Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/22
 depends_on: [F0-S03]
 blocks: [F1-S21, F1-S22]
 source_docs:
