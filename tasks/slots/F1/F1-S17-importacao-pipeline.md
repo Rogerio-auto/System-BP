@@ -3,13 +3,13 @@ id: F1-S17
 title: Pipeline de importação genérico (com adapter de leads)
 phase: F1
 task_ref: T1.17
-status: review
+status: done
 priority: high
 estimated_size: L
-agent_id: claude-code
+agent_id: backend-engineer
 claimed_at: 2026-05-12T16:45:47Z
-completed_at: 2026-05-12T17:43:33Z
-pr_url: null
+completed_at: 2026-05-12T17:46:00Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/35
 depends_on: [F1-S11, F1-S15]
 blocks: [F1-S18]
 source_docs:
