@@ -3,6 +3,7 @@
 // =============================================================================
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import sensible from '@fastify/sensible';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -16,6 +17,7 @@ import { env } from './config/env.js';
 import { adminDlqRoutes } from './modules/admin/dlq.routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { importsRoutes } from './modules/imports/routes.js';
 import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/routes.js';
 import { kanbanRoutes } from './modules/kanban/routes.js';
 import { leadsRoutes } from './modules/leads/routes.js';
@@ -94,6 +96,9 @@ export async function buildApp(): Promise<FastifyInstance> {
     timeWindow: '1 minute',
   });
   await app.register(sensible);
+  await app.register(multipart, {
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  });
 
   await app.register(healthRoutes);
   await app.register(featureFlagsRoutes);
@@ -104,6 +109,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(usersRoutes);
   // LGPD — direitos do titular (F1-S25)
   await app.register(dataSubjectRoutes);
+  // Importações pipeline (F1-S17)
+  await app.register(importsRoutes);
   // Admin — Dead-Letter Queue (F1-S22)
   await app.register(adminDlqRoutes);
 

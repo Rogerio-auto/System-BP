@@ -313,6 +313,25 @@ export interface ImportBatchData {
   error_count?: number;
 }
 
+/** Emitido após upload bem-sucedido do arquivo (F1-S17). */
+export interface ImportUploadedData {
+  batch_id: string;
+  entity_type: string;
+  total_rows: number;
+}
+
+/** Emitido quando o usuário confirma o batch para processamento (F1-S17). */
+export interface ImportConfirmedData {
+  batch_id: string;
+}
+
+/** Emitido quando o worker conclui o processamento do batch (F1-S17). */
+export interface ImportCompletedData {
+  batch_id: string;
+  success_count: number;
+  failure_count: number;
+}
+
 // --- Domínio: feature flags ---
 
 export interface FeatureFlagChangedData {
@@ -448,6 +467,9 @@ export interface AppEventDataMap {
   'import.batch_validated': ImportBatchData;
   'import.batch_completed': ImportBatchData;
   'import.batch_failed': ImportBatchData;
+  'import.uploaded': ImportUploadedData;
+  'import.confirmed': ImportConfirmedData;
+  'import.completed': ImportCompletedData;
   'feature_flag.changed': FeatureFlagChangedData;
   'user.created': UserEventData;
   'user.role_assigned': UserRoleAssignedData;
