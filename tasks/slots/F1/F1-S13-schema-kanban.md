@@ -3,7 +3,7 @@ id: F1-S13
 title: Schema kanban + service de transições válidas
 phase: F1
 task_ref: T1.13
-status: blocked
+status: available
 priority: high
 estimated_size: M
 agent_id: null

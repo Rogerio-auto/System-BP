@@ -3,13 +3,13 @@ id: F1-S26
 title: LGPD — DLP no pipeline LangGraph (mascaramento antes do gateway OpenRouter)
 phase: F1
 task_ref: LGPD §8.4 §13
-status: review
+status: done
 priority: critical
 estimated_size: M
-agent_id: claude-code
+agent_id: python-engineer
 claimed_at: 2026-05-12T14:58:08Z
 completed_at: 2026-05-12T15:17:22Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/24
 depends_on: [F0-S06]
 blocks: []
 labels: [lgpd-impact]

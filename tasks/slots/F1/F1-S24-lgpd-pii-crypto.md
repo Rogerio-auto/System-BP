@@ -3,7 +3,7 @@ id: F1-S24
 title: LGPD baseline — cifração de PII em coluna + hash HMAC + Pino redact
 phase: F1
 task_ref: LGPD §3.4 §8.1 §8.3
-status: blocked
+status: available
 priority: critical
 estimated_size: M
 agent_id: null

@@ -3,7 +3,7 @@ id: F1-S07
 title: CRUD users + assign roles + city scopes
 phase: F1
 task_ref: T1.8
-status: blocked
+status: available
 priority: high
 estimated_size: M
 agent_id: null
