@@ -22,17 +22,12 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, '
  * - Erro: border --danger + ring rosa
  * - Disabled: opacity 50%, cursor not-allowed
  * Sempre encapsula label semântica + campo + hint/error.
+ * Suporta ref forwarding para integração com react-hook-form.
  */
-export function Input({
-  id,
-  label,
-  error,
-  hint,
-  required,
-  className,
-  wrapperClassName,
-  ...props
-}: InputProps): React.JSX.Element {
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
+  { id, label, error, hint, required, className, wrapperClassName, ...props },
+  ref,
+) {
   const hasError = Boolean(error);
 
   return (
@@ -44,6 +39,7 @@ export function Input({
       )}
 
       <input
+        ref={ref}
         id={id}
         aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
         aria-invalid={hasError || undefined}
@@ -90,4 +86,4 @@ export function Input({
       ) : null}
     </div>
   );
-}
+});

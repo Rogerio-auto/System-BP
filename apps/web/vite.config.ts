@@ -5,6 +5,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
+  // Lê variáveis VITE_* do .env na raiz do monorepo
+  envDir: path.resolve(__dirname, '../..'),
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
