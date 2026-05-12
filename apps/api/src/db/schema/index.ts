@@ -20,3 +20,7 @@ export * from './agent_cities';
 
 // Outbox pattern (F1-S15)
 export * from './events.js';
+
+// WhatsApp webhook (F1-S19)
+export * from './whatsappMessages.js';
+export * from './idempotencyKeys.js';
