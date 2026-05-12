@@ -3,11 +3,11 @@ id: F1-S12
 title: Frontend CRM — lista + detalhe + form de lead
 phase: F1
 task_ref: T1.12
-status: available
+status: in-progress
 priority: high
 estimated_size: L
-agent_id: null
-claimed_at: null
+agent_id: claude-code
+claimed_at: 2026-05-12T00:00:00Z
 completed_at: null
 pr_url: null
 depends_on: [F1-S08, F1-S11]
