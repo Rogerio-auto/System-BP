@@ -96,3 +96,14 @@ CREATE INDEX IF NOT EXISTS "idx_chatwoot_events_unprocessed"
   ON "chatwoot_events" ("received_at" ASC)
   WHERE "processed_at" IS NULL;
 --> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
+-- PREREQUISITE: org sentinela
+-- ---------------------------------------------------------------------------
+-- A FK em organization_id exige que exista pelo menos uma row em `organizations`
+-- antes de o primeiro webhook ser recebido.
+-- Em ambiente de desenvolvimento, execute o seed:
+--   pnpm --filter @elemento/api db:seed
+-- Em produção, a organização é criada no onboarding e o webhook só é ativado
+-- após a configuração do CHATWOOT_WEBHOOK_HMAC_SECRET (ver .env.example).
+-- ---------------------------------------------------------------------------

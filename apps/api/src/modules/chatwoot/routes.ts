@@ -18,9 +18,15 @@
 //   - Outbox não carrega PII — apenas IDs (garantido pelo service).
 //
 // Rate limit:
-//   Webhooks legítimos do Chatwoot vêm de IP fixo. O rate limit global do app
-//   (100 req/min) é suficiente para uso normal. Não adicionamos rate limit
-//   específico para não penalizar picos legítimos de mensagens em lote.
+//   Override local: 600 req/min (vs. 100 global). Chatwoot em produção pode
+//   chegar via NAT/proxy com IP compartilhado e dar burst em conversas ativas.
+//   O rate limit global penalizaria webhooks legítimos; o override garante
+//   headroom sem expor a rota ao abuso (HMAC valida antes de qualquer lógica).
+//
+// Body limit:
+//   1 MB explícito (mesmo valor do default global Fastify). Chatwoot raramente
+//   excede alguns KB por evento, mas fixar evita dependência silenciosa do
+//   default global caso ele seja alterado futuramente.
 //
 // Nota sobre rawBody:
 //   O Fastify parseia o body antes dos hooks de rota. Para validar HMAC,
@@ -69,6 +75,27 @@ export const chatwootWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post(
     '/api/webhooks/chatwoot',
     {
+      // -----------------------------------------------------------------------
+      // Body limit explícito: 1 MB.
+      // Chatwoot raramente excede alguns KB por evento (texto + metadados).
+      // Declarado explicitamente para não depender silenciosamente do default
+      // global do Fastify (atualmente 1 MB, mas pode mudar entre versões).
+      // -----------------------------------------------------------------------
+      bodyLimit: 1 * 1024 * 1024,
+
+      // -----------------------------------------------------------------------
+      // Rate limit dedicado: 600 req/min por IP.
+      // Override do global (100/min) — Chatwoot em produção pode compartilhar
+      // IP via NAT/proxy e dar burst legítimo em conversas ativas. A autenticação
+      // HMAC mitiga o risco de abuso real nesta rota.
+      // -----------------------------------------------------------------------
+      config: {
+        rateLimit: {
+          max: 600,
+          timeWindow: '1 minute',
+        },
+      },
+
       schema: {
         // body não declarado aqui: o content parser retorna { parsed, raw }
         // e a validação Zod do payload real ocorre no service.
