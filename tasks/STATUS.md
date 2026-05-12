@@ -9,7 +9,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F1   | 26    | 6   | 14  | 0   | 0   | 1   | 5   |
+| F1   | 26    | 4   | 14  | 0   | 0   | 3   | 5   |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
@@ -33,7 +33,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S01 | Schema identidade — orgs, users, roles, permissions, sessions, city scopes              | ✅ done      | critical   | F0-S04                         |
 | F1-S02 | Helpers de erro e resposta padronizados                                                 | ✅ done      | high       | F0-S03                         |
 | F1-S03 | Auth — login, refresh, logout                                                           | ✅ done      | critical   | F1-S01, F1-S02                 |
-| F1-S04 | Middlewares authenticate + authorize com escopo de cidade                               | 🟢 available | critical   | F1-S03                         |
+| F1-S04 | Middlewares authenticate + authorize com escopo de cidade                               | 🟣 review    | critical   | F1-S03                         |
 | F1-S05 | Schema cities + agents + seed cidades de Rondônia                                       | ✅ done      | high       | F1-S01                         |
 | F1-S06 | CRUD cities (admin)                                                                     | ⏸️ blocked   | medium     | F1-S04, F1-S05                 |
 | F1-S07 | CRUD users + assign roles + city scopes                                                 | ⏸️ blocked   | high       | F1-S04, F1-S05                 |
@@ -44,7 +44,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S12 | Frontend CRM — lista + detalhe + form de lead                                           | ⏸️ blocked   | high       | F1-S08, F1-S11                 |
 | F1-S13 | Schema kanban + service de transições válidas                                           | ⏸️ blocked   | high       | F1-S04, F1-S09                 |
 | F1-S14 | Frontend Kanban (board + detalhe modal)                                                 | ⏸️ blocked   | medium     | F1-S08, F1-S13                 |
-| F1-S15 | Outbox — schema + emit() + worker outbox-publisher                                      | 🟢 available | critical   | F0-S04                         |
+| F1-S15 | Outbox — schema + emit() + worker outbox-publisher                                      | 🟣 review    | critical   | F0-S04                         |
 | F1-S16 | Audit logs — schema + helper auditLog()                                                 | 🟢 available | high       | F1-S01                         |
 | F1-S17 | Pipeline de importação genérico (com adapter de leads)                                  | ⏸️ blocked   | high       | F1-S11, F1-S15                 |
 | F1-S18 | Frontend importação — wizard 4 passos                                                   | ⏸️ blocked   | medium     | F1-S17                         |
