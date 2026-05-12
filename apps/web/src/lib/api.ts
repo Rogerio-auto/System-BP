@@ -146,25 +146,33 @@ async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
 
   // ── Interceptor 401 ─────────────────────────────────────────────────────
   if (res.status === 401 && !_isRetry) {
+    // Tenta refresh isoladamente — se o refresh falhar a sessão expirou.
+    // Erros da requisição original APÓS refresh bem-sucedido devem propagar
+    // normalmente (403, 404, 409 etc) — não disparar logout.
+    let newToken: string;
     try {
-      const newToken = await doRefresh();
-      useAuthStore.getState().setAccessToken(newToken);
-      headers['Authorization'] = `Bearer ${newToken}`;
-      const retryRes = await fetch(`${API_BASE}${path}`, {
-        ...rest,
-        method,
-        headers,
-        credentials: 'include',
-      });
-      if (!retryRes.ok) {
-        await throwFromResponse(retryRes);
-      }
-      return retryRes.json() as Promise<T>;
+      newToken = await doRefresh();
     } catch {
       useAuthStore.getState().clear();
       window.location.replace('/login');
       throw new ApiError(401, 'SESSION_EXPIRED', 'Sessão expirada. Faça login novamente.');
     }
+
+    useAuthStore.getState().setAccessToken(newToken);
+    headers['Authorization'] = `Bearer ${newToken}`;
+    const retryRes = await fetch(`${API_BASE}${path}`, {
+      ...rest,
+      method,
+      headers,
+      credentials: 'include',
+    });
+    if (!retryRes.ok) {
+      await throwFromResponse(retryRes);
+    }
+    if (retryRes.status === 204) {
+      return undefined as unknown as T;
+    }
+    return retryRes.json() as Promise<T>;
   }
 
   if (!res.ok) {

@@ -5,12 +5,12 @@ import { cn } from '../../lib/cn';
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type ButtonVariant =
-  | 'primary'    // bg: --grad-azul, hover: lift + glow-azul
-  | 'secondary'  // bg: --grad-verde, hover: lift + glow-verde
-  | 'accent'     // bg: --grad-amarelo, texto azul-deep
-  | 'outline'    // fundo surface-1, borda strong
-  | 'ghost'      // transparente, hover bg surface-hover
-  | 'danger';    // bg: --danger
+  | 'primary' // bg: --grad-azul, hover: lift + glow-azul
+  | 'secondary' // bg: --grad-verde, hover: lift + glow-verde
+  | 'accent' // bg: --grad-amarelo, texto azul-deep
+  | 'outline' // fundo surface-1, borda strong
+  | 'ghost' // transparente, hover bg surface-hover
+  | 'danger'; // bg: --danger
 
 type ButtonSize = 'sm' | 'default' | 'lg';
 
@@ -73,9 +73,9 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm:      'px-[14px] py-2 text-xs',
-  default: 'px-[22px] py-3 text-sm',   // 12px 22px conforme DS §9.1
-  lg:      'px-7 py-4 text-base',      // 16px 28px
+  sm: 'px-[14px] py-2 text-xs',
+  default: 'px-[22px] py-3 text-sm', // 12px 22px conforme DS §9.1
+  lg: 'px-7 py-4 text-base', // 16px 28px
 };
 
 // ─── Componente ──────────────────────────────────────────────────────────────
@@ -106,6 +106,8 @@ export function Button({
         'rounded-sm border-none cursor-pointer',
         'relative',
         'min-h-[40px]', // WCAG área clicável mínima
+        // Foco visível (WCAG 2.4.7) — ring com cor da bandeira em tom suave
+        'outline-none focus-visible:ring-2 focus-visible:ring-azul/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)]',
         // Transições — conforme DS §8 (dur-fast, ease)
         'transition-[transform,box-shadow,background,border-color,color]',
         'duration-fast ease',
