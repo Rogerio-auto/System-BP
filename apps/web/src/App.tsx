@@ -23,7 +23,6 @@ import { CrmListPage } from './features/crm/CrmListPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
-import { KanbanPage } from './pages/kanban/KanbanPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,11 +67,12 @@ export function App(): React.JSX.Element {
               }
             >
               <Route index element={<DashboardPage />} />
-              <Route path="/kanban" element={<KanbanPage />} />
+              {/* Legacy redirects — bookmarks antigos preservados */}
+              <Route path="/kanban" element={<Navigate to="/crm?view=kanban" replace />} />
+              <Route path="/leads" element={<Navigate to="/crm" replace />} />
               <Route path="/crm" element={<CrmListPage />} />
               <Route path="/crm/:id" element={<CrmDetailPage />} />
               <Route path="/imports/leads/new" element={<ImportWizardPage />} />
-              <Route path="/leads" element={<PlaceholderPage title="Leads" />} />
               <Route path="/analise" element={<PlaceholderPage title="Análise" />} />
               <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
               <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
