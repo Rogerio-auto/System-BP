@@ -233,10 +233,7 @@ export const leads = pgTable(
      * phone_normalized: apenas dígitos, 10-15 caracteres.
      * Derivado de phone_e164 pela app (strip do '+').
      */
-    check(
-      'chk_leads_phone_normalized_format',
-      sql`${table.phoneNormalized} ~ '^\\d{10,15}$'`,
-    ),
+    check('chk_leads_phone_normalized_format', sql`${table.phoneNormalized} ~ '^\\d{10,15}$'`),
 
     // -------------------------------------------------------------------------
     // Índices
@@ -255,11 +252,7 @@ export const leads = pgTable(
      * Listagem principal do CRM: por org + status + data (pipeline view).
      * Suporta queries: "todos os leads 'new' da org X, mais recentes primeiro".
      */
-    index('idx_leads_org_status_created').on(
-      table.organizationId,
-      table.status,
-      table.createdAt,
-    ),
+    index('idx_leads_org_status_created').on(table.organizationId, table.status, table.createdAt),
 
     /**
      * Escopo multi-cidade: filtrar leads de uma cidade específica.
@@ -271,7 +264,9 @@ export const leads = pgTable(
      * Atendimentos por agente: "todos os leads atribuídos ao agente X".
      * Parcial: exclui leads sem agente para manter o índice enxuto.
      */
-    index('idx_leads_agent').on(table.agentId).where(sql`${table.agentId} IS NOT NULL`),
+    index('idx_leads_agent')
+      .on(table.agentId)
+      .where(sql`${table.agentId} IS NOT NULL`),
 
     /**
      * Busca fuzzy por nome do lead (GIN trigram).
@@ -279,7 +274,7 @@ export const leads = pgTable(
      * NOTA: gin_trgm_ops não é suportado pelo Drizzle schema — a migration SQL
      * (0007_leads_core.sql) foi ajustada manualmente com o operator class correto.
      */
-    index('idx_leads_name_trgm').on(table.name).using('gin'),
+    index('idx_leads_name_trgm').using('gin', table.name),
   ],
 );
 

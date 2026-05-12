@@ -127,10 +127,10 @@ export const cities = pgTable(
     // Requer: CREATE EXTENSION IF NOT EXISTS pg_trgm (0000_init.sql)
     // NOTA: gin_trgm_ops não é suportado nativamente pelo Drizzle — a migration
     // SQL (0002_cities_agents.sql) foi escrita manualmente com o operator class correto.
-    index('idx_cities_name_normalized_trgm').on(table.nameNormalized).using('gin'),
+    index('idx_cities_name_normalized_trgm').using('gin', table.nameNormalized),
 
     // GIN em aliases[] — lookup por variação de nome
-    index('idx_cities_aliases_gin').on(table.aliases).using('gin'),
+    index('idx_cities_aliases_gin').using('gin', table.aliases),
 
     // Unique por org+ibge_code (excluindo soft-deleted e nulos tratados separadamente)
     uniqueIndex('uq_cities_org_ibge_active')
