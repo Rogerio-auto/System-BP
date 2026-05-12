@@ -140,6 +140,53 @@ function IconConfiguracoes(): React.JSX.Element {
   );
 }
 
+function IconKanban(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      <rect x="2.5" y="3" width="4" height="14" rx="1" />
+      <rect x="8" y="3" width="4" height="9" rx="1" />
+      <rect x="13.5" y="3" width="4" height="11" rx="1" />
+    </svg>
+  );
+}
+
+function IconImports(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      <path d="M10 3v9" />
+      <path d="M6 8l4 4 4-4" />
+      <path d="M3 15v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1" />
+    </svg>
+  );
+}
+
+function IconFeatureFlags(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      <path d="M4 3v15" />
+      <path d="M4 3h11l-2.5 3.5L15 10H4" />
+    </svg>
+  );
+}
+
 // ─── Nav sections ─────────────────────────────────────────────────────────────
 
 const NAV_SECTIONS: NavSection[] = [
@@ -150,7 +197,9 @@ const NAV_SECTIONS: NavSection[] = [
     heading: 'Operações',
     items: [
       { href: '/crm', label: 'CRM', icon: <IconCrm /> },
+      { href: '/kanban', label: 'Kanban', icon: <IconKanban /> },
       { href: '/leads', label: 'Leads', icon: <IconLeads /> },
+      { href: '/imports/leads/new', label: 'Importar Leads', icon: <IconImports /> },
       { href: '/analise', label: 'Análise', icon: <IconAnalise /> },
       { href: '/contratos', label: 'Contratos', icon: <IconContratos /> },
     ],
@@ -161,6 +210,10 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/relatorios', label: 'Relatórios', icon: <IconRelatorios /> },
       { href: '/configuracoes', label: 'Configurações', icon: <IconConfiguracoes /> },
     ],
+  },
+  {
+    heading: 'Administração',
+    items: [{ href: '/admin/feature-flags', label: 'Feature Flags', icon: <IconFeatureFlags /> }],
   },
 ];
 
