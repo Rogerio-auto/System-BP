@@ -22,6 +22,7 @@
 import { and, eq } from 'drizzle-orm';
 import pg from 'pg';
 
+import { env } from '../config/env.js';
 import type { EventOutbox } from '../db/schema/events.js';
 import { eventProcessingLogs } from '../db/schema/events.js';
 import type { RegisteredHandler } from '../events/handlers.js';
@@ -103,12 +104,17 @@ type Logger = ReturnType<typeof createWorkerRuntime>['logger'];
 // Executar um handler com idempotência
 // ---------------------------------------------------------------------------
 
+type HandlerOutcome =
+  | { outcome: 'success' }
+  | { outcome: 'skipped' }
+  | { outcome: 'failed'; errorMessage: string };
+
 async function runHandler(
   db: Db,
   event: EventOutbox,
   registered: RegisteredHandler,
   logger: Logger,
-): Promise<'success' | 'failed' | 'skipped'> {
+): Promise<HandlerOutcome> {
   const startMs = Date.now();
   const { id: eventId, organizationId } = event;
   const { name: handlerName } = registered;
@@ -127,7 +133,7 @@ async function runHandler(
     const msg = insertErr instanceof Error ? insertErr.message.toLowerCase() : '';
     if (msg.includes('unique') || msg.includes('duplicate')) {
       logger.debug({ eventId, handlerName }, 'already processed — idempotency skip');
-      return 'skipped';
+      return { outcome: 'skipped' };
     }
     throw insertErr;
   }
@@ -148,7 +154,7 @@ async function runHandler(
       );
 
     logger.debug({ eventId, handlerName, durationMs }, 'handler success');
-    return 'success';
+    return { outcome: 'success' };
   } catch (handlerErr) {
     const durationMs = Date.now() - startMs;
     const errorMessage = handlerErr instanceof Error ? handlerErr.message : String(handlerErr);
@@ -164,7 +170,7 @@ async function runHandler(
       );
 
     logger.warn({ eventId, handlerName, err: handlerErr }, 'handler failed');
-    return 'failed';
+    return { outcome: 'failed', errorMessage };
   }
 }
 
@@ -207,6 +213,7 @@ async function processBatch(db: Db, pool: pg.Pool, logger: Logger): Promise<numb
     for (const event of events) {
       const handlers = getHandlers(event.eventName);
       let anyFailed = false;
+      let lastErrorMsg: string | null = null;
 
       if (handlers.length === 0) {
         // Nenhum handler registrado — marcar como processado (fan-out futuro)
@@ -216,8 +223,11 @@ async function processBatch(db: Db, pool: pg.Pool, logger: Logger): Promise<numb
         );
       } else {
         for (const registered of handlers) {
-          const outcome = await runHandler(db, event, registered, logger);
-          if (outcome === 'failed') anyFailed = true;
+          const result = await runHandler(db, event, registered, logger);
+          if (result.outcome === 'failed') {
+            anyFailed = true;
+            lastErrorMsg = result.errorMessage;
+          }
         }
       }
 
@@ -252,24 +262,33 @@ async function processBatch(db: Db, pool: pg.Pool, logger: Logger): Promise<numb
             JSON.stringify(event.payload),
             event.correlationId,
             newAttempts,
-            event.lastError,
+            lastErrorMsg ?? event.lastError,
           ],
         );
 
         await client.query(
-          'UPDATE event_outbox SET failed_at = now(), attempts = $1 WHERE id = $2',
-          [newAttempts, event.id],
+          'UPDATE event_outbox SET failed_at = now(), attempts = $1, last_error = $2 WHERE id = $3',
+          [newAttempts, lastErrorMsg ?? event.lastError, event.id],
         );
       } else {
-        // Falha parcial — incrementar attempts para próximo retry
-        const delayInfo = backoffMs(newAttempts);
+        // Falha parcial — incrementar attempts + gravar último erro p/ diagnose.
+        // Nota: o backoff efetivo é o poll interval (5s) — não há sleep aqui pois
+        // o worker já libera o batch e volta a dormir até NOTIFY/poll. backoffMs()
+        // é apenas hint informacional no log para correlacionar com retries.
+        const backoffHintMs = backoffMs(newAttempts);
         logger.warn(
-          { eventId: event.id, attempts: newAttempts, backoffMs: delayInfo },
+          {
+            eventId: event.id,
+            attempts: newAttempts,
+            lastError: lastErrorMsg,
+            backoffHintMs,
+          },
           'retry scheduled',
         );
 
-        await client.query('UPDATE event_outbox SET attempts = $1 WHERE id = $2', [
+        await client.query('UPDATE event_outbox SET attempts = $1, last_error = $2 WHERE id = $3', [
           newAttempts,
+          lastErrorMsg,
           event.id,
         ]);
       }
@@ -297,7 +316,7 @@ async function runPublisher(): Promise<void> {
 
   // Client dedicado para LISTEN (não retorna ao pool — LISTEN é stateful por conexão)
   const listenClient = new Client({
-    connectionString: process.env['DATABASE_URL'],
+    connectionString: env.DATABASE_URL,
   });
 
   try {
