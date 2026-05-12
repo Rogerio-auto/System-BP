@@ -13,7 +13,9 @@ import {
 } from 'fastify-type-provider-zod';
 
 import { env } from './config/env.js';
+import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/routes.js';
 import { whatsappRoutes } from './modules/whatsapp/routes.js';
 import { isAppError } from './shared/errors.js';
 
@@ -86,6 +88,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(sensible);
 
   await app.register(healthRoutes);
+  await app.register(featureFlagsRoutes);
+  await app.register(internalFeatureFlagsRoutes);
   await app.register(whatsappRoutes);
 
   // ---------------------------------------------------------------------------

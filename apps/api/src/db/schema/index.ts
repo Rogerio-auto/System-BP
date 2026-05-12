@@ -27,3 +27,6 @@ export * from './auditLogs.js';
 // WhatsApp webhook (F1-S19)
 export * from './whatsappMessages.js';
 export * from './idempotencyKeys.js';
+
+// Feature flags (F1-S23)
+export * from './featureFlags.js';

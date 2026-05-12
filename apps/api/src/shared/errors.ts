@@ -18,7 +18,9 @@ export type ErrorCode =
   | 'CONFLICT'
   | 'VALIDATION_ERROR'
   | 'RATE_LIMITED'
-  | 'EXTERNAL_SERVICE_ERROR';
+  | 'EXTERNAL_SERVICE_ERROR'
+  | 'FEATURE_DISABLED'
+  | 'FEATURE_HIDDEN';
 
 // ---------------------------------------------------------------------------
 // Classe base
@@ -94,6 +96,35 @@ export class ExternalServiceError extends AppError {
   constructor(message: string, details?: unknown) {
     super(502, 'EXTERNAL_SERVICE_ERROR', message, details);
     this.name = 'ExternalServiceError';
+  }
+}
+
+/**
+ * Lançado pelo middleware featureGate() quando a flag está `disabled`.
+ * O frontend exibe mensagem informativa — não expõe detalhes internos.
+ */
+export class FeatureDisabledError extends AppError {
+  readonly flag: string;
+
+  constructor(flag: string) {
+    super(403, 'FEATURE_DISABLED', 'Esta funcionalidade está desabilitada', { flag });
+    this.name = 'FeatureDisabledError';
+    this.flag = flag;
+  }
+}
+
+/**
+ * Lançado pelo middleware featureGate() quando a flag está `hidden` (internal_only)
+ * e o usuário não possui as roles em audience.roles.
+ * Retorna 404 para não revelar a existência do endpoint.
+ */
+export class FeatureHiddenError extends AppError {
+  readonly flag: string;
+
+  constructor(flag: string) {
+    super(404, 'FEATURE_HIDDEN', 'Recurso não encontrado', { flag });
+    this.name = 'FeatureHiddenError';
+    this.flag = flag;
   }
 }
 
