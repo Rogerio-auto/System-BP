@@ -3,7 +3,7 @@ id: F1-S18
 title: Frontend importação — wizard 4 passos
 phase: F1
 task_ref: T1.18
-status: blocked
+status: available
 priority: medium
 estimated_size: L
 agent_id: null

@@ -3,7 +3,7 @@ id: F1-S21
 title: Webhook Chatwoot — entrada + idempotência
 phase: F1
 task_ref: T1.21
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null

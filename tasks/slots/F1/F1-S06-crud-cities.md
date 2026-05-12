@@ -3,7 +3,7 @@ id: F1-S06
 title: CRUD cities (admin)
 phase: F1
 task_ref: T1.6
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null
