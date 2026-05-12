@@ -3,6 +3,7 @@
 Processos separados que consomem da tabela `event_outbox` e demais filas em Postgres.
 
 Tipos previstos (criados conforme as tasks):
+
 - `outbox-publisher` — publica eventos pendentes para handlers.
 - `import-processor` — processa lotes de importação.
 - `chatwoot-sync` — reprocessa webhooks falhos.

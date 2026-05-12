@@ -34,6 +34,7 @@
 ## 2. Componentes
 
 ### 2.1 Manager Web (`apps/web`)
+
 - React 18 + TypeScript + Vite + Tailwind 3.
 - Roteamento: React Router.
 - Estado servidor: TanStack Query.
@@ -44,6 +45,7 @@
 - Acesso baseado em escopo do usuário: cidades permitidas vêm no JWT e são usadas para gating de UI (mas a fonte de verdade é o backend).
 
 ### 2.2 Backend API (`apps/api`)
+
 - Fastify (não Express): performance, schema-driven, plugin system limpo.
 - TypeScript estrito (`strict: true`, `noUncheckedIndexedAccess: true`).
 - Drizzle ORM + drizzle-kit para migrations.
@@ -55,6 +57,7 @@
 - Outbox pattern: toda mutação que emite evento grava `event_outbox` na mesma transação. Worker dedicado publica para consumidores.
 
 ### 2.3 LangGraph Service (`apps/langgraph-service`)
+
 - Python 3.12 + FastAPI + LangGraph + LangChain.
 - Stateless do ponto de vista de processo. Estado conversacional em PostgreSQL via API do backend (tool `get_conversation_state` / `save_conversation_state`).
 - **Não tem acesso direto ao banco.** Todas as operações de leitura/escrita passam por endpoints internos do backend (`/internal/...`) autenticados com chave compartilhada (`LANGGRAPH_INTERNAL_TOKEN`).
@@ -63,6 +66,7 @@
 - Testes de fluxo conversacional com fixtures.
 
 ### 2.4 PostgreSQL
+
 - Versão 16+.
 - Extensions: `pgcrypto` (hashes/UUIDs), `pg_trgm` (busca textual), `unaccent` (matching de cidade), `citext` (emails).
 - Schema único `public` no MVP. Convenção `snake_case`.
@@ -70,6 +74,7 @@
 - Backup diário + WAL archiving em produção.
 
 ### 2.5 Workers
+
 - Mesmo runtime do backend, processo separado.
 - Tipos de worker:
   - `outbox-publisher`: lê `event_outbox`, processa eventos.
@@ -80,12 +85,14 @@
 - Locking via `SELECT ... FOR UPDATE SKIP LOCKED` ou advisory locks.
 
 ### 2.6 Chatwoot
+
 - Instância existente do cliente.
 - Backend consome API do Chatwoot e recebe webhooks.
 - Custom attributes da conversa armazenam `lead_id`, `cidade`, `produto`, `simulacao_id`.
 - Notas internas geradas pelo backend trazem resumo da IA.
 
 ### 2.7 WhatsApp API Oficial
+
 - Integração via Cloud API da Meta (ou via provedor BSP existente).
 - Webhook de mensagens entrantes → backend.
 - Envio de mensagens via API HTTP, com idempotency key.
@@ -122,11 +129,13 @@ Detalhamento das pastas internas em [11-roadmap-executavel.md](11-roadmap-execut
 ## 4. Comunicação entre serviços
 
 ### 4.1 Frontend ↔ Backend
+
 - HTTPS, JSON, REST com convenção REST/RPC pragmática (`POST /api/leads`, `POST /api/imports/leads/preview`, etc.).
 - Auth: Bearer JWT no header. Refresh em cookie httpOnly + CSRF token.
 - Versionamento: prefixo `/api/v1/...`.
 
 ### 4.2 Backend ↔ LangGraph
+
 - HTTPS, JSON, REST.
 - **Direção Backend → LangGraph:** o backend chama o serviço para processar mensagens.
 - **Direção LangGraph → Backend (tools):** LangGraph chama endpoints internos `/internal/...` para executar tools.
@@ -135,21 +144,26 @@ Detalhamento das pastas internas em [11-roadmap-executavel.md](11-roadmap-execut
 - Retry: 1 retry com backoff exponencial em erro 5xx. Idempotency key obrigatória.
 
 ### 4.3 Backend ↔ Chatwoot
+
 - API HTTP do Chatwoot com `api_access_token`.
 - Webhook do Chatwoot → backend valida assinatura HMAC.
 
 ### 4.4 Backend ↔ WhatsApp
+
 - Cloud API Meta com token de acesso.
 - Webhook valida `hub.verify_token` + assinatura HMAC X-Hub-Signature.
 
 ### 4.5 Backend ↔ Worker
+
 - Via tabela `jobs` no Postgres (não há fila externa no MVP).
 - Worker faz polling com `LISTEN/NOTIFY` para reduzir latência.
 
 ## 5. Padrão de design
 
 ### 5.1 Arquitetura modular no backend
+
 Cada módulo em `apps/api/src/modules/<modulo>` contém:
+
 ```
 modules/leads/
 ├── leads.routes.ts          # binding HTTP
@@ -162,6 +176,7 @@ modules/leads/
 ```
 
 ### 5.2 Outbox pattern
+
 - Toda mutação que emite evento faz duas escritas na mesma transação:
   1. Mutação do agregado.
   2. Insert em `event_outbox` com payload, tipo, status `pending`.
@@ -169,10 +184,12 @@ modules/leads/
 - Idempotência por `(event_id, handler_name)`.
 
 ### 5.3 Idempotência
+
 - Toda rota POST que pode ser repetida (webhooks, criação de mensagem, follow-up, simulação) aceita header `Idempotency-Key`.
 - Tabela `idempotency_keys` com `key`, `endpoint`, `request_hash`, `response_body`, `created_at`.
 
 ### 5.4 Versionamento de regras de negócio
+
 - `credit_products` e `credit_product_rules` têm `version` e `is_active`.
 - Toda simulação grava `rule_version_id` (FK imutável).
 - Atualização de regra cria nova `version`, nunca edita a anterior.
@@ -180,12 +197,14 @@ modules/leads/
 ## 6. Estratégia de autenticação e autorização
 
 ### 6.1 Autenticação
+
 - Login com email + senha (bcrypt cost 12).
 - 2FA TOTP opcional (recomendado para admin/gestor geral) — visível-mas-desabilitado no MVP.
 - JWT access ~15min + refresh token rotativo em cookie httpOnly + CSRF.
 - Sessões ativas listadas em `user_sessions` com `revoked_at`.
 
 ### 6.2 Autorização
+
 - RBAC com escopo:
   - `role` (admin, gestor_geral, gestor_regional, agente, operador, leitura).
   - `city_scopes` (lista de `city_id` que o usuário acessa).
@@ -197,11 +216,13 @@ Detalhe completo em [10-seguranca-permissoes.md](10-seguranca-permissoes.md).
 ## 7. Estratégia de deploy
 
 ### 7.1 Ambientes
+
 - **dev**: docker-compose local (Postgres, API, web, langgraph, redis-stub).
 - **staging**: ambiente espelho da produção. Dados de teste anonimizados.
 - **prod**: ambiente do cliente. A definir entre Fly.io / Railway / VPS com Coolify.
 
 ### 7.2 CI/CD
+
 - GitHub Actions:
   - lint + typecheck + test em PR.
   - build em merge para `main`.
@@ -211,20 +232,21 @@ Detalhe completo em [10-seguranca-permissoes.md](10-seguranca-permissoes.md).
 - Rollback: tag de release imutável + estratégia de reversão de migration documentada por migration.
 
 ### 7.3 Configuração
+
 - Tudo via variáveis de ambiente.
 - `.env.example` com todas as chaves.
 - Secrets em provedor (1Password Secrets, Doppler, ou variáveis nativas da plataforma).
 
 ## 8. Observabilidade
 
-| Sinal | Ferramenta sugerida | Mínimo MVP |
-|-------|---------------------|------------|
-| Logs estruturados | Pino + agregador (Better Stack / Axiom / Loki) | sim |
-| Métricas | Prometheus / OpenTelemetry exporter | parcial |
-| Tracing | OpenTelemetry → Tempo / Jaeger | opcional |
-| Erros | Sentry | sim |
-| Uptime | UptimeRobot ou equivalente | sim |
-| AI decisions | Tabela `ai_decision_logs` + dashboard interno | sim |
+| Sinal             | Ferramenta sugerida                            | Mínimo MVP |
+| ----------------- | ---------------------------------------------- | ---------- |
+| Logs estruturados | Pino + agregador (Better Stack / Axiom / Loki) | sim        |
+| Métricas          | Prometheus / OpenTelemetry exporter            | parcial    |
+| Tracing           | OpenTelemetry → Tempo / Jaeger                 | opcional   |
+| Erros             | Sentry                                         | sim        |
+| Uptime            | UptimeRobot ou equivalente                     | sim        |
+| AI decisions      | Tabela `ai_decision_logs` + dashboard interno  | sim        |
 
 ## 9. Estratégia de migração do MVP atual
 
@@ -241,22 +263,23 @@ Detalhada em [11-roadmap-executavel.md](11-roadmap-executavel.md) Fase 7. Resumo
 
 ## 10. Trade-offs e decisões registradas
 
-| Decisão | Opção escolhida | Alternativa | Razão |
-|---------|-----------------|-------------|-------|
-| Repositório | Monorepo (pnpm + Turbo) | Polirrepo | Contratos compartilhados, refactor cross-app, CI unificado |
-| Estilo de API | REST com pragmatismo RPC | GraphQL / tRPC | Simplicidade, ecossistema, tooling para agentes IA |
-| Filas | Postgres outbox + worker | Redis/BullMQ | Menos infra no MVP. Migrar quando volume justificar |
-| ORM | Drizzle | Prisma | SQL-first, sem mágica, melhor para queries complexas |
-| Web framework backend | Fastify | Express / NestJS | Performance + plugin system limpo. NestJS adicionaria overhead sem ganho proporcional |
-| LangGraph acessa o banco? | Não, via API interna | Sim, direto | Centraliza regra de negócio, audita, evita IA escrever errado |
-| Estado conversacional | Postgres via API | Redis / em memória | Postgres já é fonte da verdade, sem nova dep |
-| Auth | Lucia/Better-Auth + JWT | Auth0 / Clerk | Sem vendor lock, controle total, custo zero |
-| i18n | pt-BR hard | i18next | Cliente é regional, prazo curto |
-| Multi-tenant | Coluna `organization_id` desde já, ativada depois | Schema-per-tenant | Migração futura sem refactor pesado |
+| Decisão                   | Opção escolhida                                   | Alternativa        | Razão                                                                                 |
+| ------------------------- | ------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------- |
+| Repositório               | Monorepo (pnpm + Turbo)                           | Polirrepo          | Contratos compartilhados, refactor cross-app, CI unificado                            |
+| Estilo de API             | REST com pragmatismo RPC                          | GraphQL / tRPC     | Simplicidade, ecossistema, tooling para agentes IA                                    |
+| Filas                     | Postgres outbox + worker                          | Redis/BullMQ       | Menos infra no MVP. Migrar quando volume justificar                                   |
+| ORM                       | Drizzle                                           | Prisma             | SQL-first, sem mágica, melhor para queries complexas                                  |
+| Web framework backend     | Fastify                                           | Express / NestJS   | Performance + plugin system limpo. NestJS adicionaria overhead sem ganho proporcional |
+| LangGraph acessa o banco? | Não, via API interna                              | Sim, direto        | Centraliza regra de negócio, audita, evita IA escrever errado                         |
+| Estado conversacional     | Postgres via API                                  | Redis / em memória | Postgres já é fonte da verdade, sem nova dep                                          |
+| Auth                      | Lucia/Better-Auth + JWT                           | Auth0 / Clerk      | Sem vendor lock, controle total, custo zero                                           |
+| i18n                      | pt-BR hard                                        | i18next            | Cliente é regional, prazo curto                                                       |
+| Multi-tenant              | Coluna `organization_id` desde já, ativada depois | Schema-per-tenant  | Migração futura sem refactor pesado                                                   |
 
 ## 11. Diagrama textual de fluxos
 
 ### Mensagem entrante WhatsApp
+
 ```
 WhatsApp → Webhook /api/whatsapp/webhook (verifica HMAC, idempotency)
         → grava whatsapp_messages
@@ -270,6 +293,7 @@ WhatsApp → Webhook /api/whatsapp/webhook (verifica HMAC, idempotency)
 ```
 
 ### Importação de leads
+
 ```
 UI → POST /api/imports/leads (upload)
    → cria import_batches (status: parsing)

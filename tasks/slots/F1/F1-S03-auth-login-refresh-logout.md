@@ -21,9 +21,11 @@ source_docs:
 # F1-S03 — Auth (login, refresh, logout)
 
 ## Objetivo
+
 Endpoints `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout` totalmente funcionais com bcrypt, JWT (jose), refresh em cookie httpOnly + CSRF token, rate-limit, audit log.
 
 ## Escopo
+
 - Módulo `apps/api/src/modules/auth/` seguindo o padrão (routes/controller/service/repository/schemas).
 - Schemas Zod compartilhados em `packages/shared-schemas/src/auth.ts`.
 - `bcryptjs` cost 12.
@@ -39,11 +41,13 @@ Endpoints `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout` totalmente 
   - Rate-limit dispara após 5 tentativas
 
 ## Fora de escopo
+
 - Middleware `authenticate` (F1-S04).
 - 2FA (pós-MVP).
 - Recuperação de senha (slot futuro).
 
 ## Arquivos permitidos
+
 - `apps/api/src/modules/auth/**`
 - `apps/api/src/shared/password.ts`
 - `apps/api/src/shared/jwt.ts`
@@ -51,11 +55,13 @@ Endpoints `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout` totalmente 
 - `packages/shared-schemas/src/index.ts` (apenas re-export)
 
 ## Contratos de saída (rotas)
+
 - `POST /api/auth/login` body `{ email, password }` → `{ access_token, expires_in, user }` + cookie `refresh_token` httpOnly + cookie `csrf_token`.
 - `POST /api/auth/refresh` (cookie + header `X-CSRF`) → novo access token.
 - `POST /api/auth/logout` (auth) → 204.
 
 ## Definition of Done
+
 - [ ] Todos os testes passam
 - [ ] Audit log registra login/logout/login_failed
 - [ ] Cookies marcados `Secure` em produção

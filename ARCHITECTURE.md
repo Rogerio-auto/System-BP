@@ -4,41 +4,47 @@ Decisões arquiteturais do Manager Banco do Povo. Para a visão de alto nível v
 
 ## Stack escolhida
 
-| Camada | Escolha | Por que |
-|---|---|---|
-| Monorepo | **pnpm workspaces + Turborepo** | Três apps com contratos compartilhados (Zod, tipos), CI unificado, refactor cross-app sem fricção. Turbo dá cache inteligente em build/lint/test. Lerna é legacy; Nx é overkill. |
-| Frontend | **React 18 + Vite + TypeScript estrito + Tailwind 3** | Vite > webpack/CRA por velocidade. TS estrito (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`). Tailwind 3 dark-first é a base da identidade visual world-class. |
-| Estado servidor | **TanStack Query** | Padrão de mercado, cache + invalidação corretos, devtools maduros. tRPC foi descartado por adicionar acoplamento que prejudica os agentes IA gerando código. |
-| Estado cliente | **Zustand** (mínimo) | Redux é overkill. Context puro é frágil em escala. Zustand é a opção certa para estado UI local. |
-| Forms | **React Hook Form + Zod** | Performance + revalidação parcial + mesmos schemas do backend. |
-| Backend | **Fastify 5 + TypeScript estrito** | 2-3x mais performante que Express, schema-driven, plugin system limpo. NestJS adiciona DI/decorators sem ganho proporcional para esse tamanho de projeto. |
-| ORM | **Drizzle 0.34** | SQL-first, sem mágica de runtime, migrations versionadas, tipos derivados do schema. Prisma tem overhead de engine binário e queries opacas. |
-| Validação | **Zod 3** em todas as bordas | Single source of truth: schema gera tipo TS + valida request/response + valida eventos + valida contratos com tools de IA. |
-| Banco | **PostgreSQL 16** | Transações fortes, JSONB, índices parciais, `pg_trgm` para fuzzy match de cidades, outbox pattern em SQL puro. |
-| Filas (MVP) | **Outbox em Postgres + worker Node** | Sem dependência extra. `LISTEN/NOTIFY` reduz latência de polling. Migra para BullMQ/Redis quando volume justificar. |
-| Auth | **JWT curto (15min) + refresh rotativo (cookie httpOnly) + CSRF** | Sem vendor lock. Lucia/Better-Auth como base se precisar de mais. Auth0/Clerk descartados por custo recorrente e perda de controle. |
-| Logs | **Pino + correlation_id** | Estruturado, JSON em prod, pino-pretty em dev. OpenTelemetry exporter quando produção exigir tracing. |
-| AI | **Python 3.12 + LangGraph + LangChain** | LangGraph dá grafos tipados auditáveis. Python é a ferramenta certa para o ecossistema LLM hoje. **Serviço isolado** — nunca toca no banco. |
-| Deploy local | **Docker Compose** | Padrão. Postgres + API + Web + LangGraph com health checks e volumes nomeados. |
+| Camada          | Escolha                                                           | Por que                                                                                                                                                                          |
+| --------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monorepo        | **pnpm workspaces + Turborepo**                                   | Três apps com contratos compartilhados (Zod, tipos), CI unificado, refactor cross-app sem fricção. Turbo dá cache inteligente em build/lint/test. Lerna é legacy; Nx é overkill. |
+| Frontend        | **React 18 + Vite + TypeScript estrito + Tailwind 3**             | Vite > webpack/CRA por velocidade. TS estrito (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`). Tailwind 3 dark-first é a base da identidade visual world-class.       |
+| Estado servidor | **TanStack Query**                                                | Padrão de mercado, cache + invalidação corretos, devtools maduros. tRPC foi descartado por adicionar acoplamento que prejudica os agentes IA gerando código.                     |
+| Estado cliente  | **Zustand** (mínimo)                                              | Redux é overkill. Context puro é frágil em escala. Zustand é a opção certa para estado UI local.                                                                                 |
+| Forms           | **React Hook Form + Zod**                                         | Performance + revalidação parcial + mesmos schemas do backend.                                                                                                                   |
+| Backend         | **Fastify 5 + TypeScript estrito**                                | 2-3x mais performante que Express, schema-driven, plugin system limpo. NestJS adiciona DI/decorators sem ganho proporcional para esse tamanho de projeto.                        |
+| ORM             | **Drizzle 0.34**                                                  | SQL-first, sem mágica de runtime, migrations versionadas, tipos derivados do schema. Prisma tem overhead de engine binário e queries opacas.                                     |
+| Validação       | **Zod 3** em todas as bordas                                      | Single source of truth: schema gera tipo TS + valida request/response + valida eventos + valida contratos com tools de IA.                                                       |
+| Banco           | **PostgreSQL 16**                                                 | Transações fortes, JSONB, índices parciais, `pg_trgm` para fuzzy match de cidades, outbox pattern em SQL puro.                                                                   |
+| Filas (MVP)     | **Outbox em Postgres + worker Node**                              | Sem dependência extra. `LISTEN/NOTIFY` reduz latência de polling. Migra para BullMQ/Redis quando volume justificar.                                                              |
+| Auth            | **JWT curto (15min) + refresh rotativo (cookie httpOnly) + CSRF** | Sem vendor lock. Lucia/Better-Auth como base se precisar de mais. Auth0/Clerk descartados por custo recorrente e perda de controle.                                              |
+| Logs            | **Pino + correlation_id**                                         | Estruturado, JSON em prod, pino-pretty em dev. OpenTelemetry exporter quando produção exigir tracing.                                                                            |
+| AI              | **Python 3.12 + LangGraph + LangChain**                           | LangGraph dá grafos tipados auditáveis. Python é a ferramenta certa para o ecossistema LLM hoje. **Serviço isolado** — nunca toca no banco.                                      |
+| Deploy local    | **Docker Compose**                                                | Padrão. Postgres + API + Web + LangGraph com health checks e volumes nomeados.                                                                                                   |
 
 ## Decisões críticas
 
 ### LangGraph não acessa o banco
+
 Toda leitura/escrita do agente passa por endpoints `/internal/*` do backend, autenticados com `X-Internal-Token`. Isso garante:
+
 - regra de negócio centralizada e auditada,
 - impossível IA escrever errado direto no banco,
 - todas as mutações da IA passam por validação Zod + RBAC + audit.
 
 ### Outbox antes de fila externa
+
 Volume MVP não justifica Redis. Outbox com `SELECT ... FOR UPDATE SKIP LOCKED` resolve com idempotência por `(event_id, handler_name)`. Quando volume crescer, migrar para BullMQ + Redis sem mudar contratos.
 
 ### Versionamento de regras de crédito
+
 `credit_product_rules.version` é imutável. Toda simulação grava `rule_version_id` (FK). Atualização cria nova versão; nunca edita a anterior. Garante que simulação antiga continua válida e auditável.
 
 ### Multi-tenant futuro sem refactor
+
 `organization_id` adicionado em todas as tabelas desde já, com valor default. Quando virar multi-tenant real, basta ligar a coluna em filtros — sem migration de schema pesada.
 
 ### Permissão por cidade no repository
+
 Não confiamos em filtros aplicados em `service`. O repository injeta o filtro de cidade automaticamente para roles com `scope=city`. Bypass exige uma flag explícita testada.
 
 ## Segurança (fundação, não fase)
@@ -107,12 +113,12 @@ Elemento/
 
 ## Ports (dev local)
 
-| Serviço | Porta |
-|---|---|
-| Postgres | 5432 |
-| API (Fastify) | 3333 |
-| Web (Vite) | 5173 |
-| LangGraph (FastAPI) | 8000 |
+| Serviço             | Porta |
+| ------------------- | ----- |
+| Postgres            | 5432  |
+| API (Fastify)       | 3333  |
+| Web (Vite)          | 5173  |
+| LangGraph (FastAPI) | 8000  |
 
 ## Custos esperados (alvo)
 

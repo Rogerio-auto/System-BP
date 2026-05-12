@@ -50,6 +50,7 @@ pnpm --filter @elemento/api test
 Todos os 3 verdes = você pode reportar `done`. Algum vermelho = você corrige antes.
 
 ## Como reportar
+
 - Lista de arquivos criados/modificados
 - Testes adicionados (nomes)
 - Comandos de validação executados + resultado

@@ -4,25 +4,27 @@
 
 ## Sumário das fases
 
-| Fase | Foco | Resultado |
-|------|------|-----------|
-| 0 | Preparação | Monorepo + ambientes + DB + CI |
-| 1 | Base operacional | Auth, RBAC, CRM, Kanban, Flags, Chatwoot inicial |
-| 2 | Crédito e simulação | Produtos, regras, simulador, tool da IA |
-| 3 | LangGraph e agente externo | Grafo pré-atendimento + tools + handoff estruturado |
-| 4 | Análise de crédito | Manual + importação + versionamento |
-| 5 | Automações | Follow-up + cobrança (gated) |
-| 6 | Assistente interno + dashboards | Grafo interno + métricas |
-| 7 | Migração + go-live | Cutover, monitoramento, hardening |
+| Fase | Foco                            | Resultado                                           |
+| ---- | ------------------------------- | --------------------------------------------------- |
+| 0    | Preparação                      | Monorepo + ambientes + DB + CI                      |
+| 1    | Base operacional                | Auth, RBAC, CRM, Kanban, Flags, Chatwoot inicial    |
+| 2    | Crédito e simulação             | Produtos, regras, simulador, tool da IA             |
+| 3    | LangGraph e agente externo      | Grafo pré-atendimento + tools + handoff estruturado |
+| 4    | Análise de crédito              | Manual + importação + versionamento                 |
+| 5    | Automações                      | Follow-up + cobrança (gated)                        |
+| 6    | Assistente interno + dashboards | Grafo interno + métricas                            |
+| 7    | Migração + go-live              | Cutover, monitoramento, hardening                   |
 
 ---
 
 ## Fase 0 — Preparação
 
 ### Objetivo
+
 Repositório, ambientes, banco e pipeline de CI prontos para receber as features.
 
 ### Entregáveis
+
 - Monorepo `Elemento/` com `apps/web`, `apps/api`, `apps/langgraph-service`, `packages/*`.
 - `docker-compose.yml` para dev (Postgres 16 + redis-stub futuro + serviços).
 - `.env.example` completo.
@@ -33,6 +35,7 @@ Repositório, ambientes, banco e pipeline de CI prontos para receber as features
 - Tela de login básica + tela de erro + 404.
 
 ### Ordem
+
 1. `pnpm` workspace + Turborepo.
 2. Estrutura de pastas em cada app conforme [02-arquitetura-sistema.md](02-arquitetura-sistema.md).
 3. Drizzle config + primeira migration vazia.
@@ -43,6 +46,7 @@ Repositório, ambientes, banco e pipeline de CI prontos para receber as features
 8. CI rodando.
 
 ### Critérios de aceite
+
 - `pnpm dev` levanta web, api, langgraph e Postgres juntos.
 - `pnpm test` roda suites vazias com sucesso.
 - Pipeline verde em PR.
@@ -52,9 +56,11 @@ Repositório, ambientes, banco e pipeline de CI prontos para receber as features
 ## Fase 1 — Base operacional
 
 ### Objetivo
+
 Sistema usável com autenticação, gestão de usuários e cidades, CRM completo, Kanban e integração inicial com Chatwoot. Manager substitui Notion neste ponto.
 
 ### Entregáveis
+
 - Autenticação (login, logout, refresh, sessões).
 - RBAC + escopo por cidade.
 - CRUD de usuários, papéis (seed inicial), cidades, agentes.
@@ -68,9 +74,11 @@ Sistema usável com autenticação, gestão de usuários e cidades, CRM completo
 - Telas: Login, Dashboard placeholder, CRM/lista, Detalhe do lead, Kanban, Detalhe do card, Cidades, Usuários, Agentes, Importações, Feature Flags, Audit, Logs/Integrações.
 
 ### Dependências
+
 Fase 0.
 
 ### Ordem sugerida
+
 1. Schema base: `organizations`, `users`, `roles`, `permissions`, `role_permissions`, `user_city_scopes`, `user_sessions`.
 2. Auth + JWT + refresh + middleware authenticate/authorize.
 3. CRUD de cidades + agentes.
@@ -89,6 +97,7 @@ Fase 0.
 16. Tela de logs/auditoria.
 
 ### Critérios de aceite
+
 - Cadastrar lead manual, ver no Kanban, mover entre stages, ver histórico.
 - Importar 100 leads via CSV com preview.
 - Login/logout. Refresh. Bloqueio por cidade testado.
@@ -96,6 +105,7 @@ Fase 0.
 - Feature flag `crm.import.enabled=disabled` bloqueia tela e API.
 
 ### Riscos
+
 - Subestimar dedupe de telefone. **Mitigação:** índices únicos parciais + testes desde o início.
 - RBAC virar "filtro frouxo". **Mitigação:** repository força escopo, com testes específicos.
 
@@ -104,9 +114,11 @@ Fase 0.
 ## Fase 2 — Crédito e simulação
 
 ### Objetivo
+
 Produtos de crédito configuráveis pela UI, com versionamento de regras. Simulador interno funcional. Base para a IA gerar simulações.
 
 ### Entregáveis
+
 - Schema `credit_products`, `credit_product_rules`, `credit_simulations`.
 - CRUD de produtos + UI de gestão de regras com timeline de versões.
 - Simulador interno (UI + cálculo Price + tabela de amortização).
@@ -115,9 +127,11 @@ Produtos de crédito configuráveis pela UI, com versionamento de regras. Simula
 - Histórico de simulações no detalhe do lead/customer.
 
 ### Dependências
+
 Fase 1.
 
 ### Ordem
+
 1. Schema + migrations.
 2. Service de cálculo (puro, testável, sem dependência de banco).
 3. CRUD produtos + regras (com versionamento ao publicar).
@@ -128,6 +142,7 @@ Fase 1.
 8. Card do Kanban exibe `last_simulation_id`.
 
 ### Critérios de aceite
+
 - Criar produto + regra → simular → resultado correto.
 - Atualizar regra → nova versão. Simulação antiga ainda válida e visível com badge de versão.
 - Validações de limite funcionam.
@@ -138,9 +153,11 @@ Fase 1.
 ## Fase 3 — LangGraph e agente externo
 
 ### Objetivo
+
 Pré-atendimento WhatsApp orquestrado por LangGraph. Tools controladas. Estado persistente. Handoff estruturado.
 
 ### Entregáveis
+
 - Serviço Python rodando com FastAPI + LangGraph.
 - Grafo `whatsapp_pre_attendance` com nós descritos em [06-langgraph-agentes.md](06-langgraph-agentes.md).
 - Tools: `get_or_create_lead`, `update_lead_profile`, `identify_city`, `list_credit_products`, `generate_credit_simulation`, `mark_simulation_sent`, `request_handoff`, `create_chatwoot_note`, `get_customer_context`, `log_ai_decision`.
@@ -152,9 +169,11 @@ Pré-atendimento WhatsApp orquestrado por LangGraph. Tools controladas. Estado p
 - Prompts versionados em arquivos.
 
 ### Dependências
+
 Fase 1 + Fase 2 (precisa de produtos para simular).
 
 ### Ordem
+
 1. Boilerplate FastAPI + LangGraph + endpoint de health.
 2. Schema do estado + persistência (carregar/salvar via tool).
 3. Cliente HTTP autenticado para tools.
@@ -171,6 +190,7 @@ Fase 1 + Fase 2 (precisa de produtos para simular).
 14. Fallback de handoff quando LangGraph indisponível.
 
 ### Critérios de aceite
+
 - Conversa real WhatsApp → IA responde, identifica cidade, gera simulação, registra tudo.
 - IA não escreve direto no banco em nenhuma operação (verificável por logs).
 - Reinício do serviço LangGraph não perde contexto.
@@ -178,6 +198,7 @@ Fase 1 + Fase 2 (precisa de produtos para simular).
 - 5 conversas-fixture passam testes.
 
 ### Riscos
+
 - Latência alta do LLM. **Mitigação:** modelo otimizado (Sonnet/Haiku) + cache de prompt + token limits + warmup.
 - Custo descontrolado. **Mitigação:** monitoramento por conversa + alerta + limite por dia.
 - IA "alucinar" simulação. **Mitigação:** simulação sempre via tool → backend → cálculo determinístico.
@@ -187,9 +208,11 @@ Fase 1 + Fase 2 (precisa de produtos para simular).
 ## Fase 4 — Análise de crédito
 
 ### Objetivo
+
 Substituir o registro espalhado em Notion por análise estruturada, versionada, com importação massiva.
 
 ### Entregáveis
+
 - Schema `credit_analyses`, `credit_analysis_versions`.
 - CRUD de análise + edição = nova versão.
 - Importação de análises (8).
@@ -199,9 +222,11 @@ Substituir o registro espalhado em Notion por análise estruturada, versionada, 
 - Vinculação com simulação e card do Kanban.
 
 ### Dependências
+
 Fase 1 + Fase 2.
 
 ### Ordem
+
 1. Schema + migrations.
 2. Service: criação + nova versão (imutabilidade da anterior).
 3. Endpoints + telas.
@@ -210,6 +235,7 @@ Fase 1 + Fase 2.
 6. Promoção a aprovado/recusado dispara mudança de Kanban via evento.
 
 ### Critérios de aceite
+
 - Criar análise, editar (nova versão), versão antiga visível e imutável.
 - Importar planilha de análises do gestor com preview.
 - IA tentando alterar análise → 403 (testado).
@@ -220,9 +246,11 @@ Fase 1 + Fase 2.
 ## Fase 5 — Automações (visíveis-mas-desabilitadas)
 
 ### Objetivo
+
 Construir motor de follow-up e cobrança com flags `disabled`. UI mostra "Em desenvolvimento" mas estrutura está pronta para ligar.
 
 ### Entregáveis
+
 - Schema `followup_rules`, `followup_jobs`, `payment_dues`, `collection_rules`, `collection_jobs`, `whatsapp_templates`.
 - Workers `followup-scheduler`, `followup-sender`, `collection-scheduler`, `collection-sender`.
 - Templates Meta integrados.
@@ -230,9 +258,11 @@ Construir motor de follow-up e cobrança com flags `disabled`. UI mostra "Em des
 - UI listas + cancelamento manual (ainda gated).
 
 ### Dependências
+
 Fase 1 + 3.
 
 ### Ordem
+
 1. Schemas.
 2. Régua de follow-up (sem envio real ainda).
 3. Worker scheduler agenda jobs com flag `disabled` → cancelados.
@@ -243,6 +273,7 @@ Fase 1 + 3.
 8. Validação ponta a ponta em staging com flag ligada.
 
 ### Critérios de aceite (Fase 5 entrega)
+
 - Com flag desligada: nada é enviado.
 - Com flag ligada em staging: régua dispara corretamente, resposta do cliente cancela próximos.
 - Idempotência testada (não envia 2x).
@@ -252,9 +283,11 @@ Fase 1 + 3.
 ## Fase 6 — Assistente interno e dashboards
 
 ### Objetivo
+
 Assistente IA interno (somente leitura) operando dentro do Manager. Dashboards completos.
 
 ### Entregáveis
+
 - Grafo `internal_assistant`.
 - Tools de leitura.
 - Endpoints `/internal/assistant/...`.
@@ -265,9 +298,11 @@ Assistente IA interno (somente leitura) operando dentro do Manager. Dashboards c
 - Exportação de relatórios (gated).
 
 ### Dependências
+
 Fase 1 a 5.
 
 ### Ordem
+
 1. Views materializadas + refresh.
 2. APIs de dashboard.
 3. Telas de dashboard.
@@ -277,6 +312,7 @@ Fase 1 a 5.
 7. Logs `assistant_queries`.
 
 ### Critérios de aceite
+
 - Gestor regional pergunta "leads parados há 7+ dias" e recebe lista correta limitada à sua cidade.
 - Agente pergunta "meus clientes pendentes" e recebe lista correta.
 - Tentativa de pergunta cross-cidade é bloqueada e logada.
@@ -287,9 +323,11 @@ Fase 1 a 5.
 ## Fase 7 — Migração e go-live
 
 ### Objetivo
+
 Migrar dados de Notion/Trello/MVP atual e cutover para o novo sistema com risco controlado.
 
 ### Entregáveis
+
 - Scripts de export (Notion API, Trello API).
 - Importação em homologação.
 - Conferência manual com usuários-chave.
@@ -300,6 +338,7 @@ Migrar dados de Notion/Trello/MVP atual e cutover para o novo sistema com risco 
 - Rollback documentado.
 
 ### Atividades
+
 1. Inventário de dados.
 2. Export Notion → CSV → import em staging.
 3. Export Trello → JSON → import em staging.
@@ -313,6 +352,7 @@ Migrar dados de Notion/Trello/MVP atual e cutover para o novo sistema com risco 
 11. Pós go-live: revisão de feature flags, plano de habilitar follow-up.
 
 ### Critérios de aceite
+
 - 100% dos leads ativos do Notion presentes no Manager.
 - 100% dos cards do Trello refletidos no Kanban.
 - Operação rodando 7 dias sem incidente bloqueante.
@@ -322,15 +362,15 @@ Migrar dados de Notion/Trello/MVP atual e cutover para o novo sistema com risco 
 
 ## Estimativa de prazo (calibração)
 
-| Fase | Esforço relativo | Observação |
-|------|------------------|------------|
-| 0 | 5% | crítico, paralelizável |
-| 1 | 25% | maior bloco; base de tudo |
-| 2 | 10% | dependente de 1 |
-| 3 | 20% | LangGraph é a maior incerteza |
-| 4 | 10% | depende de 2 |
-| 5 | 10% | feita "pronta-mas-desligada" |
-| 6 | 10% | depende de 1–5 |
-| 7 | 10% | janela final, sensível |
+| Fase | Esforço relativo | Observação                    |
+| ---- | ---------------- | ----------------------------- |
+| 0    | 5%               | crítico, paralelizável        |
+| 1    | 25%              | maior bloco; base de tudo     |
+| 2    | 10%              | dependente de 1               |
+| 3    | 20%              | LangGraph é a maior incerteza |
+| 4    | 10%              | depende de 2                  |
+| 5    | 10%              | feita "pronta-mas-desligada"  |
+| 6    | 10%              | depende de 1–5                |
+| 7    | 10%              | janela final, sensível        |
 
 Para entrega em 45 dias com qualidade real: **Fases 0–4 + Fase 5 com flags desligadas + Fase 7 inicial.** Fase 6 (assistente interno e dashboards completos) entra em onda 2 pós go-live. Justificativa em [16-revisao-critica.md](16-revisao-critica.md).

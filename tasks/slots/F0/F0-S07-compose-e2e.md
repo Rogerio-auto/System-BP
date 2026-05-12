@@ -20,9 +20,11 @@ source_docs:
 # F0-S07 — Compose ponta a ponta
 
 ## Objetivo
+
 `docker compose up` sobe `postgres + api + web + langgraph` com health checks verdes e comunicação cross-service funcionando (api consulta DB, langgraph consulta api).
 
 ## Escopo
+
 - Validar que builds dos Dockerfiles de produção funcionam.
 - Validar que `docker-compose.override.yml` (gerado a partir do `.example`) funciona em modo dev.
 - Adicionar script `scripts/check-compose.ps1` que:
@@ -32,21 +34,25 @@ source_docs:
   4. Derruba
 
 ## Fora de escopo
+
 - Adicionar serviços novos (Redis, etc).
 
 ## Arquivos permitidos
+
 - `scripts/check-compose.ps1`
 - `scripts/check-compose.sh`
 - `docker-compose.yml` (apenas correções de bugs)
 - `docker-compose.override.yml.example`
 
 ## Definition of Done
+
 - [ ] `docker compose up --build` sobe sem erro
 - [ ] Health verde em todos os serviços em ≤ 60s
 - [ ] Script `check-compose.ps1` funciona local e em CI
 - [ ] PR aberto
 
 ## Validação
+
 ```powershell
 .\scripts\check-compose.ps1
 ```

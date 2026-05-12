@@ -20,9 +20,11 @@ source_docs:
 # F1-S13 — Schema + service kanban
 
 ## Objetivo
+
 `kanban_stages`, `kanban_cards`, `kanban_stage_history` com matriz de transições válidas no service. Endpoint para mover card valida transição + permissão + escopo.
 
 ## Escopo
+
 - Schemas Drizzle.
 - `kanbanService.moveCard(cardId, toStageId, actor)`:
   - valida transição em matriz (definida em código)
@@ -32,6 +34,7 @@ source_docs:
 - Testes da matriz de transições.
 
 ## Definition of Done
+
 - [ ] Matriz documentada em código com comentários
 - [ ] Transição inválida retorna 422
 - [ ] Histórico nunca alterado
