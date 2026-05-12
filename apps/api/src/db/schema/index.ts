@@ -30,3 +30,9 @@ export * from './idempotencyKeys.js';
 
 // Feature flags (F1-S23)
 export * from './featureFlags.js';
+
+// Core CRM (F1-S09)
+export * from './leads.js';
+export * from './customers.js';
+export * from './leadHistory.js';
+export * from './interactions.js';
