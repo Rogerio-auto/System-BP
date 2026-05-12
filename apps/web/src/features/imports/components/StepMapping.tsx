@@ -16,6 +16,7 @@ import * as React from 'react';
 import { Select } from '../../../components/ui/Select';
 import type { ImportPreviewRow } from '../../../lib/api/imports';
 import { cn } from '../../../lib/cn';
+import { maskPiiValue } from '../../../lib/format/pii';
 
 // Campos de destino disponíveis para leads
 const LEAD_DESTINATION_FIELDS = [
@@ -140,10 +141,13 @@ export function StepMapping({
             {columns.map((col, idx) => {
               const selectedDest = columnMapping[col] ?? '';
               const isIgnored = selectedDest === '';
+              // L4 LGPD §14: aplica máscara de PII usando o campo de destino
+              // mapeado (ou detecção de padrão no valor) — CPF é o crítico.
               const colPreviewValues = previewRows.map((row) => {
                 const raw = row.rawData[col];
                 if (raw === null || raw === undefined) return '—';
-                return String(raw).trim() || '—';
+                const strVal = String(raw).trim() || '—';
+                return maskPiiValue(strVal, selectedDest || undefined);
               });
 
               return (

@@ -9,28 +9,82 @@
 //   POST /api/imports/:id/cancel         — cancelar batch
 //
 // LGPD: conteúdo dos arquivos não é logado — doc 17.
+//
+// Segurança (M1): todas as respostas de rede são validadas com Zod antes de
+// chegar ao restante da aplicação. O wrapper `api.*` NÃO valida por conta
+// própria — o parse deve ser feito aqui, na borda da camada de rede.
 // =============================================================================
+
+import { z } from 'zod';
 
 import { api } from '../api';
 
-// ─── Tipos espelhando schemas do backend ──────────────────────────────────────
+// ─── Schemas Zod (fonte de verdade: apps/api/src/modules/imports/schemas.ts) ─
 
-export interface ImportBatch {
-  id: string;
-  organizationId: string;
-  entityType: string;
-  fileName: string;
-  fileSize: number;
-  mimeType: string;
-  status: ImportBatchStatus;
-  totalRows: number;
-  validRows: number;
-  invalidRows: number;
-  processedRows: number;
-  createdAt: string;
-  updatedAt: string;
-}
+/**
+ * Schema do batch espelhando ImportBatchResponseSchema do backend.
+ * Mantido aqui (e não importado de shared-schemas) porque shared-schemas
+ * ainda não exporta tipos de importação — quando exportar, reusar de lá.
+ */
+export const ImportBatchSchema = z.object({
+  id: z.string().uuid(),
+  organizationId: z.string().uuid(),
+  entityType: z.string(),
+  fileName: z.string(),
+  fileSize: z.number().int(),
+  mimeType: z.string(),
+  status: z.enum([
+    'uploaded',
+    'parsing',
+    'ready_for_review',
+    'processing',
+    'completed',
+    'failed',
+    'cancelled',
+  ]),
+  totalRows: z.number().int().nonnegative(),
+  validRows: z.number().int().nonnegative(),
+  invalidRows: z.number().int().nonnegative(),
+  processedRows: z.number().int().nonnegative(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
 
+export const UploadResponseSchema = z.object({
+  batchId: z.string().uuid(),
+  status: z.string(),
+  message: z.string(),
+});
+
+export const ImportPreviewRowSchema = z.object({
+  id: z.string().uuid(),
+  rowIndex: z.number().int(),
+  status: z.enum(['valid', 'invalid', 'pending', 'persisted', 'failed']),
+  rawData: z.record(z.unknown()),
+  normalizedData: z.record(z.unknown()).nullable(),
+  validationErrors: z.array(z.string()).nullable(),
+  entityId: z.string().uuid().nullable(),
+});
+
+export const ImportPreviewResponseSchema = z.object({
+  batch: ImportBatchSchema,
+  rows: z.array(ImportPreviewRowSchema),
+  total: z.number().int().nonnegative(),
+  page: z.number().int().min(1),
+  perPage: z.number().int().min(1),
+});
+
+export const ConfirmResponseSchema = z.object({
+  id: z.string().uuid(),
+  status: z.string(),
+  message: z.string(),
+});
+
+// ─── Tipos inferidos dos schemas ──────────────────────────────────────────────
+
+export type ImportBatch = z.infer<typeof ImportBatchSchema>;
+
+/** Status válidos de um batch — extraídos do schema para type-safety. */
 export type ImportBatchStatus =
   | 'uploaded'
   | 'parsing'
@@ -40,37 +94,14 @@ export type ImportBatchStatus =
   | 'failed'
   | 'cancelled';
 
-export interface ImportPreviewRow {
-  id: string;
-  rowIndex: number;
-  status: ImportRowStatus;
-  rawData: Record<string, unknown>;
-  normalizedData: Record<string, unknown> | null;
-  validationErrors: string[] | null;
-  entityId: string | null;
-}
+export type ImportPreviewRow = z.infer<typeof ImportPreviewRowSchema>;
 
+/** Status válidos de uma linha — extraídos do schema para type-safety. */
 export type ImportRowStatus = 'valid' | 'invalid' | 'pending' | 'persisted' | 'failed';
 
-export interface ImportPreviewResponse {
-  batch: ImportBatch;
-  rows: ImportPreviewRow[];
-  total: number;
-  page: number;
-  perPage: number;
-}
-
-export interface UploadResponse {
-  batchId: string;
-  status: string;
-  message: string;
-}
-
-export interface ConfirmResponse {
-  id: string;
-  status: string;
-  message: string;
-}
+export type ImportPreviewResponse = z.infer<typeof ImportPreviewResponseSchema>;
+export type UploadResponse = z.infer<typeof UploadResponseSchema>;
+export type ConfirmResponse = z.infer<typeof ConfirmResponseSchema>;
 
 // ─── Parâmetros de preview ────────────────────────────────────────────────────
 
@@ -84,8 +115,8 @@ export interface PreviewParams {
 
 /**
  * Faz upload de arquivo de leads (CSV ou XLSX).
- * Usa fetch diretamente pois é multipart/form-data — não JSON.
- * O wrapper api.post é JSON-only.
+ * Usa fetch diretamente pois é multipart/form-data — o wrapper api.post é JSON-only.
+ * A resposta é validada com UploadResponseSchema antes de retornar.
  */
 export async function uploadLeadsFile(file: File): Promise<UploadResponse> {
   const formData = new FormData();
@@ -113,20 +144,24 @@ export async function uploadLeadsFile(file: File): Promise<UploadResponse> {
     throw new Error(message);
   }
 
-  return res.json() as Promise<UploadResponse>;
+  // M1: parse + validação via Zod — lança ZodError se shape inesperado
+  return UploadResponseSchema.parse(await res.json());
 }
 
 /**
  * Busca status e metadados do batch.
+ * Resposta validada com ImportBatchSchema.
  */
-export function getImportBatch(batchId: string): Promise<ImportBatch> {
-  return api.get<ImportBatch>(`/api/imports/${batchId}`);
+export async function getImportBatch(batchId: string): Promise<ImportBatch> {
+  const raw = await api.get<unknown>(`/api/imports/${batchId}`);
+  return ImportBatchSchema.parse(raw);
 }
 
 /**
  * Busca linhas do batch com paginação e filtro de status.
+ * Resposta validada com ImportPreviewResponseSchema.
  */
-export function getImportPreview(
+export async function getImportPreview(
   batchId: string,
   params: PreviewParams = {},
 ): Promise<ImportPreviewResponse> {
@@ -135,19 +170,24 @@ export function getImportPreview(
   if (params.perPage !== undefined) query.set('perPage', String(params.perPage));
   if (params.status !== undefined) query.set('status', params.status);
   const qs = query.toString();
-  return api.get<ImportPreviewResponse>(`/api/imports/${batchId}/preview${qs ? `?${qs}` : ''}`);
+  const raw = await api.get<unknown>(`/api/imports/${batchId}/preview${qs ? `?${qs}` : ''}`);
+  return ImportPreviewResponseSchema.parse(raw);
 }
 
 /**
  * Confirma batch para processamento. Ação irreversível.
+ * Resposta validada com ConfirmResponseSchema.
  */
-export function confirmImportBatch(batchId: string): Promise<ConfirmResponse> {
-  return api.post<ConfirmResponse>(`/api/imports/${batchId}/confirm`, {});
+export async function confirmImportBatch(batchId: string): Promise<ConfirmResponse> {
+  const raw = await api.post<unknown>(`/api/imports/${batchId}/confirm`, {});
+  return ConfirmResponseSchema.parse(raw);
 }
 
 /**
  * Cancela batch antes de confirmar.
+ * Resposta validada com ConfirmResponseSchema.
  */
-export function cancelImportBatch(batchId: string): Promise<ConfirmResponse> {
-  return api.post<ConfirmResponse>(`/api/imports/${batchId}/cancel`, {});
+export async function cancelImportBatch(batchId: string): Promise<ConfirmResponse> {
+  const raw = await api.post<unknown>(`/api/imports/${batchId}/cancel`, {});
+  return ConfirmResponseSchema.parse(raw);
 }

@@ -18,6 +18,7 @@
 import { useMutation } from '@tanstack/react-query';
 import * as React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { z } from 'zod';
 
 import { Button } from '../../components/ui/Button';
 import { useConfirmImport } from '../../hooks/imports/useConfirmImport';
@@ -42,6 +43,18 @@ function parseStep(raw: string | null): WizardStep {
   return 1;
 }
 
+/**
+ * L1: valida batchId da URL como UUID antes de repassar para hooks/mutations.
+ * Retorna null quando inválido para evitar requisições com IDs malformados.
+ */
+const UuidSchema = z.string().uuid();
+
+function parseBatchId(raw: string | null): string | null {
+  if (!raw) return null;
+  const result = UuidSchema.safeParse(raw);
+  return result.success ? result.data : null;
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export function ImportWizardPage(): React.JSX.Element {
@@ -50,12 +63,18 @@ export function ImportWizardPage(): React.JSX.Element {
 
   // Estado persistido em URL
   const step = parseStep(searchParams.get('step'));
-  const batchId = searchParams.get('batchId');
+  // L1: batchId validado como UUID — evita requisições com IDs malformados
+  // (ex.: XSS via URL, links manipulados). Se inválido, trata como null (step 1).
+  const batchId = parseBatchId(searchParams.get('batchId'));
 
   // Estado em memória (não sobrevive reload — por design: arquivo deve ser re-selecionado)
   const [file, setFile] = React.useState<File | null>(null);
   const [columnMapping, setColumnMapping] = React.useState<ColumnMapping>({});
   const [uploadError, setUploadError] = React.useState<string | null>(null);
+
+  // L1: avisa quando batchId da URL era inválido (URL manipulada / link quebrado)
+  const rawBatchIdInUrl = searchParams.get('batchId');
+  const batchIdWasInvalid = rawBatchIdInUrl !== null && batchId === null;
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -210,6 +229,31 @@ export function ImportWizardPage(): React.JSX.Element {
           Importar leads
         </h1>
       </div>
+
+      {/* L1: aviso de batchId inválido na URL */}
+      {batchIdWasInvalid && (
+        <div
+          className="rounded-sm border border-warning/40 px-4 py-3 flex items-start gap-3"
+          style={{ background: 'var(--warning-bg)', boxShadow: 'var(--elev-1)' }}
+          role="alert"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="var(--warning)"
+            strokeWidth={1.8}
+            className="w-4 h-4 shrink-0 mt-0.5"
+            aria-hidden="true"
+          >
+            <path d="M8 1L15 14H1L8 1z" />
+            <line x1="8" y1="6" x2="8" y2="9" />
+            <circle cx="8" cy="11.5" r="0.5" fill="var(--warning)" />
+          </svg>
+          <p className="font-sans text-sm text-ink-2">
+            O link de importação está inválido ou expirou. Inicie um novo upload no passo 1.
+          </p>
+        </div>
+      )}
 
       {/* Stepper */}
       <div

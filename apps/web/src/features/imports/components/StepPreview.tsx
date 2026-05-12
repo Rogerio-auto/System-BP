@@ -25,6 +25,7 @@ import type {
   PreviewParams,
 } from '../../../lib/api/imports';
 import { cn } from '../../../lib/cn';
+import { maskPiiValue } from '../../../lib/format/pii';
 
 type PreviewTab = 'all' | ImportRowStatus;
 
@@ -301,9 +302,16 @@ function PreviewTable({ rows }: { rows: ImportPreviewRow[] }): React.JSX.Element
         {rows.map((row, idx) => {
           const badgeVariant: BadgeVariant = ROW_STATUS_BADGE[row.status] ?? 'neutral';
           const statusLabel = ROW_STATUS_LABEL[row.status] ?? row.status;
+          // L4 LGPD §14: mascara PII nos dados brutos de preview.
+          // Usa heurística por nome de coluna + detecção de padrão no valor.
           const rawPreview = Object.entries(row.rawData)
             .slice(0, 3)
-            .map(([k, v]) => `${k}: ${String(v ?? '')}`)
+            .map(([k, v]) => {
+              const strVal = String(v ?? '');
+              // Passa o nome da coluna (k) como destField para heurística
+              const masked = maskPiiValue(strVal, k);
+              return `${k}: ${masked}`;
+            })
             .join(' · ');
 
           return (
