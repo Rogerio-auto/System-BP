@@ -3,12 +3,12 @@ id: F1-S18
 title: Frontend importação — wizard 4 passos
 phase: F1
 task_ref: T1.18
-status: in-progress
+status: review
 priority: medium
 estimated_size: L
 agent_id: claude-code
 claimed_at: 2026-05-12T17:49:18Z
-completed_at: null
+completed_at: 2026-05-12T21:19:53Z
 pr_url: null
 depends_on: [F1-S17]
 blocks: []
