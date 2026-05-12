@@ -57,6 +57,20 @@
       "when": 1747958400000,
       "tag": "0007_leads_core",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1748044800000,
+      "tag": "0008_lgpd_pii_crypto",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1748131200000,
+      "tag": "0009_kanban",
+      "breakpoints": true
     }
   ]
 }

@@ -36,3 +36,8 @@ export * from './leads.js';
 export * from './customers.js';
 export * from './leadHistory.js';
 export * from './interactions.js';
+
+// Kanban (F1-S13)
+export * from './kanbanStages.js';
+export * from './kanbanCards.js';
+export * from './kanbanStageHistory.js';
