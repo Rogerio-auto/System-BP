@@ -3,7 +3,7 @@ id: F1-S15
 title: Outbox — schema + emit() + worker outbox-publisher
 phase: F1
 task_ref: T1.15
-status: in-progress
+status: review
 priority: critical
 estimated_size: L
 agent_id: backend-engineer
