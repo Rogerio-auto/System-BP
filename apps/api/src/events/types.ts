@@ -130,6 +130,28 @@ export interface CitiesIdentifiedData {
   source_text: string;
 }
 
+// Admin CRUD events (F1-S06) — sem PII (cidades são dados públicos)
+export interface CityCreatedData {
+  city_id: string;
+  organization_id: string;
+  ibge_code: string | null;
+  state_uf: string;
+}
+
+export interface CityUpdatedData {
+  city_id: string;
+  organization_id: string;
+  /** Nomes dos campos alterados (sem valores — evitar log desnecessário). */
+  changed_fields: string[];
+}
+
+export interface CityDeletedData {
+  city_id: string;
+  organization_id: string;
+  /** Soft-delete: deleted_at setado, não remoção física. */
+  soft: true;
+}
+
 // --- Domínio: kanban ---
 
 export interface KanbanCardCreatedData {
@@ -434,6 +456,9 @@ export interface AppEventDataMap {
   'leads.deleted': LeadsDeletedData;
   'leads.restored': LeadsRestoredData;
   'cities.identified': CitiesIdentifiedData;
+  'cities.created': CityCreatedData;
+  'cities.updated': CityUpdatedData;
+  'cities.deleted': CityDeletedData;
   'kanban.card_created': KanbanCardCreatedData;
   'kanban.stage_updated': KanbanStageUpdatedData;
   'kanban.outcome_set': KanbanOutcomeSetData;
