@@ -16,6 +16,9 @@ build/
 .next/
 .turbo/
 *.tsbuildinfo
+*.js.map
+vite.config.js
+vite.config.d.ts.map
 
 # env
 .env
