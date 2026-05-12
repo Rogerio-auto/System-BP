@@ -8,7 +8,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | Fase | Total | 🟢                    | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --------------------- | --- | --- | --- | --- | --- |
-| F0   | 9     | 4                     | 0   | 0   | 0   | 4   | 1   |
+| F0   | 9     | 0                     | 1   | 0   | 0   | 7   | 1   |
 | F1   | 26    | 11                    | 15  | 0   | 0   | 0   | 0   |
 | F2   | —     | a destrinchar após F1 |     |     |     |     |     |
 | F3   | —     | a destrinchar         |     |     |     |     |     |
@@ -26,10 +26,10 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0-S03  | Boot da API + healthcheck                          | 🟣 review      | high       | F0-S01          |
 | F0-S03b | Upgrade fastify + vitest (CVE remediation)         | 🟣 review      | high       | F0-S03          |
 | F0-S04  | Drizzle migration inicial                          | 🟣 review      | high       | F0-S01          |
-| F0-S05  | Web dev server + design tokens + login placeholder | 🟢 available   | medium     | F0-S01          |
-| F0-S06  | LangGraph boot + cliente HTTP base                 | 🟢 available   | high       | F0-S01          |
-| F0-S07  | Compose ponta a ponta                              | 🟢 available   | high       | F0-S03,04,05,06 |
-| F0-S08  | Husky + lint-staged + commitlint                   | 🟢 available   | low        | F0-S02          |
+| F0-S05  | Web dev server + design tokens + login placeholder | 🟣 review      | medium     | F0-S01          |
+| F0-S06  | LangGraph boot + cliente HTTP base                 | 🟣 review      | high       | F0-S01          |
+| F0-S07  | Compose ponta a ponta                              | ⏸️ blocked     | high       | F0-S03,04,05,06 |
+| F0-S08  | Husky + lint-staged + commitlint                   | 🟣 review      | low        | F0-S02          |
 
 ## Fase 1 — Base operacional
 
