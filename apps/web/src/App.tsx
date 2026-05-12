@@ -21,6 +21,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { CrmDetailPage } from './features/crm/CrmDetailPage';
 import { CrmListPage } from './features/crm/CrmListPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
+import { ImportWizardPage } from './features/imports/ImportWizardPage';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
 import { KanbanPage } from './pages/kanban/KanbanPage';
 
@@ -70,6 +71,7 @@ export function App(): React.JSX.Element {
               <Route path="/kanban" element={<KanbanPage />} />
               <Route path="/crm" element={<CrmListPage />} />
               <Route path="/crm/:id" element={<CrmDetailPage />} />
+              <Route path="/imports/leads/new" element={<ImportWizardPage />} />
               <Route path="/leads" element={<PlaceholderPage title="Leads" />} />
               <Route path="/analise" element={<PlaceholderPage title="Análise" />} />
               <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
