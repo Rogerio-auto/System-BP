@@ -9,7 +9,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F1   | 27    | 2   | 3   | 0   | 0   | 0   | 22  |
+| F1   | 28    | 4   | 3   | 0   | 0   | 0   | 21  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
@@ -41,7 +41,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S09 | Schema leads + customers + history + interactions                                       | ✅ done      | critical   | F1-S01, F1-S05                 |
 | F1-S10 | Helper de normalização de telefone (E.164 BR)                                           | ✅ done      | high       | —                              |
 | F1-S11 | CRUD leads (manual) com escopo de cidade + dedupe + eventos                             | ✅ done      | critical   | F1-S04, F1-S09, F1-S10, F1-S15 |
-| F1-S12 | Frontend CRM — lista + detalhe + form de lead                                           | ✅ done      | high       | F1-S08, F1-S11                 |
+| F1-S12 | Frontend CRM — lista + detalhe + form de lead                                           | 🟢 available | high       | F1-S08, F1-S11                 |
 | F1-S13 | Schema kanban + service de transições válidas                                           | ✅ done      | high       | F1-S04, F1-S09                 |
 | F1-S14 | Frontend Kanban (board + detalhe modal)                                                 | ✅ done      | medium     | F1-S08, F1-S13                 |
 | F1-S15 | Outbox — schema + emit() + worker outbox-publisher                                      | ✅ done      | critical   | F0-S04                         |
@@ -57,6 +57,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S25 | LGPD — direitos do titular (acesso/portabilidade/revogação/correção) + jobs de retenção | ✅ done      | high       | F1-S16, F1-S15, F1-S24         |
 | F1-S26 | LGPD — DLP no pipeline LangGraph (mascaramento antes do gateway OpenRouter)             | ✅ done      | critical   | F0-S06                         |
 | F1-S27 | Fix encadeamento .using('gin') em schemas Drizzle (cities, leads)                       | ✅ done      | critical   | —                              |
+| F1-S28 | Fix typecheck do api — drizzle.config.ts fora de rootDir                                | 🟢 available | critical   | F1-S27                         |
 
 ## Fase 3 — Agentes IA
 
