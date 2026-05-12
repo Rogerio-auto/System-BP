@@ -16,6 +16,7 @@
     "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
     "db:seed": "tsx --env-file=../../.env scripts/seed.ts",
     "db:seed-cities": "tsx --env-file=../../.env scripts/seed-cities.ts",
+    "db:seed-fake": "tsx --env-file=../../.env src/db/seed-fake.ts",
     "db:studio": "node --env-file=../../.env node_modules/drizzle-kit/bin.cjs studio",
     "worker:outbox": "tsx --env-file=../../.env src/workers/outbox-publisher.ts"
   },
@@ -41,6 +42,7 @@
   "devDependencies": {
     "@elemento/eslint-config": "workspace:*",
     "@elemento/tsconfig": "workspace:*",
+    "@faker-js/faker": "^9.0.0",
     "@types/bcryptjs": "2.4.6",
     "@types/nock": "^11.1.0",
     "@types/node": "20.16.10",

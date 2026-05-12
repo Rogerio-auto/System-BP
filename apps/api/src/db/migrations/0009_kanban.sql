@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0008_kanban.sql — Schema kanban: stages, cards e histórico de transições.
+-- 0009_kanban.sql — Schema kanban: stages, cards e histórico de transições.
 --
 -- Contexto: F1-S13.
 -- Dependências:

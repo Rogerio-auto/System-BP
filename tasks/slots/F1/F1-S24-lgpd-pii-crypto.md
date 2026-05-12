@@ -3,12 +3,12 @@ id: F1-S24
 title: LGPD baseline — cifração de PII em coluna + hash HMAC + Pino redact
 phase: F1
 task_ref: LGPD §3.4 §8.1 §8.3
-status: available
+status: review
 priority: critical
 estimated_size: M
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: backend-engineer
+claimed_at: 2026-05-12T00:00:00Z
+completed_at: 2026-05-12T11:40:00Z
 pr_url: null
 depends_on: [F1-S01, F1-S09]
 blocks: [F1-S25]
