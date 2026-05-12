@@ -1,3 +1,6 @@
+
+
+
 # Tasks — Sistema de slots para agentes IA
 
 Este projeto é desenvolvido por agentes IA em paralelo. Cada unidade de trabalho é um **slot**: uma cápsula com escopo fechado, dependências explícitas, contratos de entrada/saída e Definition of Done verificável.
