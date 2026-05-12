@@ -66,18 +66,16 @@ export interface AuditTx {
  * Informações sobre o ator que executou a ação.
  * null para ações de sistema (worker, job, integração interna).
  */
-export type AuditActor =
-  | {
-      /** UUID do usuário autenticado. */
-      userId: string;
-      /** Role snapshot no momento da ação. */
-      role: string;
-      /** IP do cliente. null se não disponível. */
-      ip?: string | null;
-      /** User-Agent. null se não disponível. */
-      userAgent?: string | null;
-    }
-  | null;
+export type AuditActor = {
+  /** UUID do usuário autenticado. */
+  userId: string;
+  /** Role snapshot no momento da ação. */
+  role: string;
+  /** IP do cliente. null se não disponível. */
+  ip?: string | null;
+  /** User-Agent. null se não disponível. */
+  userAgent?: string | null;
+} | null;
 
 /**
  * Recurso afetado pela ação.

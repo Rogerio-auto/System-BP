@@ -115,9 +115,7 @@ describe('auditLog()', () => {
     const tx = makeTx();
     const id = await auditLog(tx, makeParams());
 
-    expect(id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    );
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
 
   it('chama tx.insert() exatamente uma vez com organizationId correto', async () => {
@@ -218,10 +216,7 @@ describe('auditLog()', () => {
 
   it('salva after como null para ações de exclusão', async () => {
     const tx = makeTx();
-    await auditLog(
-      tx,
-      makeParams({ before: { id: RESOURCE_ID, status: 'active' }, after: null }),
-    );
+    await auditLog(tx, makeParams({ before: { id: RESOURCE_ID, status: 'active' }, after: null }));
 
     const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(row['before']).toMatchObject({ id: RESOURCE_ID, status: 'active' });
@@ -282,10 +277,7 @@ describe('auditLog() — LGPD §8.5', () => {
       status: 'disabled',
     };
 
-    await auditLog(
-      tx,
-      makeParams({ before: redactedBefore, after: redactedAfter }),
-    );
+    await auditLog(tx, makeParams({ before: redactedBefore, after: redactedAfter }));
 
     const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
     // Persiste exatamente o que o caller passou (já redactado)
@@ -295,10 +287,7 @@ describe('auditLog() — LGPD §8.5', () => {
 
   it('metadata é ignorado na inserção (não armazenado na tabela)', async () => {
     const tx = makeTx();
-    await auditLog(
-      tx,
-      makeParams({ metadata: { someExtraContext: 'value', requestId: 'abc' } }),
-    );
+    await auditLog(tx, makeParams({ metadata: { someExtraContext: 'value', requestId: 'abc' } }));
 
     const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
     // metadata não deve aparecer como coluna na linha inserida

@@ -3,12 +3,12 @@ id: F1-S19
 title: Webhook WhatsApp — entrada + idempotência + persistência
 phase: F1
 task_ref: T1.19
-status: available
+status: review
 priority: high
 estimated_size: M
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: claude-code
+claimed_at: '2026-05-12T00:00:00Z'
+completed_at: '2026-05-12T01:45:00Z'
 pr_url: null
 depends_on: [F1-S15]
 blocks: []

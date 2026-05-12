@@ -24,4 +24,8 @@ export function setup(): void {
   // Mínimo 32 chars conforme envSchema
   process.env['LANGGRAPH_INTERNAL_TOKEN'] = 'test-langgraph-token-vitest-only-00';
   process.env['LANGGRAPH_SERVICE_URL'] = 'http://localhost:8000';
+
+  // WhatsApp Cloud API (F1-S19)
+  process.env['WHATSAPP_APP_SECRET'] = 'test-whatsapp-app-secret-vitest-only';
+  process.env['WHATSAPP_VERIFY_TOKEN'] = 'test-verify-token-vitest';
 }

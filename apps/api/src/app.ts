@@ -14,6 +14,7 @@ import {
 
 import { env } from './config/env.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { whatsappRoutes } from './modules/whatsapp/routes.js';
 import { isAppError } from './shared/errors.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -53,6 +54,14 @@ export async function buildApp(): Promise<FastifyInstance> {
           '*.token',
           '*.refresh_token',
           '*.access_token',
+          // WhatsApp PII (F1-S19) — LGPD §8.3
+          // payload.text.body pode conter mensagem livre do cidadão (CPF, endereço, etc.)
+          '*.text.body',
+          '*.from',
+          'req.body.entry[*].changes[*].value.messages[*].text.body',
+          'req.body.entry[*].changes[*].value.messages[*].from',
+          '*.messages[*].text.body',
+          '*.messages[*].from',
         ],
         censor: '[REDACTED]',
       },
@@ -77,6 +86,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(sensible);
 
   await app.register(healthRoutes);
+  await app.register(whatsappRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.
