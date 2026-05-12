@@ -3,11 +3,11 @@ id: F1-S27
 title: Fix encadeamento .using('gin') em schemas Drizzle (cities, leads)
 phase: F1
 task_ref: hotfix
-status: available
+status: in-progress
 priority: critical
 estimated_size: XS
-agent_id: null
-claimed_at: null
+agent_id: claude-code
+claimed_at: 2026-05-12T16:16:43Z
 completed_at: null
 pr_url: null
 depends_on: []
