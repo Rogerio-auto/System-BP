@@ -3,12 +3,12 @@ id: F1-S01
 title: Schema identidade — orgs, users, roles, permissions, sessions, city scopes
 phase: F1
 task_ref: T1.1
-status: available
+status: review
 priority: critical
 estimated_size: M
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: db-schema-engineer
+claimed_at: 2026-05-11T00:00:00Z
+completed_at: 2026-05-11T13:00:00Z
 pr_url: null
 depends_on: [F0-S04]
 blocks: [F1-S02, F1-S03, F1-S05, F1-S07, F1-S09]
