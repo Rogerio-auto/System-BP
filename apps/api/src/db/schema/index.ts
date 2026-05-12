@@ -17,3 +17,6 @@ export * from './user_sessions.js';
 export * from './cities';
 export * from './agents';
 export * from './agent_cities';
+
+// Outbox pattern (F1-S15)
+export * from './events.js';
