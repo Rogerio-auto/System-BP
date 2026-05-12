@@ -39,13 +39,17 @@ const envSchema = z.object({
   // Token de verificação para o handshake inicial GET do Meta.
   WHATSAPP_VERIFY_TOKEN: z.string().min(8),
 
-  // ---- Chatwoot (F1-S20) ---------------------------------------------------
+  // ---- Chatwoot (F1-S20, F1-S21) ------------------------------------------
   // Opcionais: Chatwoot pode não estar configurado em dev/staging.
   // ChatwootClient verifica presença de cada var ao ser instanciado e lança
   // ChatwootApiError se chamado sem configuração, permitindo degradação graciosa.
   CHATWOOT_BASE_URL: z.string().url().optional(),
   CHATWOOT_API_TOKEN: z.string().min(1).optional(),
   CHATWOOT_ACCOUNT_ID: z.coerce.number().int().positive().optional(),
+  // Shared secret para validar HMAC do webhook Chatwoot (X-Chatwoot-Signature).
+  // Opcional: se ausente, o webhook rejeita todas as requisições com 401.
+  // Configurar no painel Chatwoot → Settings → Integrations → Webhooks.
+  CHATWOOT_WEBHOOK_HMAC_SECRET: z.string().min(8).optional(),
 
   // ---- LGPD baseline (F1-S24) ----------------------------------------------
   // Chave AES-256-GCM para cifração de PII em coluna (doc 17 §8.1).
