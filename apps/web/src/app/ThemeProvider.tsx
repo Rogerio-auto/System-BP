@@ -6,7 +6,6 @@ type Theme = 'light' | 'dark';
 
 interface ThemeContextValue {
   theme: Theme;
-  // eslint-disable-next-line no-unused-vars
   setTheme: (next: Theme) => void;
 }
 
@@ -50,9 +49,7 @@ function getInitialTheme(): Theme {
   } catch {
     // localStorage indisponível
   }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -83,16 +80,9 @@ export function ThemeProvider({ children }: ThemeProviderProps): React.JSX.Eleme
     return () => window.removeEventListener('storage', handler);
   }, []);
 
-  const value = React.useMemo<ThemeContextValue>(
-    () => ({ theme, setTheme }),
-    [theme, setTheme],
-  );
+  const value = React.useMemo<ThemeContextValue>(() => ({ theme, setTheme }), [theme, setTheme]);
 
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 // ─── Hook público ─────────────────────────────────────────────────────────────

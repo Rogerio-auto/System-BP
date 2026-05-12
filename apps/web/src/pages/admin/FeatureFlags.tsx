@@ -97,7 +97,7 @@ function StatusBadge({ status }: { status: FeatureFlagStatus }): React.JSX.Eleme
 interface ToggleButtonProps {
   flagKey: string;
   currentStatus: FeatureFlagStatus;
-  // eslint-disable-next-line no-unused-vars
+
   onToggle: (flagKey: string, status: FeatureFlagStatus) => void;
   isPending: boolean;
 }
@@ -151,7 +151,7 @@ function ToggleButton({
 interface FilterTabsProps {
   current: StatusFilter;
   counts: Record<StatusFilter, number>;
-  // eslint-disable-next-line no-unused-vars
+
   onChange: (filter: StatusFilter) => void;
 }
 

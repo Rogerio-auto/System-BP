@@ -108,6 +108,17 @@ export interface LeadsMergedData {
   merged_lead_id: string;
 }
 
+// F1-S11: soft-delete e restore — payload sem PII (apenas IDs)
+export interface LeadsDeletedData {
+  lead_id: string;
+  deleted_by_user_id: string;
+}
+
+export interface LeadsRestoredData {
+  lead_id: string;
+  restored_by_user_id: string;
+}
+
 // --- Domínio: cities ---
 
 export interface CitiesIdentifiedData {
@@ -401,6 +412,8 @@ export interface AppEventDataMap {
   'leads.updated': LeadsUpdatedData;
   'leads.imported': LeadsImportedData;
   'leads.merged': LeadsMergedData;
+  'leads.deleted': LeadsDeletedData;
+  'leads.restored': LeadsRestoredData;
   'cities.identified': CitiesIdentifiedData;
   'kanban.card_created': KanbanCardCreatedData;
   'kanban.stage_updated': KanbanStageUpdatedData;

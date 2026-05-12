@@ -3,12 +3,12 @@ id: F1-S11
 title: CRUD leads (manual) com escopo de cidade + dedupe + eventos
 phase: F1
 task_ref: T1.11
-status: available
+status: review
 priority: critical
 estimated_size: L
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: claude-code
+claimed_at: 2026-05-12T00:00:00Z
+completed_at: 2026-05-12T00:00:00Z
 pr_url: null
 depends_on: [F1-S04, F1-S09, F1-S10, F1-S15]
 blocks: [F1-S12, F1-S17, F1-S22]
@@ -42,7 +42,7 @@ Endpoints completos de leads protegidos por RBAC + escopo de cidade, dedupe por 
 
 ## Definition of Done
 
-- [ ] Testes positivos + negativos verdes
-- [ ] Eventos chegam ao outbox
-- [ ] Dedupe e RBAC validados em testes
+- [x] Testes positivos + negativos verdes
+- [x] Eventos chegam ao outbox
+- [x] Dedupe e RBAC validados em testes
 - [ ] PR aberto

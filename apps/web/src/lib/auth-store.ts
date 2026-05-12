@@ -32,13 +32,14 @@ export interface AuthState {
   /** true quando accessToken != null e user != null */
   isAuthenticated: boolean;
   /** Define user + token após login */
-  setAuth: (user: AuthUser, token: string) => void; // eslint-disable-line no-unused-vars
-  /** Atualiza apenas o access token (refresh interceptor) */
-  setAccessToken: (token: string) => void; // eslint-disable-line no-unused-vars
-  /** Limpa toda sessão */
+  setAuth: (
+    user: AuthUser,
+    token: string,
+  ) => void /** Atualiza apenas o access token (refresh interceptor) */;
+  setAccessToken: (token: string) => void /** Limpa toda sessão */;
   clear: () => void;
   /** Verifica se o usuário possui uma permissão específica (RBAC). */
-  hasPermission: (permission: string) => boolean; // eslint-disable-line no-unused-vars
+  hasPermission: (permission: string) => boolean;
 }
 
 // ─── Estado inicial ───────────────────────────────────────────────────────────
