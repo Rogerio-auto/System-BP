@@ -31,7 +31,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ID     | Título                                                                                  | Status       | Prioridade | Depende de                     |
 | ------ | --------------------------------------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
 | F1-S01 | Schema identidade — orgs, users, roles, permissions, sessions, city scopes              | 🟢 available | critical   | F0-S04                         |
-| F1-S02 | Helpers de erro e resposta padronizados                                                 | 🟢 available | high       | F0-S03                         |
+| F1-S02 | Helpers de erro e resposta padronizados                                                 | 🟣 review    | high       | F0-S03                         |
 | F1-S03 | Auth — login, refresh, logout                                                           | 🟢 available | critical   | F1-S01, F1-S02                 |
 | F1-S04 | Middlewares authenticate + authorize com escopo de cidade                               | 🟢 available | critical   | F1-S03                         |
 | F1-S05 | Schema cities + agents + seed cidades de Rondônia                                       | 🟢 available | high       | F1-S01                         |
