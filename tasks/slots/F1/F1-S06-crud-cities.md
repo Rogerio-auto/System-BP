@@ -3,13 +3,13 @@ id: F1-S06
 title: CRUD cities (admin)
 phase: F1
 task_ref: T1.6
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: claude-code
 claimed_at: 2026-05-12T00:00:00Z
 completed_at: 2026-05-12T23:07:13Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/43
 depends_on: [F1-S04, F1-S05]
 blocks: []
 source_docs:
