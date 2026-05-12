@@ -8,6 +8,13 @@
       "when": 1746921600000,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1747526400000,
+      "tag": "0002_cities_agents",
+      "breakpoints": true
     }
   ]
 }

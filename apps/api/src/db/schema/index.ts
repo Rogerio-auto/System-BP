@@ -12,3 +12,8 @@ export * from './role_permissions.js';
 export * from './user_roles.js';
 export * from './user_city_scopes.js';
 export * from './user_sessions.js';
+
+// Geografia e times (F1-S05)
+export * from './cities';
+export * from './agents';
+export * from './agent_cities';
