@@ -24,7 +24,6 @@ import type { EventOutbox } from '../db/schema/events.js';
 // Tipo do handler
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line no-unused-vars -- parameter name in type alias (not a real variable)
 export type EventHandler = (event: EventOutbox) => Promise<void>;
 
 export interface RegisteredHandler {

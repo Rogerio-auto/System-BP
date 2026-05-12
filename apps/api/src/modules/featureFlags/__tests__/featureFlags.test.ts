@@ -58,7 +58,6 @@ vi.mock('../../../db/client.js', () => ({
     select: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
-    // eslint-disable-next-line no-unused-vars
     transaction: vi.fn((fn: (tx: unknown) => unknown) =>
       fn({ insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }) }),
     ),

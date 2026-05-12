@@ -2,7 +2,7 @@
 name: security-reviewer
 description: Revisor de segurança read-only. Invocado pelo orchestrator antes de marcar qualquer slot como done. Verifica RBAC, escopo de cidade, validação Zod, segredos, headers, idempotência, audit. NUNCA escreve código — apenas reporta gaps.
 tools: Read, Grep, Glob, Bash
-model: sonnet
+model: opus
 ---
 
 # Security Reviewer — Elemento
