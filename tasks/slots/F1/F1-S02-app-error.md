@@ -3,7 +3,7 @@ id: F1-S02
 title: Helpers de erro e resposta padronizados
 phase: F1
 task_ref: T0.4
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: claude-code

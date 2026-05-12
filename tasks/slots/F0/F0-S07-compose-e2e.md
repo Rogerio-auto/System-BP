@@ -3,7 +3,7 @@ id: F0-S07
 title: docker-compose — validação ponta a ponta
 phase: F0
 task_ref: T0.2
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: backend-engineer
