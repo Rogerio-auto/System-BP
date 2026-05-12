@@ -19,6 +19,7 @@ import { AuthGuard } from './app/AuthGuard';
 import { LoginPage } from './features/auth/LoginPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
+import { KanbanPage } from './pages/kanban/KanbanPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +63,7 @@ export function App(): React.JSX.Element {
             }
           >
             <Route index element={<DashboardPage />} />
+            <Route path="/kanban" element={<KanbanPage />} />
             <Route path="/leads" element={<PlaceholderPage title="Leads" />} />
             <Route path="/analise" element={<PlaceholderPage title="Análise" />} />
             <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
