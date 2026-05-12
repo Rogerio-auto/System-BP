@@ -16,7 +16,10 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './app/AppLayout';
 import { AuthGuard } from './app/AuthGuard';
+import { ToastProvider } from './components/ui/Toast';
 import { LoginPage } from './features/auth/LoginPage';
+import { CrmDetailPage } from './features/crm/CrmDetailPage';
+import { CrmListPage } from './features/crm/CrmListPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
 import { KanbanPage } from './pages/kanban/KanbanPage';
@@ -49,33 +52,37 @@ function PlaceholderPage({ title }: { title: string }): React.JSX.Element {
 export function App(): React.JSX.Element {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          {/* ── Pública ─────────────────────────────────────────────────── */}
-          <Route path="/login" element={<LoginPage />} />
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* ── Pública ─────────────────────────────────────────────────── */}
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* ── Protegidas (AuthGuard > AppLayout) ──────────────────────── */}
-          <Route
-            element={
-              <AuthGuard>
-                <AppLayout />
-              </AuthGuard>
-            }
-          >
-            <Route index element={<DashboardPage />} />
-            <Route path="/kanban" element={<KanbanPage />} />
-            <Route path="/leads" element={<PlaceholderPage title="Leads" />} />
-            <Route path="/analise" element={<PlaceholderPage title="Análise" />} />
-            <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
-            <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
-            <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" />} />
-            <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
-          </Route>
+            {/* ── Protegidas (AuthGuard > AppLayout) ──────────────────────── */}
+            <Route
+              element={
+                <AuthGuard>
+                  <AppLayout />
+                </AuthGuard>
+              }
+            >
+              <Route index element={<DashboardPage />} />
+              <Route path="/kanban" element={<KanbanPage />} />
+              <Route path="/crm" element={<CrmListPage />} />
+              <Route path="/crm/:id" element={<CrmDetailPage />} />
+              <Route path="/leads" element={<PlaceholderPage title="Leads" />} />
+              <Route path="/analise" element={<PlaceholderPage title="Análise" />} />
+              <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
+              <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
+              <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" />} />
+              <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
+            </Route>
 
-          {/* ── Catch-all ────────────────────────────────────────────────── */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
+            {/* ── Catch-all ────────────────────────────────────────────────── */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }
