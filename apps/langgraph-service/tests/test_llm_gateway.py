@@ -64,55 +64,62 @@ def _make_openrouter_response(
 
 
 class TestRedactPii:
+    # Nota: redact_pii agora retorna RedactResult (NamedTuple).
+    # Use .text para acessar o texto mascarado.
+    # Tokens usam formato <TIPO_N> em vez de [TIPO_REDACTED].
+
     def test_cpf_com_pontuacao(self) -> None:
         text = "CPF: 123.456.789-00"
         result = redact_pii(text)
-        assert "123.456.789-00" not in result
-        assert "[CPF_REDACTED]" in result
+        assert "123.456.789-00" not in result.text
+        assert "<CPF_1>" in result.text
 
     def test_cpf_sem_pontuacao(self) -> None:
         text = "meu cpf é 12345678900"
         result = redact_pii(text)
-        assert "12345678900" not in result
-        assert "[CPF_REDACTED]" in result
+        assert "12345678900" not in result.text
+        assert "<CPF_1>" in result.text
 
     def test_email_simples(self) -> None:
         text = "contato: usuario@exemplo.com.br"
         result = redact_pii(text)
-        assert "usuario@exemplo.com.br" not in result
-        assert "[EMAIL_REDACTED]" in result
+        assert "usuario@exemplo.com.br" not in result.text
+        assert "<EMAIL_1>" in result.text
 
     def test_telefone_com_ddd(self) -> None:
         text = "ligue para (69) 99999-0000"
         result = redact_pii(text)
-        assert "99999-0000" not in result
-        assert "[PHONE_REDACTED]" in result
+        assert "99999-0000" not in result.text
+        assert "<PHONE_1>" in result.text
 
     def test_texto_sem_pii_nao_alterado(self) -> None:
         text = "Olá, preciso de um empréstimo de R$ 5.000,00."
         result = redact_pii(text)
-        assert result == text
+        assert result.text == text
 
     def test_multiplos_pii_no_mesmo_texto(self) -> None:
         text = "João, CPF 111.222.333-44, email joao@test.com, tel 69 98888-7777"
         result = redact_pii(text)
-        assert "111.222.333-44" not in result
-        assert "joao@test.com" not in result
-        assert "98888-7777" not in result
-        assert "João" in result  # nome próprio não é redactado
+        assert "111.222.333-44" not in result.text
+        assert "joao@test.com" not in result.text
+        assert "98888-7777" not in result.text
+        assert "João" in result.text  # nome próprio não é redactado
 
 
 class TestRedactMessages:
+    # Nota: redact_messages agora retorna (list, reverse_map, counts).
+    # Desempacote o tuple para acessar a lista mascarada.
+
     def test_redacta_campo_content(self) -> None:
         messages = [
             {"role": "system", "content": "Você é um assistente."},
             {"role": "user", "content": "Meu CPF é 123.456.789-00"},
         ]
-        result = redact_messages(messages)
-        assert "123.456.789-00" not in result[1]["content"]
-        assert "[CPF_REDACTED]" in result[1]["content"]
+        clean, _rmap, _counts = redact_messages(messages)
+        assert "123.456.789-00" not in clean[1]["content"]
+        assert "<CPF_1>" in clean[1]["content"]
         # mensagem system não tem PII, mantida
-        assert result[0]["content"] == "Você é um assistente."
+        assert clean[0]["content"] == "Você é um assistente."
 
     def test_nao_muta_lista_original(self) -> None:
         original_content = "email: test@test.com"
@@ -125,8 +132,8 @@ class TestRedactMessages:
         messages: list[dict[str, Any]] = [
             {"role": "tool", "tool_call_id": "abc", "content": None}
         ]
-        result = redact_messages(messages)
-        assert result[0].get("tool_call_id") == "abc"
+        clean, _rmap, _counts = redact_messages(messages)
+        assert clean[0].get("tool_call_id") == "abc"
 
 
 # ---------------------------------------------------------------------------
@@ -244,7 +251,7 @@ class TestOpenRouterGatewayComplete:
         sent_body = json.loads(route.calls.last.request.content)
         user_content = sent_body["messages"][0]["content"]
         assert "111.222.333-44" not in user_content
-        assert "[CPF_REDACTED]" in user_content
+        assert "<CPF_1>" in user_content
 
     @pytest.mark.asyncio()
     async def test_complete_latency_ms_preenchida(self, gateway: Any) -> None:
