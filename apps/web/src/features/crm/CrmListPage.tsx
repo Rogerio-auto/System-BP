@@ -18,7 +18,7 @@
 // =============================================================================
 
 import * as React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import type { AvatarVariant } from '../../components/ui/Avatar';
 import { Avatar } from '../../components/ui/Avatar';
@@ -37,6 +37,7 @@ import {
 } from '../../hooks/crm/types';
 import { useLeads } from '../../hooks/crm/useLeads';
 import { cn } from '../../lib/cn';
+import { KanbanPage } from '../../pages/kanban/KanbanPage';
 
 import { NewLeadModal } from './NewLeadModal';
 
@@ -208,6 +209,10 @@ function EmptyState({ onAdd }: { onAdd: () => void }): React.JSX.Element {
  * Lista paginada de leads com filtros, stats row e tabela densa.
  */
 export function CrmListPage(): React.JSX.Element {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeView = searchParams.get('view') ?? 'lista';
+
   const [filters, setFilters] = React.useState<LeadFilters>({
     page: 1,
     limit: 20,
@@ -266,305 +271,409 @@ export function CrmListPage(): React.JSX.Element {
         style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) both' }}
       >
         {/* ── Page header ───────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1
-              className="font-display font-bold text-ink"
-              style={{
-                fontSize: 'var(--text-3xl)',
-                letterSpacing: '-0.04em',
-                fontVariationSettings: "'opsz' 48",
-              }}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          {/* Segmented control Lista | Kanban */}
+          <div
+            className="inline-flex items-center gap-0.5 rounded-md border border-border-subtle p-0.5"
+            style={{ background: 'var(--bg-elev-2)' }}
+            role="group"
+            aria-label="Modo de visualização"
+          >
+            <button
+              type="button"
+              onClick={() => setSearchParams({}, { replace: true })}
+              aria-pressed={activeView === 'lista'}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px]',
+                'font-sans text-sm font-medium',
+                'transition-all duration-[200ms] ease-out',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20',
+                activeView === 'lista'
+                  ? 'bg-surface-1 text-ink shadow-e1'
+                  : 'text-ink-3 hover:text-ink hover:bg-surface-hover',
+              )}
             >
-              CRM
-            </h1>
-            <p className="font-sans text-sm text-ink-3 mt-1">
-              Gestão de leads e relacionamento com clientes
-            </p>
-          </div>
-
-          <Button
-            variant="primary"
-            onClick={() => setModalOpen(true)}
-            leftIcon={
               <svg
                 viewBox="0 0 16 16"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth={2}
-                className="w-4 h-4"
+                strokeWidth={1.8}
+                className="w-3.5 h-3.5"
+                aria-hidden="true"
               >
-                <path d="M8 2v12M2 8h12" />
+                <path d="M2 4h12M2 8h12M2 12h12" />
               </svg>
-            }
-          >
-            Novo lead
-          </Button>
-        </div>
+              Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setSearchParams({ view: 'kanban' }, { replace: true })}
+              aria-pressed={activeView === 'kanban'}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px]',
+                'font-sans text-sm font-medium',
+                'transition-all duration-[200ms] ease-out',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20',
+                activeView === 'kanban'
+                  ? 'bg-surface-1 text-ink shadow-e1'
+                  : 'text-ink-3 hover:text-ink hover:bg-surface-hover',
+              )}
+            >
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                className="w-3.5 h-3.5"
+                aria-hidden="true"
+              >
+                <rect x="1" y="2" width="4" height="12" rx="1" />
+                <rect x="6" y="2" width="4" height="8" rx="1" />
+                <rect x="11" y="2" width="4" height="10" rx="1" />
+              </svg>
+              Kanban
+            </button>
+          </div>
 
-        {/* ── Stats row ─────────────────────────────────────────────────────── */}
-        {isLoading && !data ? (
-          <StatsSkeleton />
-        ) : stats ? (
-          <div
-            className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-            style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.05s both' }}
-          >
-            <Stat label="Total de leads" value={stats.total} description="Todos os leads ativos" />
-            <Stat
-              label="Novos no mês"
-              value={stats.newThisMonth}
-              {...(stats.newThisMonth > 0
-                ? { trend: { value: `+${stats.newThisMonth}`, direction: 'up' as const } }
-                : {})}
-            />
-            <Stat label="Em análise" value={stats.qualifying} description="Status: qualificando" />
-            <Stat
-              label="Conversão"
-              value={`${stats.conversionRate}%`}
-              trend={
-                stats.conversionRate >= 10
-                  ? { value: `${stats.conversionRate}%`, direction: 'up' }
-                  : { value: `${stats.conversionRate}%`, direction: 'down' }
+          {/* Ações: Importar + Novo Lead */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/imports/leads/new')}
+              leftIcon={
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                  className="w-4 h-4"
+                  aria-hidden="true"
+                >
+                  <path d="M8 2v8" />
+                  <path d="M5 7l3 3 3-3" />
+                  <path d="M2 12v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1" />
+                </svg>
               }
-              description="Leads convertidos"
-            />
-          </div>
-        ) : null}
-
-        {/* ── Filtros ───────────────────────────────────────────────────────── */}
-        <div
-          className="flex flex-wrap gap-3 items-end"
-          style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.1s both' }}
-        >
-          {/* Busca */}
-          <div className="flex-1 min-w-[200px]">
-            <Input
-              id="crm-search"
-              placeholder="Buscar por nome..."
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              wrapperClassName="w-full"
-            />
-          </div>
-
-          {/* Status */}
-          <div className="w-[160px]">
-            <Select
-              id="crm-status"
-              options={STATUS_OPTIONS}
-              value={filters.status ?? ''}
-              onChange={(e) => {
-                const val = e.target.value as LeadStatus | '';
-                setFilters((f) => {
-                  if (val) {
-                    return { ...f, status: val, page: 1 };
-                  }
-                  const { status: _s, ...rest } = f;
-                  return { ...rest, page: 1 };
-                });
-              }}
-            />
+            >
+              Importar leads
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => setModalOpen(true)}
+              leftIcon={
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  className="w-4 h-4"
+                  aria-hidden="true"
+                >
+                  <path d="M8 2v12M2 8h12" />
+                </svg>
+              }
+            >
+              Novo lead
+            </Button>
           </div>
         </div>
 
-        {/* ── Tabela ────────────────────────────────────────────────────────── */}
-        <div
-          className="rounded-md border border-border overflow-hidden"
-          style={{
-            background: 'var(--bg-elev-1)',
-            boxShadow: 'var(--elev-2)',
-            animation: 'fade-up var(--dur-slow) var(--ease-out) 0.15s both',
-          }}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              {/* Thead */}
-              <thead>
-                <tr style={{ background: 'var(--bg-elev-2)' }}>
-                  {[
-                    { label: 'Lead', className: 'pl-4 pr-4 w-[260px]' },
-                    { label: 'Status', className: 'px-4 w-[130px]' },
-                    { label: 'Telefone', className: 'px-4 w-[150px]' },
-                    { label: 'E-mail', className: 'px-4 hidden lg:table-cell' },
-                    { label: 'Canal', className: 'px-4 hidden md:table-cell w-[110px]' },
-                    {
-                      label: 'Criado',
-                      className: 'px-4 hidden xl:table-cell w-[110px] text-right pr-4',
-                    },
-                  ].map((col) => (
-                    <th
-                      key={col.label}
-                      scope="col"
-                      className={cn('py-3 font-sans font-bold text-ink-3 text-left', col.className)}
-                      style={{
-                        fontSize: '0.7rem',
-                        letterSpacing: '0.1em',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+        {/* ── Título da página ──────────────────────────────────────────────── */}
+        <div className="-mt-2">
+          <h1
+            className="font-display font-bold text-ink"
+            style={{
+              fontSize: 'var(--text-3xl)',
+              letterSpacing: '-0.04em',
+              fontVariationSettings: "'opsz' 48",
+            }}
+          >
+            CRM
+          </h1>
+          <p className="font-sans text-sm text-ink-3 mt-1">Gerencie seus leads</p>
+        </div>
 
-              {/* Tbody */}
-              <tbody>
-                {isLoading ? (
-                  <TableSkeleton />
-                ) : isError ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center">
-                      <p className="font-sans text-sm text-danger">Erro ao carregar leads.</p>
-                      <button
-                        type="button"
-                        className="mt-2 font-sans text-xs text-azul hover:underline"
-                        onClick={() => setFilters((f) => ({ ...f }))}
-                      >
-                        Tentar novamente
-                      </button>
-                    </td>
-                  </tr>
-                ) : leads.length === 0 ? (
-                  <EmptyState onAdd={() => setModalOpen(true)} />
-                ) : (
-                  leads.map((lead, idx) => {
-                    const statusMeta = STATUS_META[lead.status];
-                    // LGPD: mascarar PII antes de qualquer uso em template
-                    const phoneMasked = maskPhone(lead.phone_e164);
-                    const emailTrunc = lead.email ? truncateEmail(lead.email) : null;
+        {/* ── Conteúdo dependente do modo de visualização ───────────────────── */}
+        {activeView === 'kanban' ? (
+          <KanbanPage hideHeader />
+        ) : (
+          <>
+            {/* ── Stats row ─────────────────────────────────────────────────────── */}
+            {isLoading && !data ? (
+              <StatsSkeleton />
+            ) : stats ? (
+              <div
+                className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+                style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.05s both' }}
+              >
+                <Stat
+                  label="Total de leads"
+                  value={stats.total}
+                  description="Todos os leads ativos"
+                />
+                <Stat
+                  label="Novos no mês"
+                  value={stats.newThisMonth}
+                  {...(stats.newThisMonth > 0
+                    ? { trend: { value: `+${stats.newThisMonth}`, direction: 'up' as const } }
+                    : {})}
+                />
+                <Stat
+                  label="Em análise"
+                  value={stats.qualifying}
+                  description="Status: qualificando"
+                />
+                <Stat
+                  label="Conversão"
+                  value={`${stats.conversionRate}%`}
+                  trend={
+                    stats.conversionRate >= 10
+                      ? { value: `${stats.conversionRate}%`, direction: 'up' }
+                      : { value: `${stats.conversionRate}%`, direction: 'down' }
+                  }
+                  description="Leads convertidos"
+                />
+              </div>
+            ) : null}
 
-                    return (
-                      <tr
-                        key={lead.id}
-                        className="group border-t border-border-subtle transition-colors duration-fast"
-                        style={{
-                          animationDelay: `${idx * 30}ms`,
-                        }}
-                      >
-                        {/* Lead: avatar + nome */}
-                        <td className="px-4 py-3.5">
-                          <Link
-                            to={`/crm/${lead.id}`}
-                            className="flex items-center gap-3 hover:text-azul transition-colors group/link"
-                            title={`Ver detalhes de ${lead.name}`}
-                          >
-                            <Avatar
-                              name={lead.name}
-                              variant={avatarVariantForName(lead.name)}
-                              size="md"
-                              className="shrink-0 transition-transform group-hover/link:scale-105 duration-fast"
-                            />
-                            <div className="min-w-0">
-                              <p
-                                className="font-sans font-semibold text-sm text-ink truncate group-hover/link:text-azul transition-colors"
-                                style={{ maxWidth: 180 }}
-                              >
-                                {lead.name}
-                              </p>
-                              {lead.agent_id && (
-                                <p className="font-sans text-xs text-ink-4 truncate">
-                                  Agente atribuído
-                                </p>
-                              )}
-                            </div>
-                          </Link>
-                        </td>
+            {/* ── Filtros ───────────────────────────────────────────────────────── */}
+            <div
+              className="flex flex-wrap gap-3 items-end"
+              style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.1s both' }}
+            >
+              {/* Busca */}
+              <div className="flex-1 min-w-[200px]">
+                <Input
+                  id="crm-search"
+                  placeholder="Buscar por nome..."
+                  value={search}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  wrapperClassName="w-full"
+                />
+              </div>
 
-                        {/* Status */}
-                        <td className="px-4 py-3.5">
-                          <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
-                        </td>
-
-                        {/* Telefone — LGPD mascarado */}
-                        <td className="px-4 py-3.5">
-                          <span
-                            className="font-mono text-sm text-ink-2"
-                            style={{
-                              fontFamily: 'var(--font-mono)',
-                              fontSize: '0.8125rem',
-                              letterSpacing: '-0.01em',
-                            }}
-                          >
-                            {phoneMasked}
-                          </span>
-                        </td>
-
-                        {/* Email — LGPD truncado */}
-                        <td className="px-4 py-3.5 hidden lg:table-cell">
-                          {emailTrunc ? (
-                            <span className="font-sans text-sm text-ink-3">{emailTrunc}</span>
-                          ) : (
-                            <span className="text-ink-4 text-sm">—</span>
-                          )}
-                        </td>
-
-                        {/* Canal de origem */}
-                        <td className="px-4 py-3.5 hidden md:table-cell">
-                          <span className="font-sans text-xs text-ink-3">
-                            {SOURCE_LABEL[lead.source] ?? lead.source}
-                          </span>
-                        </td>
-
-                        {/* Data de criação */}
-                        <td className="px-4 py-3.5 hidden xl:table-cell text-right pr-4">
-                          <span className="font-sans text-xs text-ink-4">
-                            {formatDate(lead.created_at)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Paginação */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border-subtle">
-              <p className="font-sans text-xs text-ink-3">
-                {(pagination.page - 1) * pagination.limit + 1}–
-                {Math.min(pagination.page * pagination.limit, pagination.total)} de{' '}
-                {pagination.total} leads
-              </p>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={pagination.page <= 1}
-                  onClick={() => setFilters((f) => ({ ...f, page: (f.page ?? 1) - 1 }))}
-                  className={cn(
-                    'px-3 py-1.5 rounded-sm font-sans text-xs font-medium',
-                    'border border-border transition-all duration-fast',
-                    'hover:bg-surface-hover hover:border-border-strong',
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                    'focus-visible:ring-2 focus-visible:ring-azul/20',
-                  )}
-                  aria-label="Página anterior"
-                >
-                  ← Anterior
-                </button>
-                <button
-                  type="button"
-                  disabled={pagination.page >= pagination.totalPages}
-                  onClick={() => setFilters((f) => ({ ...f, page: (f.page ?? 1) + 1 }))}
-                  className={cn(
-                    'px-3 py-1.5 rounded-sm font-sans text-xs font-medium',
-                    'border border-border transition-all duration-fast',
-                    'hover:bg-surface-hover hover:border-border-strong',
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                    'focus-visible:ring-2 focus-visible:ring-azul/20',
-                  )}
-                  aria-label="Próxima página"
-                >
-                  Próxima →
-                </button>
+              {/* Status */}
+              <div className="w-[160px]">
+                <Select
+                  id="crm-status"
+                  options={STATUS_OPTIONS}
+                  value={filters.status ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value as LeadStatus | '';
+                    setFilters((f) => {
+                      if (val) {
+                        return { ...f, status: val, page: 1 };
+                      }
+                      const { status: _s, ...rest } = f;
+                      return { ...rest, page: 1 };
+                    });
+                  }}
+                />
               </div>
             </div>
-          )}
-        </div>
+
+            {/* ── Tabela ────────────────────────────────────────────────────────── */}
+            <div
+              className="rounded-md border border-border overflow-hidden"
+              style={{
+                background: 'var(--bg-elev-1)',
+                boxShadow: 'var(--elev-2)',
+                animation: 'fade-up var(--dur-slow) var(--ease-out) 0.15s both',
+              }}
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  {/* Thead */}
+                  <thead>
+                    <tr style={{ background: 'var(--bg-elev-2)' }}>
+                      {[
+                        { label: 'Lead', className: 'pl-4 pr-4 w-[260px]' },
+                        { label: 'Status', className: 'px-4 w-[130px]' },
+                        { label: 'Telefone', className: 'px-4 w-[150px]' },
+                        { label: 'E-mail', className: 'px-4 hidden lg:table-cell' },
+                        { label: 'Canal', className: 'px-4 hidden md:table-cell w-[110px]' },
+                        {
+                          label: 'Criado',
+                          className: 'px-4 hidden xl:table-cell w-[110px] text-right pr-4',
+                        },
+                      ].map((col) => (
+                        <th
+                          key={col.label}
+                          scope="col"
+                          className={cn(
+                            'py-3 font-sans font-bold text-ink-3 text-left',
+                            col.className,
+                          )}
+                          style={{
+                            fontSize: '0.7rem',
+                            letterSpacing: '0.1em',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {col.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  {/* Tbody */}
+                  <tbody>
+                    {isLoading ? (
+                      <TableSkeleton />
+                    ) : isError ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-12 text-center">
+                          <p className="font-sans text-sm text-danger">Erro ao carregar leads.</p>
+                          <button
+                            type="button"
+                            className="mt-2 font-sans text-xs text-azul hover:underline"
+                            onClick={() => setFilters((f) => ({ ...f }))}
+                          >
+                            Tentar novamente
+                          </button>
+                        </td>
+                      </tr>
+                    ) : leads.length === 0 ? (
+                      <EmptyState onAdd={() => setModalOpen(true)} />
+                    ) : (
+                      leads.map((lead, idx) => {
+                        const statusMeta = STATUS_META[lead.status];
+                        // LGPD: mascarar PII antes de qualquer uso em template
+                        const phoneMasked = maskPhone(lead.phone_e164);
+                        const emailTrunc = lead.email ? truncateEmail(lead.email) : null;
+
+                        return (
+                          <tr
+                            key={lead.id}
+                            className="group border-t border-border-subtle transition-colors duration-fast"
+                            style={{
+                              animationDelay: `${idx * 30}ms`,
+                            }}
+                          >
+                            {/* Lead: avatar + nome */}
+                            <td className="px-4 py-3.5">
+                              <Link
+                                to={`/crm/${lead.id}`}
+                                className="flex items-center gap-3 hover:text-azul transition-colors group/link"
+                                title={`Ver detalhes de ${lead.name}`}
+                              >
+                                <Avatar
+                                  name={lead.name}
+                                  variant={avatarVariantForName(lead.name)}
+                                  size="md"
+                                  className="shrink-0 transition-transform group-hover/link:scale-105 duration-fast"
+                                />
+                                <div className="min-w-0">
+                                  <p
+                                    className="font-sans font-semibold text-sm text-ink truncate group-hover/link:text-azul transition-colors"
+                                    style={{ maxWidth: 180 }}
+                                  >
+                                    {lead.name}
+                                  </p>
+                                  {lead.agent_id && (
+                                    <p className="font-sans text-xs text-ink-4 truncate">
+                                      Agente atribuído
+                                    </p>
+                                  )}
+                                </div>
+                              </Link>
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-4 py-3.5">
+                              <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+                            </td>
+
+                            {/* Telefone — LGPD mascarado */}
+                            <td className="px-4 py-3.5">
+                              <span
+                                className="font-mono text-sm text-ink-2"
+                                style={{
+                                  fontFamily: 'var(--font-mono)',
+                                  fontSize: '0.8125rem',
+                                  letterSpacing: '-0.01em',
+                                }}
+                              >
+                                {phoneMasked}
+                              </span>
+                            </td>
+
+                            {/* Email — LGPD truncado */}
+                            <td className="px-4 py-3.5 hidden lg:table-cell">
+                              {emailTrunc ? (
+                                <span className="font-sans text-sm text-ink-3">{emailTrunc}</span>
+                              ) : (
+                                <span className="text-ink-4 text-sm">—</span>
+                              )}
+                            </td>
+
+                            {/* Canal de origem */}
+                            <td className="px-4 py-3.5 hidden md:table-cell">
+                              <span className="font-sans text-xs text-ink-3">
+                                {SOURCE_LABEL[lead.source] ?? lead.source}
+                              </span>
+                            </td>
+
+                            {/* Data de criação */}
+                            <td className="px-4 py-3.5 hidden xl:table-cell text-right pr-4">
+                              <span className="font-sans text-xs text-ink-4">
+                                {formatDate(lead.created_at)}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Paginação */}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border-subtle">
+                  <p className="font-sans text-xs text-ink-3">
+                    {(pagination.page - 1) * pagination.limit + 1}–
+                    {Math.min(pagination.page * pagination.limit, pagination.total)} de{' '}
+                    {pagination.total} leads
+                  </p>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={pagination.page <= 1}
+                      onClick={() => setFilters((f) => ({ ...f, page: (f.page ?? 1) - 1 }))}
+                      className={cn(
+                        'px-3 py-1.5 rounded-sm font-sans text-xs font-medium',
+                        'border border-border transition-all duration-fast',
+                        'hover:bg-surface-hover hover:border-border-strong',
+                        'disabled:opacity-40 disabled:cursor-not-allowed',
+                        'focus-visible:ring-2 focus-visible:ring-azul/20',
+                      )}
+                      aria-label="Página anterior"
+                    >
+                      ← Anterior
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pagination.page >= pagination.totalPages}
+                      onClick={() => setFilters((f) => ({ ...f, page: (f.page ?? 1) + 1 }))}
+                      className={cn(
+                        'px-3 py-1.5 rounded-sm font-sans text-xs font-medium',
+                        'border border-border transition-all duration-fast',
+                        'hover:bg-surface-hover hover:border-border-strong',
+                        'disabled:opacity-40 disabled:cursor-not-allowed',
+                        'focus-visible:ring-2 focus-visible:ring-azul/20',
+                      )}
+                      aria-label="Próxima página"
+                    >
+                      Próxima →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Modal de criação */}

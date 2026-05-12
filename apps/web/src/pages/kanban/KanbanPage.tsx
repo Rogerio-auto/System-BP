@@ -41,6 +41,12 @@ import { useMoveCard } from '../../hooks/kanban/useMoveCard';
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
+interface KanbanPageProps {
+  /** Quando `true`, suprime o cabeçalho interno (h1 + subtitle).
+   * Usado ao renderizar o board embutido dentro do CRM. */
+  hideHeader?: boolean;
+}
+
 /**
  * Página Kanban — board drag-and-drop de leads por etapa.
  *
@@ -51,7 +57,7 @@ import { useMoveCard } from '../../hooks/kanban/useMoveCard';
  *
  * Otimismo UI: useMoveCard aplica mutação local e faz rollback em erro.
  */
-export function KanbanPage(): React.JSX.Element {
+export function KanbanPage({ hideHeader = false }: KanbanPageProps): React.JSX.Element {
   // ── Estado ─────────────────────────────────────────────────────────────────
   const [filters, setFilters] = React.useState<KanbanFilters>({});
   const [activeCard, setActiveCard] = React.useState<KanbanCardType | null>(null);
@@ -171,23 +177,25 @@ export function KanbanPage(): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
-      {/* Cabeçalho da página */}
-      <div style={{ animation: 'fade-up var(--dur-slow) var(--ease-out)' }}>
-        <h1
-          className="font-display font-bold text-ink"
-          style={{
-            fontSize: 'var(--text-3xl)',
-            letterSpacing: '-0.045em',
-            fontVariationSettings: "'opsz' 48",
-            lineHeight: 1,
-          }}
-        >
-          Kanban
-        </h1>
-        <p className="font-sans text-sm text-ink-3 mt-1">
-          Gerencie leads por etapa com drag-and-drop.
-        </p>
-      </div>
+      {/* Cabeçalho da página — ocultado quando embutido no CRM */}
+      {!hideHeader && (
+        <div style={{ animation: 'fade-up var(--dur-slow) var(--ease-out)' }}>
+          <h1
+            className="font-display font-bold text-ink"
+            style={{
+              fontSize: 'var(--text-3xl)',
+              letterSpacing: '-0.045em',
+              fontVariationSettings: "'opsz' 48",
+              lineHeight: 1,
+            }}
+          >
+            Kanban
+          </h1>
+          <p className="font-sans text-sm text-ink-3 mt-1">
+            Gerencie leads por etapa com drag-and-drop.
+          </p>
+        </div>
+      )}
 
       {/* Filtros */}
       <div style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.05s both' }}>
