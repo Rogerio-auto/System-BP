@@ -549,6 +549,129 @@ def _find_slot_branch_tip(slot_id: str, remote: str = "origin") -> str | None:
     return None
 
 
+def _find_all_slot_branches(slot_id: str, remote: str = "origin") -> list[tuple[str, str]]:
+    """Como _find_slot_branch_tip, mas retorna TODAS as branches que matcham.
+
+    Resolve o bug onde múltiplas branches existem para o mesmo slot
+    (ex: feat/f1-s06 e feat/f1-s06-crud-cities) e o pick aleatório
+    do `_find_slot_branch_tip` pega a abandonada.
+
+    Retorna lista de (short_name, tip_sha). Dedup por sha.
+    """
+    needle = f"feat/{slot_id.lower()}"
+    seen_shas: set[str] = set()
+    out: list[tuple[str, str]] = []
+    for ref_kind in ("refs/heads", f"refs/remotes/{remote}"):
+        res = run_git(["for-each-ref", "--format=%(refname:short) %(objectname)", ref_kind], check=False)
+        if res.returncode != 0:
+            continue
+        for line in res.stdout.splitlines():
+            name, _, sha = line.partition(" ")
+            sha = sha.strip()
+            if not sha or sha in seen_shas:
+                continue
+            short = name[len(f"{remote}/"):] if name.startswith(f"{remote}/") else name
+            if short.lower().startswith(needle):
+                seen_shas.add(sha)
+                out.append((short, sha))
+    return out
+
+
+# Commits considerados "não-implementação" (ruído de tooling).
+# Match no prefixo de tipo do conventional commit antes do escopo.
+_CHORE_TYPES = ("chore", "docs", "ci", "build", "style")
+
+
+def _count_substantive_commits(tip: str, base: str = "origin/main") -> int:
+    """Conta commits em `tip` que NÃO estão em `base` e cujo type não é chore/docs/ci.
+
+    Resolve o bug F1-S06: uma branch abandonada que só tem `chore(tasks): claim`
+    não deve ser considerada "implementada" mesmo se mergeada por acidente.
+    """
+    res = run_git(["log", "--format=%s", f"{base}..{tip}"], check=False)
+    if res.returncode != 0:
+        return 0
+    count = 0
+    for subject in res.stdout.splitlines():
+        # Conventional commit: "<type>(<scope>): <subject>" ou "<type>: <subject>"
+        m = re.match(r"^([a-z]+)(?:\([^)]+\))?:", subject)
+        if m and m.group(1) in _CHORE_TYPES:
+            continue
+        count += 1
+    return count
+
+
+def _find_pr_for_slot(slot_id: str) -> dict | None:
+    """Procura PR mergeado que referência o slot ID via gh CLI.
+
+    Layer 2 de defesa: detecta squash-merges (que invalidam a heurística
+    de --is-ancestor) e enriquece o frontmatter com pr_url + mergedAt.
+
+    Retorna dict com keys: number, url, mergedAt, mergeCommit. None se não
+    encontrar PR mergeado, gh ausente, ou erro de rede.
+    """
+    gh = _gh_path()
+    if not gh:
+        return None
+    # Busca em title + body. `gh pr list --search` aceita sintaxe GitHub.
+    try:
+        res = subprocess.run(
+            [gh, "pr", "list",
+             "--state", "merged",
+             "--search", slot_id,
+             "--limit", "20",
+             "--json", "number,title,body,url,mergedAt,mergeCommit"],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=15,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+    if res.returncode != 0 or not res.stdout.strip():
+        return None
+    try:
+        items = json.loads(res.stdout)
+    except json.JSONDecodeError:
+        return None
+    # Match estrito: o slot_id precisa aparecer no TÍTULO do PR como token
+    # delimitado. Body é descartado — PRs comumente mencionam outros slots
+    # como dependência, follow-up ou "out of scope", e isso causaria falso
+    # positivo (ex: PR #22 que entrega F1-S20 menciona F1-S21 no body).
+    token_re = re.compile(rf"(?<![A-Za-z0-9-]){re.escape(slot_id)}(?![A-Za-z0-9-])", re.IGNORECASE)
+    # Filtra PRs cujo conventional type é chore/docs/ci/build/style — eles
+    # mencionam slot IDs (bookkeeping, sync, hotfix de tooling) mas NÃO
+    # entregam a feature. Mesma regra de _count_substantive_commits.
+    chore_title_re = re.compile(rf"^({'|'.join(_CHORE_TYPES)})(?:\([^)]+\))?:", re.IGNORECASE)
+    candidates = []
+    for pr in items:
+        title = pr.get("title", "") or ""
+        if chore_title_re.match(title):
+            continue
+        if token_re.search(title):
+            candidates.append(pr)
+    if not candidates:
+        return None
+    # Mais recente primeiro (mergedAt desc); pega o primeiro.
+    candidates.sort(key=lambda p: p.get("mergedAt") or "", reverse=True)
+    return candidates[0]
+
+
+def _gh_path() -> str | None:
+    """Localiza o binário do gh CLI (PATH ou Program Files no Windows)."""
+    from shutil import which
+    found = which("gh")
+    if found:
+        return found
+    if os.name == "nt":
+        candidate = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "GitHub CLI" / "gh.exe"
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
 # -----------------------------------------------------------------------------
 # Subcommand: finish
 # -----------------------------------------------------------------------------
@@ -671,52 +794,91 @@ def cmd_done(args: argparse.Namespace) -> int:
 # -----------------------------------------------------------------------------
 
 def cmd_reconcile_merged(args: argparse.Namespace) -> int:
-    """Detecta slots cujo branch (feat/<slot-id-lc>) foi mergeado em main.
+    """Detecta slots realmente entregues e marca como done.
 
-    Heurística: o tip do branch é alcançável a partir de origin/main.
+    Defesa em 2 camadas (vs. heurística antiga que dava falsos positivos/negativos):
+
+      Layer 2 — PR mergeado via gh CLI:
+        Procura PR mergeado que referência o slot ID no título/body.
+        Cobre squash-merges (que quebram --is-ancestor).
+        Enriquece o frontmatter com pr_url + completed_at = mergedAt.
+
+      Layer 1 — branch git com commits substantivos:
+        Se Layer 2 falhar (gh ausente, sem PR, etc.), tenta detectar via
+        branches locais/remotos. Mas EXIGE:
+          (a) tip ancestor de origin/main (--is-ancestor)
+          (b) >=1 commit não-chore/docs/ci entre base e tip
+        Resolve o bug F1-S06: branches só com commit `chore(tasks): claim`
+        não são consideradas implementação.
+
+    Caso nenhuma camada confirme → não toca no slot.
     """
     base = f"{args.remote}/main"
-    # Garantir que temos o ref atualizado
     run_git(["fetch", args.remote, "main"], check=False)
 
     slots = all_slots()
-    actions: list[tuple[str, str]] = []  # (slot_id, action)
+    plan: list[tuple[str, str, dict]] = []  # (slot_id, reason, updates)
 
     for s in slots:
         if s.status == "done":
             continue
-        tip = _find_slot_branch_tip(s.id, args.remote)
-        if not tip:
-            continue
-        # tip está alcançável a partir de origin/main?
-        res = run_git(["merge-base", "--is-ancestor", tip, base], check=False, capture=False)
-        if res.returncode == 0:
-            actions.append((s.id, f"{s.status} → done"))
 
-    if not actions:
+        # ── Layer 2: gh PR detection ─────────────────────────────────────────
+        pr = _find_pr_for_slot(s.id)
+        if pr is not None:
+            updates: dict[str, str] = {"status": "done"}
+            text = (find_slot_file(s.id)).read_text(encoding="utf-8")
+            if not re.search(r"^completed_at:\s+\d{4}-", text, re.MULTILINE):
+                updates["completed_at"] = pr.get("mergedAt") or now_iso()
+            # pr_url só se ainda não preenchido (preserva edição manual)
+            if not re.search(r"^pr_url:\s+https?://", text, re.MULTILINE):
+                updates["pr_url"] = pr.get("url", "")
+            plan.append((s.id, f"{s.status} → done  (PR #{pr.get('number')})", updates))
+            continue
+
+        # ── Layer 1: git branch + commits substantivos ───────────────────────
+        branches = _find_all_slot_branches(s.id, args.remote)
+        merged_branch: tuple[str, str] | None = None
+        for short, tip in branches:
+            is_ancestor = run_git(
+                ["merge-base", "--is-ancestor", tip, base],
+                check=False, capture=False,
+            ).returncode == 0
+            if not is_ancestor:
+                continue
+            if _count_substantive_commits(tip, base) == 0:
+                continue
+            merged_branch = (short, tip)
+            break
+
+        if merged_branch is not None:
+            updates = {"status": "done"}
+            text = (find_slot_file(s.id)).read_text(encoding="utf-8")
+            if not re.search(r"^completed_at:\s+\d{4}-", text, re.MULTILINE):
+                updates["completed_at"] = now_iso()
+            short, _tip = merged_branch
+            plan.append((s.id, f"{s.status} → done  (branch {short})", updates))
+
+    if not plan:
         info("[reconcile] nada a mudar")
         return 0
 
-    for slot_id, action in actions:
-        print(f"  {slot_id}  {action}")
+    for slot_id, reason, _ in plan:
+        print(f"  {slot_id}  {reason}")
 
     if not args.write:
         info("[reconcile] (dry-run; passe --write para aplicar)")
         return 0
 
-    for slot_id, _ in actions:
+    for slot_id, _, updates in plan:
         path = find_slot_file(slot_id)
         slot = parse_slot(path)
         if slot.status == "done":
             continue
-        updates = {"status": "done"}
-        text = path.read_text(encoding="utf-8")
-        if not re.search(r"^completed_at:\s+\d{4}-", text, re.MULTILINE):
-            updates["completed_at"] = now_iso()
         update_frontmatter_fields(path, updates)
 
     sync_status_md()
-    info(f"[reconcile] {len(actions)} slot(s) marcados done + STATUS.md atualizado")
+    info(f"[reconcile] {len(plan)} slot(s) marcados done + STATUS.md atualizado")
     return 0
 
 
