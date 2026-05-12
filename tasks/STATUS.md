@@ -9,8 +9,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F1   | 26    | 6   | 15  | 0   | 0   | 2   | 3   |
-| F3   | 1     | 0   | 0   | 0   | 0   | 1   | 0   |
+| F1   | 26    | 6   | 15  | 0   | 0   | 0   | 5   |
+| F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
 
@@ -32,9 +32,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ------ | --------------------------------------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
 | F1-S01 | Schema identidade — orgs, users, roles, permissions, sessions, city scopes              | ✅ done      | critical   | F0-S04                         |
 | F1-S02 | Helpers de erro e resposta padronizados                                                 | ✅ done      | high       | F0-S03                         |
-| F1-S03 | Auth — login, refresh, logout                                                           | 🟣 review    | critical   | F1-S01, F1-S02                 |
+| F1-S03 | Auth — login, refresh, logout                                                           | ✅ done      | critical   | F1-S01, F1-S02                 |
 | F1-S04 | Middlewares authenticate + authorize com escopo de cidade                               | 🟢 available | critical   | F1-S03                         |
-| F1-S05 | Schema cities + agents + seed cidades de Rondônia                                       | 🟣 review    | high       | F1-S01                         |
+| F1-S05 | Schema cities + agents + seed cidades de Rondônia                                       | ✅ done      | high       | F1-S01                         |
 | F1-S06 | CRUD cities (admin)                                                                     | ⏸️ blocked   | medium     | F1-S04, F1-S05                 |
 | F1-S07 | CRUD users + assign roles + city scopes                                                 | ⏸️ blocked   | high       | F1-S04, F1-S05                 |
 | F1-S08 | Frontend — login real + hook useAuth + layout autenticado                               | ⏸️ blocked   | critical   | F1-S03, F0-S05                 |
@@ -59,6 +59,6 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 3 — Agentes IA
 
-| ID     | Título                                                         | Status    | Prioridade | Depende de |
-| ------ | -------------------------------------------------------------- | --------- | ---------- | ---------- |
-| F3-S00 | LLM Gateway — abstração OpenRouter + fallback Anthropic/OpenAI | 🟣 review | critical   | F0-S06     |
+| ID     | Título                                                         | Status  | Prioridade | Depende de |
+| ------ | -------------------------------------------------------------- | ------- | ---------- | ---------- |
+| F3-S00 | LLM Gateway — abstração OpenRouter + fallback Anthropic/OpenAI | ✅ done | critical   | F0-S06     |

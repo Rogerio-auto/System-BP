@@ -3,12 +3,12 @@ id: F3-S00
 title: LLM Gateway — abstração OpenRouter + fallback Anthropic/OpenAI
 phase: F3
 task_ref: T3.0
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: python-engineer
 claimed_at: '2026-05-11T23:00:00Z'
-completed_at: '2026-05-11T23:30:00Z'
+completed_at: 2026-05-12T04:00:49Z
 pr_url: null
 depends_on: [F0-S06]
 blocks: [F3-S15, F3-S18, F3-S19]

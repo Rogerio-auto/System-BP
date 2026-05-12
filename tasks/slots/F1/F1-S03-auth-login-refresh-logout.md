@@ -3,7 +3,7 @@ id: F1-S03
 title: Auth — login, refresh, logout
 phase: F1
 task_ref: T1.2
-status: review
+status: done
 priority: critical
 estimated_size: L
 agent_id: claude-code

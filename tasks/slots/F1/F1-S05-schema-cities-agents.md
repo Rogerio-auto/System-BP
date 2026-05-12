@@ -3,7 +3,7 @@ id: F1-S05
 title: Schema cities + agents + seed cidades de Rondônia
 phase: F1
 task_ref: T1.5
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: db-schema-engineer
