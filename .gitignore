@@ -44,3 +44,7 @@ docker-compose.override.yml
 # uploads / runtime
 uploads/
 tmp/
+
+# Claude Code — local-only files
+.claude/settings.local.json
+.claude/worktrees/
