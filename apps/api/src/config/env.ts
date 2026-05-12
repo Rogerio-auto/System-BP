@@ -38,6 +38,14 @@ const envSchema = z.object({
   WHATSAPP_APP_SECRET: z.string().min(16),
   // Token de verificação para o handshake inicial GET do Meta.
   WHATSAPP_VERIFY_TOKEN: z.string().min(8),
+
+  // ---- Chatwoot (F1-S20) ---------------------------------------------------
+  // Opcionais: Chatwoot pode não estar configurado em dev/staging.
+  // ChatwootClient verifica presença de cada var ao ser instanciado e lança
+  // ChatwootApiError se chamado sem configuração, permitindo degradação graciosa.
+  CHATWOOT_BASE_URL: z.string().url().optional(),
+  CHATWOOT_API_TOKEN: z.string().min(1).optional(),
+  CHATWOOT_ACCOUNT_ID: z.coerce.number().int().positive().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

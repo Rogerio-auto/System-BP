@@ -64,6 +64,9 @@ export async function buildApp(): Promise<FastifyInstance> {
           'req.body.entry[*].changes[*].value.messages[*].from',
           '*.messages[*].text.body',
           '*.messages[*].from',
+          // Chatwoot PII (F1-S20) — LGPD §8.3
+          // *.content pode conter texto livre do cidadão (mensagens, notas internas)
+          '*.content',
         ],
         censor: '[REDACTED]',
       },

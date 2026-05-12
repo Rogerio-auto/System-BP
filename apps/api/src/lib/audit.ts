@@ -55,9 +55,7 @@ import { auditLogs } from '../db/schema/auditLogs.js';
  *   `insert` na tabela `audit_logs` é necessário aqui.
  */
 export interface AuditTx {
-  // eslint-disable-next-line no-unused-vars -- Drizzle method signature
   insert(table: typeof auditLogs): {
-    // eslint-disable-next-line no-unused-vars
     values(row: typeof auditLogs.$inferInsert): Promise<unknown>;
   };
 }

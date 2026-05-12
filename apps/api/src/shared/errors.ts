@@ -19,6 +19,7 @@ export type ErrorCode =
   | 'VALIDATION_ERROR'
   | 'RATE_LIMITED'
   | 'EXTERNAL_SERVICE_ERROR'
+  | 'CHATWOOT_API_ERROR'
   | 'FEATURE_DISABLED'
   | 'FEATURE_HIDDEN';
 
@@ -125,6 +126,22 @@ export class FeatureHiddenError extends AppError {
     super(404, 'FEATURE_HIDDEN', 'Recurso não encontrado', { flag });
     this.name = 'FeatureHiddenError';
     this.flag = flag;
+  }
+}
+
+/**
+ * Lançado pelo ChatwootClient quando a API retorna erro HTTP ou falha de rede.
+ * Preserva o statusCode HTTP original para que o chamador possa inspecionar
+ * (ex: diferenciar 401 de 5xx para decidir retry ou não).
+ */
+export class ChatwootApiError extends AppError {
+  /** HTTP status code retornado pela API Chatwoot (ou 0 para erros de rede). */
+  readonly upstreamStatus: number;
+
+  constructor(upstreamStatus: number, message: string, details?: unknown) {
+    super(502, 'CHATWOOT_API_ERROR', message, details);
+    this.name = 'ChatwootApiError';
+    this.upstreamStatus = upstreamStatus;
   }
 }
 

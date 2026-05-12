@@ -37,6 +37,10 @@ const config = [
       // no-undef is redundant in TypeScript — the compiler handles undefined
       // references. Disabling prevents false positives on JSX, Node globals, etc.
       'no-undef': 'off',
+      // no-unused-vars da base (js.configs.recommended) gera falsos positivos em
+      // parâmetros de assinaturas de tipos TypeScript (ex: (delayMs: number) => void).
+      // A versão @typescript-eslint/no-unused-vars abaixo substitui com suporte completo a TS.
+      'no-unused-vars': 'off',
 
       // ── TypeScript ──────────────────────────────────────────────────────────
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],

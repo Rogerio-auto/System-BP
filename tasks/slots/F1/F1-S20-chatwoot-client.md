@@ -3,12 +3,12 @@ id: F1-S20
 title: Cliente HTTP Chatwoot
 phase: F1
 task_ref: T1.20
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
+completed_at: 2026-05-12T06:06:31Z
 pr_url: null
 depends_on: [F0-S03]
 blocks: [F1-S21, F1-S22]

@@ -78,7 +78,6 @@ export interface WorkerRuntime {
    * Registra um callback chamado no shutdown gracioso (SIGTERM/SIGINT).
    * Múltiplos callbacks são chamados em ordem de registro.
    */
-  // eslint-disable-next-line no-unused-vars -- parameter name in interface method type
   onShutdown: (cb: () => Promise<void>) => void;
   /**
    * Promise que resolve quando o processo receber sinal de shutdown.

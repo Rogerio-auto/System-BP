@@ -41,9 +41,7 @@ import type { AppEvent, AppEventName } from './types.js';
 // seria `any`, que viola as regras do projeto.
 
 export interface DrizzleTx {
-  // eslint-disable-next-line no-unused-vars -- Drizzle method signature (not a concrete function)
   insert(table: typeof eventOutbox): {
-    // eslint-disable-next-line no-unused-vars
     values(row: typeof eventOutbox.$inferInsert): Promise<unknown>;
   };
 }
