@@ -3,12 +3,12 @@ id: F1-S10
 title: Helper de normalização de telefone (E.164 BR)
 phase: F1
 task_ref: T1.10
-status: in-progress
+status: review
 priority: high
 estimated_size: XS
 agent_id: claude-code
 claimed_at: 2026-05-12T02:15:06Z
-completed_at: null
+completed_at: 2026-05-12T02:25:19Z
 pr_url: null
 depends_on: []
 blocks: [F1-S11]
