@@ -3,7 +3,7 @@ id: F1-S17
 title: Pipeline de importação genérico (com adapter de leads)
 phase: F1
 task_ref: T1.17
-status: blocked
+status: available
 priority: high
 estimated_size: L
 agent_id: null

@@ -3,7 +3,7 @@ id: F1-S22
 title: Sync de atributos do Chatwoot (handler de eventos)
 phase: F1
 task_ref: T1.22
-status: blocked
+status: available
 priority: medium
 estimated_size: S
 agent_id: null

@@ -3,7 +3,7 @@ id: F1-S12
 title: Frontend CRM — lista + detalhe + form de lead
 phase: F1
 task_ref: T1.12
-status: blocked
+status: available
 priority: high
 estimated_size: L
 agent_id: null
