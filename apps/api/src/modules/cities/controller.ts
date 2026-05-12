@@ -33,8 +33,11 @@ function getActorContext(request: FastifyRequest): ActorContext {
     throw new ForbiddenError('Contexto de usuário ausente — authenticate() não foi executado');
   }
 
-  const { id, organizationId, permissions } = request.user;
-  const role = permissions[0] ?? 'unknown';
+  const { id, organizationId } = request.user;
+  // Este helper só é chamado a partir de rotas admin (protegidas por authorize).
+  // O role no audit log reflete o escopo admin — não derivar de permissions[0]
+  // que é posição não-determinística no array.
+  const role = 'admin';
 
   return {
     userId: id,

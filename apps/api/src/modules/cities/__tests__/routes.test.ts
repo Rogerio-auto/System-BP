@@ -73,13 +73,19 @@ const mockCreateCity = vi.fn();
 const mockUpdateCityService = vi.fn();
 const mockDeleteCityService = vi.fn();
 
-vi.mock('../service.js', () => ({
-  listCities: (...args: unknown[]) => mockListCities(...args),
-  getCityById: (...args: unknown[]) => mockGetCityById(...args),
-  createCity: (...args: unknown[]) => mockCreateCity(...args),
-  updateCityService: (...args: unknown[]) => mockUpdateCityService(...args),
-  deleteCityService: (...args: unknown[]) => mockDeleteCityService(...args),
-}));
+vi.mock('../service.js', async (importOriginal) => {
+  // importOriginal carrega o módulo real para re-exportar classes (CityConflictError)
+  // que são usadas nos asserts dos testes. Cast para Record evita import() em type position.
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    listCities: (...args: unknown[]) => mockListCities(...args),
+    getCityById: (...args: unknown[]) => mockGetCityById(...args),
+    createCity: (...args: unknown[]) => mockCreateCity(...args),
+    updateCityService: (...args: unknown[]) => mockUpdateCityService(...args),
+    deleteCityService: (...args: unknown[]) => mockDeleteCityService(...args),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -319,6 +325,24 @@ describe('POST /api/admin/cities', () => {
 
     expect(res.statusCode).toBe(409);
     expect(res.json<Record<string, unknown>>()['error']).toBe('CONFLICT');
+  });
+
+  it('retorna 409 com field=slug quando slug conflita (path do catch de DB constraint)', async () => {
+    // Simula o path onde o pre-flight passou mas a DB unique constraint disparou
+    // (race condition) — CityConflictError com field='slug' vindo do mapUniqueViolation.
+    const { CityConflictError } = await import('../service.js');
+    mockCreateCity.mockRejectedValue(new CityConflictError('slug'));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/cities',
+      payload: CREATE_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(409);
+    const body = res.json<Record<string, unknown>>();
+    expect(body['error']).toBe('CONFLICT');
+    expect((body['details'] as Record<string, unknown> | undefined)?.['field']).toBe('slug');
   });
 
   it('retorna 400 quando body inválido (sem name)', async () => {

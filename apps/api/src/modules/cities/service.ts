@@ -21,7 +21,7 @@ import type { City } from '../../db/schema/cities.js';
 import { emit } from '../../events/emit.js';
 import { auditLog } from '../../lib/audit.js';
 import type { AuditActor } from '../../lib/audit.js';
-import { AppError, NotFoundError } from '../../shared/errors.js';
+import { AppError, ConflictError, NotFoundError } from '../../shared/errors.js';
 
 import {
   findCities,
@@ -209,11 +209,10 @@ export async function createCity(
         isActive: body.is_active,
       });
     } catch (err: unknown) {
-      if (isPgUniqueViolation(err)) {
-        // Race condition: constraint parcial da DB disparou antes do pre-flight
-        throw new CityConflictError('ibge_code');
-      }
-      throw err;
+      // Race condition: dois POSTs concorrentes passam pelo pre-flight e o
+      // segundo viola a unique constraint do banco. A DB constraint é autoritativa.
+      // Constraint names: uq_cities_org_ibge_active, uq_cities_org_slug_active.
+      throw mapUniqueViolation(err);
     }
 
     // Outbox event — cidades são dados públicos, sem PII
@@ -295,16 +294,25 @@ export async function updateCityService(
     changedFields.push('is_active');
 
   const after = await db.transaction(async (tx) => {
-    const updated = await updateCity(tx as unknown as Database, cityId, actor.organizationId, {
-      ...(body.name !== undefined ? { name: body.name } : {}),
-      ...(nameNormalized !== undefined ? { nameNormalized } : {}),
-      ...(slug !== undefined ? { slug } : {}),
-      ...(body.aliases !== undefined ? { aliases: body.aliases } : {}),
-      ...(body.ibge_code !== undefined ? { ibgeCode: body.ibge_code } : {}),
-      ...(body.state_uf !== undefined ? { stateUf: body.state_uf } : {}),
-      ...(body.is_active !== undefined ? { isActive: body.is_active } : {}),
-      updatedAt: new Date(),
-    });
+    let updated: City | undefined;
+    try {
+      updated =
+        (await updateCity(tx as unknown as Database, cityId, actor.organizationId, {
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(nameNormalized !== undefined ? { nameNormalized } : {}),
+          ...(slug !== undefined ? { slug } : {}),
+          ...(body.aliases !== undefined ? { aliases: body.aliases } : {}),
+          ...(body.ibge_code !== undefined ? { ibgeCode: body.ibge_code } : {}),
+          ...(body.state_uf !== undefined ? { stateUf: body.state_uf } : {}),
+          ...(body.is_active !== undefined ? { isActive: body.is_active } : {}),
+          updatedAt: new Date(),
+        })) ?? undefined;
+    } catch (err: unknown) {
+      // Race condition em update: dois PATCHes concorrentes alterando para mesmo
+      // nome/ibge_code podem ambos passar pelo pre-flight e o segundo viola a constraint.
+      // mapUniqueViolation re-lança erros não-unique inalterados.
+      throw mapUniqueViolation(err);
+    }
 
     if (!updated) throw new NotFoundError('Cidade não encontrada');
 
@@ -315,7 +323,9 @@ export async function updateCityService(
       aggregateId: cityId,
       organizationId: actor.organizationId,
       actor: { kind: 'user', id: actor.userId, ip: actor.ip ?? null },
-      idempotencyKey: `cities.updated:${cityId}:${Date.now()}`,
+      // Chave determinística: retry com mesmo updatedAt → mesma chave → deduplicado.
+      // Se houver update concorrente entre retries, updatedAt muda → 2 chaves legítimas.
+      idempotencyKey: `cities.updated:${cityId}:${updated.updatedAt.getTime()}`,
       data: {
         city_id: cityId,
         organization_id: actor.organizationId,
@@ -362,7 +372,9 @@ export async function deleteCityService(
       aggregateId: cityId,
       organizationId: actor.organizationId,
       actor: { kind: 'user', id: actor.userId, ip: actor.ip ?? null },
-      idempotencyKey: `cities.deleted:${cityId}:${Date.now()}`,
+      // Chave determinística: deletedAt preenchido pelo soft-delete; retry com mesmo
+      // registro → mesma chave → deduplicado pelo outbox worker.
+      idempotencyKey: `cities.deleted:${cityId}:${deleted.deletedAt!.getTime()}`,
       data: {
         city_id: cityId,
         organization_id: actor.organizationId,
@@ -393,4 +405,24 @@ function isPgUniqueViolation(err: unknown): boolean {
   if (err === null || typeof err !== 'object') return false;
   const code = 'code' in err ? (err as { code: unknown }).code : undefined;
   return code === '23505';
+}
+
+/**
+ * Extrai o nome da constraint de um erro pg e mapeia para o AppError correto.
+ *
+ * Constraint names definidos em apps/api/src/db/schema/cities.ts:
+ *   - uq_cities_org_ibge_active  → ibge_code duplicado
+ *   - uq_cities_org_slug_active  → slug duplicado
+ *
+ * Qualquer outra violação de unique é re-lançada como ConflictError genérico
+ * (não esconde o problema, mas evita vazar detalhes internos).
+ *
+ * Se o erro não for uma violação de unique, é re-lançado inalterado.
+ */
+function mapUniqueViolation(err: unknown): AppError {
+  if (!isPgUniqueViolation(err)) throw err;
+  const constraint = (err as { constraint?: string }).constraint ?? '';
+  if (constraint.includes('ibge')) return new CityConflictError('ibge_code');
+  if (constraint.includes('slug')) return new CityConflictError('slug');
+  return new ConflictError('Conflito de chave única não mapeado', { constraint });
 }
