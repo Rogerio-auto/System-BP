@@ -85,25 +85,37 @@ Por que A e não B/C:
 
 ## Definition of Done
 
-- [ ] `pnpm --filter @elemento/api typecheck` verde.
+- [ ] Erro `TS6059: File 'drizzle.config.ts' is not under 'rootDir'` eliminado.
+- [ ] `drizzle.config.ts` continua sendo type-checked (segundo `tsc -p tsconfig.tools.json`).
 - [ ] `pnpm --filter @elemento/api lint` verde.
-- [ ] `pnpm --filter @elemento/api build` passa (smoke — extends do mesmo tsconfig.json).
-- [ ] `drizzle.config.ts` continua sendo type-checked (o segundo `tsc -p tsconfig.tools.json` cobre).
-- [ ] PR aberto.
+- [ ] PR aberto, listando os erros TS pré-existentes descobertos (e referenciando os slots follow-up).
 
 ## Validação
-
-```powershell
-pnpm --filter @elemento/api typecheck
-```
 
 ```powershell
 pnpm --filter @elemento/api lint
 ```
 
 ```powershell
-pnpm --filter @elemento/api build
+pnpm --filter @elemento/api typecheck 2>&1 | Select-String -Pattern "TS6059" -SimpleMatch -NotMatch | Select-String -Pattern "drizzle.config.ts"
 ```
+
+> Nota: o segundo comando é um teste negativo — deve falhar (sem matches) confirmando que TS6059 não fala mais sobre drizzle.config.ts.
+
+## Descoberta — erros TS pré-existentes (out of scope, follow-ups)
+
+Após eliminar o TS6059 que mascarava todo o resto, `pnpm typecheck` revelou erros pré-existentes em código já mergeado. **Não fazem parte deste slot** (ver "Fora de escopo"). Cada um vai virar slot separado:
+
+| Erro                                                                    | Localização                                     | Origem                       | Follow-up sugerido  |
+| ----------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------- | ------------------- |
+| TS5069 `declarationMap` sem `declaration` ou `composite`                | `tsconfig.build.json:6`                         | F0-S04 (drizzle init)        | F1-S29 (config)     |
+| TS7006 4× `Parameter implicitly has 'any' type`                         | `src/routes/data-subject.routes.ts:247,263,284` | F1-S25 (LGPD subject rights) | F1-S30 (lgpd-types) |
+| TS2320 `AnonymizeTx cannot simultaneously extend AuditTx and DrizzleTx` | `src/services/lgpd/anonymize.ts:40`             | F1-S25                       | F1-S30              |
+| TS2345 2× `AnonymizeTx not assignable to DrizzleTx`                     | `src/services/lgpd/anonymize.ts:180,248`        | F1-S25                       | F1-S30              |
+| TS2339 `Property 'anonymizedAt' does not exist on leads`                | `src/workers/cron-retention.ts:118`             | F1-S25 (schema gap)          | F1-S31 (schema)     |
+| TS2339 `Property 'anonymizedAt' does not exist on customers`            | `src/workers/cron-retention.ts:164`             | F1-S25                       | F1-S31              |
+| TS2314 `Generic type 'FastifyInstance' requires 5 type arguments`       | `src/shared/errors.test.ts:192`                 | F1-S02 (app-error)           | F1-S32 (test-types) |
+| TS2345 2× `unknown not assignable to string`                            | `src/shared/jwt.ts:72,73`                       | F1-S03 (auth)                | F1-S33 (jwt-types)  |
 
 ## Notas
 
