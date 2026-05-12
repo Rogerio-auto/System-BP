@@ -31,7 +31,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N", "S", "ASYNC", "C4", "SIM", "RUF"]
-ignore = ["S101"]  # asserts em tests
+ignore = ["S101", "S104"]  # S101: asserts em tests; S104: 0.0.0.0 em config.py (host de serviço, esperado)
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S"]
