@@ -16,7 +16,8 @@
     "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
     "db:seed": "tsx --env-file=../../.env scripts/seed.ts",
     "db:seed-cities": "tsx --env-file=../../.env scripts/seed-cities.ts",
-    "db:studio": "node --env-file=../../.env node_modules/drizzle-kit/bin.cjs studio"
+    "db:studio": "node --env-file=../../.env node_modules/drizzle-kit/bin.cjs studio",
+    "worker:outbox": "tsx --env-file=../../.env src/workers/outbox-publisher.ts"
   },
   "dependencies": {
     "@elemento/shared-schemas": "workspace:*",
