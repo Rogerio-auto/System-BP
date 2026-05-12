@@ -9,13 +9,13 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F1   | 28    | 2   | 0   | 0   | 0   | 0   | 26  |
+| F1   | 28     | 1   | 0   | 0   | 0   | 1   | 26   |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
 
-| ID      | Título                                                       | Status  | Prioridade | Depende de                     |
-| ------- | ------------------------------------------------------------ | ------- | ---------- | ------------------------------ |
+| ID      | Título                                                       | Status | Prioridade | Depende de                     |
+| ------- | ------------------------------------------------------------ | ------ | ---------- | ------------------------------ |
 | F0-S01  | Verificar e travar lockfiles (pnpm + python)                 | ✅ done | critical   | —                              |
 | F0-S02  | ESLint + Prettier — instalar e ligar nos workspaces          | ✅ done | high       | F0-S01                         |
 | F0-S03  | Validar boot da API + healthcheck contra Postgres            | ✅ done | high       | F0-S01                         |
@@ -28,14 +28,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 1 — Base operacional
 
-| ID     | Título                                                                                  | Status       | Prioridade | Depende de                     |
-| ------ | --------------------------------------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
+| ID     | Título                                                                                  | Status      | Prioridade | Depende de                     |
+| ------ | --------------------------------------------------------------------------------------- | ----------- | ---------- | ------------------------------ |
 | F1-S01 | Schema identidade — orgs, users, roles, permissions, sessions, city scopes              | ✅ done      | critical   | F0-S04                         |
 | F1-S02 | Helpers de erro e resposta padronizados                                                 | ✅ done      | high       | F0-S03                         |
 | F1-S03 | Auth — login, refresh, logout                                                           | ✅ done      | critical   | F1-S01, F1-S02                 |
 | F1-S04 | Middlewares authenticate + authorize com escopo de cidade                               | ✅ done      | critical   | F1-S03                         |
 | F1-S05 | Schema cities + agents + seed cidades de Rondônia                                       | ✅ done      | high       | F1-S01                         |
-| F1-S06 | CRUD cities (admin)                                                                     | 🟢 available | medium     | F1-S04, F1-S05                 |
+| F1-S06 | CRUD cities (admin)                                                                     | 🟣 review    | medium     | F1-S04, F1-S05                 |
 | F1-S07 | CRUD users + assign roles + city scopes                                                 | ✅ done      | high       | F1-S04, F1-S05                 |
 | F1-S08 | Frontend — login real + hook useAuth + layout autenticado                               | ✅ done      | critical   | F1-S03, F0-S05                 |
 | F1-S09 | Schema leads + customers + history + interactions                                       | ✅ done      | critical   | F1-S01, F1-S05                 |
@@ -61,6 +61,6 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 3 — Agentes IA
 
-| ID     | Título                                                         | Status  | Prioridade | Depende de |
-| ------ | -------------------------------------------------------------- | ------- | ---------- | ---------- |
+| ID     | Título                                                         | Status | Prioridade | Depende de |
+| ------ | -------------------------------------------------------------- | ------ | ---------- | ---------- |
 | F3-S00 | LLM Gateway — abstração OpenRouter + fallback Anthropic/OpenAI | ✅ done | critical   | F0-S06     |
