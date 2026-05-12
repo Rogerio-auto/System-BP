@@ -3,11 +3,11 @@ id: F1-S14
 title: Frontend Kanban (board + detalhe modal)
 phase: F1
 task_ref: T1.14
-status: available
+status: in_progress
 priority: medium
 estimated_size: L
-agent_id: null
-claimed_at: null
+agent_id: frontend-engineer
+claimed_at: '2026-05-12T00:00:00Z'
 completed_at: null
 pr_url: null
 depends_on: [F1-S08, F1-S13]
