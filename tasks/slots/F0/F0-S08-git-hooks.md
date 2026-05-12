@@ -3,11 +3,11 @@ id: F0-S08
 title: Husky + lint-staged + commitlint
 phase: F0
 task_ref: T0.1
-status: available
+status: in-progress
 priority: low
 estimated_size: XS
-agent_id: null
-claimed_at: null
+agent_id: backend-engineer
+claimed_at: 2026-05-11T00:00:00Z
 completed_at: null
 pr_url: null
 depends_on: [F0-S02]
