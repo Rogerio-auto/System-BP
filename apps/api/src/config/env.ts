@@ -46,6 +46,32 @@ const envSchema = z.object({
   CHATWOOT_BASE_URL: z.string().url().optional(),
   CHATWOOT_API_TOKEN: z.string().min(1).optional(),
   CHATWOOT_ACCOUNT_ID: z.coerce.number().int().positive().optional(),
+
+  // ---- LGPD baseline (F1-S24) ----------------------------------------------
+  // Chave AES-256-GCM para cifração de PII em coluna (doc 17 §8.1).
+  // Formato: base64 de exatamente 32 bytes (256 bits).
+  // Gerar: openssl rand -base64 32
+  // Em produção é obrigatória — falha de boot se ausente (validado em pii.ts).
+  // Em dev/test é opcional; pii.ts usa fallback explícito com aviso.
+  LGPD_DATA_KEY: z
+    .string()
+    .optional()
+    .refine(
+      (v) => {
+        if (!v) return true; // opcional em dev/test; pii.ts valida em prod
+        const decoded = Buffer.from(v, 'base64');
+        return decoded.length === 32;
+      },
+      {
+        message:
+          'LGPD_DATA_KEY precisa ser base64 de exatamente 32 bytes (use: openssl rand -base64 32)',
+      },
+    ),
+
+  // Pepper HMAC-SHA256 para hash de dedupe de CPF/CNPJ (doc 17 §8.1).
+  // Formato: base64 de ≥32 bytes. Gerar: openssl rand -base64 32
+  // Em produção é obrigatória — falha de boot se ausente (validado em pii.ts).
+  LGPD_DEDUPE_PEPPER: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
