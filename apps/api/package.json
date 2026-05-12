@@ -18,10 +18,14 @@
     "db:seed-cities": "tsx --env-file=../../.env scripts/seed-cities.ts",
     "db:seed-fake": "tsx --env-file=../../.env src/db/seed-fake.ts",
     "db:studio": "node --env-file=../../.env node_modules/drizzle-kit/bin.cjs studio",
-    "worker:outbox": "tsx --env-file=../../.env src/workers/outbox-publisher.ts"
+    "worker:outbox": "tsx --env-file=../../.env src/workers/outbox-publisher.ts",
+    "worker:import": "tsx --env-file=../../.env src/workers/import-processor.ts"
   },
   "dependencies": {
     "@elemento/shared-schemas": "workspace:*",
+    "@fastify/multipart": "^10.0.0",
+    "csv-parse": "^6.2.1",
+    "xlsx": "^0.18.5",
     "@elemento/shared-types": "workspace:*",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "10.0.1",

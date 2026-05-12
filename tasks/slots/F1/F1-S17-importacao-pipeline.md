@@ -3,12 +3,12 @@ id: F1-S17
 title: Pipeline de importação genérico (com adapter de leads)
 phase: F1
 task_ref: T1.17
-status: available
+status: review
 priority: high
 estimated_size: L
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: claude-code
+claimed_at: 2026-05-12T16:45:47Z
+completed_at: 2026-05-12T17:43:33Z
 pr_url: null
 depends_on: [F1-S11, F1-S15]
 blocks: [F1-S18]

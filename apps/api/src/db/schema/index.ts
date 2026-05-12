@@ -44,3 +44,7 @@ export * from './kanbanStageHistory.js';
 
 // LGPD — direitos do titular + retenção (F1-S25)
 export * from './data_subject.js';
+
+// Importações pipeline (F1-S17)
+export * from './importBatches.js';
+export * from './importRows.js';

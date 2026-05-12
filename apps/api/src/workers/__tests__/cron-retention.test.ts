@@ -56,6 +56,8 @@ vi.mock('drizzle-orm', () => ({
   isNull: vi.fn().mockReturnValue({}),
   inArray: vi.fn().mockReturnValue({}),
   isNotNull: vi.fn().mockReturnValue({}),
+  // relations é chamado em importBatches.ts / importRows.ts ao carregar o schema (F1-S17)
+  relations: vi.fn().mockReturnValue({}),
   sql: Object.assign(
     vi.fn(() => ({})),
     { mapWith: vi.fn() },
