@@ -3,12 +3,12 @@ id: F1-S25
 title: LGPD — direitos do titular (acesso/portabilidade/revogação/correção) + jobs de retenção
 phase: F1
 task_ref: LGPD §5 §6
-status: available
+status: review
 priority: high
 estimated_size: L
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: backend-engineer
+claimed_at: 2026-05-12T00:00:00Z
+completed_at: 2026-05-12T16:30:22Z
 pr_url: null
 depends_on: [F1-S16, F1-S15, F1-S24]
 blocks: []
