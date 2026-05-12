@@ -26,7 +26,7 @@ import { env } from '../config/env.js';
 import type { EventOutbox } from '../db/schema/events.js';
 import { eventProcessingLogs } from '../db/schema/events.js';
 import type { RegisteredHandler } from '../events/handlers.js';
-import { getHandlers } from '../events/handlers.js';
+import { getHandlers, setupHandlers } from '../events/handlers.js';
 
 import { createWorkerRuntime } from './_runtime.js';
 
@@ -313,6 +313,11 @@ async function processBatch(db: Db, pool: pg.Pool, logger: Logger): Promise<numb
 
 async function runPublisher(): Promise<void> {
   const { logger, pool, db, onShutdown, isShuttingDown } = createWorkerRuntime(WORKER_NAME, 5);
+
+  // Registrar handlers de domínio (F1-S22+) antes de processar eventos
+  // Usa setupHandlers() com dynamic import para evitar deps carregadas antes do pool.
+  await setupHandlers();
+  logger.info({ eventNames: [] }, 'domain handlers registered');
 
   // Client dedicado para LISTEN (não retorna ao pool — LISTEN é stateful por conexão)
   const listenClient = new Client({

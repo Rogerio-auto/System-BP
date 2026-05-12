@@ -3,12 +3,12 @@ id: F1-S22
 title: Sync de atributos do Chatwoot (handler de eventos)
 phase: F1
 task_ref: T1.22
-status: available
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: null
-completed_at: null
+completed_at: 2026-05-12T17:07:34Z
 pr_url: null
 depends_on: [F1-S20, F1-S15, F1-S11]
 blocks: []

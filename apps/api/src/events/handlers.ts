@@ -2,8 +2,7 @@
 // events/handlers.ts — Registro de handlers por event_name.
 //
 // O worker outbox-publisher consulta este registro para rotear cada evento
-// ao handler correto. Handlers futuros (kanban, chatwoot-sync, analytics, etc.)
-// serão adicionados aqui quando seus slots forem implementados.
+// ao handler correto.
 //
 // CONTRATO DO HANDLER:
 //   - Recebe o EventOutbox completo (sem PII — §8.5).
@@ -13,10 +12,14 @@
 //   - Não deve fazer commit/rollback de transação — opera fora da transação do outbox.
 //
 // ADICIONANDO UM NOVO HANDLER:
-//   1. Importe a função de handler do módulo correto.
+//   1. Adicione a lógica de registro em setupHandlers() no final deste arquivo.
 //   2. Defina um `handlerName` único para idempotência (ex: "kanban.on_lead_created").
-//   3. Chame registerHandler('<event_name>', handlerName, handler) neste arquivo.
-//   4. O registro é consumido automaticamente pelo worker.
+//   3. Use import() dinâmico para o módulo handler — evita hoisting em testes.
+//   4. setupHandlers() é chamado no startup do worker (outbox-publisher.ts).
+//
+// DESIGN: registros via setupHandlers() com dynamic import para evitar que
+// módulos de domínio (com deps de DB) sejam carregados quando handlers.ts é
+// importado em testes que mocam db/client.js via vi.mock (hoisting issue).
 // =============================================================================
 import type { EventOutbox } from '../db/schema/events.js';
 
@@ -77,18 +80,39 @@ export function getRegisteredEventNames(): readonly string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Handlers do sistema (slots futuros registrarão aqui)
+// Configuração de handlers via dynamic import
 // ---------------------------------------------------------------------------
-//
-// F1-S11 (kanban) registrará:
-//   registerHandler('leads.created', 'kanban.on_lead_created', kanbanOnLeadCreated)
-//
-// F1-S13 (chatwoot-sync) registrará:
-//   registerHandler('leads.created', 'chatwoot.sync_on_lead_created', chatwootSyncHandler)
-//   registerHandler('kanban.stage_updated', 'chatwoot.sync_on_stage_updated', ...)
-//
-// F1-S22 (analytics) registrará múltiplos eventos de métrica.
-//
-// Por ora, nenhum handler real está registrado — o worker marcará eventos
-// sem handlers como processados silenciosamente.
-// ---------------------------------------------------------------------------
+
+/**
+ * Registra todos os handlers de domínio no registry.
+ *
+ * DEVE ser chamado no startup do worker outbox-publisher (não no processo HTTP).
+ * Usa dynamic import() para garantir que módulos com deps de DB (pgclient, drizzle)
+ * só sejam carregados quando o worker está iniciando — evita hoisting em testes.
+ *
+ * Sem chamada a esta função: todos os eventos são marcados como processados
+ * silenciosamente pelo worker (sem handlers registrados = no-op).
+ */
+export async function setupHandlers(): Promise<void> {
+  // F1-S22: Chatwoot sync de atributos de conversa
+  const { handleEvent: chatwootSyncHandleEvent } = await import(
+    '../services/chatwoot/syncAttributes.js'
+  );
+
+  // leads.created → sync lead_id, lead_status, lead_source no Chatwoot
+  registerHandler('leads.created', 'chatwoot.sync_on_lead_created', chatwootSyncHandleEvent);
+
+  // kanban.stage_updated → sync kanban_stage no Chatwoot
+  registerHandler(
+    'kanban.stage_updated',
+    'chatwoot.sync_on_stage_updated',
+    chatwootSyncHandleEvent,
+  );
+
+  // simulations.generated → stub (evento não implementado — loga warn + processa)
+  registerHandler(
+    'simulations.generated',
+    'chatwoot.sync_on_simulation_generated',
+    chatwootSyncHandleEvent,
+  );
+}
