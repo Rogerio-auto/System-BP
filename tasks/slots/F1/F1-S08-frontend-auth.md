@@ -3,12 +3,12 @@ id: F1-S08
 title: Frontend — login real + hook useAuth + layout autenticado
 phase: F1
 task_ref: T1.4
-status: blocked
+status: review
 priority: critical
 estimated_size: L
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: frontend-engineer
+claimed_at: 2026-05-12T00:00:00Z
+completed_at: 2026-05-12T04:32:31Z
 pr_url: null
 depends_on: [F1-S03, F0-S05]
 blocks: [F1-S12]
@@ -44,9 +44,17 @@ Login funcional contra `/api/auth/login`, refresh transparente via interceptor, 
 
 ## Definition of Done
 
-- [ ] Login real funciona
-- [ ] Refresh transparente (não desloga em 401 recuperável)
-- [ ] Logout limpa state e cookie
-- [ ] Sidebar/topbar seguem `docs/18-design-system.md` (Lift no hover, indicador ativo verde, marca em SVG inline)
-- [ ] Theme toggle no topbar funcional, persistência mantida
-- [ ] PR com screenshot/recording em ambos os temas
+- [x] Login real funciona
+- [x] Refresh transparente (não desloga em 401 recuperável)
+- [x] Logout limpa state e cookie
+- [x] Sidebar/topbar seguem `docs/18-design-system.md` (Lift no hover, indicador ativo verde, marca em SVG inline)
+- [x] Theme toggle no topbar funcional, persistência mantida
+- [ ] PR com screenshot/recording em ambos os temas (validação visual em browser)
+
+## Validação
+
+```powershell
+pnpm --filter @elemento/web typecheck
+pnpm --filter @elemento/web lint
+pnpm --filter @elemento/web build
+```

@@ -6,13 +6,13 @@ import { Label } from './Label';
 
 interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'id'> {
   id: string;
-  label?: string;
+  label?: string | undefined;
   /** Mensagem de erro — borda vira --danger + ring rosa */
-  error?: string;
+  error?: string | undefined;
   /** Mensagem de ajuda abaixo do campo */
-  hint?: string;
+  hint?: string | undefined;
   /** Classe extra para o wrapper externo */
-  wrapperClassName?: string;
+  wrapperClassName?: string | undefined;
 }
 
 /**
@@ -38,19 +38,14 @@ export function Input({
   return (
     <div className={cn('flex flex-col gap-2', wrapperClassName)}>
       {label && (
-        <Label
-          htmlFor={id}
-          {...(required === true ? { required: true } : {})}
-        >
+        <Label htmlFor={id} {...(required === true ? { required: true } : {})}>
           {label}
         </Label>
       )}
 
       <input
         id={id}
-        aria-describedby={
-          error ? `${id}-error` : hint ? `${id}-hint` : undefined
-        }
+        aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
         aria-invalid={hasError || undefined}
         required={required}
         className={cn(
@@ -85,18 +80,11 @@ export function Input({
 
       {/* Mensagem de erro ou hint — nunca ambos ao mesmo tempo */}
       {hasError ? (
-        <span
-          id={`${id}-error`}
-          role="alert"
-          className="text-xs text-danger"
-        >
+        <span id={`${id}-error`} role="alert" className="text-xs text-danger">
           {error}
         </span>
       ) : hint ? (
-        <span
-          id={`${id}-hint`}
-          className="text-xs text-ink-3"
-        >
+        <span id={`${id}-hint`} className="text-xs text-ink-3">
           {hint}
         </span>
       ) : null}
