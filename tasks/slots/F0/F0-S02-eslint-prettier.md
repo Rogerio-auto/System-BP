@@ -3,7 +3,7 @@ id: F0-S02
 title: ESLint + Prettier — instalar e ligar nos workspaces
 phase: F0
 task_ref: T0.1
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: claude-opus-4-7

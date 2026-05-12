@@ -3,9 +3,12 @@
 // e re-exporta aqui. Manter ordem alfabética para evitar conflitos.
 // =============================================================================
 
-// Schemas serão adicionados durante o desenvolvimento conforme as tasks.
-// Exemplo:
-// export * from './identity.js';
-// export * from './leads.js';
-
-export {};
+// Identidade (F1-S01)
+export * from './organizations.js';
+export * from './users.js';
+export * from './roles.js';
+export * from './permissions.js';
+export * from './role_permissions.js';
+export * from './user_roles.js';
+export * from './user_city_scopes.js';
+export * from './user_sessions.js';

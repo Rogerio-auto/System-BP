@@ -1,69 +1,64 @@
 # STATUS — Board de slots
 
-> Atualize esta tabela ao mudar `status` de qualquer slot. Mantenha `STATUS.md` e o frontmatter do slot **sempre sincronizados**.
+> Atualize via `python scripts/slot.py sync` (NÃO edite à mão — slot frontmatters são a fonte da verdade).
 
 Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress` 🔵 · `review` 🟣 · `done` ✅ · `cancelled` ⚫
 
 ## Resumo
 
-| Fase | Total | 🟢                    | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
-| ---- | ----- | --------------------- | --- | --- | --- | --- | --- |
-| F0   | 9     | 0                     | 0   | 0   | 0   | 8   | 1   |
-| F1   | 26    | 9                     | 15  | 0   | 1   | 1   | 0   |
-| F2   | —     | a destrinchar após F1 |     |     |     |     |     |
-| F3   | —     | a destrinchar         |     |     |     |     |     |
-| F4   | —     | a destrinchar         |     |     |     |     |     |
-| F5   | —     | a destrinchar         |     |     |     |     |     |
-| F6   | —     | a destrinchar         |     |     |     |     |     |
-| F7   | —     | a destrinchar         |     |     |     |     |     |
+| Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
+| ---- | ----- | --- | --- | --- | --- | --- | --- |
+| F0   | 9     | 1   | 0   | 0   | 0   | 0   | 8   |
+| F1   | 26    | 10  | 15  | 0   | 0   | 1   | 0   |
+| F3   | 1     | 1   | 0   | 0   | 0   | 0   | 0   |
 
 ## Fase 0 — Preparação
 
-| ID      | Título                                             | Status    | Prioridade | Depende de      |
-| ------- | -------------------------------------------------- | --------- | ---------- | --------------- |
-| F0-S01  | Lockfiles (pnpm + python)                          | ✅ done   | critical   | —               |
-| F0-S02  | ESLint + Prettier nos workspaces                   | 🟣 review | high       | F0-S01          |
-| F0-S03  | Boot da API + healthcheck                          | 🟣 review | high       | F0-S01          |
-| F0-S03b | Upgrade fastify + vitest (CVE remediation)         | 🟣 review | high       | F0-S03          |
-| F0-S04  | Drizzle migration inicial                          | 🟣 review | high       | F0-S01          |
-| F0-S05  | Web dev server + design tokens + login placeholder | 🟣 review | medium     | F0-S01          |
-| F0-S06  | LangGraph boot + cliente HTTP base                 | 🟣 review | high       | F0-S01          |
-| F0-S07  | Compose ponta a ponta                              | 🟣 review | high       | F0-S03,04,05,06 |
-| F0-S08  | Husky + lint-staged + commitlint                   | 🟣 review | low        | F0-S02          |
+| ID      | Título                                                       | Status       | Prioridade | Depende de                     |
+| ------- | ------------------------------------------------------------ | ------------ | ---------- | ------------------------------ |
+| F0-S01  | Verificar e travar lockfiles (pnpm + python)                 | ✅ done      | critical   | —                              |
+| F0-S02  | ESLint + Prettier — instalar e ligar nos workspaces          | ✅ done      | high       | F0-S01                         |
+| F0-S03  | Validar boot da API + healthcheck contra Postgres            | ✅ done      | high       | F0-S01                         |
+| F0-S03b | Upgrade fastify + vitest (CVE remediation)                   | ✅ done      | high       | F0-S03                         |
+| F0-S04  | Drizzle — primeira migration vazia + smoke test              | ✅ done      | high       | F0-S01                         |
+| F0-S05  | Web — dev server + design tokens + tela de login placeholder | ✅ done      | medium     | F0-S01                         |
+| F0-S06  | LangGraph service — boot + health + cliente HTTP base        | ✅ done      | high       | F0-S01                         |
+| F0-S07  | docker-compose — validação ponta a ponta                     | 🟢 available | high       | F0-S03, F0-S04, F0-S05, F0-S06 |
+| F0-S08  | Husky + lint-staged + commitlint                             | ✅ done      | low        | F0-S02                         |
 
 ## Fase 1 — Base operacional
 
-| ID     | Título                                      | Status         | Prioridade | Depende de                     |
-| ------ | ------------------------------------------- | -------------- | ---------- | ------------------------------ |
-| F1-S01 | Schema identidade                           | 🔵 in-progress | critical   | F0-S04                         |
-| F1-S02 | AppError + error handler                    | 🟣 review      | high       | F0-S03                         |
-| F1-S03 | Auth login/refresh/logout                   | ⏸️ blocked     | critical   | F1-S01, F1-S02                 |
-| F1-S04 | Middlewares authenticate + authorize        | ⏸️ blocked     | critical   | F1-S03                         |
-| F1-S05 | Schema cities + agents + seed               | 🟢 available   | high       | F1-S01                         |
-| F1-S06 | CRUD cities                                 | ⏸️ blocked     | medium     | F1-S04, F1-S05                 |
-| F1-S07 | CRUD users + roles + scopes                 | ⏸️ blocked     | high       | F1-S04, F1-S05                 |
-| F1-S08 | Frontend auth + layout                      | ⏸️ blocked     | critical   | F1-S03, F0-S05                 |
-| F1-S09 | Schema leads/customers/history/interactions | ⏸️ blocked     | critical   | F1-S01, F1-S05                 |
-| F1-S10 | Helper normalização de telefone             | 🟢 available   | high       | —                              |
-| F1-S11 | CRUD leads                                  | ⏸️ blocked     | critical   | F1-S04, F1-S09, F1-S10, F1-S15 |
-| F1-S12 | Frontend CRM                                | ⏸️ blocked     | high       | F1-S08, F1-S11                 |
-| F1-S13 | Schema + service kanban                     | ⏸️ blocked     | high       | F1-S04, F1-S09                 |
-| F1-S14 | Frontend Kanban                             | ⏸️ blocked     | medium     | F1-S08, F1-S13                 |
-| F1-S15 | Outbox pattern                              | 🟢 available   | critical   | F0-S04                         |
-| F1-S16 | Audit logs                                  | 🟢 available   | high       | F1-S01                         |
-| F1-S17 | Pipeline de importação                      | ⏸️ blocked     | high       | F1-S11, F1-S15                 |
-| F1-S18 | Frontend importação                         | ⏸️ blocked     | medium     | F1-S17                         |
-| F1-S19 | Webhook WhatsApp                            | 🟢 available   | high       | F1-S15                         |
-| F1-S20 | Cliente Chatwoot                            | 🟢 available   | medium     | F0-S03                         |
-| F1-S21 | Webhook Chatwoot                            | ⏸️ blocked     | medium     | F1-S20, F1-S15                 |
-| F1-S22 | Sync atributos Chatwoot                     | ⏸️ blocked     | medium     | F1-S20, F1-S15, F1-S11         |
-| F1-S23 | Feature flags (4 camadas)                   | 🟢 available   | high       | F1-S04                         |
-| F1-S24 | LGPD baseline — cifração PII + Pino redact  | ⏸️ blocked     | critical   | F1-S01, F1-S09                 |
-| F1-S25 | LGPD — direitos do titular + retenção       | ⏸️ blocked     | high       | F1-S16, F1-S15, F1-S24         |
-| F1-S26 | LGPD — DLP no pipeline LangGraph            | ⏸️ blocked     | critical   | F0-S06                         |
+| ID     | Título                                                                                  | Status       | Prioridade | Depende de                     |
+| ------ | --------------------------------------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
+| F1-S01 | Schema identidade — orgs, users, roles, permissions, sessions, city scopes              | 🟢 available | critical   | F0-S04                         |
+| F1-S02 | Helpers de erro e resposta padronizados                                                 | 🟣 review    | high       | F0-S03                         |
+| F1-S03 | Auth — login, refresh, logout                                                           | 🟢 available | critical   | F1-S01, F1-S02                 |
+| F1-S04 | Middlewares authenticate + authorize com escopo de cidade                               | 🟢 available | critical   | F1-S03                         |
+| F1-S05 | Schema cities + agents + seed cidades de Rondônia                                       | 🟢 available | high       | F1-S01                         |
+| F1-S06 | CRUD cities (admin)                                                                     | ⏸️ blocked   | medium     | F1-S04, F1-S05                 |
+| F1-S07 | CRUD users + assign roles + city scopes                                                 | ⏸️ blocked   | high       | F1-S04, F1-S05                 |
+| F1-S08 | Frontend — login real + hook useAuth + layout autenticado                               | ⏸️ blocked   | critical   | F1-S03, F0-S05                 |
+| F1-S09 | Schema leads + customers + history + interactions                                       | ⏸️ blocked   | critical   | F1-S01, F1-S05                 |
+| F1-S10 | Helper de normalização de telefone (E.164 BR)                                           | 🟣 review    | high       | —                              |
+| F1-S11 | CRUD leads (manual) com escopo de cidade + dedupe + eventos                             | ⏸️ blocked   | critical   | F1-S04, F1-S09, F1-S10, F1-S15 |
+| F1-S12 | Frontend CRM — lista + detalhe + form de lead                                           | ⏸️ blocked   | high       | F1-S08, F1-S11                 |
+| F1-S13 | Schema kanban + service de transições válidas                                           | ⏸️ blocked   | high       | F1-S04, F1-S09                 |
+| F1-S14 | Frontend Kanban (board + detalhe modal)                                                 | ⏸️ blocked   | medium     | F1-S08, F1-S13                 |
+| F1-S15 | Outbox — schema + emit() + worker outbox-publisher                                      | 🟢 available | critical   | F0-S04                         |
+| F1-S16 | Audit logs — schema + helper auditLog()                                                 | 🟢 available | high       | F1-S01                         |
+| F1-S17 | Pipeline de importação genérico (com adapter de leads)                                  | ⏸️ blocked   | high       | F1-S11, F1-S15                 |
+| F1-S18 | Frontend importação — wizard 4 passos                                                   | ⏸️ blocked   | medium     | F1-S17                         |
+| F1-S19 | Webhook WhatsApp — entrada + idempotência + persistência                                | 🟢 available | high       | F1-S15                         |
+| F1-S20 | Cliente HTTP Chatwoot                                                                   | 🟢 available | medium     | F0-S03                         |
+| F1-S21 | Webhook Chatwoot — entrada + idempotência                                               | ⏸️ blocked   | medium     | F1-S20, F1-S15                 |
+| F1-S22 | Sync de atributos do Chatwoot (handler de eventos)                                      | ⏸️ blocked   | medium     | F1-S20, F1-S15, F1-S11         |
+| F1-S23 | Feature flags — schema + admin UI + middleware backend + hook frontend                  | 🟢 available | high       | F1-S04                         |
+| F1-S24 | LGPD baseline — cifração de PII em coluna + hash HMAC + Pino redact                     | ⏸️ blocked   | critical   | F1-S01, F1-S09                 |
+| F1-S25 | LGPD — direitos do titular (acesso/portabilidade/revogação/correção) + jobs de retenção | ⏸️ blocked   | high       | F1-S16, F1-S15, F1-S24         |
+| F1-S26 | LGPD — DLP no pipeline LangGraph (mascaramento antes do gateway OpenRouter)             | ⏸️ blocked   | critical   | F0-S06                         |
 
-## Fases 2–7
+## Fase 3 — Agentes IA
 
-Cada fase será destrinchada em slots ao se aproximar a sua execução, seguindo o padrão de F0 e F1. As tasks técnicas em [docs/12-tasks-tecnicas.md](../docs/12-tasks-tecnicas.md) servem de base — cada `T<X.Y>` vira 1 ou mais slots.
-
-Quando F1 atingir ~80% de conclusão, abrir slots de **F2 — Crédito e simulação** (T2.1 a T2.8 → ~10 slots).
+| ID     | Título                                                         | Status       | Prioridade | Depende de |
+| ------ | -------------------------------------------------------------- | ------------ | ---------- | ---------- |
+| F3-S00 | LLM Gateway — abstração OpenRouter + fallback Anthropic/OpenAI | 🟢 available | critical   | F0-S06     |

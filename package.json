@@ -24,15 +24,6 @@
     "compose:logs": "docker compose logs -f",
     "prepare": "husky"
   },
-  "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
-      "prettier --write",
-      "eslint --fix --max-warnings=0"
-    ],
-    "*.{json,md,yml,yaml}": [
-      "prettier --write"
-    ]
-  },
   "devDependencies": {
     "@commitlint/cli": "^21.0.0",
     "@commitlint/config-conventional": "^21.0.0",

@@ -3,7 +3,7 @@ id: F0-S05
 title: Web — dev server + design tokens + tela de login placeholder
 phase: F0
 task_ref: T0.5
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: claude-opus-4-7

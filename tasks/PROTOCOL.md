@@ -21,39 +21,77 @@
 
 ## 2. Workflow do agente
 
+### 2.0 Pre-flight (OBRIGATÓRIO antes de qualquer ação)
+
+```powershell
+git status --short              # working tree deve estar limpo (ou só com .claude/settings.local.json)
+git rev-parse --abbrev-ref HEAD
+```
+
+Se sujo ou em branch que não é o esperado, **aborte e reporte**. Bug do 2026-05-11: agentes paralelos no mesmo working tree fazem swap de branch e poluem trabalho um do outro.
+
+**Se vai rodar em paralelo com outro agente:** o orquestrador DEVE usar `isolation: "worktree"` no parâmetro do `Task` tool — sem isso, é proibido.
+
 ### 2.1 Antes de começar
 
-1. Ler `tasks/PROTOCOL.md` (este arquivo).
-2. Ler `tasks/STATUS.md`.
-3. Ler `ARCHITECTURE.md` na primeira sessão.
+1. `python scripts/slot.py status` → resumo de 10 linhas (substitui leitura de STATUS.md).
+2. `python scripts/slot.py list-available` → lista slots prontos (filtrados por deps satisfeitos).
+3. Ler o frontmatter + corpo do slot escolhido. Ler **apenas** os `source_docs` listados nele.
 4. Identificar slot com:
    - `status: available`
    - todas as `depends_on` em `done`
    - você possui contexto/competência para o domínio
-5. Reservar o slot:
-   - Atualizar frontmatter: `status: claimed`, `agent_id: <seu-id>`, `claimed_at: <ISO>`.
-   - Atualizar `tasks/STATUS.md` com a mesma mudança.
-   - Commit pequeno: `chore(tasks): claim <SLOT-ID>`.
 
-### 2.2 Durante a execução
+### 2.2 Claim atômico
 
-1. Criar branch: `feat/<slot-id-lowercase>` (ex: `feat/f1-s03-auth-jwt-tokens`).
-2. Atualizar slot para `status: in-progress`.
-3. Implementar **somente** o escopo. Tocar **somente** arquivos em `files_allowed`. Não tocar arquivos em `files_forbidden`.
-4. Rodar todos os comandos em `validation` localmente. Todos precisam passar.
-5. Cobrir testes obrigatórios listados em `dod`.
+```powershell
+python scripts/slot.py claim <SLOT-ID>
+```
 
-### 2.3 Ao terminar
+Esse comando faz, atomicamente:
 
-1. Atualizar slot para `status: review`.
-2. Abrir PR com:
-   - Título: `[<SLOT-ID>] <título do slot>`
-   - Descrição contendo a checklist do DoD com cada item marcado.
-   - Link para o slot.
-   - Screenshots/recordings se mexeu em UI.
-3. Após merge, atualizar `tasks/STATUS.md` e o frontmatter do slot para `status: done`, `completed_at: <ISO>`, `pr_url: <url>`.
+- `git checkout main && git pull --ff-only`
+- Cria branch `feat/<slot-id-lowercase>`
+- Atualiza frontmatter (`status: in-progress`, `agent_id`, `claimed_at`)
+- Re-renderiza `tasks/STATUS.md` a partir dos frontmatters
+- Commit `chore(tasks): <SLOT-ID> in-progress`
 
-### 2.4 Se travar
+Rejeita se: working tree sujo, branch já existe, slot não está available, ou main já foi modificado.
+
+**NÃO** edite `tasks/STATUS.md` à mão. **NÃO** crie branch manualmente. O script é a única forma.
+
+### 2.3 Durante a execução
+
+1. Implementar **somente** dentro de `files_allowed`. Tocar `files_forbidden` é bloqueio.
+2. Não rodar `--no-verify` em nenhum commit.
+3. Validar continuamente:
+   ```powershell
+   python scripts/slot.py validate <SLOT-ID>     # parseia "## Validação" do slot e roda
+   ```
+4. Cobrir testes obrigatórios listados em `dod`.
+
+### 2.4 Ao terminar
+
+```powershell
+python scripts/slot.py finish <SLOT-ID>
+git push origin feat/<slot-id-lowercase>
+```
+
+`finish` atualiza frontmatter para `review`, regenera STATUS.md, commita `chore(tasks): <SLOT-ID> review`.
+
+**NÃO** abre PR. O Rogério (ou orquestrador) abre o PR via `gh pr create`. Você apenas pusha a branch.
+
+### 2.5 Pós-merge (humano)
+
+Após o Rogério mergear o PR em `main`:
+
+```powershell
+python scripts/slot.py reconcile-merged --write
+```
+
+Detecta automaticamente quais branches `feat/*` foram mergeados em `origin/main` e marca os slots como `done` + atualiza STATUS.md. Idempotente.
+
+### 2.6 Se travar
 
 - Faltou contexto na doc? Abra issue rotulado `docs-gap` linkando o slot. Mantenha slot em `blocked` com motivo.
 - Slot mal-dimensionado (escopo muito grande)? Quebre em sub-slots: `<SLOT-ID>a`, `<SLOT-ID>b`. O slot original vira `cancelled` com link para os filhos.

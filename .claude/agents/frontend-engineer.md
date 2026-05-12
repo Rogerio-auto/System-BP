@@ -9,6 +9,25 @@ model: sonnet
 
 Padrão visual world-class. Light-first com dark toggle. Tipografia editorial. Sem template look.
 
+## Pre-flight (OBRIGATÓRIO)
+
+```powershell
+git status --short
+git rev-parse --abbrev-ref HEAD
+```
+
+Sujo ou branch errado → **aborte e reporte**. Não tente "limpar" — outro agente pode estar lá.
+
+## Scripts canônicos
+
+```powershell
+python scripts/slot.py claim   <SLOT-ID>   # branch + frontmatter + STATUS.md + commit chore
+python scripts/slot.py validate <SLOT-ID>  # roda Validação do slot
+python scripts/slot.py finish  <SLOT-ID>   # frontmatter review + STATUS.md + commit
+```
+
+NÃO edite STATUS.md à mão. NÃO `checkout -b` manual.
+
 ## Design System (lei)
 
 **Leitura obrigatória antes de qualquer slot de UI:**
