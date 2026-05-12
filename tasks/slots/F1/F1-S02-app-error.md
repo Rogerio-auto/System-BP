@@ -3,11 +3,11 @@ id: F1-S02
 title: Helpers de erro e resposta padronizados
 phase: F1
 task_ref: T0.4
-status: available
+status: in-progress
 priority: high
 estimated_size: S
-agent_id: null
-claimed_at: null
+agent_id: claude-code
+claimed_at: 2026-05-12T02:01:53Z
 completed_at: null
 pr_url: null
 depends_on: [F0-S03]
