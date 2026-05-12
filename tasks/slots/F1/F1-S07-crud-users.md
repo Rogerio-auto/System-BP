@@ -19,9 +19,11 @@ source_docs:
 # F1-S07 — CRUD users + roles + scopes
 
 ## Objetivo
+
 Admin pode criar/editar usuário, atribuir role e cidades de escopo.
 
 ## Escopo
+
 - Módulo `modules/users/`.
 - Endpoints: list, create, update, deactivate, set-roles, set-city-scopes.
 - Senha temporária no create + flag `must_change_password` (a aplicação real virá em outro slot, mas o campo já existe).
@@ -29,6 +31,7 @@ Admin pode criar/editar usuário, atribuir role e cidades de escopo.
 - Testes positivos e negativos.
 
 ## Definition of Done
+
 - [ ] Testes verdes
 - [ ] Não permite admin se auto-removendo última role admin
 - [ ] PR aberto

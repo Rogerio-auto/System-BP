@@ -7,13 +7,15 @@
 
 - **Tipo de execução:** Híbrido (backend Node + frontend React + serviço Python LangGraph + futuras automações n8n).
 - **Tipo de ownership:** Cliente (Banco do Povo / SEDEC Rondônia).
-- **Documentação canônica:** `docs/00-visao-geral.md` … `docs/16-revisao-critica.md`. **Sempre** consultar antes de implementar.
+- **Documentação canônica:** `docs/00-visao-geral.md` … `docs/18-design-system.md`. **Sempre** consultar antes de implementar.
 - **Sistema de tasks:** `tasks/PROTOCOL.md` é lei. `tasks/STATUS.md` é o board. Slots em `tasks/slots/F<n>/`.
+- **Política LGPD:** `docs/17-lgpd-protecao-dados.md` é normativa. Vence qualquer slot, PR ou decisão informal em conflito. Tratamento de dados pessoais sem ler o doc 17 é violação.
+- **Design System (lei visual):** `docs/18-design-system.md` (tokens, profundidade, hovers, componentes) + `docs/design-system/index.html` (referência viva — abrir no navegador). Vence qualquer slot de UI em conflito. PR de frontend que não usa os tokens canônicos é bloqueado.
 
 ## Stack obrigatória
 
 - **Backend:** Node 20.11.0, pnpm 9, Fastify 5, TypeScript strict, Drizzle ORM, Zod, Pino, jose, bcryptjs.
-- **Frontend:** React 18, Vite 5, Tailwind 3 (dark-first, paleta `ink`), TanStack Query, Zustand, React Hook Form.
+- **Frontend:** React 18, Vite 5, Tailwind 3 (light-first com dark toggle, tokens do DS oficial em `docs/18-design-system.md` — Bricolage Grotesque + Geist + JetBrains Mono, cores da bandeira de Rondônia), TanStack Query, Zustand, React Hook Form.
 - **Python:** 3.12, FastAPI, LangGraph 0.2, Pydantic v2, structlog, httpx, tenacity.
 - **Banco:** Postgres 16 (extensões `pgcrypto`, `pg_trgm`, `unaccent`, `citext`).
 - **LLM gateway:** OpenRouter (default). Não chamar Anthropic/OpenAI diretamente em código novo — usar `app/llm/gateway.py`.
@@ -28,6 +30,7 @@
 6. **Feature flags em 4 camadas** (UI/API/worker/tool).
 7. **Auditoria + idempotência** em mutações sensíveis.
 8. **Multi-tenant ready desde o dia 1** (`organization_id` em toda tabela de domínio).
+9. **LGPD não-negociável.** CPF cifrado em coluna + hash HMAC para dedupe; logs com `pino.redact` da lista canônica; DLP antes de qualquer chamada ao gateway LLM (nada de PII bruta para suboperador internacional); outbox sem PII bruta; retenção por job; direitos do titular implementáveis em ≤15 dias úteis. Regras detalhadas em `docs/17-lgpd-protecao-dados.md`. PR que toca PII sem checklist do §14.2 do doc 17 é bloqueado.
 
 ## Como trabalhar neste repositório
 
@@ -79,3 +82,5 @@ Sempre delegar via subagente especialista. Orquestrador **não** escreve código
 - Regra de negócio: `docs/01-prd-produto.md` + `docs/05-modulos-funcionais.md`.
 - Segurança: `docs/10-seguranca-permissoes.md`.
 - Eventos: `docs/04-eventos.md`.
+- LGPD / proteção de dados: `docs/17-lgpd-protecao-dados.md`.
+- UI / design / tokens / componentes: `docs/18-design-system.md` + `docs/design-system/index.html`.

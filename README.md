@@ -53,6 +53,7 @@ pnpm dev
 ```
 
 Para subir tudo via Docker (modo dev com hot reload):
+
 ```powershell
 copy docker-compose.override.yml.example docker-compose.override.yml
 docker compose up
@@ -60,17 +61,17 @@ docker compose up
 
 ## Comandos principais
 
-| Comando | O que faz |
-|---|---|
-| `pnpm dev` | Sobe `api` + `web` em paralelo (turbo) |
-| `pnpm build` | Build de todos os apps |
-| `pnpm lint` | ESLint em todo o monorepo |
-| `pnpm typecheck` | TS check em todo o monorepo |
-| `pnpm test` | Testes em todo o monorepo |
-| `pnpm db:generate` | Gera migration Drizzle a partir do schema |
-| `pnpm db:migrate` | Aplica migrations no banco |
-| `pnpm compose:up` | `docker compose up -d` |
-| `pnpm compose:down` | `docker compose down` |
+| Comando             | O que faz                                 |
+| ------------------- | ----------------------------------------- |
+| `pnpm dev`          | Sobe `api` + `web` em paralelo (turbo)    |
+| `pnpm build`        | Build de todos os apps                    |
+| `pnpm lint`         | ESLint em todo o monorepo                 |
+| `pnpm typecheck`    | TS check em todo o monorepo               |
+| `pnpm test`         | Testes em todo o monorepo                 |
+| `pnpm db:generate`  | Gera migration Drizzle a partir do schema |
+| `pnpm db:migrate`   | Aplica migrations no banco                |
+| `pnpm compose:up`   | `docker compose up -d`                    |
+| `pnpm compose:down` | `docker compose down`                     |
 
 ## Desenvolvimento por agentes IA
 

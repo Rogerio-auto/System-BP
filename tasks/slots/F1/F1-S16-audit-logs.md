@@ -20,14 +20,17 @@ source_docs:
 # F1-S16 — Audit logs
 
 ## Objetivo
+
 Tabela `audit_logs` (append-only) e helper `auditLog(tx, { actor, action, resource, before, after, metadata })`.
 
 ## Escopo
+
 - Schema: `id, organization_id, actor_user_id, actor_role, action, resource_type, resource_id, before (jsonb), after (jsonb), ip, user_agent, correlation_id, created_at`.
 - Função idempotente.
 - Retenção: documentar política (sem TTL no MVP).
 - Testes.
 
 ## Definition of Done
+
 - [ ] Helper testado
 - [ ] PR aberto

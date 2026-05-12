@@ -12,13 +12,13 @@
 
 ## 2. Times e papéis
 
-| Papel | Quem | Responsabilidade |
-|-------|------|------------------|
-| Arquiteto / CTO | Rogério | Decisões técnicas, padrões, escolha de stack, revisão final, escopo de tasks |
-| Planejamento e raciocínio profundo | **Claude Opus** | Decompor tasks complexas, revisar código sensível, debug de problemas obscuros, redesenho de fluxo |
-| Execução padrão | **Claude Sonnet / GPT-5 / Gemini Pro** | Implementar tasks já decompostas, gerar código, escrever testes, escrever migrations |
-| IDE assistente | **GitHub Copilot** | Completar trechos, sugerir variações, refactors locais |
-| Revisor humano | Engenheiro humano (Rogério ou time) | Aprovar PR, validar lógica, garantir DoD |
+| Papel                              | Quem                                   | Responsabilidade                                                                                   |
+| ---------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Arquiteto / CTO                    | Rogério                                | Decisões técnicas, padrões, escolha de stack, revisão final, escopo de tasks                       |
+| Planejamento e raciocínio profundo | **Claude Opus**                        | Decompor tasks complexas, revisar código sensível, debug de problemas obscuros, redesenho de fluxo |
+| Execução padrão                    | **Claude Sonnet / GPT-5 / Gemini Pro** | Implementar tasks já decompostas, gerar código, escrever testes, escrever migrations               |
+| IDE assistente                     | **GitHub Copilot**                     | Completar trechos, sugerir variações, refactors locais                                             |
+| Revisor humano                     | Engenheiro humano (Rogério ou time)    | Aprovar PR, validar lógica, garantir DoD                                                           |
 
 ## 3. Como decompor uma task para IA executar
 
@@ -55,6 +55,7 @@ SAÍDA ESPERADA:
 ## 4. Quando usar cada modelo
 
 ### Claude Opus (planejamento profundo)
+
 - Decompor task grande em subtasks.
 - Revisar código sensível (auth, RBAC, money math, IA).
 - Debug de problema que outro modelo não resolveu.
@@ -62,6 +63,7 @@ SAÍDA ESPERADA:
 - Revisar migration que toca dados em produção.
 
 ### Claude Sonnet / GPT-5 / Gemini Pro (execução)
+
 - Implementar task com escopo claro.
 - Escrever testes a partir do aceite.
 - Escrever migrations triviais.
@@ -69,6 +71,7 @@ SAÍDA ESPERADA:
 - Documentação a partir de código existente.
 
 ### Copilot (IDE)
+
 - Autocompletar dentro do arquivo.
 - Sugestões de testes durante TDD.
 - Imports e boilerplate.
@@ -86,18 +89,18 @@ Toda PR gerada com auxílio de IA deve passar por:
 
 ## 6. Anti-padrões comuns de IA a recusar
 
-| Anti-padrão | Por quê é ruim | Resposta |
-|-------------|---------------|----------|
-| Criar `BaseService` / `AbstractRepository` "para o futuro" | Abstração prematura | Recusar; manter explícito |
-| `any` ou `as` para silenciar erro do TS | Esconde bug | Recusar |
-| Try/catch que engole erro silenciosamente | Mascara falha | Forçar log + propagação |
-| Adicionar `axios`/`lodash` "para conveniência" | Lib desnecessária | Recusar; usar `fetch`/nativo |
-| Mutar input de função | Bug latente | Refatorar para imutável |
-| Comentário explicando o que o código faz | Código deve ser claro | Refatorar nome em vez de comentar |
-| Migration que altera dados sem backfill seguro | Pode corromper | Reescrever com backfill controlado |
-| Endpoint sem Zod | Aceita lixo | Forçar schema |
-| Query sem filtro de cidade | Vaza dados | Recusar; passar pelo repository |
-| Tool de IA mutante sem idempotency | Duplicidade | Forçar idempotency-key |
+| Anti-padrão                                                | Por quê é ruim        | Resposta                           |
+| ---------------------------------------------------------- | --------------------- | ---------------------------------- |
+| Criar `BaseService` / `AbstractRepository` "para o futuro" | Abstração prematura   | Recusar; manter explícito          |
+| `any` ou `as` para silenciar erro do TS                    | Esconde bug           | Recusar                            |
+| Try/catch que engole erro silenciosamente                  | Mascara falha         | Forçar log + propagação            |
+| Adicionar `axios`/`lodash` "para conveniência"             | Lib desnecessária     | Recusar; usar `fetch`/nativo       |
+| Mutar input de função                                      | Bug latente           | Refatorar para imutável            |
+| Comentário explicando o que o código faz                   | Código deve ser claro | Refatorar nome em vez de comentar  |
+| Migration que altera dados sem backfill seguro             | Pode corromper        | Reescrever com backfill controlado |
+| Endpoint sem Zod                                           | Aceita lixo           | Forçar schema                      |
+| Query sem filtro de cidade                                 | Vaza dados            | Recusar; passar pelo repository    |
+| Tool de IA mutante sem idempotency                         | Duplicidade           | Forçar idempotency-key             |
 
 ## 7. Convenção de prompts para tasks
 
@@ -149,11 +152,13 @@ Foco do revisor humano:
 ## 12. Ambiente para IA executar
 
 A IA executa em ambiente local de cada engenheiro, **nunca** com acesso direto a:
+
 - Banco de produção.
 - Credenciais reais de WhatsApp/Chatwoot/Notion.
 - Token JWT de admin.
 
 Ambientes:
+
 - **dev:** local + Postgres em docker.
 - **staging:** réplica de produção, dados sintéticos + amostragem mascarada.
 - **prod:** apenas humanos com aprovação.

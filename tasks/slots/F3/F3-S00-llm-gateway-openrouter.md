@@ -19,15 +19,18 @@ source_docs:
 # F3-S00 — LLM Gateway
 
 ## Objetivo
+
 Camada única para o LangGraph chamar LLMs. **OpenRouter é o default** (1 chave, qualquer modelo, billing unificado, sem vendor lock-in). Mantém Anthropic/OpenAI diretos como fallback configurável.
 
 ## Por que OpenRouter
+
 - Trocar de modelo é mudança de string (`anthropic/claude-sonnet-4` → `openai/gpt-4o`), sem mexer em código.
 - Modelos de classificação baratos (Haiku, Gemini Flash) e modelos de raciocínio caros usam o mesmo cliente.
 - Permite versionar `model_id` em `prompt_versions` sem refatorar.
 - Headers obrigatórios pelo OpenRouter (`HTTP-Referer`, `X-Title`) já vêm do `config.py`.
 
 ## Escopo
+
 - `apps/langgraph-service/app/llm/gateway.py`:
   ```python
   class LLMGateway(Protocol):
@@ -55,15 +58,18 @@ Camada única para o LangGraph chamar LLMs. **OpenRouter é o default** (1 chave
   - Orçamento estourado → `BudgetExceededError`.
 
 ## Fora de escopo
+
 - Streaming (pós-MVP).
 - Cache de respostas idênticas (slot futuro).
 
 ## Arquivos permitidos
+
 - `apps/langgraph-service/app/llm/**`
 - `apps/langgraph-service/app/db/schema_llm_usage.sql` (DDL aplicada via backend, conferir com F1-S01)
 - Atualizar `apps/langgraph-service/pyproject.toml` com `langchain-openai`, `langchain-anthropic`, `tenacity`.
 
 ## Definition of Done
+
 - [ ] Trocar `LLM_PROVIDER` entre `openrouter` e `anthropic` funciona sem mudar código de nó
 - [ ] `for_role("classifier")` retorna modelo barato; `"reasoner"` retorna Sonnet/equivalente
 - [ ] Headers `HTTP-Referer` e `X-Title` enviados em toda chamada OpenRouter

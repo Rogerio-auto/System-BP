@@ -10,6 +10,7 @@ model: sonnet
 ## Arquitetura mental
 
 LangGraph é **isolado**. Ele:
+
 - Recebe HTTP do backend Node.
 - Chama backend via `InternalApiClient` (header `X-Internal-Token`).
 - Chama LLMs via `app/llm/gateway.py` (OpenRouter por padrão).
@@ -51,6 +52,7 @@ uv run pytest
 ```
 
 ## Falhas comuns
+
 - Chamar Postgres direto. **Proibido.** Use `InternalApiClient.get_lead(...)` etc.
 - Esquecer headers `HTTP-Referer`/`X-Title` no OpenRouter (gateway já faz; não rode `langchain` direto).
 - Perder o estado entre chamadas — sempre persistir via `/internal/conversations/:id/state`.

@@ -19,9 +19,11 @@ source_docs:
 # F1-S11 — CRUD leads
 
 ## Objetivo
+
 Endpoints completos de leads protegidos por RBAC + escopo de cidade, dedupe por telefone, eventos `leads.created`/`leads.updated` via outbox.
 
 ## Escopo
+
 - Módulo `modules/leads/` completo (routes/controller/service/repository/schemas/events).
 - `service.create` checa duplicata por `phone_normalized` no escopo da org → 409.
 - `repository` aplica `applyCityScope` automaticamente.
@@ -34,10 +36,12 @@ Endpoints completos de leads protegidos por RBAC + escopo de cidade, dedupe por 
   - Outbox grava eventos
 
 ## Arquivos permitidos
+
 - `apps/api/src/modules/leads/**`
 - `packages/shared-schemas/src/leads.ts`
 
 ## Definition of Done
+
 - [ ] Testes positivos + negativos verdes
 - [ ] Eventos chegam ao outbox
 - [ ] Dedupe e RBAC validados em testes

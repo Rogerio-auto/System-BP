@@ -15,13 +15,13 @@ Tabela `feature_flags` em [03-modelo-dados.md](03-modelo-dados.md). Estrutura:
 
 ```ts
 type FeatureFlag = {
-  key: string;                  // ex: "followup.enabled"
+  key: string; // ex: "followup.enabled"
   name: string;
   description: string;
-  status: "enabled" | "disabled" | "internal_only";
-  visible: boolean;             // se aparece na UI
-  ui_label?: string;            // ex: "Em desenvolvimento"
-  dependencies: string[];       // outras flags requeridas
+  status: 'enabled' | 'disabled' | 'internal_only';
+  visible: boolean; // se aparece na UI
+  ui_label?: string; // ex: "Em desenvolvimento"
+  dependencies: string[]; // outras flags requeridas
   allowed_roles: string[];
   updated_by: string | null;
   updated_at: string;
@@ -32,33 +32,34 @@ Auditoria em `feature_flag_audit`. Toda mudança via UI requer permissão `flags
 
 ## 3. Catálogo MVP
 
-| Key | Default | Visível no MVP | Quando habilitar |
-|-----|---------|----------------|------------------|
-| `crm.enabled` | enabled | ✓ | — |
-| `crm.import.enabled` | enabled | ✓ | — |
-| `kanban.enabled` | enabled | ✓ | — |
-| `credit_simulation.enabled` | enabled | ✓ | — |
-| `credit_analysis.enabled` | enabled | ✓ | — |
-| `credit_analysis.import.enabled` | enabled | ✓ | — |
-| `chatwoot.integration.enabled` | enabled | ✓ | — |
-| `ai.whatsapp_agent.enabled` | enabled | ✓ | — |
-| `ai.internal_assistant.enabled` | disabled | ✓ (badge) | Fase 6 |
-| `internal_assistant.actions.enabled` | disabled | ✓ (badge) | Pós-MVP |
-| `followup.enabled` | disabled | ✓ (badge) | Fase 5 |
-| `collection.enabled` | disabled | ✓ (badge) | Fase 5 |
-| `dashboard.enabled` | enabled (parcial) | ✓ | — |
-| `dashboard.by_agent.enabled` | disabled | ✓ (badge) | Fase 6 |
-| `dashboard.followup_metrics.enabled` | disabled | ✓ (badge) | Fase 6 |
-| `reports.export.enabled` | disabled | ✓ (badge) | Fase 6 |
-| `multi_city_routing.enabled` | enabled | ✓ | — |
-| `pwa.enabled` | disabled | ✗ | Pós-MVP |
-| `internal_score.enabled` | disabled | ✓ (badge) | Pós-MVP |
-| `auto_complete_on_chatwoot_resolved.enabled` | disabled | ✗ | Pós-validação |
-| `imports.regional.enabled` | disabled | ✗ | Sob demanda |
+| Key                                          | Default           | Visível no MVP | Quando habilitar |
+| -------------------------------------------- | ----------------- | -------------- | ---------------- |
+| `crm.enabled`                                | enabled           | ✓              | —                |
+| `crm.import.enabled`                         | enabled           | ✓              | —                |
+| `kanban.enabled`                             | enabled           | ✓              | —                |
+| `credit_simulation.enabled`                  | enabled           | ✓              | —                |
+| `credit_analysis.enabled`                    | enabled           | ✓              | —                |
+| `credit_analysis.import.enabled`             | enabled           | ✓              | —                |
+| `chatwoot.integration.enabled`               | enabled           | ✓              | —                |
+| `ai.whatsapp_agent.enabled`                  | enabled           | ✓              | —                |
+| `ai.internal_assistant.enabled`              | disabled          | ✓ (badge)      | Fase 6           |
+| `internal_assistant.actions.enabled`         | disabled          | ✓ (badge)      | Pós-MVP          |
+| `followup.enabled`                           | disabled          | ✓ (badge)      | Fase 5           |
+| `collection.enabled`                         | disabled          | ✓ (badge)      | Fase 5           |
+| `dashboard.enabled`                          | enabled (parcial) | ✓              | —                |
+| `dashboard.by_agent.enabled`                 | disabled          | ✓ (badge)      | Fase 6           |
+| `dashboard.followup_metrics.enabled`         | disabled          | ✓ (badge)      | Fase 6           |
+| `reports.export.enabled`                     | disabled          | ✓ (badge)      | Fase 6           |
+| `multi_city_routing.enabled`                 | enabled           | ✓              | —                |
+| `pwa.enabled`                                | disabled          | ✗              | Pós-MVP          |
+| `internal_score.enabled`                     | disabled          | ✓ (badge)      | Pós-MVP          |
+| `auto_complete_on_chatwoot_resolved.enabled` | disabled          | ✗              | Pós-validação    |
+| `imports.regional.enabled`                   | disabled          | ✗              | Sob demanda      |
 
 ## 4. Comportamento por camada
 
 ### 4.1 UI
+
 - `flag.status === 'enabled'` → comportamento normal.
 - `flag.status === 'disabled' && flag.visible` → seção/menu visível com:
   - Badge "Em desenvolvimento" (ou `ui_label`).
@@ -69,6 +70,7 @@ Auditoria em `feature_flag_audit`. Toda mudança via UI requer permissão `flags
 - `flag.status === 'internal_only'` → visível apenas para roles em `allowed_roles`.
 
 ### 4.2 Backend API
+
 - Middleware `featureGate(flagKey)` em rotas/grupos:
   ```ts
   router.post('/api/followup-jobs', featureGate('followup.enabled'), ...);
@@ -77,10 +79,12 @@ Auditoria em `feature_flag_audit`. Toda mudança via UI requer permissão `flags
 - Endpoints de leitura podem ser permitidos mesmo com flag disabled (ex: visualizar régua existente) — decisão por endpoint.
 
 ### 4.3 Workers
+
 - No início de cada job, worker checa `feature_flags`. Se desligada → marca job `cancelled` com motivo `feature_disabled`.
 - Schedulers não criam novos jobs quando flag desligada.
 
 ### 4.4 Tools da IA
+
 - Tool wrapper checa flag antes de executar:
   ```python
   @feature_gated("followup.enabled")
@@ -98,6 +102,7 @@ Auditoria em `feature_flag_audit`. Toda mudança via UI requer permissão `flags
 ## 6. UI admin
 
 Tela `/admin/feature-flags`:
+
 - Lista com filtro por status.
 - Toggle para enabled/disabled (com confirmação).
 - Edição de `ui_label`, `description`, `allowed_roles`.

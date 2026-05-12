@@ -1,13 +1,41 @@
 <!doctype html>
-<html lang="pt-BR" class="dark">
+<html lang="pt-BR" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
-    <title>Manager Banco do Povo</title>
+    <meta name="color-scheme" content="light dark" />
+    <title>Banco do Povo · Manager</title>
+
+    <!-- Fontes: Bricolage Grotesque (display) + Geist (UI) + JetBrains Mono (dados) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Geist:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <!--
+      Anti-flash script: roda inline antes do React montar.
+      Lê localStorage.theme → senão prefers-color-scheme → senão "light".
+      Aplica data-theme no <html> E classe (dark/light) para Tailwind.
+    -->
+    <script>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        var theme =
+          stored === 'dark' || stored === 'light'
+            ? stored
+            : window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.classList.remove('light', 'dark');
+        document.documentElement.classList.add(theme);
+      })();
+    </script>
   </head>
-  <body class="bg-ink-950 text-ink-100 antialiased">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

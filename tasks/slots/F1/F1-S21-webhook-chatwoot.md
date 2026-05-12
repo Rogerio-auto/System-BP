@@ -19,9 +19,11 @@ source_docs:
 # F1-S21 — Webhook Chatwoot
 
 ## Objetivo
+
 Receber `message_created`, `conversation_status_changed`, `conversation_assignee_changed`. Validar HMAC. Idempotência por `id+updated_at`.
 
 ## Definition of Done
+
 - [ ] HMAC validado
 - [ ] Eventos persistidos via outbox
 - [ ] PR aberto
