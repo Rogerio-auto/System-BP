@@ -3,13 +3,13 @@ id: F1-S25
 title: LGPD — direitos do titular (acesso/portabilidade/revogação/correção) + jobs de retenção
 phase: F1
 task_ref: LGPD §5 §6
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: backend-engineer
-claimed_at: 2026-05-12T00:00:00Z
-completed_at: 2026-05-12T16:30:22Z
-pr_url: null
+claimed_at: 2026-05-12T15:55:00Z
+completed_at: 2026-05-12T16:35:00Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/30
 depends_on: [F1-S16, F1-S15, F1-S24]
 blocks: []
 labels: [lgpd-impact]

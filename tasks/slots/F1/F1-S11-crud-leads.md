@@ -3,13 +3,13 @@ id: F1-S11
 title: CRUD leads (manual) com escopo de cidade + dedupe + eventos
 phase: F1
 task_ref: T1.11
-status: review
+status: done
 priority: critical
 estimated_size: L
-agent_id: claude-code
-claimed_at: 2026-05-12T00:00:00Z
-completed_at: 2026-05-12T00:00:00Z
-pr_url: null
+agent_id: backend-engineer
+claimed_at: 2026-05-12T15:55:00Z
+completed_at: 2026-05-12T16:11:00Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/28
 depends_on: [F1-S04, F1-S09, F1-S10, F1-S15]
 blocks: [F1-S12, F1-S17, F1-S22]
 source_docs:
