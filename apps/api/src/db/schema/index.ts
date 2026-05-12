@@ -20,3 +20,6 @@ export * from './agent_cities';
 
 // Outbox pattern (F1-S15)
 export * from './events.js';
+
+// Audit logs (F1-S16)
+export * from './auditLogs.js';
