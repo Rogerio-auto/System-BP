@@ -9,7 +9,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F1   | 26    | 3   | 9   | 0   | 0   | 0   | 14  |
+| F1   | 26    | 3   | 6   | 0   | 0   | 0   | 17  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
@@ -36,14 +36,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S04 | Middlewares authenticate + authorize com escopo de cidade                               | ✅ done      | critical   | F1-S03                         |
 | F1-S05 | Schema cities + agents + seed cidades de Rondônia                                       | ✅ done      | high       | F1-S01                         |
 | F1-S06 | CRUD cities (admin)                                                                     | ⏸️ blocked   | medium     | F1-S04, F1-S05                 |
-| F1-S07 | CRUD users + assign roles + city scopes                                                 | 🟢 available | high       | F1-S04, F1-S05                 |
+| F1-S07 | CRUD users + assign roles + city scopes                                                 | ✅ done      | high       | F1-S04, F1-S05                 |
 | F1-S08 | Frontend — login real + hook useAuth + layout autenticado                               | ✅ done      | critical   | F1-S03, F0-S05                 |
 | F1-S09 | Schema leads + customers + history + interactions                                       | ✅ done      | critical   | F1-S01, F1-S05                 |
 | F1-S10 | Helper de normalização de telefone (E.164 BR)                                           | ✅ done      | high       | —                              |
-| F1-S11 | CRUD leads (manual) com escopo de cidade + dedupe + eventos                             | ⏸️ blocked   | critical   | F1-S04, F1-S09, F1-S10, F1-S15 |
+| F1-S11 | CRUD leads (manual) com escopo de cidade + dedupe + eventos                             | 🟢 available | critical   | F1-S04, F1-S09, F1-S10, F1-S15 |
 | F1-S12 | Frontend CRM — lista + detalhe + form de lead                                           | ⏸️ blocked   | high       | F1-S08, F1-S11                 |
-| F1-S13 | Schema kanban + service de transições válidas                                           | 🟢 available | high       | F1-S04, F1-S09                 |
-| F1-S14 | Frontend Kanban (board + detalhe modal)                                                 | ⏸️ blocked   | medium     | F1-S08, F1-S13                 |
+| F1-S13 | Schema kanban + service de transições válidas                                           | ✅ done      | high       | F1-S04, F1-S09                 |
+| F1-S14 | Frontend Kanban (board + detalhe modal)                                                 | 🟢 available | medium     | F1-S08, F1-S13                 |
 | F1-S15 | Outbox — schema + emit() + worker outbox-publisher                                      | ✅ done      | critical   | F0-S04                         |
 | F1-S16 | Audit logs — schema + helper auditLog()                                                 | ✅ done      | high       | F1-S01                         |
 | F1-S17 | Pipeline de importação genérico (com adapter de leads)                                  | ⏸️ blocked   | high       | F1-S11, F1-S15                 |
@@ -53,8 +53,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S21 | Webhook Chatwoot — entrada + idempotência                                               | ⏸️ blocked   | medium     | F1-S20, F1-S15                 |
 | F1-S22 | Sync de atributos do Chatwoot (handler de eventos)                                      | ⏸️ blocked   | medium     | F1-S20, F1-S15, F1-S11         |
 | F1-S23 | Feature flags — schema + admin UI + middleware backend + hook frontend                  | ✅ done      | high       | F1-S04                         |
-| F1-S24 | LGPD baseline — cifração de PII em coluna + hash HMAC + Pino redact                     | 🟢 available | critical   | F1-S01, F1-S09                 |
-| F1-S25 | LGPD — direitos do titular (acesso/portabilidade/revogação/correção) + jobs de retenção | ⏸️ blocked   | high       | F1-S16, F1-S15, F1-S24         |
+| F1-S24 | LGPD baseline — cifração de PII em coluna + hash HMAC + Pino redact                     | ✅ done      | critical   | F1-S01, F1-S09                 |
+| F1-S25 | LGPD — direitos do titular (acesso/portabilidade/revogação/correção) + jobs de retenção | 🟢 available | high       | F1-S16, F1-S15, F1-S24         |
 | F1-S26 | LGPD — DLP no pipeline LangGraph (mascaramento antes do gateway OpenRouter)             | ✅ done      | critical   | F0-S06                         |
 
 ## Fase 3 — Agentes IA

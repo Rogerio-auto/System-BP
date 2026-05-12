@@ -3,7 +3,7 @@ id: F1-S14
 title: Frontend Kanban (board + detalhe modal)
 phase: F1
 task_ref: T1.14
-status: blocked
+status: available
 priority: medium
 estimated_size: L
 agent_id: null

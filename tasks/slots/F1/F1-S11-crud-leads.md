@@ -3,7 +3,7 @@ id: F1-S11
 title: CRUD leads (manual) com escopo de cidade + dedupe + eventos
 phase: F1
 task_ref: T1.11
-status: blocked
+status: available
 priority: critical
 estimated_size: L
 agent_id: null

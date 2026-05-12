@@ -3,13 +3,13 @@ id: F1-S07
 title: CRUD users + assign roles + city scopes
 phase: F1
 task_ref: T1.8
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: backend-engineer
-claimed_at: '2026-05-12T00:00:00Z'
-completed_at: '2026-05-12T00:00:00Z'
-pr_url: null
+claimed_at: '2026-05-12T15:25:00Z'
+completed_at: '2026-05-12T15:35:00Z'
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/25
 depends_on: [F1-S04, F1-S05]
 blocks: []
 source_docs:

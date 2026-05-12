@@ -3,13 +3,13 @@ id: F1-S24
 title: LGPD baseline — cifração de PII em coluna + hash HMAC + Pino redact
 phase: F1
 task_ref: LGPD §3.4 §8.1 §8.3
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: backend-engineer
-claimed_at: 2026-05-12T00:00:00Z
-completed_at: 2026-05-12T11:40:00Z
-pr_url: null
+claimed_at: 2026-05-12T15:25:00Z
+completed_at: 2026-05-12T15:42:00Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/26
 depends_on: [F1-S01, F1-S09]
 blocks: [F1-S25]
 labels: [lgpd-impact]
