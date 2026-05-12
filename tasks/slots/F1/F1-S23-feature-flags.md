@@ -3,12 +3,12 @@ id: F1-S23
 title: Feature flags — schema + admin UI + middleware backend + hook frontend
 phase: F1
 task_ref: T1.23
-status: available
+status: review
 priority: high
 estimated_size: L
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: backend-engineer
+claimed_at: '2026-05-12T01:30:00Z'
+completed_at: '2026-05-12T01:45:00Z'
 pr_url: null
 depends_on: [F1-S04]
 blocks: []

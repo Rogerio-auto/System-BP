@@ -18,6 +18,7 @@ import { AppLayout } from './app/AppLayout';
 import { AuthGuard } from './app/AuthGuard';
 import { LoginPage } from './features/auth/LoginPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
+import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +67,7 @@ export function App(): React.JSX.Element {
             <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
             <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
             <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" />} />
+            <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
           </Route>
 
           {/* ── Catch-all ────────────────────────────────────────────────── */}

@@ -20,3 +20,6 @@ export * from './agent_cities';
 
 // Outbox pattern (F1-S15)
 export * from './events.js';
+
+// Feature flags (F1-S23)
+export * from './featureFlags.js';
