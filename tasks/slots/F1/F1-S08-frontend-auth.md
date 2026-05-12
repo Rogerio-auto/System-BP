@@ -3,12 +3,12 @@ id: F1-S08
 title: Frontend — login real + hook useAuth + layout autenticado
 phase: F1
 task_ref: T1.4
-status: in-progress
+status: review
 priority: critical
 estimated_size: L
 agent_id: frontend-engineer
 claimed_at: 2026-05-12T00:00:00Z
-completed_at: null
+completed_at: 2026-05-12T04:32:31Z
 pr_url: null
 depends_on: [F1-S03, F0-S05]
 blocks: [F1-S12]
