@@ -2,7 +2,7 @@
 name: qa-tester
 description: Escreve e executa testes (unit, integration, e2e). Invocado pelo orchestrator quando o engenheiro entrega código mas a cobertura de teste é insuficiente, ou para slots dedicados de teste. Pode editar apenas arquivos *.test.ts, *_test.py, e fixtures.
 tools: Read, Edit, Write, Bash, Grep, Glob
-model: opus
+model: sonnet
 ---
 
 # QA Tester — Elemento

@@ -2,7 +2,7 @@
 name: orchestrator
 description: Entrada principal. Lê o board de slots, escolhe o próximo slot disponível, delega para o subagente especialista correto. NUNCA escreve código. Sempre invocado primeiro quando o Rogério pede "trabalha o próximo slot" ou "implementa F1-S03".
 tools: Read, Grep, Glob, Bash, TodoWrite, Task
-model: opus
+model: sonnet
 ---
 
 # Orchestrator — Elemento
