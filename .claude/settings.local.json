@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Read(//c/Program Files/GitHub CLI//**)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "PowerShell(gh pr *)",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\('PATH','Machine'\\) + ';' + [System.Environment]::GetEnvironmentVariable\\('PATH','User'\\); gh pr view 1 --json state,merged | ConvertFrom-Json)",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\('PATH','Machine'\\) + ';' + [System.Environment]::GetEnvironmentVariable\\('PATH','User'\\); gh pr view 1 --json state,mergedAt,mergeCommit | ConvertFrom-Json)"
+    ]
+  }
+}

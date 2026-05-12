@@ -3,12 +3,12 @@ id: F0-S08
 title: Husky + lint-staged + commitlint
 phase: F0
 task_ref: T0.1
-status: in-progress
+status: review
 priority: low
 estimated_size: XS
 agent_id: backend-engineer
 claimed_at: 2026-05-11T00:00:00Z
-completed_at: null
+completed_at: 2026-05-11T00:30:00Z
 pr_url: null
 depends_on: [F0-S02]
 blocks: []
@@ -32,6 +32,6 @@ Pre-commit roda lint-staged + typecheck rápido. Commit-msg valida Conventional 
 
 ## Definition of Done
 
-- [ ] Hooks rodam em commit local
-- [ ] Mensagem fora do padrão é rejeitada
+- [x] Hooks rodam em commit local
+- [x] Mensagem fora do padrão é rejeitada
 - [ ] PR aberto
