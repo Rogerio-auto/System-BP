@@ -8,7 +8,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | Fase | Total | 🟢                    | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --------------------- | --- | --- | --- | --- | --- |
-| F0   | 9     | 0                     | 0   | 0   | 1   | 7   | 1   |
+| F0   | 9     | 0                     | 0   | 0   | 0   | 8   | 1   |
 | F1   | 26    | 9                     | 15  | 0   | 1   | 1   | 0   |
 | F2   | —     | a destrinchar após F1 |     |     |     |     |     |
 | F3   | —     | a destrinchar         |     |     |     |     |     |
@@ -19,17 +19,17 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 0 — Preparação
 
-| ID      | Título                                             | Status         | Prioridade | Depende de      |
-| ------- | -------------------------------------------------- | -------------- | ---------- | --------------- |
-| F0-S01  | Lockfiles (pnpm + python)                          | ✅ done        | critical   | —               |
-| F0-S02  | ESLint + Prettier nos workspaces                   | 🟣 review      | high       | F0-S01          |
-| F0-S03  | Boot da API + healthcheck                          | 🟣 review      | high       | F0-S01          |
-| F0-S03b | Upgrade fastify + vitest (CVE remediation)         | 🟣 review      | high       | F0-S03          |
-| F0-S04  | Drizzle migration inicial                          | 🟣 review      | high       | F0-S01          |
-| F0-S05  | Web dev server + design tokens + login placeholder | 🟣 review      | medium     | F0-S01          |
-| F0-S06  | LangGraph boot + cliente HTTP base                 | 🟣 review      | high       | F0-S01          |
-| F0-S07  | Compose ponta a ponta                              | 🔵 in-progress | high       | F0-S03,04,05,06 |
-| F0-S08  | Husky + lint-staged + commitlint                   | 🟣 review      | low        | F0-S02          |
+| ID      | Título                                             | Status    | Prioridade | Depende de      |
+| ------- | -------------------------------------------------- | --------- | ---------- | --------------- |
+| F0-S01  | Lockfiles (pnpm + python)                          | ✅ done   | critical   | —               |
+| F0-S02  | ESLint + Prettier nos workspaces                   | 🟣 review | high       | F0-S01          |
+| F0-S03  | Boot da API + healthcheck                          | 🟣 review | high       | F0-S01          |
+| F0-S03b | Upgrade fastify + vitest (CVE remediation)         | 🟣 review | high       | F0-S03          |
+| F0-S04  | Drizzle migration inicial                          | 🟣 review | high       | F0-S01          |
+| F0-S05  | Web dev server + design tokens + login placeholder | 🟣 review | medium     | F0-S01          |
+| F0-S06  | LangGraph boot + cliente HTTP base                 | 🟣 review | high       | F0-S01          |
+| F0-S07  | Compose ponta a ponta                              | 🟣 review | high       | F0-S03,04,05,06 |
+| F0-S08  | Husky + lint-staged + commitlint                   | 🟣 review | low        | F0-S02          |
 
 ## Fase 1 — Base operacional
 
