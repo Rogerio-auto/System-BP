@@ -3,12 +3,12 @@ id: F1-S28
 title: Fix typecheck do api — drizzle.config.ts fora de rootDir
 phase: F1
 task_ref: hotfix
-status: in-progress
+status: review
 priority: critical
 estimated_size: XS
 agent_id: claude-code
 claimed_at: 2026-05-12T17:05:53Z
-completed_at: null
+completed_at: 2026-05-12T17:12:12Z
 pr_url: null
 depends_on: [F1-S27]
 blocks: []
