@@ -13,6 +13,7 @@ import {
 } from 'fastify-type-provider-zod';
 
 import { env } from './config/env.js';
+import { adminDlqRoutes } from './modules/admin/dlq.routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/routes.js';
@@ -103,6 +104,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(usersRoutes);
   // LGPD — direitos do titular (F1-S25)
   await app.register(dataSubjectRoutes);
+  // Admin — Dead-Letter Queue (F1-S22)
+  await app.register(adminDlqRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.
