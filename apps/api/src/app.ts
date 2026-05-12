@@ -16,6 +16,7 @@ import {
 import { env } from './config/env.js';
 import { adminDlqRoutes } from './modules/admin/dlq.routes.js';
 import { authRoutes } from './modules/auth/routes.js';
+import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
 import { citiesRoutes } from './modules/cities/routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
@@ -111,6 +112,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(kanbanRoutes);
   await app.register(leadsRoutes);
   await app.register(whatsappRoutes);
+  // Webhook Chatwoot (F1-S21) — entrada + idempotência + outbox
+  await app.register(chatwootWebhookRoutes);
   await app.register(usersRoutes);
   // LGPD — direitos do titular (F1-S25)
   await app.register(dataSubjectRoutes);

@@ -28,6 +28,9 @@ export * from './auditLogs.js';
 export * from './whatsappMessages.js';
 export * from './idempotencyKeys.js';
 
+// Chatwoot webhook (F1-S21)
+export * from './chatwootEvents.js';
+
 // Feature flags (F1-S23)
 export * from './featureFlags.js';
 

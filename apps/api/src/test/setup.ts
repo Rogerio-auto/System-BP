@@ -28,4 +28,7 @@ export function setup(): void {
   // WhatsApp Cloud API (F1-S19)
   process.env['WHATSAPP_APP_SECRET'] = 'test-whatsapp-app-secret-vitest-only';
   process.env['WHATSAPP_VERIFY_TOKEN'] = 'test-verify-token-vitest';
+
+  // Chatwoot webhook HMAC (F1-S21)
+  process.env['CHATWOOT_WEBHOOK_HMAC_SECRET'] = 'test-chatwoot-hmac-secret-vitest';
 }

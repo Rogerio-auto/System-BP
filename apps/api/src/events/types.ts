@@ -271,6 +271,51 @@ export interface ChatwootStatusUpdatedData {
   status: string;
 }
 
+// --- Domínio: Chatwoot webhook de entrada (F1-S21) ---
+// Eventos emitidos ao receber webhook do Chatwoot.
+// LGPD §8.5: nenhum campo contém PII bruta — apenas IDs e metadados estruturais.
+
+/** Emitido ao receber message_created via webhook Chatwoot. */
+export interface ChatwootWebhookMessageCreatedData {
+  /** UUID interno do registro em chatwoot_events. */
+  chatwoot_event_id: string;
+  /** ID numérico da mensagem no Chatwoot. */
+  chatwoot_message_id: number;
+  /** ID numérico da conversa no Chatwoot. */
+  chatwoot_conversation_id: number;
+  /** ID do account Chatwoot. */
+  chatwoot_account_id: number;
+  /** "incoming" | "outgoing" — sem texto livre. */
+  message_type: string;
+  lead_id: string | null;
+}
+
+/** Emitido ao receber conversation_status_changed via webhook Chatwoot. */
+export interface ChatwootWebhookStatusChangedData {
+  /** UUID interno do registro em chatwoot_events. */
+  chatwoot_event_id: string;
+  /** ID numérico da conversa no Chatwoot. */
+  chatwoot_conversation_id: number;
+  /** ID do account Chatwoot. */
+  chatwoot_account_id: number;
+  /** "open" | "resolved" | "pending" */
+  status: string;
+  lead_id: string | null;
+}
+
+/** Emitido ao receber conversation_assignee_changed via webhook Chatwoot. */
+export interface ChatwootWebhookAssigneeChangedData {
+  /** UUID interno do registro em chatwoot_events. */
+  chatwoot_event_id: string;
+  /** ID numérico da conversa no Chatwoot. */
+  chatwoot_conversation_id: number;
+  /** ID do account Chatwoot. */
+  chatwoot_account_id: number;
+  /** ID do agente atribuído, null se desatribuído. */
+  assignee_id: number | null;
+  lead_id: string | null;
+}
+
 export interface WhatsappMessageReceivedData {
   whatsapp_message_id: string;
   chatwoot_conversation_id: number | null;
@@ -476,6 +521,10 @@ export interface AppEventDataMap {
   'chatwoot.handoff_requested': ChatwootHandoffRequestedData;
   'chatwoot.agent_assigned': ChatwootAgentAssignedData;
   'chatwoot.status_updated': ChatwootStatusUpdatedData;
+  // Webhook de entrada (F1-S21)
+  'chatwoot.message_created': ChatwootWebhookMessageCreatedData;
+  'chatwoot.conversation_status_changed': ChatwootWebhookStatusChangedData;
+  'chatwoot.conversation_assignee_changed': ChatwootWebhookAssigneeChangedData;
   'whatsapp.message_received': WhatsappMessageReceivedData;
   'whatsapp.message_sent': WhatsappMessageSentData;
   'ai.decision_logged': AiDecisionLoggedData;
