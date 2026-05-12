@@ -3,12 +3,12 @@ id: F1-S13
 title: Schema kanban + service de transições válidas
 phase: F1
 task_ref: T1.13
-status: available
+status: review
 priority: high
 estimated_size: M
-agent_id: null
-claimed_at: null
-completed_at: null
+agent_id: backend-engineer
+claimed_at: 2026-05-12T16:00:00Z
+completed_at: 2026-05-12T17:00:00Z
 pr_url: null
 depends_on: [F1-S04, F1-S09]
 blocks: [F1-S14]
