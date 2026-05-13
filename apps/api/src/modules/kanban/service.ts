@@ -45,8 +45,16 @@ import type { AuditTx } from '../../lib/audit.js';
 import { AppError, NotFoundError } from '../../shared/errors.js';
 import type { ErrorCode } from '../../shared/errors.js';
 
-import { findCardById, findStageById, insertHistory, updateCardStage } from './repository.js';
+import {
+  findCardById,
+  findStageById,
+  insertHistory,
+  listCards,
+  listStages,
+  updateCardStage,
+} from './repository.js';
 import type { KanbanTx } from './repository.js';
+import type { KanbanCardEnriched, KanbanStageResponse } from './schemas.js';
 
 // ---------------------------------------------------------------------------
 // Erro tipado de transição inválida
@@ -277,4 +285,125 @@ export async function moveCard(
   });
 
   return updatedCard;
+}
+
+// ---------------------------------------------------------------------------
+// Actors para listagem (subconjunto de MoveCardActor)
+// ---------------------------------------------------------------------------
+
+export interface ListActor {
+  orgId: string;
+  cityScopeIds: string[] | null;
+}
+
+// ---------------------------------------------------------------------------
+// listKanbanStages
+// ---------------------------------------------------------------------------
+
+/**
+ * Lista todos os stages do board da organização do actor.
+ *
+ * Stages são globais por org — sem city-scope (não há PII).
+ * RBAC: verificado no preHandler (leads:read).
+ *
+ * @returns Array de KanbanStageResponse ordenado por position (order_index).
+ */
+export async function listKanbanStages(actor: ListActor): Promise<KanbanStageResponse[]> {
+  const rows = await listStages(db, actor.orgId);
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    // slug derivado do name: lowercase, espaços → hífen, sem acentos simples
+    // LGPD: stages não contêm PII — sem restrição de redact
+    slug: row.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, ''),
+    position: row.orderIndex,
+    color: row.color,
+    // kanban_stages não tem city_id (stages são globais por org)
+    // Retornamos string vazia — frontend usa cityId apenas para filtros de cards
+    cityId: '',
+    organizationId: row.organizationId,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// listKanbanCards
+// ---------------------------------------------------------------------------
+
+/**
+ * Máscara de telefone LGPD — expõe apenas os últimos 4 dígitos.
+ *
+ * Formato: "+55 69 ****-1234"
+ * Aplica ao phoneE164 bruto vindo do banco.
+ * Nunca expõe o número completo em respostas de lista.
+ */
+function maskPhone(phoneE164: string): string {
+  // Remove o '+' inicial e pega os últimos 4 dígitos
+  const digits = phoneE164.replace(/^\+/, '');
+  const last4 = digits.slice(-4);
+  // Prefixo: country code (2 dígitos BR) + DDD (2 dígitos) = 4 dígitos
+  const prefix = digits.slice(0, 4);
+  // Formata como "+CC DDD ****-XXXX"
+  const cc = prefix.slice(0, 2);
+  const ddd = prefix.slice(2, 4);
+  return `+${cc} ${ddd} ****-${last4}`;
+}
+
+export interface ListCardsInput {
+  stageId?: string | undefined;
+  cityId?: string | undefined;
+  agentId?: string | undefined;
+  page: number;
+  limit: number;
+}
+
+/**
+ * Lista cards do Kanban com dados enriquecidos (nome do lead, telefone mascarado,
+ * nome do assignee). Aplica city-scope via leads.cityId.
+ *
+ * RBAC: verificado no preHandler (leads:read).
+ * LGPD §8.5: phoneE164 é mascarado aqui antes de sair para o cliente.
+ *
+ * @returns { cards: KanbanCardEnriched[], total: number }
+ */
+export async function listKanbanCards(
+  filters: ListCardsInput,
+  actor: ListActor,
+): Promise<{ cards: KanbanCardEnriched[]; total: number }> {
+  const { rows, total } = await listCards(
+    db,
+    {
+      organizationId: actor.orgId,
+      stageId: filters.stageId,
+      cityId: filters.cityId,
+      agentId: filters.agentId,
+      page: filters.page,
+      limit: filters.limit,
+    },
+    { cityScopeIds: actor.cityScopeIds },
+  );
+
+  const cards: KanbanCardEnriched[] = rows.map((row) => ({
+    id: row.id,
+    stageId: row.stageId,
+    leadId: row.leadId,
+    leadName: row.leadName,
+    // LGPD §8.5: mascarar telefone antes de retornar ao cliente
+    phoneMasked: maskPhone(row.phoneE164),
+    agentId: row.assigneeUserId,
+    agentName: row.assigneeName,
+    // loanAmountCents: campo reservado para F1-S22 (simulações de crédito).
+    // Retornado como null até que a feature seja implementada.
+    loanAmountCents: null,
+    position: row.priority,
+    lastNote: row.notes,
+    updatedAt: row.updatedAt.toISOString(),
+  }));
+
+  return { cards, total };
 }

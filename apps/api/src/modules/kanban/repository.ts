@@ -7,11 +7,55 @@
 // Imutabilidade de kanban_stage_history: este módulo expõe apenas
 // insertHistory() — nunca update ou delete. Ver kanbanStageHistory.ts.
 // =============================================================================
-import { and, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNull } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
-import { kanbanCards, kanbanStages, kanbanStageHistory } from '../../db/schema/index.js';
+import {
+  kanbanCards,
+  kanbanStages,
+  kanbanStageHistory,
+  leads,
+  users,
+} from '../../db/schema/index.js';
 import type { KanbanCard, KanbanStage, NewKanbanStageHistoryEntry } from '../../db/schema/index.js';
+import { applyCityScope } from '../../shared/scope.js';
+import type { UserScopeCtx } from '../../shared/scope.js';
+
+// ---------------------------------------------------------------------------
+// Tipos públicos
+// ---------------------------------------------------------------------------
+
+export interface KanbanStageRow {
+  id: string;
+  name: string;
+  orderIndex: number;
+  color: string | null;
+  organizationId: string;
+}
+
+export interface ListCardsFilters {
+  organizationId: string;
+  stageId?: string | undefined;
+  cityId?: string | undefined;
+  agentId?: string | undefined;
+  page: number;
+  limit: number;
+}
+
+export interface KanbanCardRow {
+  id: string;
+  stageId: string;
+  leadId: string;
+  leadName: string;
+  /** phoneE164 bruto — mascaramento ocorre no service antes de retornar ao cliente */
+  phoneE164: string;
+  assigneeUserId: string | null;
+  assigneeName: string | null;
+  priority: number;
+  notes: string | null;
+  updatedAt: Date;
+  cityId: string;
+}
 
 // ---------------------------------------------------------------------------
 // Tipo minimal para transação Drizzle (reutilizável dentro do módulo)
@@ -96,6 +140,131 @@ export async function updateCardStage(
   // .returning() como [T, ...T[]] sem cast. A garantia é provida pelo service
   // que valida existência antes de chamar esta função.
   return updated as KanbanCard;
+}
+
+// ---------------------------------------------------------------------------
+// List: stages do board
+// ---------------------------------------------------------------------------
+
+/**
+ * Lista todos os stages de uma organização, ordenados por order_index ASC.
+ *
+ * Não filtra por cidade — stages são globais por org (multi-tenant).
+ * City-scope é aplicado na listagem de cards, não de stages.
+ */
+export async function listStages(db: Database, organizationId: string): Promise<KanbanStageRow[]> {
+  return db
+    .select({
+      id: kanbanStages.id,
+      name: kanbanStages.name,
+      orderIndex: kanbanStages.orderIndex,
+      color: kanbanStages.color,
+      organizationId: kanbanStages.organizationId,
+    })
+    .from(kanbanStages)
+    .where(eq(kanbanStages.organizationId, organizationId))
+    .orderBy(asc(kanbanStages.orderIndex));
+}
+
+// ---------------------------------------------------------------------------
+// List: cards do board com city-scope e paginação
+// ---------------------------------------------------------------------------
+
+/**
+ * Lista cards do Kanban com JOIN em leads (nome, telefone, city_id) e
+ * users (nome do assignee). Aplica city-scope via leads.cityId.
+ *
+ * City-scope: agentes/operadores só veem cards cujos leads pertencem a cidades
+ * no seu escopo. Admin/gestor_geral passam cityScopeIds = null → sem filtro.
+ *
+ * Security note (doc 10 §3.5): se um card não for encontrado após cityScope,
+ * o resultado é simplesmente omitido da lista (não lança 404 em listagens).
+ *
+ * LGPD §8.5: phoneE164 é retornado bruto aqui e mascarado no service layer
+ * antes de sair para o cliente. Este repository NUNCA expõe o telefone ao
+ * caller sem que o service aplique o redact.
+ */
+export async function listCards(
+  db: Database,
+  filters: ListCardsFilters,
+  userCtx: UserScopeCtx,
+): Promise<{ rows: KanbanCardRow[]; total: number }> {
+  const offset = (filters.page - 1) * filters.limit;
+
+  // Condições de filtro (multi-tenant + filtros opcionais)
+  const conditions = [
+    eq(kanbanCards.organizationId, filters.organizationId),
+    isNull(leads.deletedAt),
+    ...(filters.stageId !== undefined ? [eq(kanbanCards.stageId, filters.stageId)] : []),
+    ...(filters.agentId !== undefined ? [eq(kanbanCards.assigneeUserId, filters.agentId)] : []),
+    ...(filters.cityId !== undefined ? [eq(leads.cityId, filters.cityId)] : []),
+  ];
+
+  // City-scope via leads.cityId
+  // admin/gestor_geral: cityScopeIds === null → sem filtro adicional
+  // agente/operador: cityScopeIds = [uuid, ...] → WHERE leads.city_id IN (...)
+  // sem cidade: cityScopeIds = [] → WHERE 1=0 → zero linhas
+  const scopeCond = applyCityScope(userCtx, leads.cityId);
+  if (scopeCond !== undefined) {
+    conditions.push(scopeCond);
+  }
+
+  // Justificativa do `as` abaixo: Drizzle não infere SQL[] → SQL corretamente
+  // quando misturamos condições geradas por applyCityScope com as fixas.
+  // A função `and` aceita (SQL | undefined)[] e produz SQL | undefined.
+  const whereClause = and(...conditions);
+
+  // Contagem total (sem paginação)
+  const [countRow] = await db
+    .select({ total: count() })
+    .from(kanbanCards)
+    .innerJoin(leads, eq(kanbanCards.leadId, leads.id))
+    .where(whereClause);
+
+  const total = countRow?.total ?? 0;
+
+  // Cards paginados com dados enriquecidos do lead e assignee
+  const rows = await db
+    .select({
+      id: kanbanCards.id,
+      stageId: kanbanCards.stageId,
+      leadId: kanbanCards.leadId,
+      leadName: leads.name,
+      phoneE164: leads.phoneE164,
+      assigneeUserId: kanbanCards.assigneeUserId,
+      // LEFT JOIN: assignee pode ser null
+      assigneeName: users.fullName,
+      priority: kanbanCards.priority,
+      notes: kanbanCards.notes,
+      updatedAt: kanbanCards.updatedAt,
+      cityId: leads.cityId,
+    })
+    .from(kanbanCards)
+    .innerJoin(leads, eq(kanbanCards.leadId, leads.id))
+    // LEFT JOIN em users para obter o nome do assignee sem descartar cards sem assignee
+    .leftJoin(users, eq(kanbanCards.assigneeUserId, users.id))
+    .where(whereClause)
+    // Ordenar por priority DESC (maior prioridade primeiro), depois por updatedAt DESC
+    .orderBy(desc(kanbanCards.priority), desc(kanbanCards.updatedAt))
+    .limit(filters.limit)
+    .offset(offset);
+
+  return {
+    rows: rows.map((r) => ({
+      id: r.id,
+      stageId: r.stageId,
+      leadId: r.leadId,
+      leadName: r.leadName,
+      phoneE164: r.phoneE164,
+      assigneeUserId: r.assigneeUserId ?? null,
+      assigneeName: r.assigneeName ?? null,
+      priority: r.priority,
+      notes: r.notes ?? null,
+      updatedAt: r.updatedAt,
+      cityId: r.cityId,
+    })),
+    total,
+  };
 }
 
 // ---------------------------------------------------------------------------
