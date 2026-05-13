@@ -112,3 +112,40 @@ export async function deleteCityController(
   await deleteCityService(db, actor, request.params.id);
   return reply.status(204).send();
 }
+
+// ---------------------------------------------------------------------------
+// GET /api/cities (public) — lista resumida para popular selects da UI.
+// Qualquer usuario autenticado pode chamar.
+// ---------------------------------------------------------------------------
+
+export async function listCitiesPublicController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  if (!request.user) {
+    throw new ForbiddenError('Contexto de usuario ausente');
+  }
+  const result = await listCities(
+    db,
+    {
+      userId: request.user.id,
+      organizationId: request.user.organizationId,
+      role: 'user',
+      ip: request.ip,
+      userAgent: request.headers['user-agent'] ?? null,
+    },
+    {
+      page: 1,
+      limit: 100,
+      is_active: true,
+      include_deleted: false,
+    },
+  );
+  return reply.status(200).send({
+    cities: result.data.map((c) => ({
+      id: c.id,
+      name: c.name,
+      state_uf: c.state_uf,
+    })),
+  });
+}

@@ -3,7 +3,7 @@
 //
 // Todas as rotas exigem:
 //   - authenticate(): valida JWT e popula request.user
-//   - authorize({ permissions: ['admin:cities:write'] }): acesso restrito a admin
+//   - authorize({ permissions: ['cities:manage'] }): acesso restrito a admin
 //
 // Escopo: admin global (sem city scope — cidades são dados de configuração).
 // Prefixo: /api/admin/cities
@@ -21,18 +21,20 @@ import {
   deleteCityController,
   getCityController,
   listCitiesController,
+  listCitiesPublicController,
   updateCityController,
 } from './controller.js';
 import {
   CityCreateSchema,
   CityListQuerySchema,
   CityListResponseSchema,
+  CityPublicListResponseSchema,
   CityResponseSchema,
   CityUpdateSchema,
   cityIdParamSchema,
 } from './schemas.js';
 
-const ADMIN_CITIES_WRITE: [string, ...string[]] = ['admin:cities:write'];
+const ADMIN_CITIES_WRITE: [string, ...string[]] = ['cities:manage'];
 
 export const citiesRoutes: FastifyPluginAsyncZod = async (app) => {
   // Autenticação obrigatória em todas as rotas deste plugin
@@ -122,5 +124,28 @@ export const citiesRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: ADMIN_CITIES_WRITE })],
     },
     deleteCityController,
+  );
+};
+
+// =============================================================================
+// citiesPublicRoutes — endpoint authenticate-only para popular selects.
+//
+// Qualquer usuario autenticado pode listar cidades ativas da sua org
+// (id + name + state_uf). Sem RBAC de admin — cadastrar lead, filtrar
+// kanban etc. precisam dessa lista mas nao tem cities:manage.
+// =============================================================================
+export const citiesPublicRoutes: FastifyPluginAsyncZod = async (app) => {
+  app.addHook('preHandler', authenticate());
+
+  app.get(
+    '/api/cities',
+    {
+      schema: {
+        response: {
+          200: CityPublicListResponseSchema,
+        },
+      },
+    },
+    listCitiesPublicController,
   );
 };

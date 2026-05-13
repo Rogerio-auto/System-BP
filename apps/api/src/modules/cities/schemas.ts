@@ -10,6 +10,7 @@ export {
   CityResponseSchema,
   CityListQuerySchema,
   CityListResponseSchema,
+  CityPublicListResponseSchema,
 } from '@elemento/shared-schemas';
 
 export type {
@@ -18,6 +19,7 @@ export type {
   CityResponse,
   CityListQuery,
   CityListResponse,
+  CityPublic,
 } from '@elemento/shared-schemas';
 
 // ---------------------------------------------------------------------------

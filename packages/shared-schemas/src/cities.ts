@@ -135,3 +135,22 @@ export const CityListResponseSchema = z.object({
 });
 
 export type CityListResponse = z.infer<typeof CityListResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Public list — usado em selects do frontend (qualquer user autenticado)
+// ---------------------------------------------------------------------------
+
+/** Shape minimo para popular selects de cidade na UI. Sem PII (cities nao tem PII). */
+export const CityPublicSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  state_uf: z.string(),
+});
+
+export type CityPublic = z.infer<typeof CityPublicSchema>;
+
+export const CityPublicListResponseSchema = z.object({
+  cities: z.array(CityPublicSchema),
+});
+
+export type CityPublicListResponse = z.infer<typeof CityPublicListResponseSchema>;
