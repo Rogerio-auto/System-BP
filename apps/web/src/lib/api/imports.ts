@@ -18,6 +18,7 @@
 import { z } from 'zod';
 
 import { api } from '../api';
+import { useAuthStore } from '../auth-store';
 
 // ─── Schemas Zod (fonte de verdade: apps/api/src/modules/imports/schemas.ts) ─
 
@@ -123,14 +124,21 @@ export async function uploadLeadsFile(file: File): Promise<UploadResponse> {
   formData.append('file', file);
 
   const API_BASE =
-    (import.meta.env['VITE_API_URL'] as string | undefined) ?? 'http://localhost:3000';
+    (import.meta.env['VITE_API_URL'] as string | undefined) ?? 'http://localhost:3333';
 
-  // Lê token do store sem importar o módulo Zustand direto
-  // (para manter separação de camadas — api.ts lida com auth)
+  // Authorization header — multipart/form-data nao passa pelo wrapper api.*
+  // que normalmente injeta o Bearer. Sem isso, /api/imports/leads retorna 401.
+  const accessToken = useAuthStore.getState().accessToken;
+  const headers: Record<string, string> = {};
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
   const res = await fetch(`${API_BASE}/api/imports/leads`, {
     method: 'POST',
     body: formData,
     credentials: 'include',
+    headers,
   });
 
   if (!res.ok) {

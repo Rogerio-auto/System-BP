@@ -32,19 +32,12 @@ interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>
 /**
  * Select nativo canônico (DS §9.2).
  * Mesmos estilos do Input — profundidade interna, foco azul, erro danger.
+ * Suporta ref forwarding para integração com react-hook-form.
  */
-export function Select({
-  id,
-  label,
-  placeholder,
-  options,
-  error,
-  hint,
-  required,
-  className,
-  wrapperClassName,
-  ...props
-}: SelectProps): React.JSX.Element {
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function Select(
+  { id, label, placeholder, options, error, hint, required, className, wrapperClassName, ...props },
+  ref,
+) {
   const hasError = Boolean(error);
 
   return (
@@ -57,6 +50,7 @@ export function Select({
 
       <div className="relative">
         <select
+          ref={ref}
           id={id}
           aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
           aria-invalid={hasError || undefined}
@@ -122,4 +116,4 @@ export function Select({
       ) : null}
     </div>
   );
-}
+});

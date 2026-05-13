@@ -125,162 +125,163 @@ export function NewLeadModal({ open, onClose }: NewLeadModalProps): React.JSX.El
         onClick={onClose}
       />
 
-      {/* Painel do modal */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        className={cn(
-          'fixed z-[160]',
-          'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-          'w-full max-w-lg',
-          'rounded-lg border border-border',
-          'bg-surface-1',
-          'animate-[fade-up_300ms_cubic-bezier(0.16,1,0.3,1)_both]',
-        )}
-        style={{ boxShadow: 'var(--elev-5)' }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle">
-          <h2
-            id="modal-title"
-            className="font-display font-bold text-ink"
-            style={{
-              fontSize: 'var(--text-xl)',
-              letterSpacing: '-0.03em',
-              fontVariationSettings: "'opsz' 24",
-            }}
-          >
-            Novo lead
-          </h2>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fechar modal"
-            className={cn(
-              'w-8 h-8 flex items-center justify-center',
-              'rounded-sm text-ink-3',
-              'hover:text-ink hover:bg-surface-hover',
-              'transition-all duration-fast ease',
-              'focus-visible:ring-2 focus-visible:ring-azul/20',
-            )}
-          >
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.6}
-              className="w-5 h-5"
-            >
-              <path d="M5 5l10 10M15 5l-10 10" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Form */}
-        <form
-          onSubmit={(e) => {
-            void handleSubmit(onSubmit)(e);
-          }}
-          noValidate
-          className="px-6 py-5 flex flex-col gap-4"
+      {/* Wrapper de centralização — flex evita conflito de transform com a animação fade-up */}
+      <div className="fixed inset-0 z-[160] flex items-center justify-center p-4 pointer-events-none">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+          className={cn(
+            'w-full max-w-lg pointer-events-auto',
+            'rounded-lg border border-border',
+            'bg-surface-1',
+            'animate-[fade-up_300ms_cubic-bezier(0.16,1,0.3,1)_both]',
+            'max-h-[calc(100vh-2rem)] overflow-y-auto',
+          )}
+          style={{ boxShadow: 'var(--elev-5)' }}
         >
-          {/* Nome */}
-          <Input
-            id="lead-name"
-            label="Nome completo"
-            placeholder="Ex: Maria Aparecida Costa"
-            required
-            error={errors.name?.message}
-            {...register('name')}
-          />
-
-          {/* Telefone E.164 */}
-          <Input
-            id="lead-phone"
-            label="Telefone (E.164)"
-            placeholder="+5569999999999"
-            required
-            hint="Formato internacional: +55 + DDD + número"
-            error={errors.phone_e164?.message}
-            {...register('phone_e164')}
-          />
-
-          {/* Email (opcional) */}
-          <Input
-            id="lead-email"
-            label="E-mail"
-            type="email"
-            placeholder="opcional"
-            error={errors.email?.message}
-            {...register('email')}
-          />
-
-          {/* Cidade */}
-          <Select
-            id="lead-city"
-            label="Cidade"
-            placeholder="Selecione a cidade..."
-            options={CITY_OPTIONS}
-            required
-            error={errors.city_id?.message}
-            {...register('city_id')}
-          />
-
-          {/* Canal de origem */}
-          <Select
-            id="lead-source"
-            label="Canal de origem"
-            options={SOURCE_OPTIONS}
-            error={errors.source?.message}
-            {...register('source')}
-          />
-
-          {/* Notas */}
-          <div className="flex flex-col gap-2">
-            <label
-              htmlFor="lead-notes"
-              className="font-sans text-xs font-semibold text-ink-2 uppercase tracking-[0.1em]"
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle">
+            <h2
+              id="modal-title"
+              className="font-display font-bold text-ink"
+              style={{
+                fontSize: 'var(--text-xl)',
+                letterSpacing: '-0.03em',
+                fontVariationSettings: "'opsz' 24",
+              }}
             >
-              Notas
-            </label>
-            <textarea
-              id="lead-notes"
-              rows={3}
-              placeholder="Observações iniciais sobre o lead..."
-              className={cn(
-                'w-full font-sans text-sm font-medium text-ink',
-                'bg-surface-1 rounded-sm px-[14px] py-[11px]',
-                'border border-border-strong',
-                'shadow-[inset_0_1px_2px_var(--border-inner-dark)]',
-                'transition-[border-color,box-shadow] duration-fast ease',
-                'placeholder:text-ink-4',
-                'hover:border-ink-3',
-                'focus:outline-none focus:border-azul',
-                'focus:shadow-[0_0_0_3px_rgba(27,58,140,0.15),inset_0_1px_2px_var(--border-inner-dark)]',
-                'resize-none',
-              )}
-              {...register('notes')}
-            />
-          </div>
+              Novo lead
+            </h2>
 
-          {/* Footer com ações */}
-          <div className="flex gap-3 pt-1">
-            <Button
+            <button
               type="button"
-              variant="ghost"
               onClick={onClose}
-              disabled={isBusy}
-              className="flex-1"
+              aria-label="Fechar modal"
+              className={cn(
+                'w-8 h-8 flex items-center justify-center',
+                'rounded-sm text-ink-3',
+                'hover:text-ink hover:bg-surface-hover',
+                'transition-all duration-fast ease',
+                'focus-visible:ring-2 focus-visible:ring-azul/20',
+              )}
             >
-              Cancelar
-            </Button>
-            <Button type="submit" variant="primary" disabled={isBusy} className="flex-1">
-              {isBusy ? 'Criando...' : 'Criar lead'}
-            </Button>
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.6}
+                className="w-5 h-5"
+              >
+                <path d="M5 5l10 10M15 5l-10 10" />
+              </svg>
+            </button>
           </div>
-        </form>
+
+          {/* Form */}
+          <form
+            onSubmit={(e) => {
+              void handleSubmit(onSubmit)(e);
+            }}
+            noValidate
+            className="px-6 py-5 flex flex-col gap-4"
+          >
+            {/* Nome */}
+            <Input
+              id="lead-name"
+              label="Nome completo"
+              placeholder="Ex: Maria Aparecida Costa"
+              required
+              error={errors.name?.message}
+              {...register('name')}
+            />
+
+            {/* Telefone E.164 */}
+            <Input
+              id="lead-phone"
+              label="Telefone (E.164)"
+              placeholder="+5569999999999"
+              required
+              hint="Formato internacional: +55 + DDD + número"
+              error={errors.phone_e164?.message}
+              {...register('phone_e164')}
+            />
+
+            {/* Email (opcional) */}
+            <Input
+              id="lead-email"
+              label="E-mail"
+              type="email"
+              placeholder="opcional"
+              error={errors.email?.message}
+              {...register('email')}
+            />
+
+            {/* Cidade */}
+            <Select
+              id="lead-city"
+              label="Cidade"
+              placeholder="Selecione a cidade..."
+              options={CITY_OPTIONS}
+              required
+              error={errors.city_id?.message}
+              {...register('city_id')}
+            />
+
+            {/* Canal de origem */}
+            <Select
+              id="lead-source"
+              label="Canal de origem"
+              options={SOURCE_OPTIONS}
+              error={errors.source?.message}
+              {...register('source')}
+            />
+
+            {/* Notas */}
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="lead-notes"
+                className="font-sans text-xs font-semibold text-ink-2 uppercase tracking-[0.1em]"
+              >
+                Notas
+              </label>
+              <textarea
+                id="lead-notes"
+                rows={3}
+                placeholder="Observações iniciais sobre o lead..."
+                className={cn(
+                  'w-full font-sans text-sm font-medium text-ink',
+                  'bg-surface-1 rounded-sm px-[14px] py-[11px]',
+                  'border border-border-strong',
+                  'shadow-[inset_0_1px_2px_var(--border-inner-dark)]',
+                  'transition-[border-color,box-shadow] duration-fast ease',
+                  'placeholder:text-ink-4',
+                  'hover:border-ink-3',
+                  'focus:outline-none focus:border-azul',
+                  'focus:shadow-[0_0_0_3px_rgba(27,58,140,0.15),inset_0_1px_2px_var(--border-inner-dark)]',
+                  'resize-none',
+                )}
+                {...register('notes')}
+              />
+            </div>
+
+            {/* Footer com ações */}
+            <div className="flex gap-3 pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onClose}
+                disabled={isBusy}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" variant="primary" disabled={isBusy} className="flex-1">
+                {isBusy ? 'Criando...' : 'Criar lead'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
     </>,
     document.body,
