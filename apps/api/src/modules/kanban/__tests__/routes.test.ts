@@ -4,12 +4,24 @@
 // Estratégia: Fastify em memória com mocks de service, auth e pg.
 //
 // Cenários cobertos:
-//   1. POST /api/kanban/cards/:id/move — 200 em transição válida
-//   2. POST /api/kanban/cards/:id/move — 422 em transição inválida
-//   3. POST /api/kanban/cards/:id/move — 401 sem autenticação
-//   4. POST /api/kanban/cards/:id/move — 403 sem permissão kanban:move
-//   5. POST /api/kanban/cards/:id/move — 400 com body inválido (sem toStageId)
-//   6. POST /api/kanban/cards/:id/move — 404 card não encontrado
+//   POST /api/kanban/cards/:id/move
+//     1. 200 em transição válida
+//     2. 422 em transição inválida
+//     3. 401 sem autenticação
+//     4. 403 sem permissão kanban:move
+//     5. 400 com body inválido (sem toStageId)
+//     6. 404 card não encontrado
+//   GET /api/kanban/stages
+//     7. 200 retorna lista ordenada de stages
+//     8. 401 sem autenticação
+//     9. 403 sem permissão leads:read
+//   GET /api/kanban/cards
+//     10. 200 retorna lista paginada de cards
+//     11. 200 com filtros (stage_id, city_id)
+//     12. 400 com query inválida (page = 0)
+//     13. 401 sem autenticação
+//     14. 403 sem permissão leads:read
+//     15. City scope: agente com cityScopeIds recebe cards do scope
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -61,9 +73,11 @@ vi.mock('../../../db/client.js', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock service.moveCard
+// Mock service functions
 // ---------------------------------------------------------------------------
 const mockMoveCard = vi.fn();
+const mockListKanbanStages = vi.fn();
+const mockListKanbanCards = vi.fn();
 
 vi.mock('../service.js', async (importOriginal) => {
   // importOriginal gets the real module so we can spread its exports
@@ -72,6 +86,8 @@ vi.mock('../service.js', async (importOriginal) => {
   return {
     ...original,
     moveCard: (...args: unknown[]) => mockMoveCard(...args),
+    listKanbanStages: (...args: unknown[]) => mockListKanbanStages(...args),
+    listKanbanCards: (...args: unknown[]) => mockListKanbanCards(...args),
   };
 });
 
@@ -83,7 +99,7 @@ const authState = {
     id: string;
     organizationId: string;
     permissions: string[];
-    cityScopeIds: null;
+    cityScopeIds: string[] | null;
   },
 };
 
@@ -129,18 +145,37 @@ vi.mock('../../../modules/auth/middlewares/authorize.js', () => ({
 const ADMIN_USER = {
   id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   organizationId: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-  permissions: ['kanban:move', 'admin'],
-  cityScopeIds: null as null,
+  permissions: ['kanban:move', 'leads:read', 'admin'],
+  cityScopeIds: null as string[] | null,
 };
 
 const USER_NO_KANBAN = {
   id: 'c3d4e5f6-a7b8-9012-cdef-123456789012',
   organizationId: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
   permissions: ['leads:read'],
-  cityScopeIds: null as null,
+  cityScopeIds: null as string[] | null,
 };
 
-const setAuth = (user: typeof ADMIN_USER | null): void => {
+/** Agente com escopo restrito de cidade */
+const CITY_SCOPE_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const AGENT_USER = {
+  id: 'd4e5f6a7-b8c9-4023-8def-234567890123',
+  organizationId: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
+  permissions: ['leads:read', 'kanban:move'],
+  cityScopeIds: [CITY_SCOPE_ID] as string[],
+};
+
+/** Usuário sem nenhuma permissão relevante */
+const USER_NO_PERMS = {
+  id: 'e5f6a7b8-c9d0-1234-efgh-345678901234',
+  organizationId: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
+  permissions: [] as string[],
+  cityScopeIds: null as string[] | null,
+};
+
+const setAuth = (
+  user: typeof ADMIN_USER | typeof AGENT_USER | typeof USER_NO_PERMS | null,
+): void => {
   authState.user = user;
 };
 
@@ -149,6 +184,47 @@ const setAuth = (user: typeof ADMIN_USER | null): void => {
 // ---------------------------------------------------------------------------
 const CARD_ID = 'cccccccc-0000-0000-0000-000000000001';
 const STAGE_ID = 'dddddddd-0000-0000-0000-000000000002';
+const LEAD_ID = 'eeeeeeee-0000-0000-0000-000000000003';
+
+const STAGE_1_ID = 'ffffffff-1111-1111-1111-111111111111';
+const STAGE_2_ID = 'ffffffff-2222-2222-2222-222222222222';
+
+const mockStages = [
+  {
+    id: STAGE_1_ID,
+    name: 'Novo Lead',
+    slug: 'novo-lead',
+    position: 0,
+    color: '#3B82F6',
+    cityId: '',
+    organizationId: ADMIN_USER.organizationId,
+  },
+  {
+    id: STAGE_2_ID,
+    name: 'Em Análise',
+    slug: 'em-analise',
+    position: 1,
+    color: '#EAB308',
+    cityId: '',
+    organizationId: ADMIN_USER.organizationId,
+  },
+];
+
+const mockCards = [
+  {
+    id: CARD_ID,
+    stageId: STAGE_ID,
+    leadId: LEAD_ID,
+    leadName: 'Ana Silva',
+    phoneMasked: '+55 69 ****-1234',
+    agentId: null,
+    agentName: null,
+    loanAmountCents: null,
+    position: 0,
+    lastNote: null,
+    updatedAt: new Date('2026-05-12T10:00:00Z').toISOString(),
+  },
+];
 
 const mockUpdatedCard = {
   id: CARD_ID,
@@ -330,5 +406,170 @@ describe('POST /api/kanban/cards/:id/move', () => {
     expect(res.statusCode).toBe(404);
     const body = res.json<{ error: string }>();
     expect(body.error).toBe('NOT_FOUND');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/kanban/stages
+// ---------------------------------------------------------------------------
+
+describe('GET /api/kanban/stages', () => {
+  let app: ReturnType<typeof buildTestApp> extends Promise<infer T> ? T : never;
+
+  beforeEach(async () => {
+    // Type inference helper: app is FastifyInstance
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    app = (await buildTestApp()) as any;
+    vi.clearAllMocks();
+    setAuth(null);
+  });
+
+  afterEach(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (app as any).close();
+  });
+
+  it('200 — retorna lista de stages envolta em { stages: [...] }', async () => {
+    setAuth(ADMIN_USER);
+    mockListKanbanStages.mockResolvedValueOnce(mockStages);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/stages' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ stages: typeof mockStages }>();
+    expect(body.stages).toHaveLength(2);
+    expect(body.stages[0]!.name).toBe('Novo Lead');
+    expect(body.stages[0]!.position).toBe(0);
+    expect(body.stages[1]!.name).toBe('Em Análise');
+    expect(mockListKanbanStages).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: ADMIN_USER.organizationId }),
+    );
+  });
+
+  it('401 — sem autenticação', async () => {
+    setAuth(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/stages' });
+    expect(res.statusCode).toBe(401);
+    expect(mockListKanbanStages).not.toHaveBeenCalled();
+  });
+
+  it('403 — sem permissão leads:read', async () => {
+    setAuth(USER_NO_PERMS);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/stages' });
+    expect(res.statusCode).toBe(403);
+    expect(mockListKanbanStages).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/kanban/cards
+// ---------------------------------------------------------------------------
+
+describe('GET /api/kanban/cards', () => {
+  let app: ReturnType<typeof buildTestApp> extends Promise<infer T> ? T : never;
+
+  beforeEach(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    app = (await buildTestApp()) as any;
+    vi.clearAllMocks();
+    setAuth(null);
+  });
+
+  afterEach(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (app as any).close();
+  });
+
+  it('200 — retorna lista paginada de cards', async () => {
+    setAuth(ADMIN_USER);
+    mockListKanbanCards.mockResolvedValueOnce({ cards: mockCards, total: 1 });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/cards' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ cards: typeof mockCards; total: number }>();
+    expect(body.total).toBe(1);
+    expect(body.cards).toHaveLength(1);
+    expect(body.cards[0]!.id).toBe(CARD_ID);
+    // LGPD: phoneMasked nunca expõe telefone completo
+    expect(body.cards[0]!.phoneMasked).toMatch(/\*{4}/);
+    expect(mockListKanbanCards).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 1, limit: 50 }),
+      expect.objectContaining({ orgId: ADMIN_USER.organizationId, cityScopeIds: null }),
+    );
+  });
+
+  it('200 — filtros stage_id e city_id repassados ao service', async () => {
+    setAuth(ADMIN_USER);
+    mockListKanbanCards.mockResolvedValueOnce({ cards: [], total: 0 });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (app as any).inject({
+      method: 'GET',
+      url: `/api/kanban/cards?stage_id=${STAGE_ID}&city_id=${CITY_SCOPE_ID}`,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockListKanbanCards).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stageId: STAGE_ID,
+        cityId: CITY_SCOPE_ID,
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('400 — page inválido (zero)', async () => {
+    setAuth(ADMIN_USER);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/cards?page=0' });
+
+    expect(res.statusCode).toBe(400);
+    expect(mockListKanbanCards).not.toHaveBeenCalled();
+  });
+
+  it('400 — limit acima do máximo (101)', async () => {
+    setAuth(ADMIN_USER);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/cards?limit=101' });
+
+    expect(res.statusCode).toBe(400);
+    expect(mockListKanbanCards).not.toHaveBeenCalled();
+  });
+
+  it('401 — sem autenticação', async () => {
+    setAuth(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/cards' });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('403 — sem permissão leads:read', async () => {
+    setAuth(USER_NO_PERMS);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/cards' });
+    expect(res.statusCode).toBe(403);
+    expect(mockListKanbanCards).not.toHaveBeenCalled();
+  });
+
+  it('city scope — agente com cityScopeIds recebe escopo repassado ao service', async () => {
+    setAuth(AGENT_USER);
+    mockListKanbanCards.mockResolvedValueOnce({ cards: mockCards, total: 1 });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/cards' });
+
+    expect(res.statusCode).toBe(200);
+    // Verifica que o city scope do agente foi repassado ao service
+    expect(mockListKanbanCards).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ cityScopeIds: AGENT_USER.cityScopeIds }),
+    );
   });
 });

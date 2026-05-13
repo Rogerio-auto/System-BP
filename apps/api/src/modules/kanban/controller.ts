@@ -1,12 +1,12 @@
 // =============================================================================
-// kanban/controller.ts — Handler da rota POST /api/kanban/cards/:id/move.
+// kanban/controller.ts — Handlers das rotas do módulo kanban (F1-S13).
 // =============================================================================
 import type { FastifyRequest, FastifyReply } from 'fastify';
 
 import { NotFoundError } from '../../shared/errors.js';
 
-import type { MoveCardBody } from './schemas.js';
-import { moveCard } from './service.js';
+import type { MoveCardBody, ListCardsQuery } from './schemas.js';
+import { listKanbanCards, listKanbanStages, moveCard } from './service.js';
 
 // ---------------------------------------------------------------------------
 // POST /api/kanban/cards/:id/move
@@ -49,4 +49,55 @@ export async function moveCardController(
     createdAt: updatedCard.createdAt.toISOString(),
     updatedAt: updatedCard.updatedAt.toISOString(),
   });
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/kanban/stages
+// ---------------------------------------------------------------------------
+
+export async function listStagesController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  if (!request.user) {
+    throw new NotFoundError('Usuário não encontrado no contexto');
+  }
+
+  const stages = await listKanbanStages({
+    orgId: request.user.organizationId,
+    cityScopeIds: request.user.cityScopeIds,
+  });
+
+  await reply.status(200).send({ stages });
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/kanban/cards
+// ---------------------------------------------------------------------------
+
+export async function listCardsController(
+  request: FastifyRequest<{ Querystring: ListCardsQuery }>,
+  reply: FastifyReply,
+): Promise<void> {
+  if (!request.user) {
+    throw new NotFoundError('Usuário não encontrado no contexto');
+  }
+
+  const { stage_id, city_id, agent_id, page, limit } = request.query;
+
+  const result = await listKanbanCards(
+    {
+      stageId: stage_id,
+      cityId: city_id,
+      agentId: agent_id,
+      page,
+      limit,
+    },
+    {
+      orgId: request.user.organizationId,
+      cityScopeIds: request.user.cityScopeIds,
+    },
+  );
+
+  await reply.status(200).send(result);
 }
