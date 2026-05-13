@@ -123,6 +123,22 @@ function IconConfiguracoes(): React.JSX.Element {
   );
 }
 
+function IconCities(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      {/* Mapa simplificado: polígono + pin */}
+      <path d="M3 5l5-2 4 2 5-2v12l-5 2-4-2-5 2V5Z" />
+      <circle cx="10" cy="9" r="2" />
+    </svg>
+  );
+}
+
 function IconFeatureFlags(): React.JSX.Element {
   return (
     <svg
@@ -161,7 +177,10 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     heading: 'Administração',
-    items: [{ href: '/admin/feature-flags', label: 'Feature Flags', icon: <IconFeatureFlags /> }],
+    items: [
+      { href: '/admin/cities', label: 'Cidades', icon: <IconCities /> },
+      { href: '/admin/feature-flags', label: 'Feature Flags', icon: <IconFeatureFlags /> },
+    ],
   },
 ];
 

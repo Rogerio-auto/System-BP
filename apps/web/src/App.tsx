@@ -22,6 +22,7 @@ import { CrmDetailPage } from './features/crm/CrmDetailPage';
 import { CrmListPage } from './features/crm/CrmListPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
+import { CitiesPage } from './pages/admin/Cities';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
 
 const queryClient = new QueryClient({
@@ -77,6 +78,7 @@ export function App(): React.JSX.Element {
               <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
               <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
               <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" />} />
+              <Route path="/admin/cities" element={<CitiesPage />} />
               <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
             </Route>
 
