@@ -26,6 +26,7 @@ import {
   roles,
   permissions,
   rolePermissions,
+  userRoles,
   users,
 } from '../src/db/schema/index.js';
 
@@ -340,17 +341,27 @@ async function seed(): Promise<void> {
     .where(sql`${users.email} = ${ADMIN_EMAIL} AND ${users.deletedAt} IS NULL`)
     .then((r) => r[0]);
 
+  let adminUserId: string;
+
   if (!existingAdmin) {
     const plainPassword = generateStrongPassword(32);
     const passwordHash = await bcrypt.hash(plainPassword, 12);
 
-    await db.insert(users).values({
-      organizationId: orgId,
-      email: ADMIN_EMAIL,
-      passwordHash,
-      fullName: 'Administrador do Sistema',
-      status: 'active',
-    });
+    const [inserted] = await db
+      .insert(users)
+      .values({
+        organizationId: orgId,
+        email: ADMIN_EMAIL,
+        passwordHash,
+        fullName: 'Administrador do Sistema',
+        status: 'active',
+      })
+      .returning({ id: users.id });
+
+    // inserted cannot be undefined here — insert succeeded (no conflict)
+    // Justificativa do `as`: Drizzle retorna T[] mas garantimos exatamente 1
+    // linha via .values({...}) sem onConflictDoNothing neste branch.
+    adminUserId = (inserted as { id: string }).id;
 
     // Senha exibida SOMENTE aqui, SOMENTE no stdout do seed.
     // Nunca via pino, nunca em banco, nunca em arquivo de log.
@@ -363,6 +374,20 @@ async function seed(): Promise<void> {
     console.log('');
   } else {
     console.log('[seed] Usuário admin já existe — senha não alterada.');
+    adminUserId = existingAdmin.id;
+  }
+
+  // 6. Atribuir role 'admin' ao usuário admin
+  // Idempotente via ON CONFLICT DO NOTHING (PK composta user_id + role_id).
+  console.log('[seed] Atribuindo role admin ao usuário admin...');
+  const adminRoleId = roleByKey['admin'];
+  if (adminRoleId) {
+    await db
+      .insert(userRoles)
+      .values({ userId: adminUserId, roleId: adminRoleId })
+      .onConflictDoNothing();
+  } else {
+    console.warn('[seed] AVISO: role "admin" não encontrado — user_roles não atribuído.');
   }
 
   console.log('[seed] Seed concluído com sucesso.');
