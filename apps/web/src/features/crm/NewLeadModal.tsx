@@ -26,6 +26,7 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
 import { useCreateLead } from '../../hooks/crm/useCreateLead';
+import { useCitiesList } from '../../hooks/useCitiesList';
 import { cn } from '../../lib/cn';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -45,13 +46,6 @@ const SOURCE_OPTIONS = [
   { value: 'api', label: 'API' },
 ];
 
-// ─── Skeleton de campos (placeholder de cidade — aguardando F1-S09) ───────────
-const CITY_OPTIONS = [
-  { value: 'city-001', label: 'Porto Velho' },
-  { value: 'city-002', label: 'Ji-Paraná' },
-  { value: 'city-003', label: 'Ariquemes' },
-];
-
 // ─── Componente ──────────────────────────────────────────────────────────────
 
 /**
@@ -60,6 +54,12 @@ const CITY_OPTIONS = [
  */
 export function NewLeadModal({ open, onClose }: NewLeadModalProps): React.JSX.Element | null {
   const { toast } = useToast();
+  const { cities, isLoading: citiesLoading } = useCitiesList();
+
+  const cityOptions = React.useMemo(
+    () => cities.map((c) => ({ value: c.id, label: `${c.name} — ${c.state_uf}` })),
+    [cities],
+  );
 
   const {
     register,
@@ -221,9 +221,10 @@ export function NewLeadModal({ open, onClose }: NewLeadModalProps): React.JSX.El
             <Select
               id="lead-city"
               label="Cidade"
-              placeholder="Selecione a cidade..."
-              options={CITY_OPTIONS}
+              placeholder={citiesLoading ? 'Carregando cidades...' : 'Selecione a cidade...'}
+              options={cityOptions}
               required
+              disabled={citiesLoading}
               error={errors.city_id?.message}
               {...register('city_id')}
             />

@@ -17,7 +17,7 @@ import { env } from './config/env.js';
 import { adminDlqRoutes } from './modules/admin/dlq.routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
-import { citiesRoutes } from './modules/cities/routes.js';
+import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { importsRoutes } from './modules/imports/routes.js';
@@ -108,6 +108,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(featureFlagsRoutes);
   // Admin CRUD de cidades (F1-S06)
   await app.register(citiesRoutes);
+  // Lista publica de cidades para popular selects (qualquer user autenticado)
+  await app.register(citiesPublicRoutes);
   await app.register(internalFeatureFlagsRoutes);
   await app.register(kanbanRoutes);
   await app.register(leadsRoutes);

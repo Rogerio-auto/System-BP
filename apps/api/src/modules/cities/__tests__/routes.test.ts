@@ -17,7 +17,7 @@
 //   10. DELETE /api/admin/cities/:id → 204
 //   11. DELETE /api/admin/cities/:id → 404
 //   12. Sem auth → 401
-//   13. Sem permissão admin:cities:write → 403
+//   13. Sem permissão cities:manage → 403
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -126,7 +126,7 @@ const CREATE_PAYLOAD = {
 // ---------------------------------------------------------------------------
 
 async function buildTestApp(
-  permissions = ['admin:cities:write'],
+  permissions = ['cities:manage'],
   injectUser = true,
 ): Promise<FastifyInstance> {
   const [
@@ -455,7 +455,7 @@ describe('DELETE /api/admin/cities/:id', () => {
 // ---------------------------------------------------------------------------
 
 describe('RBAC — autenticação e autorização', () => {
-  it('retorna 403 (ForbiddenError) quando usuário sem permissão admin:cities:write', async () => {
+  it('retorna 403 (ForbiddenError) quando usuário sem permissão cities:manage', async () => {
     // Usuário autenticado mas sem a permissão correta
     const app = await buildTestApp(['leads:read']);
 
@@ -464,7 +464,7 @@ describe('RBAC — autenticação e autorização', () => {
 
     const res = await app.inject({ method: 'GET', url: '/api/admin/cities' });
 
-    // O authorize mock lança ForbiddenError porque 'admin:cities:write' não está em ['leads:read']
+    // O authorize mock lança ForbiddenError porque 'cities:manage' não está em ['leads:read']
     expect(res.statusCode).toBe(403);
     expect(res.json<Record<string, unknown>>()['error']).toBe('FORBIDDEN');
 
