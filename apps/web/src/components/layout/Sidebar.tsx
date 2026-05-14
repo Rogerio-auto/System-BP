@@ -13,6 +13,7 @@
 import * as React from 'react';
 import { NavLink } from 'react-router-dom';
 
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { cn } from '../../lib/cn';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -154,9 +155,31 @@ function IconFeatureFlags(): React.JSX.Element {
   );
 }
 
-// ─── Nav sections ─────────────────────────────────────────────────────────────
+function IconSimulator(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      {/* Calculadora */}
+      <rect x="4" y="2" width="12" height="16" rx="2" />
+      <rect x="6.5" y="4.5" width="7" height="3.5" rx="1" />
+      <circle cx="7" cy="11" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="11" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="13" cy="11" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="7" cy="14.5" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="14.5" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="13" cy="14.5" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
-const NAV_SECTIONS: NavSection[] = [
+// ─── Nav sections (base — feature flags aplicadas no componente) ──────────────
+
+const NAV_SECTIONS_BASE: NavSection[] = [
   {
     items: [{ href: '/', label: 'Dashboard', icon: <IconDashboard /> }],
   },
@@ -183,6 +206,30 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
 ];
+
+/**
+ * Hook que constrói as nav sections dinamicamente com base em feature flags.
+ * Quando credit_simulation.enabled está off, o item "Simulador" fica oculto.
+ */
+function useNavSections(): NavSection[] {
+  const { enabled: simulatorEnabled } = useFeatureFlag('credit_simulation.enabled');
+
+  return React.useMemo(() => {
+    // Injeta seção "Crédito" se a flag estiver ativa
+    if (!simulatorEnabled) return NAV_SECTIONS_BASE;
+
+    return [
+      NAV_SECTIONS_BASE[0]!, // Dashboard
+      NAV_SECTIONS_BASE[1]!, // Operações
+      {
+        heading: 'Crédito',
+        items: [{ href: '/simulator', label: 'Simulador', icon: <IconSimulator /> }],
+      },
+      NAV_SECTIONS_BASE[2]!, // Gestão
+      NAV_SECTIONS_BASE[3]!, // Administração
+    ];
+  }, [simulatorEnabled]);
+}
 
 // ─── Marca da sidebar ─────────────────────────────────────────────────────────
 
@@ -278,6 +325,8 @@ interface SidebarProps {
  * - DS: elev-1, borda direita, brand em topo, nav sections com headings.
  */
 export function Sidebar({ collapsed, onToggle }: SidebarProps): React.JSX.Element {
+  const navSections = useNavSections();
+
   return (
     <aside
       aria-label="Navegação principal"
@@ -294,7 +343,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps): React.JSX.Elemen
 
       {/* Nav sections */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 flex flex-col gap-4">
-        {NAV_SECTIONS.map((section, sIdx) => (
+        {navSections.map((section, sIdx) => (
           <div key={sIdx} className="flex flex-col gap-0.5">
             {section.heading && !collapsed && (
               <p className="px-5 pb-1 font-sans text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
