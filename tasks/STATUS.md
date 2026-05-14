@@ -10,7 +10,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
-| F2   | 9     | 6   | 0   | 0   | 0   | 1   | 2   |
+| F2   | 9     | 6   | 0   | 0   | 0   | 0   | 3   |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 | F8   | 5     | 5   | 0   | 0   | 0   | 0   | 0   |
 
@@ -71,7 +71,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ------ | ----------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
 | F2-S01 | Schema credit_products + product_rules + simulations + seed | ✅ done      | critical   | F0-S04, F1-S09, F1-S13, F1-S15 |
 | F2-S02 | Service de cálculo Price + SAC (puro, testável)             | ✅ done      | high       | —                              |
-| F2-S03 | CRUD credit-products + publicação versionada de regras      | 🟣 review    | high       | F2-S01, F1-S04, F1-S15         |
+| F2-S03 | CRUD credit-products + publicação versionada de regras      | ✅ done      | high       | F2-S01, F1-S04, F1-S15         |
 | F2-S04 | Endpoint POST /api/simulations (UI)                         | 🟢 available | critical   | F2-S01, F2-S02, F2-S03, F1-S15 |
 | F2-S05 | Endpoint POST /internal/simulations (para IA, idempotente)  | 🟢 available | high       | F2-S04                         |
 | F2-S06 | Frontend simulador interno (form + resultado + amortização) | 🟢 available | high       | F2-S04, F1-S08                 |
