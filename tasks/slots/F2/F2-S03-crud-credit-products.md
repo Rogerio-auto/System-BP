@@ -3,11 +3,11 @@ id: F2-S03
 title: CRUD credit-products + publicação versionada de regras
 phase: F2
 task_ref: T2.3
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-14T21:07:00Z
 completed_at:
 pr_url:
 depends_on: [F2-S01, F1-S04, F1-S15]
