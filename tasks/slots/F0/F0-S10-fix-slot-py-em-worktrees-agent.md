@@ -3,11 +3,11 @@ id: F0-S10
 title: Fix scripts/slot.py claim/finish em worktrees do Agent tool
 phase: F0
 task_ref: TOOLCHAIN.10
-status: available
+status: in-progress
 priority: high
 estimated_size: S
-agent_id: backend-engineer
-claimed_at:
+agent_id: claude-code
+claimed_at: 2026-05-14T00:00:00Z
 completed_at:
 pr_url:
 depends_on: []
