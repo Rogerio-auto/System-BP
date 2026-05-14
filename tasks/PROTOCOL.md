@@ -98,7 +98,12 @@ Após o Rogério mergear o PR em `main`:
 python scripts/slot.py reconcile-merged --write
 ```
 
-Detecta automaticamente quais branches `feat/*` foram mergeados em `origin/main` e marca os slots como `done` + atualiza STATUS.md. Idempotente.
+Detecta automaticamente slots cujo trabalho foi mergeado e marca como `done` + atualiza STATUS.md. Idempotente.
+
+**Fonte de verdade (Layer 0):** `gh pr list --state merged`, indexado pelo `headRefName` do PR.
+Regex tolerante extrai o slot_id: `feat/(f\d+-s\d+)(?:-.*)?` → `F2-S01`, `F0-S10`, etc.
+Não depende de branches ainda presentes, título do PR, nem histórico rebased.
+Funciona mesmo que o PR tenha título genérico (ex: `chore(tasks): f2-s01 review`).
 
 ### 2.6 Se travar
 
