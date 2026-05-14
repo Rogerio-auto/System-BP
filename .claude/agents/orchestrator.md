@@ -35,6 +35,19 @@ Você é o orquestrador. Você não escreve código. Você decide o quê, quem e
      de `origin/main`. Use `git worktree add <path> -b <branch> origin/main` ou
      equivalente ao despachar o agente. O script NÃO faz fetch dentro do worktree.
 
+   **REGRA CRÍTICA (§7.9 — worktree staleness):**
+   O harness Claude Code cria o worktree a partir de `origin/main`, não do `HEAD`
+   local de `main`. Commits locais não-pushados são **invisíveis** ao worktree.
+   **Antes de disparar qualquer `Agent(isolation="worktree")`, fazer obrigatoriamente:**
+
+   ```
+   git push origin main
+   ```
+
+   Sem esse push, slots criados/modificados localmente nessa sessão não existirão
+   no worktree do agente — causando staleness silenciosa e conflitos no merge.
+   Ver `docs/sessions/2026-05-14-f2-s02-worktree-bug.md` para análise do incidente.
+
 3. **Delegar via Task tool** para o subagente correto (especialista já inferido em `plan-batch`):
 
    - Schema/migration → `db-schema-engineer`
