@@ -268,6 +268,67 @@ export async function listCards(
 }
 
 // ---------------------------------------------------------------------------
+// Stage inicial — usado por createLead (cria card automaticamente)
+// ---------------------------------------------------------------------------
+
+/**
+ * Retorna o stage de menor `order_index` da organização (stage inicial).
+ *
+ * Convenção: `kanban_stages.order_index = 0` é o stage onde leads recém-criados
+ * entram. Definido pelo seed em `apps/api/scripts/seed.ts` como
+ * "Pré-atendimento" (doc 01 §72).
+ *
+ * Retorna `undefined` se a org não tem stages configurados (cenário só possível
+ * em DB pré-seed). O caller decide se ignora ou falha.
+ */
+export async function findInitialStage(
+  db: Database | KanbanTx,
+  organizationId: string,
+): Promise<KanbanStage | undefined> {
+  const [row] = await (db as Database)
+    .select()
+    .from(kanbanStages)
+    .where(eq(kanbanStages.organizationId, organizationId))
+    .orderBy(asc(kanbanStages.orderIndex))
+    .limit(1);
+  return row;
+}
+
+/**
+ * Insere um kanban_card e retorna a linha criada.
+ *
+ * Usado por createLead para garantir que todo lead novo tenha um card visível
+ * no board. Idempotência delegada à constraint uq_kanban_cards_lead — caller
+ * deve tratar 23505 como "já existe" se necessário.
+ */
+export async function insertCard(
+  tx: KanbanTx,
+  values: {
+    organizationId: string;
+    leadId: string;
+    stageId: string;
+    assigneeUserId?: string | null;
+    priority?: number;
+    notes?: string | null;
+  },
+): Promise<KanbanCard> {
+  const [row] = await (tx as Database)
+    .insert(kanbanCards)
+    .values({
+      organizationId: values.organizationId,
+      leadId: values.leadId,
+      stageId: values.stageId,
+      assigneeUserId: values.assigneeUserId ?? null,
+      priority: values.priority ?? 0,
+      notes: values.notes ?? null,
+    })
+    .returning();
+
+  // .returning() em insert sem ON CONFLICT garante exatamente 1 linha
+  return row as KanbanCard;
+}
+
+// ---------------------------------------------------------------------------
 // History (append-only)
 // ---------------------------------------------------------------------------
 

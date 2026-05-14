@@ -26,6 +26,7 @@ import { emit } from '../../events/emit.js';
 import { auditLog } from '../../lib/audit.js';
 import { hashDocument } from '../../lib/crypto/pii.js';
 import { AppError, NotFoundError } from '../../shared/errors.js';
+import { findInitialStage, insertCard, insertHistory } from '../kanban/repository.js';
 
 import {
   findLeadById,
@@ -231,6 +232,46 @@ export async function createLead(
         created_by_kind: 'user',
       },
     });
+
+    // ---- Kanban card automático (doc 01-prd-produto.md §72) -----------------
+    // Todo lead entra no pipeline imediatamente, no stage de menor order_index
+    // (seed canônico: "Pré-atendimento"). Mesma transação garante atomicidade:
+    // se a criação do card falhar, o lead também é revertido — não fica órfão.
+    const initialStage = await findInitialStage(
+      tx as unknown as Parameters<typeof findInitialStage>[0],
+      actor.organizationId,
+    );
+    if (initialStage) {
+      const card = await insertCard(tx as unknown as Parameters<typeof insertCard>[0], {
+        organizationId: actor.organizationId,
+        leadId: created.id,
+        stageId: initialStage.id,
+        assigneeUserId: created.agentId,
+      });
+
+      await insertHistory(tx as unknown as Parameters<typeof insertHistory>[0], {
+        cardId: card.id,
+        fromStageId: null,
+        toStageId: initialStage.id,
+        actorUserId: actor.userId,
+        metadata: { reason: 'lead_created' },
+      });
+
+      await emit(tx as unknown as Parameters<typeof emit>[0], {
+        eventName: 'kanban.card_created',
+        aggregateType: 'kanban_card',
+        aggregateId: card.id,
+        organizationId: actor.organizationId,
+        actor: { kind: 'user', id: actor.userId, ip: actor.ip ?? null },
+        idempotencyKey: `kanban.card_created:${card.id}`,
+        data: {
+          card_id: card.id,
+          lead_id: created.id,
+          stage: initialStage.name,
+          city_id: created.cityId,
+        },
+      });
+    }
 
     // Audit log — LGPD §8.5: sanitizar PII antes de gravar
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {

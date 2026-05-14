@@ -80,6 +80,19 @@ vi.mock('../repository.js', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock kanban/repository — createLead cria card automaticamente (doc 01 §72)
+// ---------------------------------------------------------------------------
+const mockFindInitialStage = vi.fn();
+const mockInsertCard = vi.fn();
+const mockInsertHistory = vi.fn();
+
+vi.mock('../../kanban/repository.js', () => ({
+  findInitialStage: (...args: unknown[]) => mockFindInitialStage(...args),
+  insertCard: (...args: unknown[]) => mockInsertCard(...args),
+  insertHistory: (...args: unknown[]) => mockInsertHistory(...args),
+}));
+
+// ---------------------------------------------------------------------------
 // Mock outbox emit
 // ---------------------------------------------------------------------------
 const mockEmit = vi.fn().mockResolvedValue('mock-event-id');
@@ -202,6 +215,31 @@ beforeEach(() => {
   vi.resetAllMocks();
   mockEmit.mockResolvedValue('mock-event-id');
   mockAuditLog.mockResolvedValue('mock-audit-id');
+  // Stage inicial padrão para testes — createLead em sucesso cria card.
+  mockFindInitialStage.mockResolvedValue({
+    id: 'stage-pre-atendimento',
+    organizationId: ORG_ID,
+    name: 'Pré-atendimento',
+    orderIndex: 0,
+    color: '#1B3A8C',
+    isTerminalWon: false,
+    isTerminalLost: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  mockInsertCard.mockResolvedValue({
+    id: 'card-test-id',
+    organizationId: ORG_ID,
+    leadId: LEAD_ID,
+    stageId: 'stage-pre-atendimento',
+    assigneeUserId: null,
+    priority: 0,
+    notes: null,
+    enteredStageAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  mockInsertHistory.mockResolvedValue('history-id');
   const txImpl = (fn: (tx: unknown) => unknown) =>
     fn({ insert: vi.fn(), update: vi.fn(), select: vi.fn() });
   mockTransaction.mockImplementation(txImpl);
@@ -321,10 +359,14 @@ describe('createLead', () => {
     const { createLead } = await import('../service.js');
     await createLead(mockDb as unknown as Parameters<typeof createLead>[0], ACTOR, CREATE_BODY);
 
-    expect(mockEmit).toHaveBeenCalledOnce();
+    // createLead emite 2 eventos: leads.created + kanban.card_created (doc 01 §72)
+    const leadsCreatedCall = (mockEmit.mock.calls as unknown[][]).find((call) => {
+      const evt = call[1] as Record<string, unknown>;
+      return evt['eventName'] === 'leads.created';
+    });
+    expect(leadsCreatedCall).toBeDefined();
 
-    const emitCall = mockEmit.mock.calls[0] as unknown[];
-    const event = emitCall[1] as Record<string, unknown>;
+    const event = leadsCreatedCall![1] as Record<string, unknown>;
     const data = event['data'] as Record<string, unknown>;
 
     // O payload do outbox deve ter apenas IDs/enums — sem PII bruta
@@ -333,7 +375,46 @@ describe('createLead', () => {
     expect(data).not.toHaveProperty('name');
     expect(data).toHaveProperty('lead_id');
     expect(data).toHaveProperty('source');
-    expect(event['eventName']).toBe('leads.created');
+  });
+
+  it('createLead também emite kanban.card_created (doc 01 §72)', async () => {
+    const newLead = makeLead();
+    mockFindLeadByPhoneInOrg.mockResolvedValueOnce(null);
+    mockInsertLead.mockResolvedValueOnce(newLead);
+
+    const { createLead } = await import('../service.js');
+    await createLead(mockDb as unknown as Parameters<typeof createLead>[0], ACTOR, CREATE_BODY);
+
+    expect(mockInsertCard).toHaveBeenCalledOnce();
+    expect(mockInsertHistory).toHaveBeenCalledOnce();
+
+    const cardEventCall = (mockEmit.mock.calls as unknown[][]).find((call) => {
+      const evt = call[1] as Record<string, unknown>;
+      return evt['eventName'] === 'kanban.card_created';
+    });
+    expect(cardEventCall).toBeDefined();
+    const cardEvent = cardEventCall![1] as Record<string, unknown>;
+    const cardData = cardEvent['data'] as Record<string, unknown>;
+    expect(cardData['lead_id']).toBe(newLead.id);
+    expect(cardData['stage']).toBe('Pré-atendimento');
+  });
+
+  it('createLead sem stages configurados → ainda cria lead (kanban opcional)', async () => {
+    const newLead = makeLead();
+    mockFindLeadByPhoneInOrg.mockResolvedValueOnce(null);
+    mockInsertLead.mockResolvedValueOnce(newLead);
+    mockFindInitialStage.mockResolvedValueOnce(undefined); // org sem stages
+
+    const { createLead } = await import('../service.js');
+    const result = await createLead(
+      mockDb as unknown as Parameters<typeof createLead>[0],
+      ACTOR,
+      CREATE_BODY,
+    );
+
+    expect(result.id).toBe(newLead.id);
+    expect(mockInsertCard).not.toHaveBeenCalled();
+    expect(mockInsertHistory).not.toHaveBeenCalled();
   });
 
   it('audit log leads.create: before=null, after sanitizado (sem PII bruta)', async () => {

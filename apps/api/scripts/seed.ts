@@ -18,14 +18,18 @@
 import crypto from 'node:crypto';
 
 import bcrypt from 'bcryptjs';
-import { sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { db, pool } from '../src/db/client.js';
 import {
+  kanbanCards,
+  kanbanStageHistory,
+  kanbanStages,
+  leads,
   organizations,
-  roles,
   permissions,
   rolePermissions,
+  roles,
   userRoles,
   users,
 } from '../src/db/schema/index.js';
@@ -37,6 +41,49 @@ import {
 const ORG_SLUG = 'bdp-rondonia';
 const ORG_NAME = 'Banco do Povo / SEDEC-RO';
 const ADMIN_EMAIL = 'admin@bdp.ro.gov.br';
+
+/**
+ * Stages canônicos do Kanban (doc 01-prd-produto.md §72, doc 03-modelo-dados.md §4).
+ * Ordem fixa por org. Aplicação cria kanban_card em `Pré-atendimento` ao criar lead.
+ * Único stage terminal_won: `Concluído`.
+ */
+const KANBAN_STAGES = [
+  {
+    name: 'Pré-atendimento',
+    orderIndex: 0,
+    color: '#1B3A8C',
+    isTerminalWon: false,
+    isTerminalLost: false,
+  },
+  {
+    name: 'Simulação',
+    orderIndex: 1,
+    color: '#F2C200',
+    isTerminalWon: false,
+    isTerminalLost: false,
+  },
+  {
+    name: 'Documentação',
+    orderIndex: 2,
+    color: '#6B7280',
+    isTerminalWon: false,
+    isTerminalLost: false,
+  },
+  {
+    name: 'Análise de crédito',
+    orderIndex: 3,
+    color: '#7C3AED',
+    isTerminalWon: false,
+    isTerminalLost: false,
+  },
+  {
+    name: 'Concluído',
+    orderIndex: 4,
+    color: '#16A34A',
+    isTerminalWon: true,
+    isTerminalLost: false,
+  },
+] as const;
 
 /** Papéis canônicos (doc 10 §3.1) */
 const ROLES = [
@@ -388,6 +435,61 @@ async function seed(): Promise<void> {
       .onConflictDoNothing();
   } else {
     console.warn('[seed] AVISO: role "admin" não encontrado — user_roles não atribuído.');
+  }
+
+  // 7. Kanban stages da org (idempotente via uq_kanban_stages_org_name)
+  console.log('[seed] Inserindo kanban_stages...');
+  await db
+    .insert(kanbanStages)
+    .values(KANBAN_STAGES.map((s) => ({ organizationId: orgId, ...s })))
+    .onConflictDoNothing();
+
+  // 8. Backfill: cria kanban_card para leads sem card (compensa leads criados
+  //    antes do hook automático em createLead). Idempotente — uq_kanban_cards_lead
+  //    impede duplicação caso re-execução cruze com criação concorrente.
+  console.log('[seed] Verificando leads sem kanban_card...');
+  const initialStageRow = await db
+    .select({ id: kanbanStages.id })
+    .from(kanbanStages)
+    .where(and(eq(kanbanStages.organizationId, orgId), eq(kanbanStages.orderIndex, 0)))
+    .limit(1)
+    .then((r) => r[0]);
+
+  if (initialStageRow) {
+    const orphans = await db
+      .select({ id: leads.id })
+      .from(leads)
+      .leftJoin(kanbanCards, eq(kanbanCards.leadId, leads.id))
+      .where(and(eq(leads.organizationId, orgId), isNull(leads.deletedAt), isNull(kanbanCards.id)));
+
+    if (orphans.length > 0) {
+      console.log(`[seed] Criando kanban_cards para ${orphans.length} lead(s) órfão(s)...`);
+      await db.transaction(async (tx) => {
+        for (const orphan of orphans) {
+          const [card] = await tx
+            .insert(kanbanCards)
+            .values({
+              organizationId: orgId,
+              leadId: orphan.id,
+              stageId: initialStageRow.id,
+            })
+            .returning({ id: kanbanCards.id });
+          if (card) {
+            await tx.insert(kanbanStageHistory).values({
+              cardId: card.id,
+              fromStageId: null,
+              toStageId: initialStageRow.id,
+              actorUserId: null,
+              metadata: { reason: 'backfill_seed' },
+            });
+          }
+        }
+      });
+    } else {
+      console.log('[seed] Nenhum lead órfão.');
+    }
+  } else {
+    console.warn('[seed] AVISO: nenhum stage inicial encontrado — backfill pulado.');
   }
 
   console.log('[seed] Seed concluído com sucesso.');
