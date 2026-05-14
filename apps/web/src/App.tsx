@@ -16,6 +16,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppLayout } from './app/AppLayout';
 import { AuthGuard } from './app/AuthGuard';
+import { SessionBootstrap } from './app/SessionBootstrap';
 import { ToastProvider } from './components/ui/Toast';
 import { LoginPage } from './features/auth/LoginPage';
 import { CrmDetailPage } from './features/crm/CrmDetailPage';
@@ -55,38 +56,46 @@ export function App(): React.JSX.Element {
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <BrowserRouter>
-          <Routes>
-            {/* ── Pública ─────────────────────────────────────────────────── */}
-            <Route path="/login" element={<LoginPage />} />
-
-            {/* ── Protegidas (AuthGuard > AppLayout) ──────────────────────── */}
-            <Route
-              element={
-                <AuthGuard>
-                  <AppLayout />
-                </AuthGuard>
-              }
-            >
-              <Route index element={<DashboardPage />} />
-              {/* Legacy redirects — bookmarks antigos preservados */}
-              <Route path="/kanban" element={<Navigate to="/crm?view=kanban" replace />} />
-              <Route path="/leads" element={<Navigate to="/crm" replace />} />
-              <Route path="/crm" element={<CrmListPage />} />
-              <Route path="/crm/:id" element={<CrmDetailPage />} />
-              <Route path="/imports/leads/new" element={<ImportWizardPage />} />
-              <Route path="/analise" element={<PlaceholderPage title="Análise" />} />
-              <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
-              <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
-              <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" />} />
-              <Route path="/admin/cities" element={<CitiesPage />} />
-              <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
-            </Route>
-
-            {/* ── Catch-all ────────────────────────────────────────────────── */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
+          <SessionBootstrap>
+            <AppRoutes />
+          </SessionBootstrap>
         </BrowserRouter>
       </ToastProvider>
     </QueryClientProvider>
+  );
+}
+
+function AppRoutes(): React.JSX.Element {
+  return (
+    <Routes>
+      {/* ── Pública ─────────────────────────────────────────────────── */}
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* ── Protegidas (AuthGuard > AppLayout) ──────────────────────── */}
+      <Route
+        element={
+          <AuthGuard>
+            <AppLayout />
+          </AuthGuard>
+        }
+      >
+        <Route index element={<DashboardPage />} />
+        {/* Legacy redirects — bookmarks antigos preservados */}
+        <Route path="/kanban" element={<Navigate to="/crm?view=kanban" replace />} />
+        <Route path="/leads" element={<Navigate to="/crm" replace />} />
+        <Route path="/crm" element={<CrmListPage />} />
+        <Route path="/crm/:id" element={<CrmDetailPage />} />
+        <Route path="/imports/leads/new" element={<ImportWizardPage />} />
+        <Route path="/analise" element={<PlaceholderPage title="Análise" />} />
+        <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
+        <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
+        <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" />} />
+        <Route path="/admin/cities" element={<CitiesPage />} />
+        <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
+      </Route>
+
+      {/* ── Catch-all ────────────────────────────────────────────────── */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
   );
 }

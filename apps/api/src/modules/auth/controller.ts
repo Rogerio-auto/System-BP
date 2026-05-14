@@ -28,12 +28,29 @@ const REFRESH_COOKIE = 'refresh_token';
 const CSRF_COOKIE = 'csrf_token';
 
 // Opções base dos cookies — DRY
-function cookieOptions(isProduction: boolean, maxAgeSeconds: number) {
+//
+// `path` é configurado por cookie:
+//   refresh_token → /api/auth (só enviado em endpoints de auth, reduz exposição)
+//   csrf_token    → /         (precisa estar visível ao JS de qualquer rota
+//                              para o interceptor refresh injetar X-CSRF-Token)
+function refreshCookieOptions(isProduction: boolean, maxAgeSeconds: number) {
   return {
-    httpOnly: false, // será sobrescrito por cada cookie
+    httpOnly: true,
     secure: isProduction,
     sameSite: 'Strict' as const,
     path: '/api/auth',
+    maxAge: maxAgeSeconds,
+  };
+}
+
+function csrfCookieOptions(isProduction: boolean, maxAgeSeconds: number) {
+  return {
+    httpOnly: false,
+    secure: isProduction,
+    sameSite: 'Strict' as const,
+    // Path raiz: document.cookie precisa enxergar o csrf_token em qualquer
+    // página do SPA (refresh é disparado de qualquer rota via interceptor 401).
+    path: '/',
     maxAge: maxAgeSeconds,
   };
 }
@@ -56,19 +73,19 @@ export async function loginController(
     request.log,
   );
 
-  const baseOpts = cookieOptions(isProduction, result.refreshExpiresIn);
+  // refresh_token: httpOnly, path=/api/auth — não acessível via JS
+  reply.setCookie(
+    REFRESH_COOKIE,
+    result.refreshToken,
+    refreshCookieOptions(isProduction, result.refreshExpiresIn),
+  );
 
-  // refresh_token: httpOnly — não acessível via JS
-  reply.setCookie(REFRESH_COOKIE, result.refreshToken, {
-    ...baseOpts,
-    httpOnly: true,
-  });
-
-  // csrf_token: acessível via JS (necessário para envio no header X-CSRF-Token)
-  reply.setCookie(CSRF_COOKIE, result.sessionId, {
-    ...baseOpts,
-    httpOnly: false,
-  });
+  // csrf_token: visível ao JS, path=/ (lido pelo interceptor de refresh)
+  reply.setCookie(
+    CSRF_COOKIE,
+    result.sessionId,
+    csrfCookieOptions(isProduction, result.refreshExpiresIn),
+  );
 
   return reply.status(200).send({
     access_token: result.accessToken,
@@ -107,21 +124,27 @@ export async function refreshController(
 
   const result = await refresh(db, { refreshToken, csrfToken, ip, userAgent }, request.log);
 
-  const baseOpts = cookieOptions(isProduction, result.refreshExpiresIn);
+  reply.setCookie(
+    REFRESH_COOKIE,
+    result.refreshToken,
+    refreshCookieOptions(isProduction, result.refreshExpiresIn),
+  );
 
-  reply.setCookie(REFRESH_COOKIE, result.refreshToken, {
-    ...baseOpts,
-    httpOnly: true,
-  });
-
-  reply.setCookie(CSRF_COOKIE, result.sessionId, {
-    ...baseOpts,
-    httpOnly: false,
-  });
+  reply.setCookie(
+    CSRF_COOKIE,
+    result.sessionId,
+    csrfCookieOptions(isProduction, result.refreshExpiresIn),
+  );
 
   return reply.status(200).send({
     access_token: result.accessToken,
     expires_in: result.expiresIn,
+    user: {
+      id: result.user.id,
+      email: result.user.email,
+      full_name: result.user.fullName,
+      organization_id: result.user.organizationId,
+    },
   });
 }
 
@@ -147,18 +170,18 @@ export async function logoutController(
     await logout(db, { refreshToken, userId }, request.log);
   }
 
-  // Limpar cookies independentemente de haver sessão válida
-  const clearOpts = {
-    httpOnly: true,
+  // Limpar cookies independentemente de haver sessão válida.
+  // O path do clear DEVE bater com o path de criação — senão o browser
+  // não associa o Set-Cookie de expiração ao cookie original.
+  const baseClear = {
     secure: isProduction,
     sameSite: 'Strict' as const,
-    path: '/api/auth',
     maxAge: 0,
     expires: new Date(0),
   };
 
-  reply.setCookie(REFRESH_COOKIE, '', clearOpts);
-  reply.setCookie(CSRF_COOKIE, '', { ...clearOpts, httpOnly: false });
+  reply.setCookie(REFRESH_COOKIE, '', { ...baseClear, httpOnly: true, path: '/api/auth' });
+  reply.setCookie(CSRF_COOKIE, '', { ...baseClear, httpOnly: false, path: '/' });
 
   return reply.status(204).send();
 }

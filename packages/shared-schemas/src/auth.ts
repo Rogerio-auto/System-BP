@@ -46,6 +46,14 @@ export type RefreshBody = z.infer<typeof refreshBodySchema>;
 export const refreshResponseSchema = z.object({
   access_token: z.string(),
   expires_in: z.number().int().positive(),
+  // user retornado no refresh para rehidratar o store do SPA após reload —
+  // o access_token vive só em memória, o cookie persiste no browser.
+  user: z.object({
+    id: z.string().uuid(),
+    email: z.string().email(),
+    full_name: z.string(),
+    organization_id: z.string().uuid(),
+  }),
 });
 
 export type RefreshResponse = z.infer<typeof refreshResponseSchema>;

@@ -77,6 +77,13 @@ export interface RefreshResult {
   refreshToken: string;
   refreshExpiresIn: number;
   sessionId: string;
+  /** Permite rehidratar o store do frontend no bootstrap pós-reload. */
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    organizationId: string;
+  };
 }
 
 export interface LoginInput {
@@ -303,6 +310,12 @@ export async function refresh(
     refreshToken: newRefreshToken,
     refreshExpiresIn: refreshTtlSeconds,
     sessionId: newSessionId,
+    user: {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      organizationId: user.organizationId,
+    },
   };
 }
 

@@ -60,11 +60,16 @@ let _refreshing: Promise<string> | null = null;
 // ─── Refresh interno ─────────────────────────────────────────────────────────
 
 /**
- * Chama POST /api/auth/refresh e retorna o novo access_token.
+ * Chama POST /api/auth/refresh e retorna a resposta completa (access_token + user).
  * Deduplica chamadas simultâneas: se já houver um refresh em curso,
  * espera o mesmo promise (sem múltiplas requisições em paralelo).
+ *
+ * Usado em 2 lugares:
+ *   1. Interceptor 401 — recupera access token e atualiza user no store.
+ *   2. Bootstrap da app — chamado no mount inicial para restaurar sessão
+ *      sem precisar re-login (refresh cookie sobrevive ao reload).
  */
-async function doRefresh(): Promise<string> {
+async function doRefresh(): Promise<RefreshResponse> {
   if (_refreshing) return _refreshing;
 
   _refreshing = fetch(`${API_BASE}/api/auth/refresh`, {
@@ -76,18 +81,44 @@ async function doRefresh(): Promise<string> {
     credentials: 'include',
     body: JSON.stringify({}),
   })
-    .then(async (res): Promise<string> => {
+    .then(async (res): Promise<RefreshResponse> => {
       if (!res.ok) {
         throw new ApiError(res.status, 'REFRESH_FAILED', 'Refresh token inválido ou expirado');
       }
-      const data = (await res.json()) as RefreshResponse;
-      return data.access_token;
+      return (await res.json()) as RefreshResponse;
     })
     .finally(() => {
       _refreshing = null;
     });
 
   return _refreshing;
+}
+
+/**
+ * Tenta restaurar a sessão a partir do refresh-cookie persistido no browser.
+ * - Sucesso: popula o store (user + access_token) e resolve `true`.
+ * - Falha: limpa o store e resolve `false` (sem redirect — caller decide).
+ *
+ * Idempotente. Chamado uma vez no boot da app (SessionBootstrap).
+ */
+export async function bootstrapSession(): Promise<boolean> {
+  try {
+    const data = await doRefresh();
+    useAuthStore.getState().setAuth(
+      {
+        id: data.user.id,
+        email: data.user.email,
+        fullName: data.user.full_name,
+        organizationId: data.user.organization_id,
+        permissions: [],
+      },
+      data.access_token,
+    );
+    return true;
+  } catch {
+    useAuthStore.getState().clear();
+    return false;
+  }
 }
 
 // ─── Core fetch ──────────────────────────────────────────────────────────────
@@ -152,17 +183,17 @@ async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
     // Tenta refresh isoladamente — se o refresh falhar a sessão expirou.
     // Erros da requisição original APÓS refresh bem-sucedido devem propagar
     // normalmente (403, 404, 409 etc) — não disparar logout.
-    let newToken: string;
+    let refreshed: RefreshResponse;
     try {
-      newToken = await doRefresh();
+      refreshed = await doRefresh();
     } catch {
       useAuthStore.getState().clear();
       window.location.replace('/login');
       throw new ApiError(401, 'SESSION_EXPIRED', 'Sessão expirada. Faça login novamente.');
     }
 
-    useAuthStore.getState().setAccessToken(newToken);
-    headers['Authorization'] = `Bearer ${newToken}`;
+    useAuthStore.getState().setAccessToken(refreshed.access_token);
+    headers['Authorization'] = `Bearer ${refreshed.access_token}`;
     const retryRes = await fetch(`${API_BASE}${path}`, {
       ...rest,
       method,
