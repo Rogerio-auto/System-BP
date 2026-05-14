@@ -25,6 +25,7 @@ import { importsRoutes } from './modules/imports/routes.js';
 import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/routes.js';
 import { kanbanRoutes } from './modules/kanban/routes.js';
 import { leadsRoutes } from './modules/leads/routes.js';
+import { simulationsRoutes } from './modules/simulations/routes.js';
 import { usersRoutes } from './modules/users/routes.js';
 import { whatsappRoutes } from './modules/whatsapp/routes.js';
 import { dataSubjectRoutes } from './routes/data-subject.routes.js';
@@ -126,6 +127,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(adminDlqRoutes);
   // Produtos de crédito + regras versionadas (F2-S03)
   await app.register(creditProductsRoutes);
+  // Simulações de crédito via UI (F2-S04)
+  await app.register(simulationsRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.
