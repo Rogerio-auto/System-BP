@@ -263,3 +263,25 @@ Resumo do que rolou no primeiro ciclo de implementação real (8 slots F0 + 4 sl
 | Editar STATUS.md à mão                                                                      | propenso a drift    | `slot.py sync` (re-renderiza)                        |
 | Marcar slot done à mão pós-merge                                                            | propenso a esquecer | `slot.py reconcile-merged --write`                   |
 | Gerar body de PR à mão                                                                      | 30+ linhas          | `slot.py pr open <id>` (extrai do slot)              |
+
+### 7.9 Worktree staleness — commit local sem push antes do dispatch (2026-05-14)
+
+**Sintoma:** agent F2-S02 reportou que o arquivo do slot não existia no worktree, forçando-o a recriar a versão simplificada (~25 linhas vs 120 linhas originais). Gerou conflict no PR #49 e resolução manual de ~30 min.
+
+**Causa:** o harness Claude Code cria o worktree a partir de `origin/main` (estado remoto), não do `HEAD` do `main` local. Commits feitos em `main` local mas não pushados para `origin` são **invisíveis** ao worktree.
+
+**Evidência:**
+
+- `f25eb83` (slots F2) commitado localmente às 14:12:18.
+- Worktree F2-S02 criado às 14:16:42, parent `2fa96eb` (13:40:12) — último commit pushado para `origin/main`.
+- `git log origin/main | grep f25eb83` → sem resultado.
+- Detalhe: a rebase que incorporou os slots em `origin/main` ocorreu somente às 14:54 (após o merge do PR).
+
+**Mitigação (regra nova — obrigatória):**
+
+```
+# Antes de disparar Agent(isolation="worktree"), sempre:
+git push origin main   # sincroniza estado local → origin antes do dispatch
+```
+
+O orchestrator.md foi atualizado com esta regra. Ver `docs/sessions/2026-05-14-f2-s02-worktree-bug.md` para análise completa.

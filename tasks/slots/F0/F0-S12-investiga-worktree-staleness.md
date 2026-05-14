@@ -3,12 +3,12 @@ id: F0-S12
 title: Investigar staleness do Agent(isolation=worktree) vs commits recentes em main
 phase: F0
 task_ref: TOOLCHAIN.12
-status: available
+status: review
 priority: medium
 estimated_size: S
 agent_id: backend-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-14T20:35:43Z
+completed_at: 2026-05-14T20:42:54Z
 pr_url:
 depends_on: []
 blocks: []
