@@ -155,6 +155,23 @@ function IconFeatureFlags(): React.JSX.Element {
   );
 }
 
+function IconProducts(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      {/* Caixa de produto estilizada */}
+      <rect x="2" y="7" width="16" height="11" rx="2" />
+      <path d="M5 7V5a3 3 0 0 1 10 0v2" />
+      <path d="M8 11h4" />
+    </svg>
+  );
+}
+
 function IconSimulator(): React.JSX.Element {
   return (
     <svg
@@ -201,6 +218,7 @@ const NAV_SECTIONS_BASE: NavSection[] = [
   {
     heading: 'Administração',
     items: [
+      { href: '/admin/products', label: 'Produtos', icon: <IconProducts /> },
       { href: '/admin/cities', label: 'Cidades', icon: <IconCities /> },
       { href: '/admin/feature-flags', label: 'Feature Flags', icon: <IconFeatureFlags /> },
     ],

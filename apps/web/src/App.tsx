@@ -25,6 +25,8 @@ import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
 import { CitiesPage } from './pages/admin/Cities';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
+import { ProductDetailPage } from './pages/admin/ProductDetail';
+import { ProductsPage } from './pages/admin/Products';
 import { SimulatorPage } from './pages/simulator/SimulatorPage';
 
 const queryClient = new QueryClient({
@@ -94,6 +96,8 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" />} />
         <Route path="/admin/cities" element={<CitiesPage />} />
         <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
+        <Route path="/admin/products" element={<ProductsPage />} />
+        <Route path="/admin/products/:id" element={<ProductDetailPage />} />
       </Route>
 
       {/* ── Catch-all ────────────────────────────────────────────────── */}
