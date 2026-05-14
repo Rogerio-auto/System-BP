@@ -16,6 +16,8 @@
 // Índices:
 //   - (organization_id, stage_id, priority DESC): board query principal.
 //   - (assignee_user_id) parcial: "cards do usuário X".
+//   - (product_id) parcial: cards com produto associado.
+//   - (last_simulation_id) parcial: cards com simulação associada.
 //
 // LGPD: este schema não armazena PII diretamente.
 //   notes pode conter texto livre — aplicar redact antes de logar.
@@ -32,6 +34,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { creditProducts } from './creditProducts.js';
+import { creditSimulations } from './creditSimulations.js';
 import { kanbanStages } from './kanbanStages.js';
 import { leads } from './leads.js';
 import { organizations } from './organizations.js';
@@ -95,6 +99,22 @@ export const kanbanCards = pgTable(
      */
     enteredStageAt: timestamp('entered_stage_at', { withTimezone: true }).notNull().defaultNow(),
 
+    /**
+     * Produto de crédito selecionado para este card.
+     * null = produto ainda não definido (card no início do funil).
+     * Denormalizado de leads.product_id para queries de board sem JOIN em leads.
+     * ON DELETE SET NULL: produto deletado não destrói o card.
+     */
+    productId: uuid('product_id'),
+
+    /**
+     * Última simulação realizada para este card.
+     * null = nenhuma simulação ainda.
+     * Denormalizado de leads.last_simulation_id para queries de board sem JOIN.
+     * ON DELETE SET NULL: simulação deletada não destrói o card.
+     */
+    lastSimulationId: uuid('last_simulation_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -127,6 +147,18 @@ export const kanbanCards = pgTable(
       foreignColumns: [users.id],
     }).onDelete('set null'),
 
+    foreignKey({
+      name: 'fk_kanban_cards_product',
+      columns: [table.productId],
+      foreignColumns: [creditProducts.id],
+    }).onDelete('set null'),
+
+    foreignKey({
+      name: 'fk_kanban_cards_last_simulation',
+      columns: [table.lastSimulationId],
+      foreignColumns: [creditSimulations.id],
+    }).onDelete('set null'),
+
     // -------------------------------------------------------------------------
     // Unique constraints
     // -------------------------------------------------------------------------
@@ -155,6 +187,23 @@ export const kanbanCards = pgTable(
     index('idx_kanban_cards_assignee')
       .on(table.assigneeUserId)
       .where(sql`${table.assigneeUserId} IS NOT NULL`),
+
+    /**
+     * Cards com produto associado.
+     * Parcial: exclui cards sem produto (início do funil).
+     * Suporta: "todos os cards usando o produto X".
+     */
+    index('idx_kanban_cards_product')
+      .on(table.productId)
+      .where(sql`${table.productId} IS NOT NULL`),
+
+    /**
+     * Cards com simulação associada.
+     * Parcial: exclui cards sem simulação.
+     */
+    index('idx_kanban_cards_last_simulation')
+      .on(table.lastSimulationId)
+      .where(sql`${table.lastSimulationId} IS NOT NULL`),
   ],
 );
 

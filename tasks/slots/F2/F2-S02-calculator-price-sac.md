@@ -6,137 +6,115 @@ task_ref: T2.2
 status: review
 priority: high
 estimated_size: S
-agent_id: claude-code
+agent_id: backend-engineer
 claimed_at: 2026-05-14T18:18:10Z
 completed_at: 2026-05-14T18:21:52Z
-pr_url: null
+pr_url:
 depends_on: []
-blocks: [F2-S05, F2-S06]
-source_docs: [docs/05-modulos-funcionais.md]
+blocks: [F2-S04]
+labels: []
+source_docs:
+  - docs/05-modulos-funcionais.md
+  - docs/12-tasks-tecnicas.md
 ---
 
-# F2-S02 — Service de cálculo Price + SAC (puro, testável)
+# F2-S02 — Calculator Price + SAC (puro)
 
 ## Objetivo
 
-Implementar `calculate(input): SimulationResult` com fórmulas Price e SAC. Função pura, sem efeitos colaterais, sem dependências externas (sem Drizzle, Fastify, fs, db, logger). Testável em isolamento com Vitest.
+Funções puras de cálculo de financiamento por sistema **Price** (parcelas fixas) e **SAC**
+(amortização constante). Sem I/O, sem dependência de Drizzle/Fastify — apenas math.
+Reusado por F2-S04 (`POST /api/simulations`) e F2-S05 (`POST /internal/simulations`).
 
 ## Escopo
 
-- Implementar `apps/api/src/modules/simulations/calculator.ts`
-- Implementar `apps/api/src/modules/simulations/types.ts` (tipos de input/output)
-- Implementar `apps/api/src/modules/simulations/__tests__/calculator.test.ts`
+Arquivo único `apps/api/src/modules/simulations/calculator.ts` + testes.
 
-## Fórmulas
+### Tipos
 
-### Price (sistema francês)
+```ts
+type Amortization = 'price' | 'sac';
 
-$$PMT = P \cdot \frac{i (1+i)^n}{(1+i)^n - 1}$$
-
-Onde:
-
-- `P` = principal (valor solicitado)
-- `i` = taxa mensal decimal (ex: 0.02 para 2%)
-- `n` = prazo em meses
-
-Caso especial: quando `i === 0`, `PMT = P / n`.
-
-Para cada parcela k (1..n):
-
-- `interest_k = balance_{k-1} * i`
-- `principal_k = PMT - interest_k`
-- `balance_k = balance_{k-1} - principal_k`
-
-### SAC (sistema de amortização constante)
-
-- `principal_k = P / n` (constante)
-- `interest_k = balance_{k-1} * i`
-- `payment_k = principal_k + interest_k`
-- `balance_k = balance_{k-1} - principal_k`
-
-## Ajuste de resíduo (obrigatório)
-
-Arredondar cada valor para 2 casas via `Math.round(v * 100) / 100`.
-
-A soma dos campos `principal` das parcelas deve ser exatamente igual ao `amount` do input. Qualquer diferença residual causada por arredondamentos vai para a **última parcela** (ajuste de `principal` e `total`).
-
-## Erros
-
-Lançar `Error` com mensagens específicas:
-
-- `amount` <= 0: `"amount must be positive"`
-- `termMonths` <= 0: `"termMonths must be positive integer"`
-- `monthlyRate` < 0: `"monthlyRate cannot be negative"`
-
-## Estrutura de tipos esperada
-
-```typescript
-export interface SimulationInput {
-  amount: number; // valor solicitado (positivo)
-  termMonths: number; // prazo em meses (inteiro positivo)
-  monthlyRate: number; // taxa mensal decimal (>= 0, ex: 0.02 = 2%)
-  method: 'price' | 'sac';
+interface SimulationInput {
+  amount: number; // P — valor solicitado (>0)
+  termMonths: number; // n — prazo em meses (>=1)
+  monthlyRate: number; // i — taxa mensal decimal (>=0)
+  amortization: Amortization;
 }
 
-export interface InstallmentRow {
-  number: number; // 1..n
-  payment: number; // parcela total
-  principal: number; // amortização
-  interest: number; // juros
-  balance: number; // saldo devedor após pagamento
+interface AmortizationRow {
+  n: number; // 1..termMonths
+  principal: number; // amortização do principal no mês
+  interest: number; // juros do mês
+  payment: number; // parcela total do mês
+  balance: number; // saldo devedor após pagar a parcela
 }
 
-export interface SimulationResult {
-  method: 'price' | 'sac';
-  amount: number;
-  termMonths: number;
-  monthlyRate: number;
-  installments: InstallmentRow[];
-  totalPayment: number; // sum(payment)
-  totalInterest: number; // sum(interest)
+interface SimulationResult {
+  monthlyPayment: number; // Price: fixo; SAC: parcela do mês 1 (primeira parcela)
+  totalAmount: number; // sum(payment) — quanto o cliente vai pagar no total
+  totalInterest: number; // totalAmount - amount
+  amortizationTable: AmortizationRow[];
 }
 ```
 
-## Casos de teste obrigatórios
+### Fórmula Price (doc 05 §"Crédito")
 
-1. **Price 1000 / 12m / 2% mensal** → PMT ≈ 94.56 (aceitar ±0.01)
-2. **Price 1000 / 12m / 0% mensal** → PMT = 83.33
-3. **SAC 1200 / 12m / 1% mensal** → parcela 1 = 112.00, parcela 12 = 101.00
-4. **SAC qualquer** → `sum(principal) === amount` exato
-5. **Price qualquer** → `sum(principal) === amount` exato
-6. **Erro: amount <= 0** → `Error("amount must be positive")`
-7. **Erro: termMonths <= 0** → `Error("termMonths must be positive integer")`
-8. **Erro: monthlyRate < 0** → `Error("monthlyRate cannot be negative")`
-
-## Definition of Done
-
-- [ ] `calculate` exportada de `calculator.ts`
-- [ ] `SimulationInput`, `SimulationResult`, `InstallmentRow` exportadas de `types.ts`
-- [ ] Todos os 8 casos de teste passando
-- [ ] `sum(principal) === amount` garantido por ajuste na última parcela
-- [ ] Arredondamento a 2 casas em todos os campos numéricos
-- [ ] Sem `any`, sem `as`, TS strict
-- [ ] Sem imports de Drizzle, Fastify, db, logger, fs
-- [ ] `pnpm --filter @elemento/api test` verde
-
-## Validação
-
-```powershell
-pnpm --filter @elemento/api test -- --reporter=verbose --testPathPattern=calculator
+```
+PMT = P · ( i · (1+i)^n ) / ( (1+i)^n − 1 )
 ```
 
-```powershell
-pnpm --filter @elemento/api typecheck
-```
+Se `i = 0` (taxa zero), `PMT = P / n` (caso especial — evitar divisão por zero).
+
+### Fórmula SAC
+
+- Amortização constante: `principalMonthly = P / n`
+- Saldo no mês k: `balance_k = P − k · principalMonthly`
+- Juros do mês k: `interest_k = (balance_{k-1}) · i`
+- Parcela do mês k: `payment_k = principalMonthly + interest_k`
+
+`monthlyPayment` retornado para SAC = `payment_1` (primeira parcela, a maior).
+
+### Precisão decimal
+
+- **NÃO** usar `number` cru para somas finais — acúmulo de erro float.
+- Calcular linha-a-linha com `number`, mas arredondar cada `principal`, `interest`,
+  `payment` para 2 casas via `Math.round(v * 100) / 100`.
+- Garantir que `sum(principal) === amount` ajustando a última parcela (diferença residual
+  vai pra última linha).
+- `totalAmount = sum(payment)` recalculado a partir da tabela já arredondada.
+
+### Casos de erro (lançar `Error` simples — slot é puro)
+
+- `amount <= 0` → `'amount must be positive'`
+- `termMonths < 1` ou não-inteiro → `'termMonths must be a positive integer'`
+- `monthlyRate < 0` → `'monthlyRate must be >= 0'`
+- `amortization` inválida → `'amortization must be price or sac'`
 
 ## Arquivos permitidos
 
 - `apps/api/src/modules/simulations/calculator.ts`
 - `apps/api/src/modules/simulations/__tests__/calculator.test.ts`
-- `apps/api/src/modules/simulations/types.ts`
+- `apps/api/src/modules/simulations/types.ts` (tipos compartilhados — opcional, pode ficar no calculator.ts)
 
-## Arquivos proibidos
+## Definition of Done
 
-- Qualquer arquivo fora de `apps/api/src/modules/simulations/`
-- `apps/api/src/db/**`
-- `apps/api/package.json`
+- [ ] `calculate(input): SimulationResult` exportada.
+- [ ] Casos conhecidos cobertos por teste:
+  - Price 1000 / 12m / 2% mensal → PMT ≈ 94,56
+  - Price 1000 / 12m / 0% → PMT = 83,33
+  - SAC 1200 / 12m / 1% → parcela 1 = 112, parcela 12 = 101
+- [ ] `sum(principal) === amount` exatamente (ajuste residual em última parcela).
+- [ ] `amortizationTable.length === termMonths`.
+- [ ] Casos de erro com mensagem correta.
+- [ ] Função **pura**: zero importação de banco/HTTP/fs/logger.
+- [ ] `pnpm --filter @elemento/api typecheck && lint && test` verdes.
+- [ ] PR aberto.
+
+## Validação
+
+```powershell
+pnpm --filter @elemento/api test -- simulations/calculator
+pnpm --filter @elemento/api lint
+pnpm --filter @elemento/api typecheck
+```
