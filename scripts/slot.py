@@ -154,6 +154,50 @@ def run_git(args: list[str], check: bool = True, capture: bool = True) -> subpro
     )
 
 
+def _hook_env_for_worktree() -> dict[str, str] | None:
+    """Retorna env dict com PATH aumentado para hooks pnpm em worktrees.
+
+    Em worktrees adicionais, node_modules/ não existe (apenas no working tree
+    principal). Hooks como .husky/pre-commit rodam `pnpm lint-staged` e falham
+    com 'lint-staged not found'.
+
+    Solução: injetar o node_modules/.bin do working tree principal no PATH para
+    que pnpm possa resolver o binário lint-staged.
+
+    Retorna None quando não estamos num worktree (sem necessidade de augmentar).
+    """
+    if not is_in_worktree():
+        return None
+    main = main_worktree_path()
+    if main is None:
+        return None
+    main_bin = main / "node_modules" / ".bin"
+    if not main_bin.is_dir():
+        return None
+    current_path = os.environ.get("PATH", "")
+    augmented = f"{main_bin}{os.pathsep}{current_path}"
+    env = {**os.environ, "PATH": augmented}
+    return env
+
+
+def run_git_commit(message: str) -> subprocess.CompletedProcess:
+    """Executa 'git commit -m <message>' com env adequado para worktrees.
+
+    Em worktrees adicionais, aumenta PATH com node_modules/.bin do working tree
+    principal para que o pre-commit hook (pnpm lint-staged) resolva corretamente.
+    """
+    env = _hook_env_for_worktree()
+    return subprocess.run(
+        ["git", "commit", "-m", message],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        **({"env": env} if env is not None else {}),
+    )
+
+
 def current_branch() -> str:
     return run_git(["rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
 
@@ -361,8 +405,11 @@ def update_frontmatter_fields(path: Path, updates: dict[str, str]) -> None:
     body = text[m.end():]
 
     for key, value in updates.items():
-        pattern = rf"^({re.escape(key)}: ).*$"
-        new_fm, count = re.subn(pattern, rf"\g<1>{value}", fm_text, count=1, flags=re.MULTILINE)
+        # Padrão: "key:" seguido de espaço opcional e qualquer valor (incluindo vazio).
+        # Exemplo: "claimed_at:" (sem valor) e "claimed_at: 2026-..." devem ser substituídos.
+        pattern = rf"^{re.escape(key)}:[ \t]*.*$"
+        replacement = f"{key}: {value}"
+        new_fm, count = re.subn(pattern, replacement, fm_text, count=1, flags=re.MULTILINE)
         if count == 0:
             # Append no fim do frontmatter
             new_fm = fm_text.rstrip("\n") + f"\n{key}: {value}\n"
@@ -597,17 +644,24 @@ def cmd_claim(args: argparse.Namespace) -> int:
         run_git(["checkout", "-b", branch])
 
     # Frontmatter + STATUS.md (idêntico em ambos os casos)
+    # agent_id: usa ELEMENTO_AGENT_ID se setado; caso contrário preserva o valor
+    # existente no frontmatter (evita sobrescrever 'backend-engineer' com 'claude-code').
+    _fm_match = _FRONTMATTER_RE.match(path.read_text(encoding="utf-8"))
+    if not _fm_match:
+        die("No frontmatter")
+    fm_current = _parse_yaml_subset(_fm_match.group(1))
+    agent_id_value = os.environ.get("ELEMENTO_AGENT_ID") or fm_current.get("agent_id") or "backend-engineer"
     update_frontmatter_fields(path, {
         "status": "in-progress",
-        "agent_id": os.environ.get("ELEMENTO_AGENT_ID", "claude-code"),
+        "agent_id": agent_id_value,
         "claimed_at": now_iso(),
     })
     sync_status_md()
 
-    # Commit chore
+    # Commit chore — usa run_git_commit para lidar com hook pnpm em worktrees
     run_git(["add", str(path.relative_to(REPO_ROOT)), str(STATUS_FILE.relative_to(REPO_ROOT))])
     # Slot ID em lowercase para passar subject-case do commitlint (§7.5 do PROTOCOL.md)
-    run_git(["commit", "-m", f"chore(tasks): {slot_id.lower()} in-progress"])
+    run_git_commit(f"chore(tasks): {slot_id.lower()} in-progress")
 
     info(f"[slot] {slot_id} claimed on branch {branch} (commit {_short_sha()})")
     return 0
@@ -786,7 +840,8 @@ def cmd_finish(args: argparse.Namespace) -> int:
     if not args.no_commit:
         run_git(["add", str(path.relative_to(REPO_ROOT)), str(STATUS_FILE.relative_to(REPO_ROOT))])
         # Slot ID em lowercase para passar subject-case do commitlint (§7.5 do PROTOCOL.md)
-        run_git(["commit", "-m", f"chore(tasks): {slot_id.lower()} review"])
+        # run_git_commit augmenta PATH para hooks pnpm em worktrees
+        run_git_commit(f"chore(tasks): {slot_id.lower()} review")
         info(f"[slot] {slot_id} marked review (commit {_short_sha()})")
     else:
         info(f"[slot] {slot_id} marked review (no commit; files staged via sync)")
@@ -825,12 +880,21 @@ def cmd_validate(args: argparse.Namespace) -> int:
     if not commands:
         die(f"'## Validação' block has no shell commands in {path.name}")
 
+    # Em worktrees adicionais, node_modules/ não existe — rodar os comandos de
+    # validação a partir do working tree principal onde node_modules/ está presente.
+    validate_cwd = REPO_ROOT
+    if is_in_worktree():
+        main = main_worktree_path()
+        if main is not None:
+            validate_cwd = main
+            info(f"[validate] worktree detectado — usando cwd do main: {main}")
+
     results = []
     for cmd in commands:
         info(f"[validate] $ {cmd}")
         # Shell=True para suportar pipes e &&. POSIX/Windows-compatible.
         proc = subprocess.run(
-            cmd, cwd=REPO_ROOT, shell=True, capture_output=True, text=True, encoding="utf-8",
+            cmd, cwd=validate_cwd, shell=True, capture_output=True, text=True, encoding="utf-8",
         )
         results.append({
             "command": cmd,

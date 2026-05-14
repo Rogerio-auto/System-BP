@@ -3,11 +3,11 @@ id: F0-S11
 title: Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)
 phase: F0
 task_ref: TOOLCHAIN.11
-status: available
+status: in-progress
 priority: medium
 estimated_size: XS
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-14T19:51:36Z
 completed_at:
 pr_url:
 depends_on: []
@@ -39,6 +39,51 @@ Não há `--testPathPattern` no markdown dos slots. Possíveis hipóteses:
    `vitest X`** (pattern posicional), e o agente confundiu. Verificar empiricamente.
 3. **A configuração do `test` script no `apps/api/package.json`** transforma `--` em flag
    Jest. Verificar.
+
+## Investigação (2026-05-14)
+
+### Hipótese descartada: `--testPathPattern` (Jest flag)
+
+Grep nos slots F2/F8 e no `slot.py` não encontrou `--testPathPattern` em lugar algum.
+O relato do agente F2-S02 sobre essa flag foi impreciso.
+
+### Causa raiz real: `cmd_validate` usa `cwd=REPO_ROOT` (worktree sem node_modules)
+
+`scripts/slot.py` define `REPO_ROOT = Path(__file__).resolve().parent.parent`. Quando
+o script é invocado de dentro de um worktree adicional, `REPO_ROOT` aponta para o
+diretório do worktree — que **não tem `node_modules`**. O `cmd_validate` usa
+`cwd=REPO_ROOT` para executar os comandos do bloco Validação, e `pnpm` falha com:
+
+```
+WARN   Local package.json exists, but node_modules missing, did you mean to install?
+```
+
+Reproduzido com `python scripts/slot.py validate F2-S02` de dentro do worktree.
+
+### Bugs secundários encontrados (e corrigidos) em `slot.py`
+
+1. **`update_frontmatter_fields` regex quebrado para campos sem valor**: pattern
+   `rf"^({re.escape(key)}: ).*$"` exige espaço após `:`, mas os templates têm
+   `claimed_at:` (sem espaço). Resultado: append duplicado em vez de replace.
+
+2. **`cmd_claim` sobreescreve `agent_id` com `claude-code`**: fallback de
+   `os.environ.get("ELEMENTO_AGENT_ID", "claude-code")` ignora o valor existente
+   no frontmatter (`backend-engineer`). Corrigido para preservar valor do frontmatter
+   quando `ELEMENTO_AGENT_ID` não está setado.
+
+3. **`git commit` falha em worktree**: `.husky/pre-commit` roda `pnpm lint-staged`
+   sem `node_modules`. Corrigido adicionando `node_modules/.bin` do main worktree
+   ao PATH via `run_git_commit()`.
+
+### Conclusão
+
+Não há bug de sintaxe Vitest/Jest nos blocos `## Validação` dos slots F2/F8 —
+os blocos estão corretos. O bug estava inteiramente em `slot.py`:
+
+- `cmd_validate`: CWD errado em worktrees
+- `cmd_claim`/`cmd_finish`: hooks pnpm falhando em worktrees
+- `update_frontmatter_fields`: regex não cobre campos de valor vazio
+- `cmd_claim`: `agent_id` sobrescrito com valor inválido
 
 ## Objetivo
 
