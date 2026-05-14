@@ -875,6 +875,12 @@ def cmd_validate(args: argparse.Namespace) -> int:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
+            # Remove inline comments (# ...) para não passar para o shell
+            # Exemplo: "pnpm test # motivo" → "pnpm test"
+            if " #" in line:
+                line = line[: line.index(" #")].rstrip()
+            if not line:
+                continue
             commands.append(line)
 
     if not commands:
