@@ -91,9 +91,28 @@
 
 ### Domínio: simulações
 
-#### `credit.product_created` / `credit.product_updated` / `credit.rule_published`
+#### `credit.product_created` (F2-S03)
 
-- Toda alteração de produto/regra emite. Snapshot da regra no payload.
+- Emitido ao criar produto de crédito.
+- Produtor: `credit-products.service`.
+- Data: `product_id`, `rule_snapshot: {}` (vazio na criação).
+- Consumidor: `audit`.
+
+#### `credit.product_updated` (F2-S03)
+
+- Emitido ao atualizar campos ou soft-deletar produto.
+- Produtor: `credit-products.service`.
+- Data: `product_id`, `rule_snapshot: {}` (ou `{ deleted: true }` para soft-delete).
+- Consumidor: `audit`.
+
+#### `credit.rule_published` (F2-S03)
+
+- Emitido ao publicar nova versão de regra de crédito (operação atômica).
+- Produtor: `credit-products.service` (dentro de transação).
+- Data: `product_id`, `rule_snapshot` com snapshot completo da nova regra:
+  `rule_id`, `version`, `min_amount`, `max_amount`, `min_term_months`,
+  `max_term_months`, `monthly_rate`, `iof_rate`, `amortization`, `city_scope`, `effective_from`.
+- Sem PII: apenas IDs e dados financeiros.
 - Consumidor: `audit`.
 
 #### `simulations.generated`
