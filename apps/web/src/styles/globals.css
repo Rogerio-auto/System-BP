@@ -346,7 +346,11 @@ html.dark body::after {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    /* transform: none EXPLÍCITO para garantir que nenhum agente de usuário
+       interprete `forwards` como "manter o transform animado". Crítico para
+       descendentes `position: fixed` (DragOverlay do kanban) que precisam
+       ser posicionados relativos ao viewport, não a um containing-block. */
+    transform: none;
   }
 }
 

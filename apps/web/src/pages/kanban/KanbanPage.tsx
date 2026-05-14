@@ -20,14 +20,16 @@
 import {
   DndContext,
   DragOverlay,
+  MeasuringStrategy,
   PointerSensor,
-  closestCorners,
+  closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 
 import { KanbanCardOverlay } from '../../components/kanban/KanbanCard';
 import { KanbanColumn } from '../../components/kanban/KanbanColumn';
@@ -202,14 +204,18 @@ export function KanbanPage({ hideHeader = false }: KanbanPageProps): React.JSX.E
         <KanbanFiltersBar filters={filters} onChange={setFilters} />
       </div>
 
-      {/* Board */}
-      <div
-        className="flex-1 min-h-0 overflow-x-auto"
-        style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.1s both' }}
-      >
+      {/* Board
+          NÃO aplicamos `animation: fade-up` aqui: o transform do fade-up
+          torna este div um containing-block para `position: fixed`, e o
+          DragOverlay do dnd-kit (fixed) acaba posicionado relativo a este
+          container em vez do viewport — o card "voa pra baixo" no drag. */}
+      <div className="flex-1 min-h-0 overflow-x-auto">
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={closestCenter}
+          measuring={{
+            droppable: { strategy: MeasuringStrategy.Always },
+          }}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
@@ -249,8 +255,18 @@ export function KanbanPage({ hideHeader = false }: KanbanPageProps): React.JSX.E
             )}
           </div>
 
-          {/* Overlay — clone do card durante drag */}
-          <DragOverlay>{activeCard ? <KanbanCardOverlay card={activeCard} /> : null}</DragOverlay>
+          {/* Overlay — clone do card durante drag.
+              Renderizado via portal no <body> para escapar de QUALQUER
+              ancestor com transform/filter/perspective que possa criar
+              containing-block para `position: fixed` e desalinhar o overlay
+              do cursor (animations fade-up, etc). */}
+          {typeof document !== 'undefined' &&
+            createPortal(
+              <DragOverlay>
+                {activeCard ? <KanbanCardOverlay card={activeCard} /> : null}
+              </DragOverlay>,
+              document.body,
+            )}
         </DndContext>
       </div>
 

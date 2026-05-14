@@ -10,7 +10,8 @@
 // Skeleton de loading: 3 cards placeholder.
 // =============================================================================
 
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext } from '@dnd-kit/sortable';
 import * as React from 'react';
 
 import type { KanbanCard, KanbanStage } from '../../hooks/kanban/types';
@@ -138,6 +139,10 @@ export function KanbanColumn({
 }: KanbanColumnProps): React.JSX.Element {
   const cardIds = cards.map((c) => c.id);
 
+  // useDroppable garante que o body da coluna receba drops mesmo quando vazio.
+  // Sem isso, `over` no DragEnd vem null ao soltar em coluna sem cards.
+  const { setNodeRef, isOver: isDirectlyOver } = useDroppable({ id: stage.id });
+
   return (
     <div
       className="flex flex-col gap-0 min-w-[260px] max-w-[300px] w-full flex-shrink-0"
@@ -157,13 +162,14 @@ export function KanbanColumn({
 
       {/* ── Body droppable ───────────────────────────────────────── */}
       <div
+        ref={setNodeRef}
         className={cn(
           'flex flex-col gap-2 rounded-md p-2',
           'bg-[var(--bg-elev-2)] min-h-[120px] flex-1',
           'border border-transparent',
           'transition-[border-color,background] duration-fast ease-out',
-          // Drop zone indicators
-          isOver && !isInvalid && 'border-dashed border-azul bg-[var(--info-bg)]',
+          // Drop zone indicators — só destaca quando o ponteiro está SOBRE esta coluna
+          isDirectlyOver && !isInvalid && 'border-dashed border-azul bg-[var(--info-bg)]',
           isOver && isInvalid && 'border-dashed border-danger bg-[var(--danger-bg)]',
         )}
         style={{ boxShadow: 'var(--elev-1)' }}
@@ -176,7 +182,10 @@ export function KanbanColumn({
             <CardSkeleton />
           </>
         ) : (
-          <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
+          // Sem `strategy`: evita shift dos outros cards (sensação de cursor
+          // 1-2 slots à frente). Drop entre colunas é detectado pelo
+          // useDroppable da coluna + closestCorners do DndContext.
+          <SortableContext items={cardIds}>
             {cards.length === 0 ? (
               <EmptyState />
             ) : (

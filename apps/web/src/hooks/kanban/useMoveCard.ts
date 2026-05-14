@@ -47,10 +47,11 @@ export function useMoveCard({
   const queryKey = KANBAN_CARDS_KEY(filters);
 
   return useMutation<MoveCardResponse, Error, MoveCardPayload, MoveCardContext>({
-    mutationFn: ({ cardId, targetStageId, position }) =>
+    mutationFn: ({ cardId, targetStageId }) =>
       api.post<MoveCardResponse>(`/api/kanban/cards/${cardId}/move`, {
-        stage_id: targetStageId,
-        position,
+        // Backend (kanban/schemas.ts moveCardBodySchema) espera toStageId em camelCase.
+        // `position` ainda não é suportada pelo endpoint — usada só no otimismo UI.
+        toStageId: targetStageId,
       }),
 
     onMutate: async ({ cardId, targetStageId, position = 1 }) => {

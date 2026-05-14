@@ -119,22 +119,27 @@ export function KanbanCard({
     [isDragging],
   );
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    // DS §8 drag state
-    ...(isDragging
-      ? {
-          boxShadow: 'var(--elev-4)',
-          opacity: 0.95,
-          transform: `${CSS.Transform.toString(transform) ?? ''} scale(1.02)`,
-          zIndex: 50,
-        }
-      : {}),
-    // Spotlight custom props
-    '--mx': '50%',
-    '--my': '50%',
-  } as React.CSSProperties & { '--mx': string; '--my': string };
+  // Quando isDragging:
+  //   - O DragOverlay (em KanbanPage) renderiza o clone visível seguindo o cursor.
+  //   - O card original NÃO deve aplicar `transform` (senão ele acompanha o mouse
+  //     e aparece duplicado) nem ficar visível — apenas reserva o espaço no layout.
+  //   - opacity 0 + visibility hidden evita o "fantasma" e impede que o card
+  //     intercepte hover/spotlight nas outras colunas.
+  const style: React.CSSProperties = isDragging
+    ? {
+        opacity: 0,
+        visibility: 'hidden',
+        // Reserva o slot mas remove qualquer transform residual
+        transform: 'none',
+        transition: 'none',
+      }
+    : ({
+        transform: CSS.Transform.toString(transform),
+        transition,
+        // Spotlight custom props
+        '--mx': '50%',
+        '--my': '50%',
+      } as React.CSSProperties & { '--mx': string; '--my': string });
 
   return (
     <div
