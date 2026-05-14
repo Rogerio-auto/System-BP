@@ -3,13 +3,13 @@ id: F0-S10
 title: Fix scripts/slot.py claim/finish em worktrees do Agent tool
 phase: F0
 task_ref: TOOLCHAIN.10
-status: review
+status: done
 priority: high
 estimated_size: S
-agent_id: claude-code
-claimed_at: 2026-05-14T00:00:00Z
-completed_at:
-pr_url:
+agent_id: backend-engineer
+claimed_at: 2026-05-14T19:00:00Z
+completed_at: 2026-05-14T19:35:00Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/50
 depends_on: []
 blocks: []
 labels: []
