@@ -119,23 +119,30 @@ async function runHandler(
   const { id: eventId, organizationId } = event;
   const { name: handlerName } = registered;
 
-  // Inserir registro de idempotência antes de executar
-  // Se já existir (unique constraint), o handler já foi processado
-  try {
-    await db.insert(eventProcessingLogs).values({
+  // Inserir registro de idempotência antes de executar.
+  // ON CONFLICT DO NOTHING + RETURNING permite distinguir "inserido" de "já existe"
+  // de forma idiomática, sem depender de matching de mensagem de erro do Postgres
+  // (que varia com o locale — em pt-BR vem "duplicar valor da chave...").
+  const inserted = await db
+    .insert(eventProcessingLogs)
+    .values({
       eventId,
       organizationId,
       handlerName,
       status: 'success', // optimistic; atualizado abaixo se falhar
       durationMs: null,
-    });
-  } catch (insertErr) {
-    const msg = insertErr instanceof Error ? insertErr.message.toLowerCase() : '';
-    if (msg.includes('unique') || msg.includes('duplicate')) {
-      logger.debug({ eventId, handlerName }, 'already processed — idempotency skip');
-      return { outcome: 'skipped' };
-    }
-    throw insertErr;
+    })
+    .onConflictDoNothing({
+      target: [eventProcessingLogs.eventId, eventProcessingLogs.handlerName],
+    })
+    .returning({ id: eventProcessingLogs.id });
+
+  if (inserted.length === 0) {
+    // Já existe log para este (event_id, handler_name) — handler já rodou em
+    // tentativa anterior. Skip silencioso; processBatch marcará o evento como
+    // processed_at desde que nenhum outro handler do batch falhe.
+    logger.debug({ eventId, handlerName }, 'already processed — idempotency skip');
+    return { outcome: 'skipped' };
   }
 
   // Executar o handler
