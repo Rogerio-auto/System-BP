@@ -8,7 +8,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
-| F0   | 13    | 3   | 0   | 0   | 0   | 0   | 10  |
+| F0   | 13    | 2   | 0   | 0   | 0   | 1   | 10  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 9     | 7   | 0   | 0   | 0   | 0   | 2   |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
@@ -28,7 +28,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0-S07  | docker-compose — validação ponta a ponta                                      | ✅ done      | high       | F0-S03, F0-S04, F0-S05, F0-S06 |
 | F0-S08  | Husky + lint-staged + commitlint                                              | ✅ done      | low        | F0-S02                         |
 | F0-S10  | Fix scripts/slot.py claim/finish em worktrees do Agent tool                   | ✅ done      | high       | —                              |
-| F0-S11  | Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)           | 🟢 available | medium     | —                              |
+| F0-S11  | Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)           | 🟣 review    | medium     | —                              |
 | F0-S12  | Investigar staleness do Agent(isolation=worktree) vs commits recentes em main | 🟢 available | medium     | —                              |
 | F0-S13  | Fix heurística de reconcile-merged (não detecta slots mergeados)              | 🟢 available | medium     | —                              |
 
