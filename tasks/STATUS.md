@@ -8,7 +8,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
-| F0   | 13    | 2   | 0   | 0   | 1   | 0   | 10  |
+| F0   | 13    | 2   | 0   | 0   | 0   | 1   | 10  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 9     | 7   | 0   | 0   | 0   | 0   | 2   |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
@@ -16,21 +16,21 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 0 — Preparação
 
-| ID      | Título                                                                        | Status         | Prioridade | Depende de                     |
-| ------- | ----------------------------------------------------------------------------- | -------------- | ---------- | ------------------------------ |
-| F0-S01  | Verificar e travar lockfiles (pnpm + python)                                  | ✅ done        | critical   | —                              |
-| F0-S02  | ESLint + Prettier — instalar e ligar nos workspaces                           | ✅ done        | high       | F0-S01                         |
-| F0-S03  | Validar boot da API + healthcheck contra Postgres                             | ✅ done        | high       | F0-S01                         |
-| F0-S03b | Upgrade fastify + vitest (CVE remediation)                                    | ✅ done        | high       | F0-S03                         |
-| F0-S04  | Drizzle — primeira migration vazia + smoke test                               | ✅ done        | high       | F0-S01                         |
-| F0-S05  | Web — dev server + design tokens + tela de login placeholder                  | ✅ done        | medium     | F0-S01                         |
-| F0-S06  | LangGraph service — boot + health + cliente HTTP base                         | ✅ done        | high       | F0-S01                         |
-| F0-S07  | docker-compose — validação ponta a ponta                                      | ✅ done        | high       | F0-S03, F0-S04, F0-S05, F0-S06 |
-| F0-S08  | Husky + lint-staged + commitlint                                              | ✅ done        | low        | F0-S02                         |
-| F0-S10  | Fix scripts/slot.py claim/finish em worktrees do Agent tool                   | ✅ done        | high       | —                              |
-| F0-S11  | Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)           | 🔵 in-progress | medium     | —                              |
-| F0-S12  | Investigar staleness do Agent(isolation=worktree) vs commits recentes em main | 🟢 available   | medium     | —                              |
-| F0-S13  | Fix heurística de reconcile-merged (não detecta slots mergeados)              | 🟢 available   | medium     | —                              |
+| ID      | Título                                                                        | Status       | Prioridade | Depende de                     |
+| ------- | ----------------------------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
+| F0-S01  | Verificar e travar lockfiles (pnpm + python)                                  | ✅ done      | critical   | —                              |
+| F0-S02  | ESLint + Prettier — instalar e ligar nos workspaces                           | ✅ done      | high       | F0-S01                         |
+| F0-S03  | Validar boot da API + healthcheck contra Postgres                             | ✅ done      | high       | F0-S01                         |
+| F0-S03b | Upgrade fastify + vitest (CVE remediation)                                    | ✅ done      | high       | F0-S03                         |
+| F0-S04  | Drizzle — primeira migration vazia + smoke test                               | ✅ done      | high       | F0-S01                         |
+| F0-S05  | Web — dev server + design tokens + tela de login placeholder                  | ✅ done      | medium     | F0-S01                         |
+| F0-S06  | LangGraph service — boot + health + cliente HTTP base                         | ✅ done      | high       | F0-S01                         |
+| F0-S07  | docker-compose — validação ponta a ponta                                      | ✅ done      | high       | F0-S03, F0-S04, F0-S05, F0-S06 |
+| F0-S08  | Husky + lint-staged + commitlint                                              | ✅ done      | low        | F0-S02                         |
+| F0-S10  | Fix scripts/slot.py claim/finish em worktrees do Agent tool                   | ✅ done      | high       | —                              |
+| F0-S11  | Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)           | 🟣 review    | medium     | —                              |
+| F0-S12  | Investigar staleness do Agent(isolation=worktree) vs commits recentes em main | 🟢 available | medium     | —                              |
+| F0-S13  | Fix heurística de reconcile-merged (não detecta slots mergeados)              | 🟢 available | medium     | —                              |
 
 ## Fase 1 — Base operacional
 

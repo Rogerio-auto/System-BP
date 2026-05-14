@@ -3,12 +3,12 @@ id: F0-S11
 title: Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)
 phase: F0
 task_ref: TOOLCHAIN.11
-status: in-progress
+status: review
 priority: medium
 estimated_size: XS
 agent_id: backend-engineer
 claimed_at: 2026-05-14T19:51:36Z
-completed_at:
+completed_at: 2026-05-14T20:02:06Z
 pr_url:
 depends_on: []
 blocks: []
