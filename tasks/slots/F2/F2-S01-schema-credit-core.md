@@ -3,13 +3,13 @@ id: F2-S01
 title: Schema credit_products + product_rules + simulations + seed
 phase: F2
 task_ref: T2.1
-status: available
+status: done
 priority: critical
 estimated_size: M
 agent_id: db-schema-engineer
-claimed_at:
-completed_at:
-pr_url:
+claimed_at: 2026-05-14T18:00:00Z
+completed_at: 2026-05-14T18:30:40Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/48
 depends_on: [F0-S04, F1-S09, F1-S13, F1-S15]
 blocks: [F2-S03, F2-S04]
 labels: []

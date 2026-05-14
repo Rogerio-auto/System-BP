@@ -3,13 +3,13 @@ id: F2-S02
 title: Service de cálculo Price + SAC (puro, testável)
 phase: F2
 task_ref: T2.2
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-14T18:18:10Z
 completed_at: 2026-05-14T18:21:52Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/49
 depends_on: []
 blocks: [F2-S04]
 labels: []
