@@ -10,6 +10,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
+| F2   | 1     | 0   | 0   | 0   | 1   | 0   | 0   |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
@@ -58,6 +59,12 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S26 | LGPD — DLP no pipeline LangGraph (mascaramento antes do gateway OpenRouter)             | ✅ done | critical   | F0-S06                         |
 | F1-S27 | Fix encadeamento .using('gin') em schemas Drizzle (cities, leads)                       | ✅ done | critical   | —                              |
 | F1-S28 | Fix typecheck do api — drizzle.config.ts fora de rootDir                                | ✅ done | critical   | F1-S27                         |
+
+## Fase 2 — Crédito e simulação
+
+| ID     | Título                                          | Status         | Prioridade | Depende de |
+| ------ | ----------------------------------------------- | -------------- | ---------- | ---------- |
+| F2-S02 | Service de cálculo Price + SAC (puro, testável) | 🔵 in-progress | high       | —          |
 
 ## Fase 3 — Agentes IA
 
