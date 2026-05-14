@@ -3,11 +3,11 @@ id: F2-S01
 title: Schema credit_products + product_rules + simulations + seed
 phase: F2
 task_ref: T2.1
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: db-schema-engineer
-claimed_at: null
+claimed_at: '2026-05-14T12:00:00Z'
 completed_at: null
 pr_url: null
 depends_on: [F1-S09, F1-S13]
