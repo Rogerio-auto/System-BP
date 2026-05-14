@@ -3,13 +3,13 @@ id: F0-S13
 title: Fix heurística de reconcile-merged (não detecta slots mergeados)
 phase: F0
 task_ref: TOOLCHAIN.13
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-14T20:21:05Z
 completed_at: 2026-05-14T20:27:09Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/52
 depends_on: []
 blocks: []
 labels: []
