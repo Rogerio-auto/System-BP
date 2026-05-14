@@ -85,6 +85,51 @@ export const SimulationResponseSchema = z.object({
 export type SimulationResponse = z.infer<typeof SimulationResponseSchema>;
 
 // ---------------------------------------------------------------------------
+// GET /api/leads/:id/simulations — query params + list response (F2-S08)
+// ---------------------------------------------------------------------------
+
+export const SimulationListQuerySchema = z.object({
+  cursor: z.string().uuid('cursor deve ser UUID').optional(),
+  limit: z
+    .string()
+    .optional()
+    .transform((v) => (v !== undefined ? parseInt(v, 10) : undefined))
+    .pipe(z.number().int().positive().max(100).optional()),
+});
+
+export type SimulationListQuery = z.infer<typeof SimulationListQuerySchema>;
+
+/**
+ * Um item da lista de simulações de um lead.
+ * Sem PII de lead — apenas dados financeiros + metadados de produto/regra.
+ */
+export const SimulationListItemSchema = z.object({
+  id: z.string().uuid(),
+  productId: z.string().uuid(),
+  productName: z.string(),
+  amount: z.number(),
+  termMonths: z.number(),
+  monthlyPayment: z.number(),
+  totalAmount: z.number(),
+  totalInterest: z.number(),
+  rateMonthlySnapshot: z.number(),
+  amortizationMethod: z.enum(['price', 'sac']),
+  amortizationTable: z.unknown(),
+  ruleVersion: z.number(),
+  origin: z.enum(['manual', 'ai', 'import']),
+  createdAt: z.string().datetime(),
+});
+
+export type SimulationListItem = z.infer<typeof SimulationListItemSchema>;
+
+export const SimulationListResponseSchema = z.object({
+  data: z.array(SimulationListItemSchema),
+  nextCursor: z.string().uuid().nullable(),
+});
+
+export type SimulationListResponse = z.infer<typeof SimulationListResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // Tipos internos
 // ---------------------------------------------------------------------------
 

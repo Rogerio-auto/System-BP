@@ -15,7 +15,7 @@
 //
 // LGPD: lead_id é referência opaca — não logar contexto do lead nos queries.
 // =============================================================================
-import { and, eq, isNull, sql, type or } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql, type or } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import { creditProductRules } from '../../db/schema/creditProductRules.js';
@@ -245,6 +245,122 @@ export async function updateKanbanCardLastSimulation(
     .update(kanbanCards)
     .set({ lastSimulationId: simulationId })
     .where(eq(kanbanCards.leadId, leadId));
+}
+
+// ---------------------------------------------------------------------------
+// Simulation history query (F2-S08)
+// ---------------------------------------------------------------------------
+
+export interface SimulationListItem {
+  id: string;
+  productId: string;
+  productName: string;
+  amountRequested: string;
+  termMonths: number;
+  monthlyPayment: string;
+  totalAmount: string;
+  totalInterest: string;
+  rateMonthlySnapshot: string;
+  amortizationMethod: 'price' | 'sac';
+  amortizationTable: unknown;
+  ruleVersion: number;
+  origin: 'manual' | 'ai' | 'import';
+  createdAt: Date;
+}
+
+export interface FindSimulationsByLeadOptions {
+  /** UUID after which to start (cursor pagination on created_at). */
+  cursor?: string | undefined;
+  limit?: number | undefined;
+}
+
+/**
+ * Lista simulações de um lead, paginadas por cursor (created_at DESC).
+ *
+ * Faz JOIN com credit_products para incluir productName.
+ * Faz JOIN com credit_product_rules para incluir ruleVersion.
+ *
+ * O caller deve ter verificado city scope antes de chamar (403 se fora).
+ */
+export async function findSimulationsByLeadId(
+  db: Database,
+  leadId: string,
+  organizationId: string,
+  opts: FindSimulationsByLeadOptions = {},
+): Promise<SimulationListItem[]> {
+  const limit = Math.min(opts.limit ?? 20, 100);
+
+  // Build conditions
+  const conditions: ReturnType<typeof eq>[] = [
+    eq(creditSimulations.leadId, leadId),
+    eq(creditSimulations.organizationId, organizationId),
+  ];
+
+  // Cursor: find the createdAt of the cursor row, then filter rows older than it
+  if (opts.cursor) {
+    const cursorRows = await db
+      .select({ createdAt: creditSimulations.createdAt })
+      .from(creditSimulations)
+      .where(
+        and(
+          eq(creditSimulations.id, opts.cursor),
+          eq(creditSimulations.organizationId, organizationId),
+        ) as ReturnType<typeof or>,
+      )
+      .limit(1);
+
+    const cursorDate = cursorRows[0]?.createdAt;
+    if (cursorDate) {
+      // `as` justificado: sql<boolean> compatível com and()
+      conditions.push(sql`${creditSimulations.createdAt} < ${cursorDate}` as ReturnType<typeof eq>);
+    }
+  }
+
+  const rows = await db
+    .select({
+      id: creditSimulations.id,
+      productId: creditSimulations.productId,
+      productName: creditProducts.name,
+      amountRequested: creditSimulations.amountRequested,
+      termMonths: creditSimulations.termMonths,
+      monthlyPayment: creditSimulations.monthlyPayment,
+      totalAmount: creditSimulations.totalAmount,
+      totalInterest: creditSimulations.totalInterest,
+      rateMonthlySnapshot: creditSimulations.rateMonthlySnapshot,
+      // amortizationMethod not stored as enum column — derive from amortization_table jsonb
+      amortizationTable: creditSimulations.amortizationTable,
+      ruleVersion: creditProductRules.version,
+      origin: creditSimulations.origin,
+      createdAt: creditSimulations.createdAt,
+    })
+    .from(creditSimulations)
+    .innerJoin(creditProducts, eq(creditSimulations.productId, creditProducts.id))
+    .innerJoin(creditProductRules, eq(creditSimulations.ruleVersionId, creditProductRules.id))
+    .where(and(...conditions))
+    .orderBy(desc(creditSimulations.createdAt))
+    .limit(limit);
+
+  return rows.map((r) => {
+    // Derive amortizationMethod from amortization_table jsonb
+    const table = r.amortizationTable as { method?: 'price' | 'sac' } | null;
+    const amortizationMethod: 'price' | 'sac' = table?.method ?? 'price';
+    return {
+      id: r.id,
+      productId: r.productId,
+      productName: r.productName,
+      amountRequested: r.amountRequested,
+      termMonths: r.termMonths,
+      monthlyPayment: r.monthlyPayment,
+      totalAmount: r.totalAmount,
+      totalInterest: r.totalInterest,
+      rateMonthlySnapshot: r.rateMonthlySnapshot,
+      amortizationMethod,
+      amortizationTable: r.amortizationTable,
+      ruleVersion: r.ruleVersion,
+      origin: r.origin as 'manual' | 'ai' | 'import',
+      createdAt: r.createdAt,
+    };
+  });
 }
 
 /**

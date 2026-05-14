@@ -38,6 +38,8 @@ import { useLead, useLeadInteractions } from '../../hooks/crm/useLead';
 import { useUpdateLead } from '../../hooks/crm/useUpdateLead';
 import { cn } from '../../lib/cn';
 
+import { SimulationHistory } from './components/SimulationHistory';
+
 // ─── Skeletons ────────────────────────────────────────────────────────────────
 
 function HeaderSkeleton(): React.JSX.Element {
@@ -540,6 +542,9 @@ export function CrmDetailPage(): React.JSX.Element {
               onClose={() => setEditOpen(false)}
             />
           )}
+
+          {/* Histórico de simulações de crédito (F2-S08) */}
+          <SimulationHistory leadId={leadId} />
         </div>
 
         {/* ── Coluna direita: timeline ─────────────────────────────────────── */}

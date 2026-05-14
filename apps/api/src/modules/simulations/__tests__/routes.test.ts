@@ -92,6 +92,21 @@ vi.mock('../service.js', async (importOriginal) => {
 });
 
 // ---------------------------------------------------------------------------
+// Mock repository (for GET /api/leads/:id/simulations)
+// ---------------------------------------------------------------------------
+const mockFindLeadForSimulation = vi.fn();
+const mockFindSimulationsByLeadId = vi.fn();
+
+vi.mock('../repository.js', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    findLeadForSimulation: (...args: unknown[]) => mockFindLeadForSimulation(...args),
+    findSimulationsByLeadId: (...args: unknown[]) => mockFindSimulationsByLeadId(...args),
+  };
+});
+
+// ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
@@ -548,5 +563,177 @@ describe('POST /api/simulations — 404 produto não encontrado', () => {
 
     expect(res.statusCode).toBe(404);
     expect(res.json().error).toBe('NOT_FOUND');
+  });
+});
+
+// ===========================================================================
+// GET /api/leads/:id/simulations — F2-S08
+// ===========================================================================
+
+/**
+ * Cria um item no formato retornado pelo repository (SimulationListItem),
+ * com campos numéricos como strings (Drizzle numeric → string) e Date para createdAt.
+ */
+function makeSimulationListItem(overrides: Record<string, unknown> = {}) {
+  return {
+    id: FIXTURE_SIMULATION_ID,
+    productId: FIXTURE_PRODUCT_ID,
+    productName: 'Microcrédito Básico',
+    amountRequested: '2000.00',
+    termMonths: 12,
+    monthlyPayment: '187.53',
+    totalAmount: '2250.36',
+    totalInterest: '250.36',
+    rateMonthlySnapshot: '0.020000',
+    amortizationMethod: 'price' as const,
+    amortizationTable: [],
+    ruleVersion: 3,
+    origin: 'manual' as const,
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/leads/:id/simulations — caminho feliz
+// ---------------------------------------------------------------------------
+
+describe('GET /api/leads/:id/simulations — caminho feliz', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp(['simulations:read']);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFeatureGateEnabled.mockReturnValue(true);
+  });
+
+  it('retorna 200 com lista paginada de simulações', async () => {
+    // Lead existe no scope
+    mockFindLeadForSimulation.mockResolvedValueOnce({ id: FIXTURE_LEAD_ID });
+    const item = makeSimulationListItem();
+    mockFindSimulationsByLeadId.mockResolvedValueOnce([item]);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/leads/${FIXTURE_LEAD_ID}/simulations`,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { data: unknown[]; nextCursor: string | null };
+    expect(body.data).toHaveLength(1);
+    expect((body.data[0] as Record<string, unknown>)['productName']).toBe('Microcrédito Básico');
+    expect((body.data[0] as Record<string, unknown>)['ruleVersion']).toBe(3);
+    expect((body.data[0] as Record<string, unknown>)['origin']).toBe('manual');
+    expect(body.nextCursor).toBeNull();
+  });
+
+  it('retorna nextCursor quando página está cheia', async () => {
+    // Lead existe no scope
+    mockFindLeadForSimulation.mockResolvedValueOnce({ id: FIXTURE_LEAD_ID });
+
+    // 20 items (default limit = 20) — UUIDs válidos
+    const uuids = Array.from(
+      { length: 20 },
+      (_, i) => `ffffffff-0000-4000-8000-${String(i).padStart(12, '0')}`,
+    );
+    const items = uuids.map((id) => makeSimulationListItem({ id }));
+    mockFindSimulationsByLeadId.mockResolvedValueOnce(items);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/leads/${FIXTURE_LEAD_ID}/simulations`,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { data: unknown[]; nextCursor: string | null };
+    expect(body.data).toHaveLength(20);
+    // nextCursor é o id do último item
+    expect(body.nextCursor).toBe(uuids[19]);
+  });
+
+  it('aceita parâmetros cursor e limit', async () => {
+    mockFindLeadForSimulation.mockResolvedValueOnce({ id: FIXTURE_LEAD_ID });
+    mockFindSimulationsByLeadId.mockResolvedValueOnce([]);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/leads/${FIXTURE_LEAD_ID}/simulations?limit=5&cursor=${FIXTURE_SIMULATION_ID}`,
+    });
+
+    expect(res.statusCode).toBe(200);
+    // Verifica que repository foi chamado com os parâmetros corretos
+    expect(mockFindSimulationsByLeadId).toHaveBeenCalledWith(
+      expect.anything(),
+      FIXTURE_LEAD_ID,
+      FIXTURE_ORG_ID,
+      { cursor: FIXTURE_SIMULATION_ID, limit: 5 },
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/leads/:id/simulations — 403 lead fora do city scope
+// ---------------------------------------------------------------------------
+
+describe('GET /api/leads/:id/simulations — 403 lead fora do city scope', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp(['simulations:read']);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('retorna 403 quando lead está fora do city scope', async () => {
+    // Lead não encontrado (fora do scope)
+    mockFindLeadForSimulation.mockResolvedValueOnce(null);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/leads/${FIXTURE_LEAD_ID}/simulations`,
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('FORBIDDEN');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/leads/:id/simulations — 403 sem permissão simulations:read
+// ---------------------------------------------------------------------------
+
+describe('GET /api/leads/:id/simulations — 403 sem permissão', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    // Usuário sem simulations:read
+    app = await buildTestApp(['leads:read']);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('retorna 403 quando usuário não tem simulations:read', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/leads/${FIXTURE_LEAD_ID}/simulations`,
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('FORBIDDEN');
   });
 });

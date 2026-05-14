@@ -129,6 +129,58 @@ export function formatRelativeDate(iso: string): string {
   return formatDate(iso);
 }
 
+// ─── Simulações de crédito (F2-S08) ──────────────────────────────────────────
+
+export type SimulationOrigin = 'manual' | 'ai' | 'import';
+export type AmortizationMethod = 'price' | 'sac';
+
+export interface InstallmentRow {
+  number: number;
+  payment: number;
+  principal: number;
+  interest: number;
+  balance: number;
+}
+
+export interface AmortizationTableData {
+  method: AmortizationMethod;
+  amount: number;
+  termMonths: number;
+  monthlyRate: number;
+  installments: InstallmentRow[];
+  totalPayment: number;
+  totalInterest: number;
+}
+
+export interface LeadSimulation {
+  id: string;
+  productId: string;
+  productName: string;
+  /** Valor solicitado em R$ */
+  amount: number;
+  termMonths: number;
+  /** Parcela mensal em R$ */
+  monthlyPayment: number;
+  /** Total pago em R$ */
+  totalAmount: number;
+  /** Total de juros em R$ */
+  totalInterest: number;
+  /** Taxa mensal decimal (ex: 0.02) */
+  rateMonthlySnapshot: number;
+  amortizationMethod: AmortizationMethod;
+  /** Tabela de amortização completa */
+  amortizationTable: AmortizationTableData | null;
+  /** Versão da regra de crédito usada */
+  ruleVersion: number;
+  origin: SimulationOrigin;
+  createdAt: string;
+}
+
+export interface LeadSimulationsResponse {
+  data: LeadSimulation[];
+  nextCursor: string | null;
+}
+
 // ─── Mapeamento de status para label + variante de Badge ─────────────────────
 
 export type BadgeVariant = 'neutral' | 'info' | 'warning' | 'success' | 'danger';
