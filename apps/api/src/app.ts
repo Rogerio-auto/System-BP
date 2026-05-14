@@ -18,6 +18,7 @@ import { adminDlqRoutes } from './modules/admin/dlq.routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
 import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
+import { creditProductsRoutes } from './modules/credit-products/routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { importsRoutes } from './modules/imports/routes.js';
@@ -123,6 +124,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(importsRoutes);
   // Admin — Dead-Letter Queue (F1-S22)
   await app.register(adminDlqRoutes);
+  // Produtos de crédito + regras versionadas (F2-S03)
+  await app.register(creditProductsRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.

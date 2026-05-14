@@ -227,9 +227,32 @@ export interface CreditAnalysisStatusChangedData {
 
 // --- Domínio: crédito (produto/regras) ---
 
-export interface CreditProductChangedData {
+/** Emitido ao criar um produto de crédito (F2-S03). */
+export interface CreditProductCreatedData {
   product_id: string;
-  /** Snapshot da regra — sem PII. */
+  /** Vazio na criação (nenhuma regra publicada ainda). */
+  rule_snapshot: Record<string, unknown>;
+}
+
+/** Emitido ao atualizar ou soft-deletar um produto de crédito (F2-S03). */
+export interface CreditProductUpdatedData {
+  product_id: string;
+  /** Vazio para updates de produto; { deleted: true } para soft-delete. */
+  rule_snapshot: Record<string, unknown>;
+}
+
+/**
+ * Emitido ao publicar nova versão de regra de crédito (F2-S03).
+ * Snapshot completo da regra no payload — sem PII (só dados financeiros).
+ */
+export interface CreditRulePublishedData {
+  product_id: string;
+  /**
+   * Snapshot completo da regra publicada. Contém:
+   *   rule_id, version, min_amount, max_amount, min_term_months,
+   *   max_term_months, monthly_rate, iof_rate, amortization,
+   *   city_scope, effective_from.
+   */
   rule_snapshot: Record<string, unknown>;
 }
 
@@ -512,9 +535,9 @@ export interface AppEventDataMap {
   'credit_analysis.added': CreditAnalysisAddedData;
   'credit_analysis.updated': CreditAnalysisUpdatedData;
   'credit_analysis.status_changed': CreditAnalysisStatusChangedData;
-  'credit.product_created': CreditProductChangedData;
-  'credit.product_updated': CreditProductChangedData;
-  'credit.rule_published': CreditProductChangedData;
+  'credit.product_created': CreditProductCreatedData;
+  'credit.product_updated': CreditProductUpdatedData;
+  'credit.rule_published': CreditRulePublishedData;
   'chatwoot.conversation_created': ChatwootConversationCreatedData;
   'chatwoot.message_received': ChatwootMessageReceivedData;
   'chatwoot.message_sent': ChatwootMessageReceivedData;
