@@ -92,6 +92,20 @@
       "when": 1748390400000,
       "tag": "0012_imports",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1748476800000,
+      "tag": "0013_chatwoot_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1747267200000,
+      "tag": "0016_credit_core",
+      "breakpoints": true
     }
   ]
 }

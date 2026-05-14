@@ -51,3 +51,8 @@ export * from './data_subject.js';
 // Importações pipeline (F1-S17)
 export * from './importBatches.js';
 export * from './importRows.js';
+
+// Crédito — produtos, regras e simulações (F2-S01)
+export * from './creditProducts.js';
+export * from './creditProductRules.js';
+export * from './creditSimulations.js';

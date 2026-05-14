@@ -9,8 +9,8 @@
 //   - phone_normalized: apenas dígitos (5511999999999). Fonte para dedupe.
 //   - source:           canal de origem do lead.
 //   - status:           pipeline do CRM (new → qualifying → simulation → closed_*).
-//   - last_simulation_id: FK virtual para simulations (tabela criada em F1-S22).
-//                         Sem FK física aqui para evitar dependência circular de migration.
+//   - last_simulation_id: FK física para credit_simulations (criada em F2-S01 via
+//                         migration 0016 — ALTER TABLE para evitar dependência circular).
 //   - cpf_encrypted:    bytea reservado para F1-S24 (AES-256-GCM via pgcrypto).
 //   - cpf_hash:         HMAC SHA-256 para dedupe seguro de CPF (F1-S24).
 //   - email:            citext (case-insensitive, extension citext de 0000_init.sql).
@@ -147,10 +147,12 @@ export const leads = pgTable(
       .default('new'),
 
     /**
-     * ID da última simulação de crédito associada.
-     * FK virtual — tabela simulations será criada em F1-S22.
-     * Sem FK física aqui para evitar dependência de migration.
-     * Aplicação garante referential integrity via service layer.
+     * ID da última simulação de crédito associada ao lead.
+     * FK física declarada via ALTER TABLE em migration 0016_credit_core.sql,
+     * pois credit_simulations também referencia leads (dependência circular
+     * de migration que impede declaração inline no CREATE TABLE).
+     *   REFERENCES credit_simulations(id) ON DELETE SET NULL
+     * ON DELETE SET NULL: deletar simulação não destrói o lead.
      */
     lastSimulationId: uuid('last_simulation_id'),
 
