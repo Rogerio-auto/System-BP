@@ -25,6 +25,7 @@ import { importsRoutes } from './modules/imports/routes.js';
 import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/routes.js';
 import { kanbanRoutes } from './modules/kanban/routes.js';
 import { leadsRoutes } from './modules/leads/routes.js';
+import { internalSimulationsRoutes } from './modules/simulations/internal-routes.js';
 import { simulationsRoutes } from './modules/simulations/routes.js';
 import { usersRoutes } from './modules/users/routes.js';
 import { whatsappRoutes } from './modules/whatsapp/routes.js';
@@ -129,6 +130,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(creditProductsRoutes);
   // Simulações de crédito via UI (F2-S04)
   await app.register(simulationsRoutes);
+  // Simulações de crédito via IA (F2-S05) — canal M2M, X-Internal-Token, idempotente
+  await app.register(internalSimulationsRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.
