@@ -3,12 +3,12 @@ id: F2-S02
 title: Service de cálculo Price + SAC (puro, testável)
 phase: F2
 task_ref: T2.2
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: claude-code
 claimed_at: 2026-05-14T18:18:10Z
-completed_at: null
+completed_at: 2026-05-14T18:21:52Z
 pr_url: null
 depends_on: []
 blocks: [F2-S05, F2-S06]
