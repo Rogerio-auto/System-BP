@@ -50,13 +50,22 @@ python scripts/slot.py claim <SLOT-ID>
 
 Esse comando faz, atomicamente:
 
-- `git checkout main && git pull --ff-only`
+- `git checkout main && git pull --ff-only` _(apenas no working tree principal)_
 - Cria branch `feat/<slot-id-lowercase>`
 - Atualiza frontmatter (`status: in-progress`, `agent_id`, `claimed_at`)
 - Re-renderiza `tasks/STATUS.md` a partir dos frontmatters
 - Commit `chore(tasks): <SLOT-ID> in-progress`
 
-Rejeita se: working tree sujo, branch já existe, slot não está available, ou main já foi modificado.
+Rejeita se: working tree com arquivos tracked modificados, branch já existe, slot não está available.
+
+**Comportamento em worktrees do Agent tool (isolation: "worktree"):**
+
+Quando o script detecta que está sendo executado dentro de um worktree adicional
+(via `git rev-parse --git-dir`), ele **pula** `git checkout main && git pull --ff-only`.
+Isso porque o git proíbe ter a mesma branch (`main`) checked out em dois worktrees
+simultaneamente. O worktree é criado pelo orchestrator com HEAD apontando para
+`origin/main` — atualizar o main antes do dispatch é responsabilidade do orchestrator.
+A branch `feat/<slot-id>` é criada via `git switch -c feat/<slot-id>` diretamente.
 
 **NÃO** edite `tasks/STATUS.md` à mão. **NÃO** crie branch manualmente. O script é a única forma.
 

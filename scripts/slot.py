@@ -159,14 +159,85 @@ def current_branch() -> str:
 
 
 def working_tree_dirty() -> bool:
-    """True se há mudanças não-commitadas (ignora .claude/settings.local.json)."""
+    """True se há mudanças não-commitadas tracked.
+
+    Ignora:
+    - .claude/settings.local.json (config local volátil)
+    - Arquivos untracked (??) — não afetam operações de branch/checkout
+
+    Nota: arquivos untracked não interferem com `git checkout` nem com
+    `git switch -c`, então não devem bloquear o claim. O que bloqueia são
+    arquivos tracked modificados (M, A, D, R, C) ou arquivos staged.
+    """
     out = run_git(["status", "--porcelain"]).stdout
     for line in out.splitlines():
+        xy = line[:2]
         path = line[3:].strip()
+        # Untracked — inofensivo para operações de branch
+        if xy == "??":
+            continue
         if path == ".claude/settings.local.json":
             continue
         return True
     return False
+
+
+def is_in_worktree() -> bool:
+    """Retorna True se REPO_ROOT está num worktree não-principal.
+
+    Estratégia primária: `git rev-parse --git-dir` (com cwd=REPO_ROOT) retorna
+    `.git` no working tree principal e um caminho absoluto contendo `worktrees`
+    (ex: `/abs/path/.git/worktrees/<name>`) em worktrees adicionais.
+
+    Estratégia de fallback: compara `git rev-parse --show-toplevel` com o
+    primeiro entry de `git worktree list --porcelain` (que é sempre o main).
+    Cobre edge cases onde o git-dir não segue a convenção `worktrees/`.
+
+    Nota: REPO_ROOT é derivado de `Path(__file__).resolve()`, portanto quando
+    o script é invocado de dentro de um worktree adicional, REPO_ROOT já aponta
+    para o working tree do worktree — não para o main. Os comandos git rodam
+    com cwd=REPO_ROOT, operando corretamente no contexto local.
+    """
+    res = run_git(["rev-parse", "--git-dir"], check=False)
+    if res.returncode != 0:
+        return False
+    git_dir = res.stdout.strip().replace("\\", "/")
+    # Em worktree adicional o git-dir contém "worktrees" no path
+    if "worktrees" in git_dir:
+        return True
+    # Fallback: compara toplevel atual com o main worktree
+    main_path = main_worktree_path()
+    if main_path is None:
+        return False
+    toplevel_res = run_git(["rev-parse", "--show-toplevel"], check=False)
+    if toplevel_res.returncode != 0:
+        return False
+    try:
+        return Path(toplevel_res.stdout.strip()).resolve() != main_path.resolve()
+    except (OSError, ValueError):
+        return False
+
+
+def main_worktree_path() -> Path | None:
+    """Caminho absoluto do working tree principal (primeiro entry de worktree list).
+
+    `git worktree list --porcelain` emite blocos separados por linha em branco.
+    O primeiro bloco é sempre o working tree principal:
+
+        worktree /abs/path/to/main
+        HEAD <sha>
+        branch refs/heads/main
+
+    Retorna None se o comando falhar ou saída for inesperada.
+    """
+    res = run_git(["worktree", "list", "--porcelain"], check=False)
+    if res.returncode != 0:
+        return None
+    for line in res.stdout.splitlines():
+        if line.startswith("worktree "):
+            path_str = line[len("worktree "):].strip()
+            return Path(path_str)
+    return None
 
 
 def branch_exists(name: str) -> bool:
@@ -502,14 +573,30 @@ def cmd_claim(args: argparse.Namespace) -> int:
     if branch_exists(branch):
         die(f"Branch {branch} already exists. Use --force to checkout existing.")
 
-    # Checkout main, pull, branch
-    info(f"[slot] claiming {slot_id} (branch: {branch})")
-    run_git(["fetch", "origin", "main"], check=False)
-    run_git(["checkout", "main"])
-    run_git(["pull", "--ff-only", "origin", "main"], check=False)
-    run_git(["checkout", "-b", branch])
+    in_wt = is_in_worktree()
+    info(f"[slot] claiming {slot_id} (branch: {branch}, worktree: {in_wt})")
 
-    # Frontmatter + STATUS.md
+    if in_wt:
+        # Worktree não-principal: NÃO fazer checkout main (git proíbe ter o mesmo
+        # branch em dois worktrees simultâneos). O worktree já foi criado pelo
+        # orchestrator a partir de um ponto válido de main — criar a branch feat/*
+        # diretamente a partir do HEAD atual.
+        #
+        # Decisão documentada: não atualizamos main no worktree antes de criar a
+        # branch. É responsabilidade do orchestrator criar o worktree com um HEAD
+        # atualizado (ex: `git worktree add ... origin/main` ou equivalente).
+        # Se for necessário fetch parcial de refs, isso deve ser feito antes do
+        # dispatch do agente — não aqui.
+        run_git(["switch", "-c", branch])
+    else:
+        # Working tree principal: comportamento original — garante que partimos
+        # de um main atualizado.
+        run_git(["fetch", "origin", "main"], check=False)
+        run_git(["checkout", "main"])
+        run_git(["pull", "--ff-only", "origin", "main"], check=False)
+        run_git(["checkout", "-b", branch])
+
+    # Frontmatter + STATUS.md (idêntico em ambos os casos)
     update_frontmatter_fields(path, {
         "status": "in-progress",
         "agent_id": os.environ.get("ELEMENTO_AGENT_ID", "claude-code"),
@@ -519,7 +606,8 @@ def cmd_claim(args: argparse.Namespace) -> int:
 
     # Commit chore
     run_git(["add", str(path.relative_to(REPO_ROOT)), str(STATUS_FILE.relative_to(REPO_ROOT))])
-    run_git(["commit", "-m", f"chore(tasks): {slot_id} in-progress"])
+    # Slot ID em lowercase para passar subject-case do commitlint (§7.5 do PROTOCOL.md)
+    run_git(["commit", "-m", f"chore(tasks): {slot_id.lower()} in-progress"])
 
     info(f"[slot] {slot_id} claimed on branch {branch} (commit {_short_sha()})")
     return 0
@@ -697,7 +785,8 @@ def cmd_finish(args: argparse.Namespace) -> int:
 
     if not args.no_commit:
         run_git(["add", str(path.relative_to(REPO_ROOT)), str(STATUS_FILE.relative_to(REPO_ROOT))])
-        run_git(["commit", "-m", f"chore(tasks): {slot_id} review"])
+        # Slot ID em lowercase para passar subject-case do commitlint (§7.5 do PROTOCOL.md)
+        run_git(["commit", "-m", f"chore(tasks): {slot_id.lower()} review"])
         info(f"[slot] {slot_id} marked review (commit {_short_sha()})")
     else:
         info(f"[slot] {slot_id} marked review (no commit; files staged via sync)")

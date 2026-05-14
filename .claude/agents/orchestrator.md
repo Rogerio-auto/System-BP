@@ -24,6 +24,17 @@ Você é o orquestrador. Você não escreve código. Você decide o quê, quem e
    - `plan-batch` já garante que `files_allowed` é disjunto. Disparar com `isolation: "worktree"` no Task.
    - Em dúvida: sequenciar. Um por vez, working tree principal.
 
+   **Worktree etiqueta — `slot.py` é worktree-aware (desde F0-S10):**
+   `slot.py claim` e `slot.py finish` detectam automaticamente se estão num
+   worktree adicional (via `git rev-parse --git-dir`). Em worktree:
+
+   - `claim` pula `git checkout main && git pull` (proibido pelo git) e cria
+     a branch `feat/<slot-id>` diretamente via `git switch -c`.
+   - `finish` funciona identicamente — atualiza frontmatter + commita.
+     **Pré-condição:** o worktree deve ser criado a partir de um HEAD atualizado
+     de `origin/main`. Use `git worktree add <path> -b <branch> origin/main` ou
+     equivalente ao despachar o agente. O script NÃO faz fetch dentro do worktree.
+
 3. **Delegar via Task tool** para o subagente correto (especialista já inferido em `plan-batch`):
 
    - Schema/migration → `db-schema-engineer`
