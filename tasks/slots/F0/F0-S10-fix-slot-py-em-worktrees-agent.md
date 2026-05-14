@@ -3,7 +3,7 @@ id: F0-S10
 title: Fix scripts/slot.py claim/finish em worktrees do Agent tool
 phase: F0
 task_ref: TOOLCHAIN.10
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: claude-code
@@ -16,6 +16,8 @@ labels: []
 source_docs:
   - tasks/PROTOCOL.md
   - .claude/agents/orchestrator.md
+completed_at: 2026-05-14T19:06:58Z
+
 ---
 
 # F0-S10 — Fix slot.py em worktrees do Agent

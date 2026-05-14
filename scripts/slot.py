@@ -606,7 +606,8 @@ def cmd_claim(args: argparse.Namespace) -> int:
 
     # Commit chore
     run_git(["add", str(path.relative_to(REPO_ROOT)), str(STATUS_FILE.relative_to(REPO_ROOT))])
-    run_git(["commit", "-m", f"chore(tasks): {slot_id} in-progress"])
+    # Slot ID em lowercase para passar subject-case do commitlint (§7.5 do PROTOCOL.md)
+    run_git(["commit", "-m", f"chore(tasks): {slot_id.lower()} in-progress"])
 
     info(f"[slot] {slot_id} claimed on branch {branch} (commit {_short_sha()})")
     return 0
@@ -784,7 +785,8 @@ def cmd_finish(args: argparse.Namespace) -> int:
 
     if not args.no_commit:
         run_git(["add", str(path.relative_to(REPO_ROOT)), str(STATUS_FILE.relative_to(REPO_ROOT))])
-        run_git(["commit", "-m", f"chore(tasks): {slot_id} review"])
+        # Slot ID em lowercase para passar subject-case do commitlint (§7.5 do PROTOCOL.md)
+        run_git(["commit", "-m", f"chore(tasks): {slot_id.lower()} review"])
         info(f"[slot] {slot_id} marked review (commit {_short_sha()})")
     else:
         info(f"[slot] {slot_id} marked review (no commit; files staged via sync)")
