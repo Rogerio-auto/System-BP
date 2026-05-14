@@ -76,7 +76,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2-S05 | Endpoint POST /internal/simulations (para IA, idempotente)  | 🟣 review    | high       | F2-S04                         |
 | F2-S06 | Frontend simulador interno (form + resultado + amortização) | 🟢 available | high       | F2-S04, F1-S08                 |
 | F2-S07 | Frontend gestão de produtos + timeline de versões           | 🟢 available | medium     | F2-S03, F1-S08                 |
-| F2-S08 | Frontend histórico de simulações na ficha do lead           | 🟢 available | medium     | F2-S04, F1-S12                 |
+| F2-S08 | Frontend histórico de simulações na ficha do lead           | 🟣 review    | medium     | F2-S04, F1-S12                 |
 | F2-S09 | Worker kanban-on-simulation (consome simulations.generated) | 🟢 available | medium     | F2-S04, F1-S13, F1-S15         |
 
 ## Fase 3 — Agentes IA
