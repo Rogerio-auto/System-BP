@@ -3,13 +3,13 @@ id: F2-S05
 title: Endpoint POST /internal/simulations (para IA, idempotente)
 phase: F2
 task_ref: T2.5
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-14T21:54:49Z
 completed_at: 2026-05-14T22:15:20Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/56
 depends_on: [F2-S04]
 blocks: []
 labels: [lgpd-impact]

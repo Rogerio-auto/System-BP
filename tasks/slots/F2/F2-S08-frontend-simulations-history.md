@@ -3,13 +3,13 @@ id: F2-S08
 title: Frontend histórico de simulações na ficha do lead
 phase: F2
 task_ref: T2.7
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: frontend-engineer
-claimed_at: 2026-05-14T21:55:29Z
-completed_at: 2026-05-14T22:15:21Z
-pr_url:
+claimed_at:
+completed_at: 2026-05-14T22:37:29Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/58
 depends_on: [F2-S04, F1-S12]
 blocks: []
 labels: []
