@@ -3,11 +3,11 @@ id: F2-S08
 title: Frontend histórico de simulações na ficha do lead
 phase: F2
 task_ref: T2.7
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: frontend-engineer
-claimed_at:
+claimed_at: 2026-05-14T21:55:29Z
 completed_at:
 pr_url:
 depends_on: [F2-S04, F1-S12]
