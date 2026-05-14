@@ -814,6 +814,61 @@ def _gh_path() -> str | None:
     return None
 
 
+# Regex tolerante: extrai o slot ID do headRefName.
+# Matches: feat/f2-s01, feat/F0-S10, feat/f2-s02-calculator-price-sac, feat/f0-s13-fix-reconcile
+_BRANCH_SLOT_RE = re.compile(r"^feat/(f\d+-s\d+)(?:-.*)?$", re.IGNORECASE)
+
+
+def _fetch_merged_prs_by_slot_id(limit: int = 200) -> dict[str, dict]:
+    """Busca PRs mergeados via gh CLI e indexa por slot_id extraído do headRefName.
+
+    Esta é a fonte de verdade primária para reconcile-merged. Não depende de:
+    - presença de branches locais/remotas (deletadas após merge)
+    - slot_id no título do PR (o finish commit usa título genérico)
+    - histórico git rebased (squash-merges)
+
+    Retorna dict com chave = slot_id normalizado em uppercase (ex: 'F2-S01').
+    Valor = dict com keys: number, url, mergedAt, headRefName.
+    """
+    gh = _gh_path()
+    if not gh:
+        return {}
+    try:
+        res = subprocess.run(
+            [gh, "pr", "list",
+             "--state", "merged",
+             "--limit", str(limit),
+             "--json", "number,url,mergedAt,headRefName"],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=20,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return {}
+    if res.returncode != 0 or not res.stdout.strip():
+        return {}
+    try:
+        items: list[dict] = json.loads(res.stdout)
+    except json.JSONDecodeError:
+        return {}
+
+    by_slot: dict[str, dict] = {}
+    for pr in items:
+        ref = pr.get("headRefName") or ""
+        m = _BRANCH_SLOT_RE.match(ref)
+        if not m:
+            continue
+        slot_id = m.group(1).upper()  # normalize: f2-s01 → F2-S01
+        # Não sobrescreve: se múltiplos PRs apontam para o mesmo slot,
+        # mantém o mais recente (lista já vem ordenada desc por mergedAt).
+        if slot_id not in by_slot:
+            by_slot[slot_id] = pr
+    return by_slot
+
+
 # -----------------------------------------------------------------------------
 # Subcommand: finish
 # -----------------------------------------------------------------------------
@@ -955,18 +1010,23 @@ def cmd_done(args: argparse.Namespace) -> int:
 def cmd_reconcile_merged(args: argparse.Namespace) -> int:
     """Detecta slots realmente entregues e marca como done.
 
-    Defesa em 2 camadas (vs. heurística antiga que dava falsos positivos/negativos):
+    Defesa em 3 camadas:
 
-      Layer 2 — PR mergeado via gh CLI:
-        Procura PR mergeado que referência o slot ID no título/body.
-        Cobre squash-merges (que quebram --is-ancestor).
-        Enriquece o frontmatter com pr_url + completed_at = mergedAt.
+      Layer 0 — headRefName de PRs mergeados (fonte de verdade primária):
+        Busca TODOS os PRs mergeados via `gh pr list --state merged` e extrai
+        o slot_id do headRefName com regex tolerante `feat/(f\\d+-s\\d+)(?:-.*)?`.
+        Não depende de branch presente, título do PR, nem histórico rebased.
+        Resolve os bugs documentados em F0-S13: PRs com título `chore(tasks):
+        <slot-id> review` eram filtrados pela heurística de título; PRs com
+        título sem slot_id (ex: F0-S10) não eram detectados.
 
-      Layer 1 — branch git com commits substantivos:
-        Se Layer 2 falhar (gh ausente, sem PR, etc.), tenta detectar via
-        branches locais/remotos. Mas EXIGE:
-          (a) tip ancestor de origin/main (--is-ancestor)
-          (b) >=1 commit não-chore/docs/ci entre base e tip
+      Layer 1 — título do PR via gh CLI (fallback):
+        Procura PR mergeado que referência o slot ID no título.
+        Cobre casos onde o headRefName não segue a convenção `feat/*`.
+
+      Layer 2 — branch git com commits substantivos (último recurso):
+        Se gh estiver ausente ou sem PR, detecta via branches locais/remotos.
+        Exige (a) tip ancestor de origin/main e (b) >=1 commit não-chore.
         Resolve o bug F1-S06: branches só com commit `chore(tasks): claim`
         não são consideradas implementação.
 
@@ -975,6 +1035,10 @@ def cmd_reconcile_merged(args: argparse.Namespace) -> int:
     base = f"{args.remote}/main"
     run_git(["fetch", args.remote, "main"], check=False)
 
+    # Layer 0: fetch once, index by slot_id (fonte de verdade primária).
+    # Em dry-run ainda fazemos a chamada para poder listar o que seria feito.
+    merged_prs_by_slot = _fetch_merged_prs_by_slot_id()
+
     slots = all_slots()
     plan: list[tuple[str, str, dict]] = []  # (slot_id, reason, updates)
 
@@ -982,8 +1046,8 @@ def cmd_reconcile_merged(args: argparse.Namespace) -> int:
         if s.status == "done":
             continue
 
-        # ── Layer 2: gh PR detection ─────────────────────────────────────────
-        pr = _find_pr_for_slot(s.id)
+        # ── Layer 0: headRefName de PRs mergeados ────────────────────────────
+        pr = merged_prs_by_slot.get(s.id.upper())
         if pr is not None:
             updates: dict[str, str] = {"status": "done"}
             text = (find_slot_file(s.id)).read_text(encoding="utf-8")
@@ -992,10 +1056,22 @@ def cmd_reconcile_merged(args: argparse.Namespace) -> int:
             # pr_url só se ainda não preenchido (preserva edição manual)
             if not re.search(r"^pr_url:\s+https?://", text, re.MULTILINE):
                 updates["pr_url"] = pr.get("url", "")
-            plan.append((s.id, f"{s.status} → done  (PR #{pr.get('number')})", updates))
+            plan.append((s.id, f"{s.status} → done  (PR #{pr.get('number')} via headRefName)", updates))
             continue
 
-        # ── Layer 1: git branch + commits substantivos ───────────────────────
+        # ── Layer 1: título do PR via gh CLI (fallback) ──────────────────────
+        pr_title = _find_pr_for_slot(s.id)
+        if pr_title is not None:
+            updates = {"status": "done"}
+            text = (find_slot_file(s.id)).read_text(encoding="utf-8")
+            if not re.search(r"^completed_at:\s+\d{4}-", text, re.MULTILINE):
+                updates["completed_at"] = pr_title.get("mergedAt") or now_iso()
+            if not re.search(r"^pr_url:\s+https?://", text, re.MULTILINE):
+                updates["pr_url"] = pr_title.get("url", "")
+            plan.append((s.id, f"{s.status} → done  (PR #{pr_title.get('number')} via título)", updates))
+            continue
+
+        # ── Layer 2: git branch + commits substantivos ───────────────────────
         branches = _find_all_slot_branches(s.id, args.remote)
         merged_branch: tuple[str, str] | None = None
         for short, tip in branches:
