@@ -10,7 +10,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
-| F2   | 1     | 0   | 0   | 0   | 1   | 0   | 0   |
+| F2   | 1     | 0   | 0   | 0   | 0   | 1   | 0   |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 
 ## Fase 0 — Preparação
@@ -62,9 +62,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 2 — Crédito e simulação
 
-| ID     | Título                                                      | Status         | Prioridade | Depende de     |
-| ------ | ----------------------------------------------------------- | -------------- | ---------- | -------------- |
-| F2-S01 | Schema credit_products + product_rules + simulations + seed | 🔵 in-progress | critical   | F1-S09, F1-S13 |
+| ID     | Título                                                      | Status    | Prioridade | Depende de     |
+| ------ | ----------------------------------------------------------- | --------- | ---------- | -------------- |
+| F2-S01 | Schema credit_products + product_rules + simulations + seed | 🟣 review | critical   | F1-S09, F1-S13 |
 
 ## Fase 3 — Agentes IA
 
