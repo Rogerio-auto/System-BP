@@ -3,13 +3,13 @@ id: F0-S11
 title: Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)
 phase: F0
 task_ref: TOOLCHAIN.11
-status: review
+status: done
 priority: medium
 estimated_size: XS
 agent_id: backend-engineer
 claimed_at: 2026-05-14T19:51:36Z
 completed_at: 2026-05-14T20:02:06Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/51
 depends_on: []
 blocks: []
 labels: []
