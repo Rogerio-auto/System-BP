@@ -3,12 +3,12 @@ id: F2-S05
 title: Endpoint POST /internal/simulations (para IA, idempotente)
 phase: F2
 task_ref: T2.5
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: backend-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-14T21:54:49Z
+completed_at: 2026-05-14T22:15:20Z
 pr_url:
 depends_on: [F2-S04]
 blocks: []
