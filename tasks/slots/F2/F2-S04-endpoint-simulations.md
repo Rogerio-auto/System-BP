@@ -3,11 +3,11 @@ id: F2-S04
 title: Endpoint POST /api/simulations (UI)
 phase: F2
 task_ref: T2.4
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-14T21:35:39Z
 completed_at:
 pr_url:
 depends_on: [F2-S01, F2-S02, F2-S03, F1-S15]
