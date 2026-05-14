@@ -25,6 +25,7 @@ import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
 import { CitiesPage } from './pages/admin/Cities';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
+import { SimulatorPage } from './pages/simulator/SimulatorPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,6 +87,7 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/crm" element={<CrmListPage />} />
         <Route path="/crm/:id" element={<CrmDetailPage />} />
         <Route path="/imports/leads/new" element={<ImportWizardPage />} />
+        <Route path="/simulator" element={<SimulatorPage />} />
         <Route path="/analise" element={<PlaceholderPage title="Análise" />} />
         <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
         <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
