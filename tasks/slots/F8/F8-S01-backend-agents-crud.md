@@ -3,12 +3,12 @@ id: F8-S01
 title: Backend CRUD agents + agent_cities (admin)
 phase: F8
 task_ref: F8.1
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-15T19:27:54Z
+completed_at: 2026-05-15T19:54:20Z
 pr_url:
 depends_on: [F1-S04, F1-S05, F1-S07]
 blocks: [F8-S04]
