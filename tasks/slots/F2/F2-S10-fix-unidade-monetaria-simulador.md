@@ -3,13 +3,13 @@ id: F2-S10
 title: Fix unidade monetária do simulador (centavos → reais)
 phase: F2
 task_ref: F2.10
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: frontend-engineer
 claimed_at: 2026-05-15T14:41:08Z
 completed_at: 2026-05-15T14:50:36Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/62
 depends_on: []
 blocks: []
 labels: []
