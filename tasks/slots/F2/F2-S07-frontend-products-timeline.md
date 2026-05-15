@@ -3,13 +3,13 @@ id: F2-S07
 title: Frontend gestão de produtos + timeline de versões
 phase: F2
 task_ref: T2.3
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: frontend-engineer
 claimed_at: 2026-05-14T22:40:32Z
 completed_at: 2026-05-14T23:00:30Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/59
 depends_on: [F2-S03, F1-S08]
 blocks: []
 labels: []
