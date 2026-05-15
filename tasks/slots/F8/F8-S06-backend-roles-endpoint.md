@@ -3,11 +3,11 @@ id: F8-S06
 title: Backend — GET /api/admin/roles + roles na listagem de usuários
 phase: F8
 task_ref: F8.6
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-15T20:14:55Z
 completed_at:
 pr_url:
 depends_on: []
