@@ -6,6 +6,10 @@
 //
 // UNIDADE MONETÁRIA: tudo em REAIS (decimal com 2 casas), consistente com o
 // backend (numeric(14,2)). Nunca centavos neste módulo.
+//
+// CONTRATO (F2-S11):
+//   Request  → camelCase (leadId/productId/amount/termMonths)
+//   Response → snake_case top-level; monetários como string; tabela usa number/payment
 // =============================================================================
 
 // ─── Produto de Crédito ───────────────────────────────────────────────────────
@@ -42,59 +46,72 @@ export interface CreditProductListResponse {
   };
 }
 
-// ─── Simulação ────────────────────────────────────────────────────────────────
-
-/**
- * Linha da tabela de amortização Price (Price/SAC).
- * Vinda do backend na response de POST /api/simulations.
- */
-export interface AmortizationRow {
-  month: number;
-  principal: number; // reais
-  interest: number; // reais
-  installment: number; // reais
-  balance: number; // reais (saldo devedor ao final do mês)
-}
-
-/**
- * Resultado de simulação retornado pelo backend.
- */
-export interface SimulationResult {
-  id: string;
-  lead_id: string;
-  product_id: string;
-  requested_amount: number; // reais
-  term_months: number;
-  interest_rate_monthly: number;
-  installment_amount: number; // reais — parcela mensal
-  total_amount: number; // reais — total a pagar
-  total_interest: number; // reais — total de juros
-  amortization_table: AmortizationRow[];
-  created_at: string;
-}
+// ─── Simulação — Request ──────────────────────────────────────────────────────
 
 /**
  * Body do POST /api/simulations.
+ * camelCase — espelha SimulationCreateSchema do backend (F2-S11).
  */
 export interface SimulationBody {
+  leadId: string;
+  productId: string;
+  amount: number; // reais
+  termMonths: number;
+}
+
+// ─── Simulação — Response ─────────────────────────────────────────────────────
+
+/**
+ * Linha da tabela de amortização Price/SAC.
+ * Vinda do backend no campo amortization_table[].
+ * Campos espelham InstallmentRowSchema do backend: number/payment/principal/interest/balance.
+ */
+export interface AmortizationRow {
+  number: number; // número da parcela
+  principal: number; // reais
+  interest: number; // reais
+  payment: number; // reais — parcela total (era "installment" no shape antigo)
+  balance: number; // reais — saldo devedor ao final do mês
+}
+
+/**
+ * Resultado de simulação retornado pelo backend, após normalização de strings→number.
+ *
+ * O backend retorna monetários como string ("5000.00") — o useSimulate normaliza
+ * para number uma vez, e toda a UI trabalha com number.
+ *
+ * Campos snake_case espelham SimulationResponseSchema do backend (F2-S11).
+ */
+export interface SimulationResult {
+  id: string;
+  organization_id: string;
   lead_id: string;
   product_id: string;
-  requested_amount: number; // reais
+  rule_version_id: string;
+  amount_requested: number; // reais (normalizado de string pelo useSimulate)
   term_months: number;
+  monthly_payment: number; // reais (normalizado de string — parcela mensal)
+  total_amount: number; // reais (normalizado de string)
+  total_interest: number; // reais (normalizado de string)
+  rate_monthly_snapshot: number; // ex: 0.0199 (normalizado de string)
+  amortization_method: 'price' | 'sac';
+  amortization_table: AmortizationRow[];
+  origin: 'manual' | 'ai' | 'import';
+  created_by_user_id: string | null;
+  created_at: string;
 }
 
 // ─── Formulário (estado interno) ──────────────────────────────────────────────
 
 /**
  * Valores do formulário React Hook Form.
- * amount_display é a string formatada (R$ 1.000,00) para UX.
- * O valor exposto ao submit é reais via parseBRL(amount_display).
+ * amount é number (input type="number" com valueAsNumber).
  */
 export interface SimulatorFormValues {
-  lead_id: string;
-  product_id: string;
-  amount_display: string; // formatado BR — convertido para reais no submit via parseBRL
-  term_months: string; // string → number na validação
+  leadId: string;
+  productId: string;
+  amount: number; // reais — input type="number", digitar 30000 = R$ 30.000
+  termMonths: string; // string → number na validação
 }
 
 // ─── Formatadores ─────────────────────────────────────────────────────────────
@@ -105,47 +122,6 @@ export interface SimulatorFormValues {
  * Unidade: REAIS. Ex: formatBRL(5000) → "R$ 5.000,00"
  */
 export function formatBRL(reais: number): string {
-  return reais.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-  });
-}
-
-/**
- * Converte string BRL formatada de volta para reais (float com 2 casas).
- *
- * "R$ 1.000,50" → 1000.50 (reais)
- */
-export function parseBRL(display: string): number {
-  // Remove símbolo R$, espaços, pontos de milhar; substitui vírgula decimal por ponto
-  const clean = display.replace(/[R$\s.]/g, '').replace(',', '.');
-  const value = parseFloat(clean);
-  if (isNaN(value)) return 0;
-  // Arredonda a 2 casas decimais para evitar floating-point noise
-  return Math.round(value * 100) / 100;
-}
-
-/**
- * Aplica máscara BRL em tempo real para campos de entrada.
- *
- * Comportamento: os dígitos digitados são interpretados como centavos durante
- * a digitação (UX de "cada dígito desloca a vírgula"), mas a string resultante
- * é BRL formatado em reais. Ao ser lida por parseBRL, retorna REAIS.
- *
- * Ex: usuário digita "1000000" → exibe "R$ 10.000,00" → parseBRL retorna 10000.00
- *
- * Aceita apenas dígitos; não-dígitos são ignorados.
- */
-export function maskBRL(raw: string): string {
-  // Mantém apenas dígitos
-  const digits = raw.replace(/\D/g, '');
-  if (!digits) return '';
-  const centsInt = parseInt(digits, 10);
-  if (isNaN(centsInt)) return '';
-  // Interpreta dígitos como centavos para a UX de digitação progressiva,
-  // depois converte para reais para formatar como BRL
-  const reais = centsInt / 100;
   return reais.toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',

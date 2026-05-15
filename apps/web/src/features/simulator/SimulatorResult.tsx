@@ -292,7 +292,7 @@ function ResultSuccess({
                 textShadow: '0 2px 12px rgba(0,0,0,0.2)',
               }}
             >
-              {formatBRL(result.installment_amount)}
+              {formatBRL(result.monthly_payment)}
             </span>
             <p className="font-sans text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
               por {result.term_months} meses
@@ -312,7 +312,7 @@ function ResultSuccess({
           label="Total de juros"
           value={formatBRL(result.total_interest)}
           trend={{
-            value: `${((result.total_interest / result.requested_amount) * 100).toFixed(1)}%`,
+            value: `${((result.total_interest / result.amount_requested) * 100).toFixed(1)}%`,
             direction: 'neutral',
           }}
         />
@@ -320,7 +320,7 @@ function ResultSuccess({
         {/* Taxa aplicada */}
         <Stat
           label="Taxa aplicada"
-          value={formatRate(result.interest_rate_monthly)}
+          value={formatRate(result.rate_monthly_snapshot)}
           description="ao mês"
         />
       </div>
