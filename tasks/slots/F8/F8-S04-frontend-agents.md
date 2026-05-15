@@ -3,12 +3,12 @@ id: F8-S04
 title: Frontend gestão de agentes de crédito
 phase: F8
 task_ref: F8.4
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: frontend-engineer
 claimed_at: 2026-05-15T20:15:28Z
-completed_at:
+completed_at: 2026-05-15T21:21:00Z
 pr_url:
 depends_on: [F8-S01, F1-S08]
 blocks: []
@@ -17,7 +17,6 @@ source_docs:
   - docs/18-design-system.md
   - docs/design-system/index.html
 ---
-
 # F8-S04 — Frontend gestão de agentes
 
 ## Objetivo
