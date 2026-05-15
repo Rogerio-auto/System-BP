@@ -106,6 +106,20 @@
       "when": 1747267200000,
       "tag": "0016_credit_core",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1748563200000,
+      "tag": "0017_seed_credit_products_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1748649600000,
+      "tag": "0018_seed_simulations_permissions",
+      "breakpoints": true
     }
   ]
 }
