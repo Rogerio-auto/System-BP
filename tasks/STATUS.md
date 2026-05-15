@@ -10,7 +10,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
-| F2   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
+| F2   | 11    | 0   | 0   | 0   | 1   | 0   | 10  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
 | F8   | 5     | 5   | 0   | 0   | 0   | 0   | 0   |
 
@@ -68,19 +68,19 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 2 — Crédito e simulação
 
-| ID     | Título                                                         | Status       | Prioridade | Depende de                     |
-| ------ | -------------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
-| F2-S01 | Schema credit_products + product_rules + simulations + seed    | ✅ done      | critical   | F0-S04, F1-S09, F1-S13, F1-S15 |
-| F2-S02 | Service de cálculo Price + SAC (puro, testável)                | ✅ done      | high       | —                              |
-| F2-S03 | CRUD credit-products + publicação versionada de regras         | ✅ done      | high       | F2-S01, F1-S04, F1-S15         |
-| F2-S04 | Endpoint POST /api/simulations (UI)                            | ✅ done      | critical   | F2-S01, F2-S02, F2-S03, F1-S15 |
-| F2-S05 | Endpoint POST /internal/simulations (para IA, idempotente)     | ✅ done      | high       | F2-S04                         |
-| F2-S06 | Frontend simulador interno (form + resultado + amortização)    | ✅ done      | high       | F2-S04, F1-S08                 |
-| F2-S07 | Frontend gestão de produtos + timeline de versões              | ✅ done      | medium     | F2-S03, F1-S08                 |
-| F2-S08 | Frontend histórico de simulações na ficha do lead              | ✅ done      | medium     | F2-S04, F1-S12                 |
-| F2-S09 | Worker kanban-on-simulation (consome simulations.generated)    | ✅ done      | medium     | F2-S04, F1-S13, F1-S15         |
-| F2-S10 | Fix unidade monetária do simulador (centavos → reais)          | ✅ done      | critical   | —                              |
-| F2-S11 | Substituir máscara digit-shift do simulador por input numérico | 🟢 available | medium     | F2-S10                         |
+| ID     | Título                                                                          | Status         | Prioridade | Depende de                     |
+| ------ | ------------------------------------------------------------------------------- | -------------- | ---------- | ------------------------------ |
+| F2-S01 | Schema credit_products + product_rules + simulations + seed                     | ✅ done        | critical   | F0-S04, F1-S09, F1-S13, F1-S15 |
+| F2-S02 | Service de cálculo Price + SAC (puro, testável)                                 | ✅ done        | high       | —                              |
+| F2-S03 | CRUD credit-products + publicação versionada de regras                          | ✅ done        | high       | F2-S01, F1-S04, F1-S15         |
+| F2-S04 | Endpoint POST /api/simulations (UI)                                             | ✅ done        | critical   | F2-S01, F2-S02, F2-S03, F1-S15 |
+| F2-S05 | Endpoint POST /internal/simulations (para IA, idempotente)                      | ✅ done        | high       | F2-S04                         |
+| F2-S06 | Frontend simulador interno (form + resultado + amortização)                     | ✅ done        | high       | F2-S04, F1-S08                 |
+| F2-S07 | Frontend gestão de produtos + timeline de versões                               | ✅ done        | medium     | F2-S03, F1-S08                 |
+| F2-S08 | Frontend histórico de simulações na ficha do lead                               | ✅ done        | medium     | F2-S04, F1-S12                 |
+| F2-S09 | Worker kanban-on-simulation (consome simulations.generated)                     | ✅ done        | medium     | F2-S04, F1-S13, F1-S15         |
+| F2-S10 | Fix unidade monetária do simulador (centavos → reais)                           | ✅ done        | critical   | —                              |
+| F2-S11 | Alinhar contrato do simulador com o backend (request/response) + input numérico | 🔵 in-progress | high       | F2-S10                         |
 
 ## Fase 3 — Agentes IA
 
