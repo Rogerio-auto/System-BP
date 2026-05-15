@@ -40,8 +40,8 @@ function buildSchema(rule: CreditProduct['active_rule']) {
       .refine(
         (v) => {
           if (!rule) return true;
-          const cents = parseBRL(v);
-          return cents >= rule.min_amount && cents <= rule.max_amount;
+          const reais = parseBRL(v);
+          return reais >= rule.min_amount && reais <= rule.max_amount;
         },
         {
           message: rule
