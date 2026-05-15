@@ -3,11 +3,11 @@ id: F2-S10
 title: Fix unidade monetária do simulador (centavos → reais)
 phase: F2
 task_ref: F2.10
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: frontend-engineer
-claimed_at:
+claimed_at: 2026-05-15T14:41:08Z
 completed_at:
 pr_url:
 depends_on: []
