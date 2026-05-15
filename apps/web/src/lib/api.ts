@@ -55,7 +55,7 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 // ─── Flag anti-loop de refresh ────────────────────────────────────────────────
 
-let _refreshing: Promise<string> | null = null;
+let _refreshing: Promise<RefreshResponse> | null = null;
 
 // ─── Refresh interno ─────────────────────────────────────────────────────────
 
