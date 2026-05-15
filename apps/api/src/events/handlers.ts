@@ -109,10 +109,15 @@ export async function setupHandlers(): Promise<void> {
     chatwootSyncHandleEvent,
   );
 
-  // simulations.generated → stub (evento não implementado — loga warn + processa)
+  // simulations.generated → stub Chatwoot (loga warn + processa sem chamar API)
   registerHandler(
     'simulations.generated',
     'chatwoot.sync_on_simulation_generated',
     chatwootSyncHandleEvent,
   );
+
+  // F2-S09: worker-handlers de domínio (kanban-on-simulation, etc.)
+  // Dynamic import via workers/index.ts para evitar hoisting de deps de DB em testes.
+  const { setupWorkerHandlers } = await import('../workers/index.js');
+  setupWorkerHandlers();
 }

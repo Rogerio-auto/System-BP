@@ -3,12 +3,12 @@ id: F2-S09
 title: Worker kanban-on-simulation (consome simulations.generated)
 phase: F2
 task_ref: T2.8
-status: available
+status: review
 priority: medium
 estimated_size: S
 agent_id: backend-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-14T22:41:06Z
+completed_at: 2026-05-14T22:52:49Z
 pr_url:
 depends_on: [F2-S04, F1-S13, F1-S15]
 blocks: []

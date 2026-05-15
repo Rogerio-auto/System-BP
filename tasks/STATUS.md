@@ -77,7 +77,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2-S06 | Frontend simulador interno (form + resultado + amortização) | ✅ done      | high       | F2-S04, F1-S08                 |
 | F2-S07 | Frontend gestão de produtos + timeline de versões           | 🟣 review    | medium     | F2-S03, F1-S08                 |
 | F2-S08 | Frontend histórico de simulações na ficha do lead           | ✅ done      | medium     | F2-S04, F1-S12                 |
-| F2-S09 | Worker kanban-on-simulation (consome simulations.generated) | 🟢 available | medium     | F2-S04, F1-S13, F1-S15         |
+| F2-S09 | Worker kanban-on-simulation (consome simulations.generated) | 🟣 review    | medium     | F2-S04, F1-S13, F1-S15         |
 
 ## Fase 3 — Agentes IA
 
