@@ -14,6 +14,7 @@ import * as React from 'react';
 import { NavLink } from 'react-router-dom';
 
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { useAuth } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -155,6 +156,24 @@ function IconFeatureFlags(): React.JSX.Element {
   );
 }
 
+function IconUsers(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      <path d="M13 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+      <path d="M7 10a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" />
+      <path d="M1 17c0-2.8 2.69-5 6-5h6c3.31 0 6 2.2 6 5" />
+      <path d="M16 13l2 2" />
+      <circle cx="18" cy="13" r="0.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 function IconProducts(): React.JSX.Element {
   return (
     <svg
@@ -226,15 +245,40 @@ const NAV_SECTIONS_BASE: NavSection[] = [
 ];
 
 /**
- * Hook que constrói as nav sections dinamicamente com base em feature flags.
- * Quando credit_simulation.enabled está off, o item "Simulador" fica oculto.
+ * Hook que constrói as nav sections dinamicamente com base em feature flags e permissões.
+ * - Quando credit_simulation.enabled está off, o item "Simulador" fica oculto.
+ * - O item "Usuários" é visível apenas com permissão users:admin.
  */
 function useNavSections(): NavSection[] {
   const { enabled: simulatorEnabled } = useFeatureFlag('credit_simulation.enabled');
+  const { hasPermission } = useAuth();
+  const canManageUsers = hasPermission('users:admin');
 
   return React.useMemo(() => {
-    // Injeta seção "Crédito" se a flag estiver ativa
-    if (!simulatorEnabled) return NAV_SECTIONS_BASE;
+    // Seção de Administração com "Usuários" condicional
+    const adminItems: NavItem[] = [
+      { href: '/admin/products', label: 'Produtos', icon: <IconProducts /> },
+      { href: '/admin/cities', label: 'Cidades', icon: <IconCities /> },
+      { href: '/admin/feature-flags', label: 'Feature Flags', icon: <IconFeatureFlags /> },
+    ];
+
+    if (canManageUsers) {
+      adminItems.splice(0, 0, { href: '/admin/users', label: 'Usuários', icon: <IconUsers /> });
+    }
+
+    const administracaoSection: NavSection = {
+      heading: 'Administração',
+      items: adminItems,
+    };
+
+    if (!simulatorEnabled) {
+      return [
+        NAV_SECTIONS_BASE[0]!, // Dashboard
+        NAV_SECTIONS_BASE[1]!, // Operações
+        NAV_SECTIONS_BASE[2]!, // Gestão
+        administracaoSection,
+      ];
+    }
 
     return [
       NAV_SECTIONS_BASE[0]!, // Dashboard
@@ -244,9 +288,9 @@ function useNavSections(): NavSection[] {
         items: [{ href: '/simulator', label: 'Simulador', icon: <IconSimulator /> }],
       },
       NAV_SECTIONS_BASE[2]!, // Gestão
-      NAV_SECTIONS_BASE[3]!, // Administração
+      administracaoSection,
     ];
-  }, [simulatorEnabled]);
+  }, [simulatorEnabled, canManageUsers]);
 }
 
 // ─── Marca da sidebar ─────────────────────────────────────────────────────────
