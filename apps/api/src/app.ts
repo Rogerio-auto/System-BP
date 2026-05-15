@@ -15,6 +15,7 @@ import {
 
 import { env } from './config/env.js';
 import { adminDlqRoutes } from './modules/admin/dlq.routes.js';
+import { agentsRoutes } from './modules/agents/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
 import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
@@ -132,6 +133,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(simulationsRoutes);
   // Simulações de crédito via IA (F2-S05) — canal M2M, X-Internal-Token, idempotente
   await app.register(internalSimulationsRoutes);
+  // Agentes de crédito + atribuições a cidades (F8-S01)
+  await app.register(agentsRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.
