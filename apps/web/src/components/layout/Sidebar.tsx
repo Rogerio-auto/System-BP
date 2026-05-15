@@ -174,6 +174,23 @@ function IconUsers(): React.JSX.Element {
   );
 }
 
+function IconAgents(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      {/* Pessoa com badge de crédito */}
+      <circle cx="10" cy="7" r="3.5" />
+      <path d="M3 18c0-3 3.13-5 7-5s7 2 7 5" />
+      <path d="M14 10l1.5 1.5L18 9" />
+    </svg>
+  );
+}
+
 function IconProducts(): React.JSX.Element {
   return (
     <svg
@@ -253,6 +270,7 @@ function useNavSections(): NavSection[] {
   const { enabled: simulatorEnabled } = useFeatureFlag('credit_simulation.enabled');
   const { hasPermission } = useAuth();
   const canManageUsers = hasPermission('users:admin');
+  const canManageAgents = hasPermission('agents:admin');
 
   return React.useMemo(() => {
     // Seção de Administração com "Usuários" condicional
@@ -264,6 +282,16 @@ function useNavSections(): NavSection[] {
 
     if (canManageUsers) {
       adminItems.splice(0, 0, { href: '/admin/users', label: 'Usuários', icon: <IconUsers /> });
+    }
+
+    if (canManageAgents) {
+      // Insere Agentes após Usuários (ou no início se sem users:admin)
+      const insertIdx = canManageUsers ? 1 : 0;
+      adminItems.splice(insertIdx, 0, {
+        href: '/admin/agents',
+        label: 'Agentes',
+        icon: <IconAgents />,
+      });
     }
 
     const administracaoSection: NavSection = {
@@ -290,7 +318,7 @@ function useNavSections(): NavSection[] {
       NAV_SECTIONS_BASE[2]!, // Gestão
       administracaoSection,
     ];
-  }, [simulatorEnabled, canManageUsers]);
+  }, [simulatorEnabled, canManageUsers, canManageAgents]);
 }
 
 // ─── Marca da sidebar ─────────────────────────────────────────────────────────

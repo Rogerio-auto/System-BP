@@ -23,6 +23,7 @@ import { CrmDetailPage } from './features/crm/CrmDetailPage';
 import { CrmListPage } from './features/crm/CrmListPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
+import { AgentsPage } from './pages/admin/Agents';
 import { CitiesPage } from './pages/admin/Cities';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
 import { ProductDetailPage } from './pages/admin/ProductDetail';
@@ -100,6 +101,7 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/admin/products" element={<ProductsPage />} />
         <Route path="/admin/products/:id" element={<ProductDetailPage />} />
         <Route path="/admin/users" element={<UsersPage />} />
+        <Route path="/admin/agents" element={<AgentsPage />} />
       </Route>
 
       {/* ── Catch-all ────────────────────────────────────────────────── */}
