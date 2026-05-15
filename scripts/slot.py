@@ -67,6 +67,13 @@ Subcomandos
       `localStorage` de token, compare não timing-safe, colisão de migration.
       Saída JSON consumida pelo security-reviewer (que só confirma achados).
 
+  check-migrations [--json]
+      Guard de sincronia entre .sql em db/migrations/ e _journal.json.
+      Exit 1 se houver .sql sem entry (ou entry sem .sql). Warnings para
+      idx duplicado e gap (gap 0014/0015 é esperado — F8 pendente).
+      Também invocado automaticamente por `validate` quando o slot toca
+      apps/api/src/db/migrations/.
+
   worktree-clean
       Remove todos os worktrees .claude/worktrees/agent-* — unlock + git
       worktree remove --force + cmd rmdir com prefix \\?\\ para long-path
@@ -953,9 +960,16 @@ def cmd_validate(args: argparse.Namespace) -> int:
     results = []
     for cmd in commands:
         info(f"[validate] $ {cmd}")
+        # Comandos Python (scripts/*.py) sempre rodam a partir do REPO_ROOT do
+        # worktree corrente — não precisam de node_modules e devem usar a versão
+        # local do script (importante quando o slot modifica o próprio slot.py).
+        # Comandos pnpm/npm/node usam validate_cwd (main worktree) onde
+        # node_modules/ está disponível.
+        cmd_is_python = re.match(r"^\s*(python|python3)\b", cmd) is not None
+        effective_cwd = REPO_ROOT if cmd_is_python else validate_cwd
         # Shell=True para suportar pipes e &&. POSIX/Windows-compatible.
         proc = subprocess.run(
-            cmd, cwd=validate_cwd, shell=True, capture_output=True, text=True, encoding="utf-8",
+            cmd, cwd=effective_cwd, shell=True, capture_output=True, text=True, encoding="utf-8",
         )
         results.append({
             "command": cmd,
@@ -963,6 +977,28 @@ def cmd_validate(args: argparse.Namespace) -> int:
             "passed": proc.returncode == 0,
             "stdout_tail": proc.stdout.splitlines()[-5:] if proc.stdout else [],
             "stderr_tail": proc.stderr.splitlines()[-5:] if proc.stderr else [],
+        })
+
+    # Gate automático: se o slot toca apps/api/src/db/migrations/, rodar
+    # check-migrations automaticamente — mesmo que o bloco Validação não mencione.
+    body = re.sub(_FRONTMATTER_RE, "", text, count=1)
+    files_in_slot = _extract_files_allowed(body)
+    touches_migrations = any(
+        "db/migrations" in f or "migrations/" in f
+        for f in files_in_slot
+    )
+    if touches_migrations:
+        info("[validate] slot toca db/migrations/ → rodando check-migrations automaticamente")
+        mig_result = _check_migration_sync()
+        # Reporta warnings mesmo quando passa
+        for w in mig_result.warnings:
+            warn(w)
+        results.append({
+            "command": "check-migrations (auto-gate)",
+            "returncode": 0 if mig_result.passed else 1,
+            "passed": mig_result.passed,
+            "stdout_tail": [],
+            "stderr_tail": mig_result.errors[-5:] if not mig_result.passed else [],
         })
 
     passed = all(r["passed"] for r in results)
@@ -1704,6 +1740,151 @@ def cmd_auto_review(args: argparse.Namespace) -> int:
 
 
 # -----------------------------------------------------------------------------
+# Subcommand: check-migrations — guard de sincronia .sql ↔ _journal.json.
+#
+# Detecta:
+#   1. Arquivo .sql sem entry no journal  → erro, exit 1
+#   2. Entry no journal sem .sql          → erro, exit 1
+#   3. idx duplicado                      → warning (não bloqueia)
+#   4. Gap no idx                         → warning (não bloqueia; gap 0014/0015 é esperado)
+#
+# Invocado também por cmd_validate quando o slot toca apps/api/src/db/migrations/.
+# -----------------------------------------------------------------------------
+
+MIGRATIONS_DIR = REPO_ROOT / "apps" / "api" / "src" / "db" / "migrations"
+JOURNAL_PATH = MIGRATIONS_DIR / "meta" / "_journal.json"
+
+
+@dataclass
+class MigrationCheckResult:
+    passed: bool
+    errors: list[str]
+    warnings: list[str]
+
+
+def _check_migration_sync() -> MigrationCheckResult:
+    """Compara .sql no disco contra entries do _journal.json.
+
+    Lógica:
+    - Coleta todos os arquivos NNNN_*.sql em MIGRATIONS_DIR (sem subpastas).
+    - Coleta todos os `tag` de journal.entries.
+    - Calcula diff nos dois sentidos: .sql sem entry, entry sem .sql.
+    - Detecta idx duplicado e gaps como warnings.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    # Ler journal
+    if not JOURNAL_PATH.exists():
+        errors.append(f"Journal não encontrado: {JOURNAL_PATH}")
+        return MigrationCheckResult(passed=False, errors=errors, warnings=warnings)
+
+    try:
+        journal_data = json.loads(JOURNAL_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        errors.append(f"Journal inválido (JSON parse): {exc}")
+        return MigrationCheckResult(passed=False, errors=errors, warnings=warnings)
+
+    entries: list[dict] = journal_data.get("entries", [])
+
+    # Ler .sql no disco
+    if not MIGRATIONS_DIR.exists():
+        errors.append(f"Migrations dir não encontrado: {MIGRATIONS_DIR}")
+        return MigrationCheckResult(passed=False, errors=errors, warnings=warnings)
+
+    sql_files = [
+        p.stem  # "0017_seed_credit_products_permissions"
+        for p in MIGRATIONS_DIR.iterdir()
+        if p.is_file() and re.match(r"^\d{4}_", p.name) and p.suffix == ".sql"
+    ]
+
+    journal_tags: set[str] = {e["tag"] for e in entries if "tag" in e}
+    sql_tags: set[str] = set(sql_files)
+
+    # Erro 1: .sql sem entry no journal
+    for tag in sorted(sql_tags - journal_tags):
+        errors.append(
+            f"[ERRO] .sql órfão: '{tag}.sql' existe no disco mas NÃO tem entry no _journal.json.\n"
+            f"       Adicione a entry correspondente ao journal no mesmo commit, "
+            f"ou remova o arquivo."
+        )
+
+    # Erro 2: entry no journal sem .sql
+    for tag in sorted(journal_tags - sql_tags):
+        errors.append(
+            f"[ERRO] Entry órfã: '{tag}' está no _journal.json mas o arquivo '{tag}.sql' "
+            f"NÃO existe no disco.\n"
+            f"       Crie o arquivo .sql correspondente ou remova a entry do journal."
+        )
+
+    # Warning 3: idx duplicado
+    from collections import Counter as _Counter  # já importado no topo, mas TS-safe aqui
+    idx_counts: dict[int, list[str]] = {}
+    for entry in entries:
+        idx = entry.get("idx")
+        if idx is None:
+            continue
+        idx_counts.setdefault(idx, []).append(entry.get("tag", "?"))
+    for idx, tags in sorted(idx_counts.items()):
+        if len(tags) > 1:
+            warnings.append(
+                f"[WARN] idx duplicado: {idx} aparece {len(tags)}x → {', '.join(tags)}"
+            )
+
+    # Warning 4: gaps no idx
+    sorted_idxs = sorted(idx_counts.keys())
+    for i in range(1, len(sorted_idxs)):
+        prev = sorted_idxs[i - 1]
+        curr = sorted_idxs[i]
+        if curr - prev > 1:
+            gap_nums = [str(g).zfill(4) for g in range(prev + 1, curr)]
+            warnings.append(
+                f"[WARN] Gap no idx: {str(prev).zfill(4)} → {str(curr).zfill(4)} "
+                f"(faltando: {', '.join(gap_nums)}). Pode ser intencional (slot pendente)."
+            )
+
+    return MigrationCheckResult(
+        passed=len(errors) == 0,
+        errors=errors,
+        warnings=warnings,
+    )
+
+
+def cmd_check_migrations(args: argparse.Namespace) -> int:
+    """Subcomando: verifica sincronia entre .sql e _journal.json."""
+    result = _check_migration_sync()
+
+    if getattr(args, "json", False):
+        print(json.dumps(
+            {"passed": result.passed, "errors": result.errors, "warnings": result.warnings},
+            indent=2,
+            ensure_ascii=False,
+        ))
+        return 0 if result.passed else 1
+
+    info("[check-migrations] Verificando sincronia journal ↔ disco...")
+    info(f"  Journal: {JOURNAL_PATH}")
+    info(f"  Dir:     {MIGRATIONS_DIR}")
+
+    for w in result.warnings:
+        warn(w)
+
+    if result.passed:
+        info("[check-migrations] OK — journal e disco estão sincronizados.")
+        for w in result.warnings:
+            pass  # já imprimiu como warn
+        return 0
+    else:
+        for e in result.errors:
+            print(e, file=sys.stderr)
+        print(
+            f"\n[check-migrations] FALHOU — {len(result.errors)} erro(s) encontrado(s).",
+            file=sys.stderr,
+        )
+        return 1
+
+
+# -----------------------------------------------------------------------------
 # Subcommand: worktree-clean — remove worktrees stale (Windows long-path safe).
 # -----------------------------------------------------------------------------
 
@@ -1842,6 +2023,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("worktree-clean", help="Remove worktrees stale (Windows long-path safe)")
     s.set_defaults(func=cmd_worktree_clean)
+
+    s = sub.add_parser(
+        "check-migrations",
+        help="Verifica sincronia entre .sql em db/migrations/ e _journal.json",
+    )
+    s.add_argument("--json", action="store_true", help="Saída em JSON")
+    s.set_defaults(func=cmd_check_migrations)
 
     return p
 
