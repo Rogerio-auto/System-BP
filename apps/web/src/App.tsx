@@ -27,6 +27,7 @@ import { CitiesPage } from './pages/admin/Cities';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
 import { ProductDetailPage } from './pages/admin/ProductDetail';
 import { ProductsPage } from './pages/admin/Products';
+import { UsersPage } from './pages/admin/Users';
 import { SimulatorPage } from './pages/simulator/SimulatorPage';
 
 const queryClient = new QueryClient({
@@ -98,6 +99,7 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
         <Route path="/admin/products" element={<ProductsPage />} />
         <Route path="/admin/products/:id" element={<ProductDetailPage />} />
+        <Route path="/admin/users" element={<UsersPage />} />
       </Route>
 
       {/* ── Catch-all ────────────────────────────────────────────────── */}
