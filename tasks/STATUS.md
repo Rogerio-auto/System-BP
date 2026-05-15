@@ -92,8 +92,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID     | Título                                                   | Status       | Prioridade | Depende de                     |
 | ------ | -------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
-| F8-S01 | Backend CRUD agents + agent_cities (admin)               | 🟢 available | high       | F1-S04, F1-S05, F1-S07         |
-| F8-S02 | Frontend gestão de usuários (admin/users)                | 🟣 review    | high       | F1-S07, F1-S08                 |
+| F8-S01 | Backend CRUD agents + agent_cities (admin)               | 🟣 review    | high       | F1-S04, F1-S05, F1-S07         |
+| F8-S02 | Frontend gestão de usuários (admin/users)                | 🟢 available | high       | F1-S07, F1-S08                 |
 | F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados) | 🟢 available | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
 | F8-S04 | Frontend gestão de agentes de crédito                    | 🟢 available | high       | F8-S01, F1-S08                 |
 | F8-S05 | Frontend dashboard real com KPIs e gráficos              | 🟢 available | medium     | F8-S03, F1-S08                 |

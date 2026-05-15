@@ -492,6 +492,52 @@ export interface DataSubjectReviewRequestedData {
   analysis_id: string;
 }
 
+// --- Domínio: agentes de crédito (F8-S01) ---
+// LGPD §8.5: display_name é dado de colaborador, não de cidadão-cliente.
+//   Tratamento com base no art. 7°, IX (legítimo interesse do controlador).
+//   Não é PII de lead/cliente — aceitável no payload de evento.
+
+/** Emitido ao criar um agente (F8-S01). */
+export interface AgentCreatedData {
+  agent_id: string;
+  organization_id: string;
+  /** Apelido/nome de trabalho do colaborador — não é PII de cidadão. */
+  display_name: string;
+  city_ids: string[];
+  primary_city_id: string | null;
+}
+
+/** Emitido ao atualizar campos do agente (F8-S01). */
+export interface AgentUpdatedData {
+  agent_id: string;
+  organization_id: string;
+  display_name: string;
+  /** Nomes dos campos alterados (sem valores). */
+  changed_fields: string[];
+}
+
+/** Emitido ao desativar agente (soft-delete) (F8-S01). */
+export interface AgentDeactivatedData {
+  agent_id: string;
+  organization_id: string;
+  display_name: string;
+}
+
+/** Emitido ao reativar agente (F8-S01). */
+export interface AgentReactivatedData {
+  agent_id: string;
+  organization_id: string;
+  display_name: string;
+}
+
+/** Emitido ao substituir o conjunto de cidades de um agente (F8-S01). */
+export interface AgentCitiesChangedData {
+  agent_id: string;
+  organization_id: string;
+  city_ids: string[];
+  primary_city_id: string | null;
+}
+
 // --- Domínio: auth/users ---
 
 export interface UserEventData {
@@ -568,6 +614,12 @@ export interface AppEventDataMap {
   'import.confirmed': ImportConfirmedData;
   'import.completed': ImportCompletedData;
   'feature_flag.changed': FeatureFlagChangedData;
+  // --- Agentes de crédito (F8-S01) ---
+  'agent.created': AgentCreatedData;
+  'agent.updated': AgentUpdatedData;
+  'agent.deactivated': AgentDeactivatedData;
+  'agent.reactivated': AgentReactivatedData;
+  'agent.cities_changed': AgentCitiesChangedData;
   'user.created': UserEventData;
   'user.role_assigned': UserRoleAssignedData;
   'user.city_scope_changed': UserCityScopeChangedData;

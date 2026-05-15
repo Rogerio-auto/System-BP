@@ -120,6 +120,13 @@
       "when": 1748736000000,
       "tag": "0018_seed_simulations_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1748822400000,
+      "tag": "0019_seed_agents_permission",
+      "breakpoints": true
     }
   ]
 }
