@@ -61,7 +61,7 @@ export function AmortizationTable({ rows, className }: AmortizationTableProps): 
           <tbody>
             {rows.map((row, idx) => (
               <tr
-                key={row.month}
+                key={row.number}
                 className={cn(
                   'border-b border-border-subtle last:border-0',
                   'transition-colors duration-fast ease',
@@ -71,7 +71,7 @@ export function AmortizationTable({ rows, className }: AmortizationTableProps): 
               >
                 {/* Número da parcela */}
                 <td className="px-4 py-[14px] text-left font-sans text-xs font-semibold text-ink-3 w-10">
-                  {row.month}
+                  {row.number}
                 </td>
 
                 {/* Principal */}
@@ -99,7 +99,7 @@ export function AmortizationTable({ rows, className }: AmortizationTableProps): 
                   className="px-4 py-[14px] text-right font-semibold text-sm text-ink"
                   style={{ fontFamily: 'var(--font-mono)', letterSpacing: '-0.01em' }}
                 >
-                  {formatBRL(row.installment)}
+                  {formatBRL(row.payment)}
                 </td>
 
                 {/* Saldo */}

@@ -1,5 +1,5 @@
 // =============================================================================
-// features/simulator/__tests__/SimulatorResult.test.tsx — Testes (F2-S06).
+// features/simulator/__tests__/SimulatorResult.test.tsx — Testes (F2-S11).
 //
 // UNIDADE MONETÁRIA: REAIS (decimal 2 casas), consistente com o backend.
 //
@@ -8,6 +8,8 @@
 //   - formatBRL/formatRate exibem corretamente
 //   - Classificação de erros do useSimulate
 //   - buildCaption do ProductSelect
+//   - CONTRATO: AmortizationRow usa number/payment (não month/installment)
+//   - CONTRATO: SimulationResult usa monthly_payment/amount_requested/rate_monthly_snapshot
 //
 // Sem renderização React (JSDOM não configurado no vitest deste projeto).
 // =============================================================================
@@ -27,7 +29,7 @@ import { ApiError } from '../../../lib/api';
 
 /**
  * Gera uma tabela de amortização Price simplificada em REAIS.
- * principal, interest, installment, balance são todos em reais.
+ * Campos: number/payment/principal/interest/balance — espelho do backend (F2-S11).
  */
 function buildMockAmortization(
   principalReais: number,
@@ -38,22 +40,21 @@ function buildMockAmortization(
   let balance = principalReais;
 
   // Fórmula Price: PMT = PV * i / (1 - (1+i)^-n)
-  // Trabalha em reais com 2 casas de precisão
   const pmt =
     Math.round(
       ((principalReais * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -termMonths))) * 100,
     ) / 100;
 
-  for (let month = 1; month <= termMonths; month++) {
+  for (let num = 1; num <= termMonths; num++) {
     const interest = Math.round(balance * monthlyRate * 100) / 100;
     const principalPart = Math.round((pmt - interest) * 100) / 100;
     balance = Math.max(0, Math.round((balance - principalPart) * 100) / 100);
 
     rows.push({
-      month,
+      number: num, // campo correto do backend — era "month" no shape antigo
       principal: principalPart,
       interest,
-      installment: pmt,
+      payment: pmt, // campo correto do backend — era "installment" no shape antigo
       balance,
     });
   }
@@ -63,20 +64,25 @@ function buildMockAmortization(
 
 // MOCK: R$ 10.000 / 12 meses / 1.99% a.m.
 const _mockTable = buildMockAmortization(10000, 12, 0.0199);
-const _mockInstallment = _mockTable[0]!.installment;
-const _mockTotalAmount = Math.round(_mockTable.reduce((acc, r) => acc + r.installment, 0) * 100) / 100;
+const _mockInstallment = _mockTable[0]!.payment;
+const _mockTotalAmount = Math.round(_mockTable.reduce((acc, r) => acc + r.payment, 0) * 100) / 100;
 
 const MOCK_RESULT: SimulationResult = {
   id: 'sim-001',
+  organization_id: 'org-001',
   lead_id: 'lead-001',
   product_id: 'prod-001',
-  requested_amount: 10000, // R$ 10.000,00 em reais
+  rule_version_id: 'rv-001',
+  amount_requested: 10000, // campo correto — era "requested_amount"
   term_months: 12,
-  interest_rate_monthly: 0.0199,
-  installment_amount: _mockInstallment,
+  monthly_payment: _mockInstallment, // campo correto — era "installment_amount"
   total_amount: _mockTotalAmount,
   total_interest: Math.round((_mockTotalAmount - 10000) * 100) / 100,
+  rate_monthly_snapshot: 0.0199, // campo correto — era "interest_rate_monthly"
+  amortization_method: 'price',
   amortization_table: _mockTable,
+  origin: 'manual',
+  created_by_user_id: null,
   created_at: new Date().toISOString(),
 };
 
@@ -102,6 +108,65 @@ function buildCaption(product: CreditProduct): string {
   return `${minVal} – ${maxVal} · ${rule.min_term_months}–${rule.max_term_months} meses`;
 }
 
+// ─── CONTRATO: shape de AmortizationRow (F2-S11) ─────────────────────────────
+
+describe('CONTRATO — AmortizationRow usa number/payment (não month/installment)', () => {
+  const rows = MOCK_RESULT.amortization_table;
+
+  it('campo "number" existe e é sequencial de 1 a N', () => {
+    rows.forEach((row, i) => {
+      expect(row).toHaveProperty('number');
+      expect(row.number).toBe(i + 1);
+    });
+  });
+
+  it('campo "payment" existe com valor positivo', () => {
+    for (const row of rows) {
+      expect(row).toHaveProperty('payment');
+      expect(row.payment).toBeGreaterThan(0);
+    }
+  });
+
+  it('campo "month" NÃO existe (garantia de remoção do shape antigo)', () => {
+    for (const row of rows) {
+      expect(row).not.toHaveProperty('month');
+    }
+  });
+
+  it('campo "installment" NÃO existe (garantia de remoção do shape antigo)', () => {
+    for (const row of rows) {
+      expect(row).not.toHaveProperty('installment');
+    }
+  });
+});
+
+// ─── CONTRATO: shape de SimulationResult (F2-S11) ────────────────────────────
+
+describe('CONTRATO — SimulationResult usa campos corretos do backend', () => {
+  it('campo monthly_payment existe (não installment_amount)', () => {
+    expect(MOCK_RESULT).toHaveProperty('monthly_payment');
+    expect(MOCK_RESULT).not.toHaveProperty('installment_amount');
+  });
+
+  it('campo amount_requested existe (não requested_amount)', () => {
+    expect(MOCK_RESULT).toHaveProperty('amount_requested');
+    expect(MOCK_RESULT).not.toHaveProperty('requested_amount');
+  });
+
+  it('campo rate_monthly_snapshot existe (não interest_rate_monthly)', () => {
+    expect(MOCK_RESULT).toHaveProperty('rate_monthly_snapshot');
+    expect(MOCK_RESULT).not.toHaveProperty('interest_rate_monthly');
+  });
+
+  it('monetários são number (normalizados pelo useSimulate, não string)', () => {
+    expect(typeof MOCK_RESULT.monthly_payment).toBe('number');
+    expect(typeof MOCK_RESULT.amount_requested).toBe('number');
+    expect(typeof MOCK_RESULT.total_amount).toBe('number');
+    expect(typeof MOCK_RESULT.total_interest).toBe('number');
+    expect(typeof MOCK_RESULT.rate_monthly_snapshot).toBe('number');
+  });
+});
+
 // ─── Testes de tabela de amortização ─────────────────────────────────────────
 
 describe('tabela de amortização — somas e integridade (valores em reais)', () => {
@@ -111,31 +176,29 @@ describe('tabela de amortização — somas e integridade (valores em reais)', (
     expect(rows).toHaveLength(MOCK_RESULT.term_months);
   });
 
-  it('mês final tem saldo devedor próximo de zero (< R$ 2,00 por arredondamento)', () => {
+  it('parcela final tem saldo devedor próximo de zero (< R$ 2,00 por arredondamento)', () => {
     const lastRow = rows[rows.length - 1]!;
     expect(lastRow.balance).toBeGreaterThanOrEqual(0);
-    // O saldo final pode ter pequena diferença por arredondamento de centavos em reais
-    expect(lastRow.balance).toBeLessThan(2); // < R$ 2,00 de diferença
+    expect(lastRow.balance).toBeLessThan(2);
   });
 
-  it('soma das parcelas ≈ total_amount (diferença por arredondamento ≤ R$ 1)', () => {
-    const sumInstallments = Math.round(rows.reduce((acc, r) => acc + r.installment, 0) * 100) / 100;
-    const diff = Math.abs(sumInstallments - MOCK_RESULT.total_amount);
-    // Aceita até R$ 1,00 de diferença por arredondamento mensal
+  it('soma das parcelas (payment) ≈ total_amount (diferença por arredondamento ≤ R$ 1)', () => {
+    const sumPayments = Math.round(rows.reduce((acc, r) => acc + r.payment, 0) * 100) / 100;
+    const diff = Math.abs(sumPayments - MOCK_RESULT.total_amount);
     expect(diff).toBeLessThanOrEqual(1);
   });
 
-  it('em cada linha: parcela ≈ principal + juros (Price, tolerância R$ 0,01)', () => {
+  it('em cada linha: payment ≈ principal + interest (Price, tolerância R$ 0,01)', () => {
     for (const row of rows) {
       const sum = Math.round((row.principal + row.interest) * 100) / 100;
-      const diff = Math.abs(row.installment - sum);
+      const diff = Math.abs(row.payment - sum);
       expect(diff).toBeLessThanOrEqual(0.01);
     }
   });
 
-  it('meses são sequenciais de 1 a N', () => {
+  it('parcelas (number) são sequenciais de 1 a N', () => {
     rows.forEach((row, i) => {
-      expect(row.month).toBe(i + 1);
+      expect(row.number).toBe(i + 1);
     });
   });
 
@@ -161,19 +224,19 @@ describe('tabela de amortização — somas e integridade (valores em reais)', (
 // ─── formatBRL no contexto do resultado ──────────────────────────────────────
 
 describe('formatBRL — exibição dos valores do resultado (reais)', () => {
-  it('installment_amount exibe como BRL válido', () => {
-    const display = formatBRL(MOCK_RESULT.installment_amount);
+  it('monthly_payment exibe como BRL válido', () => {
+    const display = formatBRL(MOCK_RESULT.monthly_payment);
     expect(display).toBeTruthy();
-    // Deve conter vírgula decimal (BR)
     expect(display).toContain(',');
   });
 
-  it('total_amount > installment_amount (total sempre maior)', () => {
-    expect(MOCK_RESULT.total_amount).toBeGreaterThan(MOCK_RESULT.installment_amount);
+  it('total_amount > monthly_payment (total sempre maior)', () => {
+    expect(MOCK_RESULT.total_amount).toBeGreaterThan(MOCK_RESULT.monthly_payment);
   });
 
-  it('total_interest = total_amount - requested_amount (± R$ 0,02 por arredondamento)', () => {
-    const expected = Math.round((MOCK_RESULT.total_amount - MOCK_RESULT.requested_amount) * 100) / 100;
+  it('total_interest = total_amount - amount_requested (± R$ 0,02 por arredondamento)', () => {
+    const expected =
+      Math.round((MOCK_RESULT.total_amount - MOCK_RESULT.amount_requested) * 100) / 100;
     expect(Math.abs(MOCK_RESULT.total_interest - expected)).toBeLessThanOrEqual(0.02);
   });
 
@@ -191,8 +254,8 @@ describe('formatBRL — exibição dos valores do resultado (reais)', () => {
 // ─── formatRate ───────────────────────────────────────────────────────────────
 
 describe('formatRate — taxa do resultado', () => {
-  it('0.0199 → string contendo "1,99" e "a.m."', () => {
-    const r = formatRate(MOCK_RESULT.interest_rate_monthly);
+  it('rate_monthly_snapshot 0.0199 → string contendo "1,99" e "a.m."', () => {
+    const r = formatRate(MOCK_RESULT.rate_monthly_snapshot);
     expect(r).toContain('1,99');
     expect(r).toContain('a.m.');
   });
@@ -245,8 +308,8 @@ describe('buildCaption — legenda do produto no select (valores em reais)', () 
     is_active: true,
     active_rule: {
       id: 'rule-001',
-      min_amount: 500, // R$ 500,00 em reais
-      max_amount: 50000, // R$ 50.000,00 em reais
+      min_amount: 500,
+      max_amount: 50000,
       min_term_months: 6,
       max_term_months: 60,
       interest_rate_monthly: 0.0199,
@@ -256,8 +319,8 @@ describe('buildCaption — legenda do produto no select (valores em reais)', () 
 
   it('contém faixa de valor (R$ 500 e R$ 50.000)', () => {
     const caption = buildCaption(product);
-    expect(caption).toContain('500'); // R$ 500,00
-    expect(caption).toContain('50.000'); // R$ 50.000,00
+    expect(caption).toContain('500');
+    expect(caption).toContain('50.000');
   });
 
   it('contém faixa de prazo', () => {
@@ -281,7 +344,6 @@ describe('estados do SimulatorResult — lógica de exibição', () => {
     const result = undefined;
     const error = null;
 
-    // Lógica: isPending tem prioridade máxima
     expect(isPending).toBe(true);
     expect(result).toBeUndefined();
     expect(error).toBeNull();

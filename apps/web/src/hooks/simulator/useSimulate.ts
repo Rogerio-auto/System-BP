@@ -4,6 +4,10 @@
 // POST /api/simulations → SimulationResult com tabela de amortização.
 // TanStack Query useMutation — sem useEffect+fetch.
 // Não invalida cache: simulação é append-only, não afeta listas.
+//
+// CONTRATO (F2-S11):
+//   Request : body camelCase (leadId/productId/amount/termMonths)
+//   Response: snake_case; monetários retornam como string → normalizados aqui
 // =============================================================================
 
 import { useMutation } from '@tanstack/react-query';
@@ -61,10 +65,68 @@ function classifyError(err: unknown): SimulationError {
   };
 }
 
+// ─── Shape bruto do backend (antes da normalização) ──────────────────────────
+
+/**
+ * Response bruta do backend — monetários são string ("5000.00").
+ * Apenas para uso interno do normalizer.
+ */
+interface RawSimulationResponse {
+  id: string;
+  organization_id: string;
+  lead_id: string;
+  product_id: string;
+  rule_version_id: string;
+  amount_requested: string; // string no wire — ex: "5000.00"
+  term_months: number;
+  monthly_payment: string; // string no wire
+  total_amount: string; // string no wire
+  total_interest: string; // string no wire
+  rate_monthly_snapshot: string; // string no wire — ex: "0.0199"
+  amortization_method: 'price' | 'sac';
+  amortization_table: Array<{
+    number: number;
+    payment: number;
+    principal: number;
+    interest: number;
+    balance: number;
+  }>;
+  origin: 'manual' | 'ai' | 'import';
+  created_by_user_id: string | null;
+  created_at: string;
+}
+
+/**
+ * Normaliza a resposta bruta do backend:
+ * converte os campos monetários string→number uma única vez.
+ * A UI trabalha sempre com number.
+ */
+function normalizeResponse(raw: RawSimulationResponse): SimulationResult {
+  return {
+    id: raw.id,
+    organization_id: raw.organization_id,
+    lead_id: raw.lead_id,
+    product_id: raw.product_id,
+    rule_version_id: raw.rule_version_id,
+    amount_requested: Number(raw.amount_requested),
+    term_months: raw.term_months,
+    monthly_payment: Number(raw.monthly_payment),
+    total_amount: Number(raw.total_amount),
+    total_interest: Number(raw.total_interest),
+    rate_monthly_snapshot: Number(raw.rate_monthly_snapshot),
+    amortization_method: raw.amortization_method,
+    amortization_table: raw.amortization_table,
+    origin: raw.origin,
+    created_by_user_id: raw.created_by_user_id,
+    created_at: raw.created_at,
+  };
+}
+
 // ─── Fetcher ─────────────────────────────────────────────────────────────────
 
 async function postSimulation(body: SimulationBody): Promise<SimulationResult> {
-  return api.post<SimulationResult>('/api/simulations', body);
+  const raw = await api.post<RawSimulationResponse>('/api/simulations', body);
+  return normalizeResponse(raw);
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -74,7 +136,7 @@ async function postSimulation(body: SimulationBody): Promise<SimulationResult> {
  *
  * Uso:
  *   const { mutate, isPending, data, simulationError, reset } = useSimulate();
- *   mutate({ lead_id, product_id, requested_amount, term_months });
+ *   mutate({ leadId, productId, amount, termMonths });
  *
  * Erros classificados em SimulationErrorCode para UX específica por código.
  */

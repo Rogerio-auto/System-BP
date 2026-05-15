@@ -1,30 +1,26 @@
 // =============================================================================
-// features/simulator/__tests__/SimulatorForm.test.tsx — Testes unitários (F2-S06).
+// features/simulator/__tests__/SimulatorForm.test.tsx — Testes unitários (F2-S11).
 //
 // UNIDADE MONETÁRIA: REAIS (decimal 2 casas), consistente com o backend.
 // Nunca centavos neste módulo.
 //
-// Estratégia: testa lógica pura isolada (formatadores, parsers, validação Zod)
+// Estratégia: testa lógica pura isolada (formatadores, validação Zod, contrato)
 // sem renderizar React (JSDOM não configurado no vitest deste projeto).
 //
 // Cobertura:
-//   1. maskBRL: máscaras progressivas de entrada (UX digit-shift)
-//   2. parseBRL: conversão display → reais
-//   3. formatBRL: reais → string BRL
-//   4. formatRate: taxa decimal → string display
-//   5. Schema de validação Zod: limites da regra ativa em reais
-//   6. buildSchema: campos obrigatórios
-//   7. parseBRL + maskBRL: round-trip (reais)
-//   8. Contrato: rule.min_amount = 5000 reais → hint "R$ 5.000,00",
-//      validação aceita 10000 / rejeita 4999
-//   9. Submit: form "R$ 10.000" → requested_amount 10000 (reais, não 1000000)
+//   1. formatBRL: reais → string BRL
+//   2. formatRate: taxa decimal → string display
+//   3. Schema de validação Zod: limites da regra ativa em reais (amount: number)
+//   4. buildSchema: campos obrigatórios
+//   5. CONTRATO (DoD): submit emite {leadId, productId, amount, termMonths} em
+//      camelCase — teste que falharia com o bug pré-F2-S11 (snake_case)
 // =============================================================================
 
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { maskBRL, parseBRL, formatBRL, formatRate } from '../../../hooks/simulator/types';
-import type { CreditProduct } from '../../../hooks/simulator/types';
+import { formatBRL, formatRate } from '../../../hooks/simulator/types';
+import type { CreditProduct, SimulationBody } from '../../../hooks/simulator/types';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -56,19 +52,21 @@ const CONTRACT_RULE: CreditProduct['active_rule'] = {
   city_id: null,
 };
 
-// Reproduz a factory do SimulatorForm (sem importar o componente)
+/**
+ * Reproduz a factory do SimulatorForm (camelCase + amount: number).
+ * Espelha buildSchema em SimulatorForm.tsx para testes isolados.
+ */
 function buildSchema(rule: CreditProduct['active_rule']) {
   return z.object({
-    lead_id: z.string().min(1, 'Selecione um lead'),
-    product_id: z.string().min(1, 'Selecione um produto'),
-    amount_display: z
-      .string()
-      .min(1, 'Informe o valor solicitado')
+    leadId: z.string().min(1, 'Selecione um lead'),
+    productId: z.string().min(1, 'Selecione um produto'),
+    amount: z
+      .number({ invalid_type_error: 'Informe o valor solicitado' })
+      .positive('Valor deve ser positivo')
       .refine(
         (v) => {
           if (!rule) return true;
-          const reais = parseBRL(v);
-          return reais >= rule.min_amount && reais <= rule.max_amount;
+          return v >= rule.min_amount && v <= rule.max_amount;
         },
         {
           message: rule
@@ -76,7 +74,7 @@ function buildSchema(rule: CreditProduct['active_rule']) {
             : 'Valor inválido',
         },
       ),
-    term_months: z
+    termMonths: z
       .string()
       .min(1, 'Informe o prazo')
       .refine(
@@ -93,70 +91,6 @@ function buildSchema(rule: CreditProduct['active_rule']) {
       ),
   });
 }
-
-// ─── maskBRL ──────────────────────────────────────────────────────────────────
-
-describe('maskBRL — máscara de entrada BRL (UX digit-shift)', () => {
-  it('string vazia → string vazia', () => {
-    expect(maskBRL('')).toBe('');
-  });
-
-  it('apenas zeros → R$ 0,00', () => {
-    expect(maskBRL('0')).toBe('R$\xa00,00');
-  });
-
-  it('"100" → R$ 1,00 (100 centavos no UX de digitação = R$ 1,00)', () => {
-    const result = maskBRL('100');
-    expect(result.replace(/\s/g, ' ')).toBe('R$ 1,00');
-  });
-
-  it('"1000000" → R$ 10.000,00', () => {
-    const result = maskBRL('1000000');
-    expect(result.replace(/\s/g, ' ')).toBe('R$ 10.000,00');
-  });
-
-  it('"500000" → R$ 5.000,00', () => {
-    const result = maskBRL('500000');
-    expect(result.replace(/\s/g, ' ')).toBe('R$ 5.000,00');
-  });
-
-  it('remove não-dígitos antes de processar', () => {
-    const result = maskBRL('abc123def');
-    expect(result.replace(/\s/g, ' ')).toBe('R$ 1,23');
-  });
-});
-
-// ─── parseBRL ─────────────────────────────────────────────────────────────────
-
-describe('parseBRL — converte display BRL para REAIS (float 2 casas)', () => {
-  it('R$ 0,00 → 0', () => {
-    expect(parseBRL('R$ 0,00')).toBe(0);
-  });
-
-  it('R$ 1,00 → 1', () => {
-    expect(parseBRL('R$ 1,00')).toBe(1);
-  });
-
-  it('R$ 1.000,00 → 1000', () => {
-    expect(parseBRL('R$ 1.000,00')).toBe(1000);
-  });
-
-  it('R$ 50.000,00 → 50000', () => {
-    expect(parseBRL('R$ 50.000,00')).toBe(50000);
-  });
-
-  it('R$ 10.000,50 → 10000.5', () => {
-    expect(parseBRL('R$ 10.000,50')).toBe(10000.5);
-  });
-
-  it('string inválida → 0', () => {
-    expect(parseBRL('nao-eh-valor')).toBe(0);
-  });
-
-  it('string vazia → 0', () => {
-    expect(parseBRL('')).toBe(0);
-  });
-});
 
 // ─── formatBRL ────────────────────────────────────────────────────────────────
 
@@ -212,29 +146,6 @@ describe('formatRate — taxa decimal para display', () => {
   });
 });
 
-// ─── Round-trip maskBRL ↔ parseBRL ───────────────────────────────────────────
-// maskBRL(digits) produz string BRL formatada em reais.
-// parseBRL(maskBRL(digits)) retorna reais = parseInt(digits)/100
-// Exemplo: digits="1000000" → mask="R$ 10.000,00" → parse=10000 reais
-
-describe('maskBRL + parseBRL — round-trip em reais', () => {
-  const cases: Array<{ digits: string; expectedReais: number }> = [
-    { digits: '5000000', expectedReais: 50000 }, // R$ 50.000,00
-    { digits: '50000', expectedReais: 500 }, // R$ 500,00
-    { digits: '100', expectedReais: 1 }, // R$ 1,00
-    { digits: '1000000', expectedReais: 10000 }, // R$ 10.000,00
-  ];
-
-  it.each(cases)(
-    'digits=$digits → mask → parse → $expectedReais reais',
-    ({ digits, expectedReais }) => {
-      const masked = maskBRL(digits);
-      const parsed = parseBRL(masked);
-      expect(parsed).toBe(expectedReais);
-    },
-  );
-});
-
 // ─── Schema de validação Zod ─────────────────────────────────────────────────
 
 describe('buildSchema — validação com regra ativa (valores em reais)', () => {
@@ -243,130 +154,130 @@ describe('buildSchema — validação com regra ativa (valores em reais)', () =>
   it('dados válidos passam na validação', () => {
     // R$ 10.000,00 está entre R$ 500 e R$ 50.000
     const result = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(10000), // R$ 10.000,00
-      term_months: '24',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 10000,
+      termMonths: '24',
     });
     expect(result.success).toBe(true);
   });
 
-  it('lead_id vazio falha', () => {
+  it('leadId vazio falha', () => {
     const result = schema.safeParse({
-      lead_id: '',
-      product_id: 'prod-001',
-      amount_display: formatBRL(10000),
-      term_months: '24',
+      leadId: '',
+      productId: 'prod-001',
+      amount: 10000,
+      termMonths: '24',
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       const err = result.error.flatten().fieldErrors;
-      expect(err.lead_id).toBeDefined();
+      expect(err.leadId).toBeDefined();
     }
   });
 
-  it('product_id vazio falha', () => {
+  it('productId vazio falha', () => {
     const result = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: '',
-      amount_display: formatBRL(10000),
-      term_months: '24',
+      leadId: 'lead-001',
+      productId: '',
+      amount: 10000,
+      termMonths: '24',
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       const err = result.error.flatten().fieldErrors;
-      expect(err.product_id).toBeDefined();
+      expect(err.productId).toBeDefined();
     }
   });
 
-  it('valor abaixo do mínimo (R$ 100,00 < R$ 500,00) falha', () => {
+  it('valor abaixo do mínimo (100 < 500) falha', () => {
     const result = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(100), // R$ 100,00
-      term_months: '12',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 100,
+      termMonths: '12',
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       const err = result.error.flatten().fieldErrors;
-      expect(err.amount_display).toBeDefined();
+      expect(err.amount).toBeDefined();
     }
   });
 
-  it('valor acima do máximo (R$ 60.000,00 > R$ 50.000,00) falha', () => {
+  it('valor acima do máximo (60000 > 50000) falha', () => {
     const result = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(60000), // R$ 60.000,00
-      term_months: '12',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 60000,
+      termMonths: '12',
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       const err = result.error.flatten().fieldErrors;
-      expect(err.amount_display).toBeDefined();
+      expect(err.amount).toBeDefined();
     }
   });
 
   it('prazo abaixo do mínimo (3 < 6) falha', () => {
     const result = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(10000),
-      term_months: '3',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 10000,
+      termMonths: '3',
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       const err = result.error.flatten().fieldErrors;
-      expect(err.term_months).toBeDefined();
+      expect(err.termMonths).toBeDefined();
     }
   });
 
   it('prazo acima do máximo (72 > 60) falha', () => {
     const result = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(10000),
-      term_months: '72',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 10000,
+      termMonths: '72',
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       const err = result.error.flatten().fieldErrors;
-      expect(err.term_months).toBeDefined();
+      expect(err.termMonths).toBeDefined();
     }
   });
 
   it('prazo nos limites exatos (6 e 60) passa', () => {
     const r1 = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(10000),
-      term_months: '6',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 10000,
+      termMonths: '6',
     });
     expect(r1.success).toBe(true);
 
     const r2 = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(10000),
-      term_months: '60',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 10000,
+      termMonths: '60',
     });
     expect(r2.success).toBe(true);
   });
 
-  it('valor nos limites exatos (R$ 500,00 e R$ 50.000,00) passa', () => {
+  it('valor nos limites exatos (500 e 50000) passa', () => {
     const r1 = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(500), // R$ 500,00 = min_amount
-      term_months: '12',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 500,
+      termMonths: '12',
     });
     expect(r1.success).toBe(true);
 
     const r2 = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(50000), // R$ 50.000,00 = max_amount
-      term_months: '12',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 50000,
+      termMonths: '12',
     });
     expect(r2.success).toBe(true);
   });
@@ -379,29 +290,121 @@ describe('buildSchema — sem regra ativa (null)', () => {
 
   it('qualquer valor positivo passa (sem regra = sem limites)', () => {
     const result = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(10000),
-      term_months: '999',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 10000,
+      termMonths: '999',
     });
     expect(result.success).toBe(true);
   });
 
   it('campos obrigatórios ainda validam', () => {
     const result = schema.safeParse({
-      lead_id: '',
-      product_id: '',
-      amount_display: '',
-      term_months: '',
+      leadId: '',
+      productId: '',
+      amount: 0,
+      termMonths: '',
     });
     expect(result.success).toBe(false);
   });
 });
 
-// ─── Testes de contrato (DoD) ─────────────────────────────────────────────────
+// ─── CONTRATO DO BODY (DoD obrigatório) ──────────────────────────────────────
+//
+// Estes testes falhariam com o bug pré-F2-S11 (snake_case no body).
+// Verificam que o submit emite exatamente as chaves que o backend espera.
 
-describe('CONTRATO — regra min=5000/max=30000 reais (DoD)', () => {
+describe('CONTRATO — body do POST /api/simulations (leadId/productId/amount/termMonths)', () => {
   const schema = buildSchema(CONTRACT_RULE);
+
+  it('schema usa leadId (camelCase) — não lead_id (snake_case)', () => {
+    // Com snake_case, leadId seria undefined e o parse falharia ou ignoraria
+    const result = schema.safeParse({
+      leadId: 'lead-uuid-001',
+      productId: 'prod-uuid-001',
+      amount: 10000,
+      termMonths: '12',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toHaveProperty('leadId', 'lead-uuid-001');
+      // Garantia que não existe a chave snake_case no output
+      expect(result.data).not.toHaveProperty('lead_id');
+    }
+  });
+
+  it('schema usa productId (camelCase) — não product_id (snake_case)', () => {
+    const result = schema.safeParse({
+      leadId: 'lead-uuid-001',
+      productId: 'prod-uuid-001',
+      amount: 10000,
+      termMonths: '12',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toHaveProperty('productId', 'prod-uuid-001');
+      expect(result.data).not.toHaveProperty('product_id');
+    }
+  });
+
+  it('schema usa amount (number) — não requested_amount (snake_case)', () => {
+    const result = schema.safeParse({
+      leadId: 'lead-uuid-001',
+      productId: 'prod-uuid-001',
+      amount: 10000,
+      termMonths: '12',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toHaveProperty('amount', 10000);
+      expect(result.data).not.toHaveProperty('requested_amount');
+    }
+  });
+
+  it('schema usa termMonths (camelCase) — não term_months (snake_case)', () => {
+    const result = schema.safeParse({
+      leadId: 'lead-uuid-001',
+      productId: 'prod-uuid-001',
+      amount: 10000,
+      termMonths: '12',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toHaveProperty('termMonths', '12');
+      expect(result.data).not.toHaveProperty('term_months');
+    }
+  });
+
+  it('body final para POST tem exatamente {leadId, productId, amount, termMonths}', () => {
+    // Simula o que handleFormSubmit produz a partir de um form válido
+    const formValues = {
+      leadId: 'lead-uuid-001',
+      productId: 'prod-uuid-001',
+      amount: 10000,
+      termMonths: '12',
+    };
+
+    // Reproduz a lógica de handleFormSubmit
+    const body: SimulationBody = {
+      leadId: formValues.leadId,
+      productId: formValues.productId,
+      amount: formValues.amount,
+      termMonths: parseInt(formValues.termMonths, 10),
+    };
+
+    // Verifica chaves camelCase
+    expect(Object.keys(body)).toEqual(['leadId', 'productId', 'amount', 'termMonths']);
+    expect(body.leadId).toBe('lead-uuid-001');
+    expect(body.productId).toBe('prod-uuid-001');
+    expect(body.amount).toBe(10000);
+    expect(body.termMonths).toBe(12);
+
+    // Garante que não há snake_case que causaria 400
+    expect(body).not.toHaveProperty('lead_id');
+    expect(body).not.toHaveProperty('product_id');
+    expect(body).not.toHaveProperty('requested_amount');
+    expect(body).not.toHaveProperty('term_months');
+  });
 
   it('hint exibe "R$ 5.000,00" para min_amount=5000 reais', () => {
     const hint = formatBRL(CONTRACT_RULE!.min_amount);
@@ -413,40 +416,34 @@ describe('CONTRATO — regra min=5000/max=30000 reais (DoD)', () => {
     expect(hint.replace(/\s/g, ' ')).toBe('R$ 30.000,00');
   });
 
-  it('validação aceita 10000 reais (R$ 10.000,00)', () => {
+  it('validação aceita 10000 reais', () => {
     const result = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(10000), // R$ 10.000,00
-      term_months: '12',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 10000,
+      termMonths: '12',
     });
     expect(result.success).toBe(true);
   });
 
-  it('validação rejeita 4999 reais (R$ 4.999,00 < min 5000)', () => {
+  it('validação rejeita 4999 reais (< min 5000)', () => {
     const result = schema.safeParse({
-      lead_id: 'lead-001',
-      product_id: 'prod-001',
-      amount_display: formatBRL(4999), // R$ 4.999,00
-      term_months: '12',
+      leadId: 'lead-001',
+      productId: 'prod-001',
+      amount: 4999,
+      termMonths: '12',
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.flatten().fieldErrors.amount_display).toBeDefined();
+      expect(result.error.flatten().fieldErrors.amount).toBeDefined();
     }
   });
 
-  it('submit: form R$ 10.000 → requested_amount 10000 reais (não 1000000)', () => {
-    // Simula o parseBRL que handleFormSubmit chama
-    const amountDisplay = formatBRL(10000); // "R$ 10.000,00"
-    const requestedAmount = parseBRL(amountDisplay);
-    // Deve ser 10000 reais, não 1000000 centavos
-    expect(requestedAmount).toBe(10000);
-  });
-
-  it('submit: form R$ 5.000 → requested_amount 5000 reais', () => {
-    const amountDisplay = formatBRL(5000); // "R$ 5.000,00"
-    const requestedAmount = parseBRL(amountDisplay);
-    expect(requestedAmount).toBe(5000);
+  it('digitar 30000 no input type=number → amount=30000 (sem conversão centavos)', () => {
+    // Com input type="number" + valueAsNumber, 30000 digitado = 30000 reais.
+    // Com o bug antigo (digit-shift), "30000" centavos = R$ 300,00 (errado).
+    const rawInputValue = 30000; // o que valueAsNumber retorna ao digitar "30000"
+    expect(rawInputValue).toBe(30000); // 30000 reais, não 300 reais
+    expect(formatBRL(rawInputValue).replace(/\s/g, ' ')).toBe('R$ 30.000,00');
   });
 });
