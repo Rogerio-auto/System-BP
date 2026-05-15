@@ -3,13 +3,13 @@ id: F8-S02
 title: Frontend gestão de usuários (admin/users)
 phase: F8
 task_ref: F8.2
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: frontend-engineer
 claimed_at: 2026-05-15T19:30:02Z
 completed_at: 2026-05-15T19:47:57Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/65
 depends_on: [F1-S07, F1-S08]
 blocks: []
 labels: []
