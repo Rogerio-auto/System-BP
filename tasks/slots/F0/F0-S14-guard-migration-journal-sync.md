@@ -3,12 +3,12 @@ id: F0-S14
 title: Guard de sincronia entre migrations .sql e _journal.json do Drizzle
 phase: F0
 task_ref: TOOLCHAIN.14
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: backend-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-15T13:16:02Z
+completed_at: 2026-05-15T13:23:20Z
 pr_url:
 depends_on: []
 blocks: []

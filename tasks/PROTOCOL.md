@@ -137,6 +137,30 @@ Funciona mesmo que o PR tenha título genérico (ex: `chore(tasks): f2-s01 revie
 - Toda FK declara `on delete` explicitamente (CASCADE, SET NULL ou RESTRICT — escolha pensada).
 - Índices em colunas de filtro frequente, índices únicos parciais para dedupe.
 
+#### Migrations — processo obrigatório
+
+Migrations devem ser geradas via `drizzle-kit generate` sempre que possível — isso
+sincroniza o `_journal.json` automaticamente. Se a migration for escrita à mão
+(seed, data fix, permissões), **é obrigatório adicionar a entry correspondente em
+`apps/api/src/db/migrations/meta/_journal.json`** no mesmo commit.
+
+Antes de fechar qualquer slot que toque `apps/api/src/db/migrations/`, rodar:
+
+```powershell
+python scripts/slot.py check-migrations
+```
+
+O comando falha (exit 1) se houver:
+
+- Arquivo `.sql` sem entry no journal (causou o incidente 2026-05-15: `GET /api/credit-products` → 403).
+- Entry no journal sem arquivo `.sql` correspondente.
+
+Emite warning (não bloqueia) para idx duplicado e gaps de sequência (gap 0014/0015
+é esperado — slots F8-S01/S03 ainda não implementados).
+
+O `slot.py validate` também executa este guard automaticamente para qualquer slot
+que liste `db/migrations/` em `files_allowed`.
+
 ### Commits
 
 - Convencional Commits: `feat(modulo): ...`, `fix(modulo): ...`, `chore(tasks): ...`, `docs: ...`, `test(modulo): ...`.

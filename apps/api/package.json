@@ -21,7 +21,8 @@
     "db:seed-fake": "tsx --env-file=../../.env src/db/seed-fake.ts",
     "db:studio": "node --env-file=../../.env node_modules/drizzle-kit/bin.cjs studio",
     "worker:outbox": "tsx --env-file=../../.env src/workers/outbox-publisher.ts",
-    "worker:import": "tsx --env-file=../../.env src/workers/import-processor.ts"
+    "worker:import": "tsx --env-file=../../.env src/workers/import-processor.ts",
+    "db:check-migrations": "node scripts/check-migration-journal.mjs"
   },
   "dependencies": {
     "@elemento/shared-schemas": "workspace:*",
