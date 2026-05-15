@@ -91,10 +91,12 @@ export function truncateEmail(email: string): string {
 }
 
 /**
- * Formata valor em centavos para BRL: R$ 1.500,00
+ * Formata valor em reais para BRL: R$ 1.500,00
+ *
+ * Unidade: REAIS. Ex: formatBRL(1500) → "R$ 1.500,00"
  */
-export function formatBRL(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', {
+export function formatBRL(reais: number): string {
+  return reais.toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   });

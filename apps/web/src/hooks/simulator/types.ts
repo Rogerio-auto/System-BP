@@ -3,6 +3,9 @@
 //
 // Alinhados com POST /api/simulations (F2-S04) e GET /api/credit-products (F2-S03).
 // Amortização: tabela Price (parcelas constantes) calculada via resposta do backend.
+//
+// UNIDADE MONETÁRIA: tudo em REAIS (decimal com 2 casas), consistente com o
+// backend (numeric(14,2)). Nunca centavos neste módulo.
 // =============================================================================
 
 // ─── Produto de Crédito ───────────────────────────────────────────────────────
@@ -13,8 +16,8 @@
  */
 export interface ProductRule {
   id: string;
-  min_amount: number; // centavos
-  max_amount: number; // centavos
+  min_amount: number; // reais — ex: 5000.00 = R$ 5.000,00
+  max_amount: number; // reais — ex: 30000.00 = R$ 30.000,00
   min_term_months: number;
   max_term_months: number;
   interest_rate_monthly: number; // ex: 0.0199 = 1.99%/mês
@@ -47,10 +50,10 @@ export interface CreditProductListResponse {
  */
 export interface AmortizationRow {
   month: number;
-  principal: number; // centavos
-  interest: number; // centavos
-  installment: number; // centavos
-  balance: number; // centavos (saldo devedor ao final do mês)
+  principal: number; // reais
+  interest: number; // reais
+  installment: number; // reais
+  balance: number; // reais (saldo devedor ao final do mês)
 }
 
 /**
@@ -60,12 +63,12 @@ export interface SimulationResult {
   id: string;
   lead_id: string;
   product_id: string;
-  requested_amount: number; // centavos
+  requested_amount: number; // reais
   term_months: number;
   interest_rate_monthly: number;
-  installment_amount: number; // centavos — parcela mensal
-  total_amount: number; // centavos — total a pagar
-  total_interest: number; // centavos — total de juros
+  installment_amount: number; // reais — parcela mensal
+  total_amount: number; // reais — total a pagar
+  total_interest: number; // reais — total de juros
   amortization_table: AmortizationRow[];
   created_at: string;
 }
@@ -76,7 +79,7 @@ export interface SimulationResult {
 export interface SimulationBody {
   lead_id: string;
   product_id: string;
-  requested_amount: number; // centavos
+  requested_amount: number; // reais
   term_months: number;
 }
 
@@ -84,22 +87,25 @@ export interface SimulationBody {
 
 /**
  * Valores do formulário React Hook Form.
- * amount está como string formatada (R$ 1.000,00) para UX.
+ * amount_display é a string formatada (R$ 1.000,00) para UX.
+ * O valor exposto ao submit é reais via parseBRL(amount_display).
  */
 export interface SimulatorFormValues {
   lead_id: string;
   product_id: string;
-  amount_display: string; // formatado BR — convertido para centavos no submit
+  amount_display: string; // formatado BR — convertido para reais no submit via parseBRL
   term_months: string; // string → number na validação
 }
 
 // ─── Formatadores ─────────────────────────────────────────────────────────────
 
 /**
- * Converte centavos para string BRL formatada: R$ 1.000,00
+ * Converte reais (float com 2 casas) para string BRL formatada: R$ 1.000,00
+ *
+ * Unidade: REAIS. Ex: formatBRL(5000) → "R$ 5.000,00"
  */
-export function formatBRL(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', {
+export function formatBRL(reais: number): string {
+  return reais.toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
     minimumFractionDigits: 2,
@@ -107,28 +113,40 @@ export function formatBRL(cents: number): string {
 }
 
 /**
- * Converte string BRL formatada de volta para centavos inteiros.
- * "R$ 1.000,50" → 100050
+ * Converte string BRL formatada de volta para reais (float com 2 casas).
+ *
+ * "R$ 1.000,50" → 1000.50 (reais)
  */
 export function parseBRL(display: string): number {
-  // Remove símbolo, pontos de milhar, substitui vírgula decimal
+  // Remove símbolo R$, espaços, pontos de milhar; substitui vírgula decimal por ponto
   const clean = display.replace(/[R$\s.]/g, '').replace(',', '.');
   const value = parseFloat(clean);
   if (isNaN(value)) return 0;
-  return Math.round(value * 100);
+  // Arredonda a 2 casas decimais para evitar floating-point noise
+  return Math.round(value * 100) / 100;
 }
 
 /**
- * Aplica máscara BRL em tempo real: "1000050" → "R$ 10.000,50"
- * Aceita dígitos apenas e formata como moeda.
+ * Aplica máscara BRL em tempo real para campos de entrada.
+ *
+ * Comportamento: os dígitos digitados são interpretados como centavos durante
+ * a digitação (UX de "cada dígito desloca a vírgula"), mas a string resultante
+ * é BRL formatado em reais. Ao ser lida por parseBRL, retorna REAIS.
+ *
+ * Ex: usuário digita "1000000" → exibe "R$ 10.000,00" → parseBRL retorna 10000.00
+ *
+ * Aceita apenas dígitos; não-dígitos são ignorados.
  */
 export function maskBRL(raw: string): string {
   // Mantém apenas dígitos
   const digits = raw.replace(/\D/g, '');
   if (!digits) return '';
-  const cents = parseInt(digits, 10);
-  if (isNaN(cents)) return '';
-  return (cents / 100).toLocaleString('pt-BR', {
+  const centsInt = parseInt(digits, 10);
+  if (isNaN(centsInt)) return '';
+  // Interpreta dígitos como centavos para a UX de digitação progressiva,
+  // depois converte para reais para formatar como BRL
+  const reais = centsInt / 100;
+  return reais.toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
     minimumFractionDigits: 2,
