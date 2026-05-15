@@ -3,13 +3,13 @@ id: F2-S11
 title: Alinhar contrato do simulador com o backend (request/response) + input numérico
 phase: F2
 task_ref: F2.11
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: frontend-engineer
 claimed_at: 2026-05-15T16:57:31Z
 completed_at: 2026-05-15T17:06:56Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/63
 depends_on: [F2-S10]
 blocks: []
 labels: []
