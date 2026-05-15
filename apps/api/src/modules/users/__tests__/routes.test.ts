@@ -110,6 +110,8 @@ function makeUserResponse(overrides?: Record<string, unknown>) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     deletedAt: null,
+    // F8-S06: roles incluídas na listagem
+    roles: [],
     ...overrides,
   };
 }
@@ -210,6 +212,27 @@ describe('GET /api/admin/users', () => {
     expect(body).toHaveProperty('data');
     expect(body).toHaveProperty('pagination');
     expect(Array.isArray(body['data'])).toBe(true);
+  });
+
+  it('inclui campo roles em cada usuário da listagem (F8-S06)', async () => {
+    const userWithRoles = makeUserResponse({
+      roles: [{ id: FIXTURE_ROLE_ID, key: 'agente', name: 'Agente' }],
+    });
+    mockListUsers.mockResolvedValue({
+      data: [userWithRoles],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/admin/users' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ data: Array<Record<string, unknown>> }>();
+    const first = body.data[0];
+    expect(first).toBeDefined();
+    expect(Array.isArray(first!['roles'])).toBe(true);
+    expect(first!['roles']).toHaveLength(1);
+    const role = (first!['roles'] as Array<Record<string, unknown>>)[0];
+    expect(role).toMatchObject({ key: 'agente', name: 'Agente' });
   });
 });
 

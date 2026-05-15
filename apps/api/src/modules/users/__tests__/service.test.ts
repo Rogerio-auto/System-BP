@@ -38,6 +38,7 @@ const mockUpdateUser = vi.fn();
 const mockDeactivateUser = vi.fn();
 const mockReactivateUser = vi.fn();
 const mockFindUserRoles = vi.fn();
+const mockFindRolesByUserIds = vi.fn();
 const mockReplaceUserRoles = vi.fn();
 const mockCountAdminUsers = vi.fn();
 const mockFindUserCityScopes = vi.fn();
@@ -52,6 +53,7 @@ vi.mock('../repository.js', () => ({
   deactivateUser: (...args: unknown[]) => mockDeactivateUser(...args),
   reactivateUser: (...args: unknown[]) => mockReactivateUser(...args),
   findUserRoles: (...args: unknown[]) => mockFindUserRoles(...args),
+  findRolesByUserIds: (...args: unknown[]) => mockFindRolesByUserIds(...args),
   replaceUserRoles: (...args: unknown[]) => mockReplaceUserRoles(...args),
   roleExistsById: vi.fn().mockResolvedValue(true),
   countAdminUsers: (...args: unknown[]) => mockCountAdminUsers(...args),
@@ -119,6 +121,66 @@ function makeMockDb() {
     }),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Tests: listUsers (F8-S06 — inclui roles sem N+1)
+// ---------------------------------------------------------------------------
+
+describe('listUsers — inclui roles', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('retorna usuários com roles batch-loaded (sem N+1)', async () => {
+    const { listUsers } = await import('../service.js');
+
+    mockFindUsers.mockResolvedValue({
+      data: [makeUser()],
+      total: 1,
+    });
+    // Simula batch-load: 1 role para o usuário
+    mockFindRolesByUserIds.mockResolvedValue([
+      { userId: FIXTURE_TARGET_USER_ID, id: FIXTURE_ROLE_ID, key: 'agente', label: 'Agente' },
+    ]);
+
+    const result = await listUsers({} as unknown as Parameters<typeof listUsers>[0], actor, {
+      page: 1,
+      limit: 20,
+      search: undefined,
+      active: undefined,
+    });
+
+    expect(result.data).toHaveLength(1);
+    const user = result.data[0];
+    expect(user).toBeDefined();
+    expect(user!.roles).toHaveLength(1);
+    expect(user!.roles[0]).toMatchObject({ id: FIXTURE_ROLE_ID, key: 'agente', name: 'Agente' });
+    // Confirmar batch-load foi chamado (sem N+1)
+    expect(mockFindRolesByUserIds).toHaveBeenCalledOnce();
+    expect(mockFindRolesByUserIds).toHaveBeenCalledWith(expect.anything(), [
+      FIXTURE_TARGET_USER_ID,
+    ]);
+  });
+
+  it('retorna roles vazio para usuário sem roles atribuídas', async () => {
+    const { listUsers } = await import('../service.js');
+
+    mockFindUsers.mockResolvedValue({
+      data: [makeUser()],
+      total: 1,
+    });
+    mockFindRolesByUserIds.mockResolvedValue([]);
+
+    const result = await listUsers({} as unknown as Parameters<typeof listUsers>[0], actor, {
+      page: 1,
+      limit: 20,
+      search: undefined,
+      active: undefined,
+    });
+
+    expect(result.data[0]!.roles).toEqual([]);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Tests: createUserService
