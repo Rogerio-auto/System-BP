@@ -1,11 +1,11 @@
 ---
 id: F2-S11
-title: Substituir máscara digit-shift do simulador por input numérico
+title: Alinhar contrato do simulador com o backend (request/response) + input numérico
 phase: F2
 task_ref: F2.11
 status: available
-priority: medium
-estimated_size: S
+priority: high
+estimated_size: M
 agent_id: frontend-engineer
 claimed_at:
 completed_at:
@@ -15,85 +15,167 @@ blocks: []
 labels: []
 source_docs:
   - docs/18-design-system.md
+  - docs/05-modulos-funcionais.md
 ---
 
-# F2-S11 — Input de valor numérico no simulador
+# F2-S11 — Alinhar contrato do simulador + input numérico
 
-## Contexto
+## Contexto (incidentes 2026-05-15)
 
-O campo "Valor solicitado" do simulador (`SimulatorForm`, F2-S06) usa `maskBRL` —
-máscara "digit-shift" estilo app de banco: cada dígito digitado desloca a vírgula,
-interpretando a entrada como centavos durante a digitação. Para digitar **R$ 30.000**
-o operador precisa teclar **7 dígitos** (`3000000`).
+O simulador (F2-S06) foi construído no mesmo batch paralelo do backend (F2-S04). O agente
+do frontend **adivinhou o contrato da API e errou**. Dois bugs em produção:
 
-F2-S10 corrigiu a unidade (o valor consumido pela validação/submit já é reais), mas
-manteve essa UX de digitação. O resultado é inconsistente com o resto do produto:
+### Bug 1 — `POST /api/simulations` retorna 400
 
-- `PublishRuleDrawer` (F2-S07, gestão de produtos) usa `<input type="number">` com
-  `valueAsNumber` — digitar `30000` resulta em `30000`.
-- O simulador usa `maskBRL` — digitar `30000` resulta em `R$ 300,00`.
+```
+body/leadId Required, body/productId Required, body/amount Required, body/termMonths Required
+```
 
-O mesmo operador cadastra a regra de um jeito e simula de outro. Confuso.
+O frontend envia `lead_id / product_id / requested_amount / term_months` (snake_case).
+O backend espera `leadId / productId / amount / termMonths` (camelCase). O backend não
+encontra os campos esperados → 400.
 
-## Objetivo
+### Bug 2 — UX do campo de valor (máscara digit-shift)
 
-Alinhar o campo de valor do simulador ao padrão do `PublishRuleDrawer`: **digitar
-`30000` deve significar R$ 30.000**, sem máscara centavos-first.
+O campo "Valor solicitado" usa `maskBRL` (estilo app de banco: cada dígito desloca a
+vírgula). Para digitar R$ 30.000 o operador tecla 7 dígitos. Inconsistente com o
+`PublishRuleDrawer` (F2-S07), que usa `<input type="number">` — digitar `30000` = 30000.
+
+## Causa raiz comum
+
+O contrato entre `apps/web/src/hooks/simulator/` e o backend nunca foi verificado contra
+a fonte de verdade. **O backend é a fonte de verdade.** Este slot alinha o frontend ao
+contrato real definido em `apps/api/src/modules/simulations/schemas.ts`.
+
+## Contrato real do backend (fonte de verdade — confira no schema antes de implementar)
+
+### Request — `POST /api/simulations` (`SimulationCreateSchema`)
+
+```ts
+{
+  leadId: string; // UUID
+  productId: string; // UUID
+  amount: number; // reais, positivo
+  termMonths: number; // inteiro positivo
+}
+```
+
+### Response — `SimulationResponseSchema`
+
+```ts
+{
+  id: string; // uuid
+  organization_id: string; // uuid          (snake_case)
+  lead_id: string; // uuid          (snake_case)
+  product_id: string; // uuid          (snake_case)
+  rule_version_id: string; // uuid
+  amount_requested: string; // ⚠️ STRING (numeric do Postgres) — parsear p/ number
+  term_months: number;
+  monthly_payment: string; // ⚠️ STRING — parsear p/ number
+  total_amount: string; // ⚠️ STRING — parsear p/ number
+  total_interest: string; // ⚠️ STRING — parsear p/ number
+  rate_monthly_snapshot: string; // ⚠️ STRING — parsear p/ number
+  amortization_method: 'price' | 'sac';
+  amortization_table: Array<{
+    number: number; // nº da parcela (NÃO 'month')
+    payment: number; // parcela total (NÃO 'installment')
+    principal: number;
+    interest: number;
+    balance: number;
+  }>;
+  origin: 'manual' | 'ai' | 'import';
+  created_by_user_id: string | null;
+  created_at: string; // ISO datetime
+}
+```
+
+**Atenção a 3 armadilhas:**
+
+1. Request é camelCase; response top-level é snake_case (mistura — é o que o backend faz).
+2. Valores monetários top-level vêm como **string** (`"5000.00"`) — converter para number.
+3. As linhas de `amortization_table` usam `number`/`payment` — não `month`/`installment`
+   como o frontend assumiu.
 
 ## Escopo
 
-### `SimulatorForm.tsx`
+### 1. `hooks/simulator/types.ts`
 
-- Trocar o input que usa `maskBRL` por um campo numérico direto, consistente com
-  `PublishRuleDrawer` (F2-S07): `type="number"`, `step`, `min`/`max` derivados da regra
-  ativa, leitura como número (reais).
-- Manter o feedback visual do DS: o hint de faixa ("Faixa: R$ 5.000,00 – R$ 30.000,00")
-  continua via `formatBRL`. Opcionalmente, exibir o valor formatado em `formatBRL` ao
-  lado/abaixo do input como confirmação (read-only) — decisão de UX no PR, mas o **input
-  em si** aceita número puro.
-- A validação Zod (já em reais após F2-S10) passa a ler o número direto, sem `parseBRL`.
-- O submit envia `requested_amount` em reais (já correto desde F2-S10).
+- `SimulationBody` → request camelCase: `{ leadId, productId, amount, termMonths }`.
+- `SimulationResult` / `AmortizationRow` → espelhar `SimulationResponseSchema` exatamente
+  (campos, nomes, e o fato de os monetários virem como string). Decidir: ou o tipo
+  reflete string e a UI converte na exibição, ou o `useSimulate` normaliza para number
+  logo após o fetch (preferível — normalizar uma vez, UI sempre lida com number).
 
-### `hooks/simulator/types.ts`
+### 2. `hooks/simulator/useSimulate.ts`
 
-- `maskBRL` e `parseBRL`: se deixarem de ser usados pelo `SimulatorForm`, avaliar:
-  - Se nenhum outro consumidor → **remover** as funções mortas (não deixar código morto).
-  - Se algum outro lugar usa → manter, mas garantir que não há regressão.
-- `formatBRL` permanece (usado para exibição em vários lugares).
-- `SimulatorFormValues.amount_display: string` → reavaliar: se o input vira numérico,
-  o campo do form passa a ser `amount: number` (ou manter string com parse simples).
-  Ajustar o tipo coerentemente.
+- Montar o body do POST em camelCase (`leadId/productId/amount/termMonths`).
+- Ao receber a resposta, parsear os campos string→number (`Number(amount_requested)` etc.).
+- Garantir que o erro 400 não volte a acontecer — adicionar/ajustar teste.
+
+### 3. `SimulatorForm.tsx`
+
+- `handleFormSubmit` / `onSubmit` → emitir `{ leadId, productId, amount, termMonths }`.
+- Renomear os campos internos do form RHF se estiverem snake_case, para consistência.
+- **Input de valor numérico (Bug 2):** trocar `maskBRL` por `<input type="number">`
+  consistente com `PublishRuleDrawer` (F2-S07) — digitar `30000` = R$ 30.000. `step`,
+  `min`/`max` derivados da regra ativa. Hint de faixa continua via `formatBRL`.
+
+### 4. `SimulatorResult.tsx` + `AmortizationTable.tsx`
+
+- Consumir o response no shape correto. Parcela/total/juros = valores numéricos
+  normalizados. A tabela usa `number`/`payment`/`principal`/`interest`/`balance`.
+
+### 5. `maskBRL` / `parseBRL`
+
+- Se ficarem sem uso após trocar o input, **remover** (sem código morto). Se outro
+  consumidor existir, manter com justificativa. `formatBRL` permanece.
+
+### 6. Testes
+
+- Atualizar testes que assumiam snake_case ou o shape antigo.
+- **Teste de contrato obrigatório:** o body emitido pelo submit tem exatamente as chaves
+  `leadId, productId, amount, termMonths` — um teste que falharia com o bug atual.
+- Teste de parsing do response (string→number).
 
 ## Verificação manual obrigatória (DoD)
 
-Subir o dev server e testar no browser:
+Subir dev server + API e testar no browser:
 
-1. Abrir `/simulator`, selecionar produto com regra `min R$ 5.000 / max R$ 30.000`.
-2. Digitar `10000` no campo de valor → deve representar R$ 10.000 (não R$ 100).
-3. Simular `10000 / 12 meses` → cria a simulação, resultado coerente.
-4. Digitar `4999` → validação rejeita ("entre R$ 5.000,00 e R$ 30.000,00").
+1. `/simulator`, produto com regra `min R$ 5.000 / max R$ 30.000`.
+2. Digitar `10000` no valor (não 7 dígitos) → R$ 10.000.
+3. Simular `10000 / 12 meses` → **201**, resultado renderizado: parcela, total, juros,
+   tabela de amortização coerentes (sem `NaN`, sem `R$ undefined`).
+4. Conferir que não há mais 400.
 
 Se não conseguir subir o ambiente, dizer explicitamente — não inventar que testou.
 
 ## Arquivos permitidos
 
-- `apps/web/src/features/simulator/SimulatorForm.tsx`
-- `apps/web/src/features/simulator/__tests__/SimulatorForm.test.tsx`
 - `apps/web/src/hooks/simulator/types.ts`
+- `apps/web/src/hooks/simulator/useSimulate.ts`
+- `apps/web/src/hooks/simulator/useProducts.ts`
+- `apps/web/src/features/simulator/SimulatorForm.tsx`
+- `apps/web/src/features/simulator/SimulatorResult.tsx`
+- `apps/web/src/features/simulator/AmortizationTable.tsx`
+- `apps/web/src/features/simulator/__tests__/SimulatorForm.test.tsx`
+- `apps/web/src/features/simulator/__tests__/SimulatorResult.test.tsx`
 
 ## Definition of Done
 
-- [ ] Campo de valor do simulador aceita número direto — digitar `30000` = R$ 30.000.
-- [ ] Comportamento consistente com o `PublishRuleDrawer` (F2-S07).
-- [ ] Hint de faixa continua correto via `formatBRL`.
-- [ ] Validação e submit operam em reais (sem regressão do F2-S10).
-- [ ] `maskBRL`/`parseBRL` removidos se ficarem sem uso (sem código morto) — ou mantidos
-      com justificativa se ainda houver consumidor.
-- [ ] Testes atualizados.
+- [ ] `POST /api/simulations` não retorna mais 400 — body em camelCase
+      (`leadId/productId/amount/termMonths`).
+- [ ] Response parseado corretamente — monetários string→number; sem `NaN`/`undefined`
+      na UI.
+- [ ] `amortization_table` lida com `number`/`payment`/`principal`/`interest`/`balance`.
+- [ ] Campo de valor aceita número direto — digitar `30000` = R$ 30.000 (consistente
+      com F2-S07).
+- [ ] Hint de faixa correto via `formatBRL`; validação/submit em reais (sem regressão F2-S10).
+- [ ] `maskBRL`/`parseBRL` removidos se sem uso (sem código morto).
+- [ ] Teste de contrato: submit emite exatamente `{leadId, productId, amount, termMonths}`.
 - [ ] Verificação manual no browser feita e descrita no PR.
 - [ ] `pnpm --filter @elemento/web typecheck && lint && test` verdes (typecheck pode ter
       erro pré-existente em `lib/api.ts` — reportar, não arrumar).
-- [ ] PR com screenshot do campo.
+- [ ] PR com screenshots (simulador funcionando ponta-a-ponta).
 
 ## Validação
 
