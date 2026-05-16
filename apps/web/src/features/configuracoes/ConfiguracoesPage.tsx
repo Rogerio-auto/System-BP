@@ -2,8 +2,8 @@
 // features/configuracoes/ConfiguracoesPage.tsx — Hub de configurações.
 //
 // Estrutura:
-//   - Camada 1 (Conta): cards "Em breve" para Perfil, Segurança, Aparência.
-//     Implementação funcional é F8-S09.
+//   - Camada 1 (Conta): Perfil, Segurança e Aparência funcionais (F8-S09).
+//     Conteúdo em ContaSection.tsx.
 //   - Camada 2 (Administração): cards gated por permissão, divididos em dois grupos:
 //       · Gestão         — Produtos & Regras, Cidades, Agentes
 //       · Adm. técnica   — Usuários & Papéis, Feature Flags
@@ -27,55 +27,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
 
+import { ContaSection } from './ContaSection';
+
 // ─── Ícones SVG inline (24×24) ────────────────────────────────────────────────
-
-function IconPerfil(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      className="w-6 h-6 shrink-0"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 20c0-4 3.58-7 8-7s8 3 8 7" />
-    </svg>
-  );
-}
-
-function IconSeguranca(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      className="w-6 h-6 shrink-0"
-      aria-hidden="true"
-    >
-      <path d="M12 2L4 6v6c0 5.25 3.5 10.17 8 11.5C16.5 22.17 20 17.25 20 12V6L12 2Z" />
-      <path d="M9 12l2 2 4-4" />
-    </svg>
-  );
-}
-
-function IconAparencia(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      className="w-6 h-6 shrink-0"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-    </svg>
-  );
-}
 
 function IconProdutos(): React.JSX.Element {
   return (
@@ -171,64 +125,11 @@ interface ConfigCard {
   description: string;
   icon: React.ReactNode;
   href?: string;
-  comingSoon?: boolean;
 }
 
 interface ConfigGroup {
   heading: string;
   cards: ConfigCard[];
-}
-
-// ─── Card "Em breve" (Conta) ──────────────────────────────────────────────────
-
-function ComingSoonCard({ card }: { card: ConfigCard }): React.JSX.Element {
-  return (
-    <div
-      className={cn(
-        'group flex flex-col gap-3 p-5 rounded-lg border border-border',
-        'opacity-60 cursor-default select-none',
-      )}
-      style={{ background: 'var(--bg-elev-1)', boxShadow: 'var(--elev-1)' }}
-      aria-label={`${card.title} — em breve`}
-    >
-      <div className="flex items-start gap-3">
-        <div
-          className="flex items-center justify-center w-10 h-10 rounded-md shrink-0"
-          style={{ background: 'var(--surface-muted)', color: 'var(--text-3)' }}
-          aria-hidden="true"
-        >
-          {card.icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3
-              className="font-sans font-semibold text-ink-3 truncate"
-              style={{ fontSize: 'var(--text-sm)', letterSpacing: '-0.01em' }}
-            >
-              {card.title}
-            </h3>
-            <span
-              className="inline-flex items-center shrink-0 rounded-full px-2 py-0.5 font-sans font-semibold uppercase"
-              style={{
-                fontSize: '0.6rem',
-                letterSpacing: '0.1em',
-                background: 'var(--surface-muted)',
-                color: 'var(--text-4)',
-              }}
-            >
-              Em breve
-            </span>
-          </div>
-          <p
-            className="mt-1 font-sans text-ink-4 leading-relaxed"
-            style={{ fontSize: 'var(--text-xs)' }}
-          >
-            {card.description}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ─── Card navegável (Administração) ──────────────────────────────────────────
@@ -303,42 +204,8 @@ function AdminCard({ card }: { card: ConfigCard }): React.JSX.Element {
 }
 
 // ─── Seção Conta ──────────────────────────────────────────────────────────────
-
-const CONTA_CARDS: ConfigCard[] = [
-  {
-    title: 'Perfil',
-    description: 'Nome de exibição, foto e informações pessoais da conta.',
-    icon: <IconPerfil />,
-    comingSoon: true,
-  },
-  {
-    title: 'Segurança',
-    description: 'Senha, autenticação em dois fatores e sessões ativas.',
-    icon: <IconSeguranca />,
-    comingSoon: true,
-  },
-  {
-    title: 'Aparência',
-    description: 'Tema claro ou escuro e preferências de interface.',
-    icon: <IconAparencia />,
-    comingSoon: true,
-  },
-];
-
-function ContaSection(): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="font-sans text-sm text-ink-3">
-        Configurações pessoais da sua conta. Disponível em breve.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {CONTA_CARDS.map((card) => (
-          <ComingSoonCard key={card.title} card={card} />
-        ))}
-      </div>
-    </div>
-  );
-}
+// Implementação funcional em ContaSection.tsx (F8-S09).
+// Re-exportada aqui via import para manter a estrutura de composição da página.
 
 // ─── Seção Administração ──────────────────────────────────────────────────────
 
@@ -494,7 +361,7 @@ function TabButton({ active, onClick, children }: TabButtonProps): React.JSX.Ele
  * Hub de configurações `/configuracoes`.
  *
  * Duas abas:
- *   - Conta: perfil, segurança, aparência (esqueleto — funcional em F8-S09).
+ *   - Conta: perfil, segurança, aparência (funcional — F8-S09).
  *   - Administração: cards gated por permissão, subdivididos em Gestão e Adm. técnica.
  */
 export function ConfiguracoesPage(): React.JSX.Element {
