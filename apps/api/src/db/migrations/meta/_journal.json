@@ -127,6 +127,13 @@
       "when": 1748822400000,
       "tag": "0019_seed_agents_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1748908800000,
+      "tag": "0020_seed_dashboard_permission",
+      "breakpoints": true
     }
   ]
 }
