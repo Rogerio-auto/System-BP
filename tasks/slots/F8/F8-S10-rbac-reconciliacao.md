@@ -3,13 +3,13 @@ id: F8-S10
 title: Reconciliação RBAC — padronizar permissões em :manage
 phase: F8
 task_ref: F8.10
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: backend-engineer
 claimed_at: 2026-05-16T16:52:15Z
 completed_at: 2026-05-16T17:02:48Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/72
 depends_on: []
 blocks: []
 labels: []
