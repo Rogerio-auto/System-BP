@@ -3,11 +3,11 @@ id: F0-S15
 title: Saneamento — restaurar typecheck e testes verdes da API
 phase: F0
 task_ref: F0.15
-status: available
+status: in-progress
 priority: high
 estimated_size: L
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-16T19:18:03Z
 completed_at:
 pr_url:
 depends_on: []
