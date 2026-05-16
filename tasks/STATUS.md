@@ -8,16 +8,16 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
-| F0   | 14     | 0   | 0   | 0   | 0   | 0   | 14   |
-| F1   | 28     | 0   | 0   | 0   | 0   | 0   | 28   |
-| F2   | 11     | 0   | 0   | 0   | 0   | 0   | 11   |
+| F0   | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
+| F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
+| F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
-| F8   | 6     | 3   | 0   | 0   | 0   | 1   | 2   |
+| F8   | 7     | 3   | 0   | 0   | 0   | 0   | 4   |
 
 ## Fase 0 — Preparação
 
-| ID      | Título                                                                        | Status | Prioridade | Depende de                     |
-| ------- | ----------------------------------------------------------------------------- | ------ | ---------- | ------------------------------ |
+| ID      | Título                                                                        | Status  | Prioridade | Depende de                     |
+| ------- | ----------------------------------------------------------------------------- | ------- | ---------- | ------------------------------ |
 | F0-S01  | Verificar e travar lockfiles (pnpm + python)                                  | ✅ done | critical   | —                              |
 | F0-S02  | ESLint + Prettier — instalar e ligar nos workspaces                           | ✅ done | high       | F0-S01                         |
 | F0-S03  | Validar boot da API + healthcheck contra Postgres                             | ✅ done | high       | F0-S01                         |
@@ -31,12 +31,12 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0-S11  | Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)           | ✅ done | medium     | —                              |
 | F0-S12  | Investigar staleness do Agent(isolation=worktree) vs commits recentes em main | ✅ done | medium     | —                              |
 | F0-S13  | Fix heurística de reconcile-merged (não detecta slots mergeados)              | ✅ done | medium     | —                              |
-| F0-S14  | Guard de sincronia entre migrations .sql e _journal.json do Drizzle           | ✅ done | high       | —                              |
+| F0-S14  | Guard de sincronia entre migrations .sql e \_journal.json do Drizzle          | ✅ done | high       | —                              |
 
 ## Fase 1 — Base operacional
 
-| ID     | Título                                                                                  | Status | Prioridade | Depende de                     |
-| ------ | --------------------------------------------------------------------------------------- | ------ | ---------- | ------------------------------ |
+| ID     | Título                                                                                  | Status  | Prioridade | Depende de                     |
+| ------ | --------------------------------------------------------------------------------------- | ------- | ---------- | ------------------------------ |
 | F1-S01 | Schema identidade — orgs, users, roles, permissions, sessions, city scopes              | ✅ done | critical   | F0-S04                         |
 | F1-S02 | Helpers de erro e resposta padronizados                                                 | ✅ done | high       | F0-S03                         |
 | F1-S03 | Auth — login, refresh, logout                                                           | ✅ done | critical   | F1-S01, F1-S02                 |
@@ -68,8 +68,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 2 — Crédito e simulação
 
-| ID     | Título                                                                          | Status | Prioridade | Depende de                     |
-| ------ | ------------------------------------------------------------------------------- | ------ | ---------- | ------------------------------ |
+| ID     | Título                                                                          | Status  | Prioridade | Depende de                     |
+| ------ | ------------------------------------------------------------------------------- | ------- | ---------- | ------------------------------ |
 | F2-S01 | Schema credit_products + product_rules + simulations + seed                     | ✅ done | critical   | F0-S04, F1-S09, F1-S13, F1-S15 |
 | F2-S02 | Service de cálculo Price + SAC (puro, testável)                                 | ✅ done | high       | —                              |
 | F2-S03 | CRUD credit-products + publicação versionada de regras                          | ✅ done | high       | F2-S01, F1-S04, F1-S15         |
@@ -84,17 +84,18 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 3 — Agentes IA
 
-| ID     | Título                                                         | Status | Prioridade | Depende de |
-| ------ | -------------------------------------------------------------- | ------ | ---------- | ---------- |
+| ID     | Título                                                         | Status  | Prioridade | Depende de |
+| ------ | -------------------------------------------------------------- | ------- | ---------- | ---------- |
 | F3-S00 | LLM Gateway — abstração OpenRouter + fallback Anthropic/OpenAI | ✅ done | critical   | F0-S06     |
 
 ## Fase 8 —
 
-| ID     | Título                                                         | Status      | Prioridade | Depende de                     |
-| ------ | -------------------------------------------------------------- | ----------- | ---------- | ------------------------------ |
-| F8-S01 | Backend CRUD agents + agent_cities (admin)                     | ✅ done      | high       | F1-S04, F1-S05, F1-S07         |
-| F8-S02 | Frontend gestão de usuários (admin/users)                      | ✅ done      | high       | F1-S07, F1-S08                 |
-| F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados)       | 🟢 available | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
-| F8-S04 | Frontend gestão de agentes de crédito                          | 🟣 review    | high       | F8-S01, F1-S08                 |
-| F8-S05 | Frontend dashboard real com KPIs e gráficos                    | 🟢 available | medium     | F8-S03, F1-S08                 |
-| F8-S06 | Backend — GET /api/admin/roles + roles na listagem de usuários | 🟣 review    | high       | —                              |
+| ID     | Título                                                                   | Status       | Prioridade | Depende de                     |
+| ------ | ------------------------------------------------------------------------ | ------------ | ---------- | ------------------------------ |
+| F8-S01 | Backend CRUD agents + agent_cities (admin)                               | ✅ done      | high       | F1-S04, F1-S05, F1-S07         |
+| F8-S02 | Frontend gestão de usuários (admin/users)                                | ✅ done      | high       | F1-S07, F1-S08                 |
+| F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados)                 | 🟢 available | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
+| F8-S04 | Frontend gestão de agentes de crédito                                    | ✅ done      | high       | F8-S01, F1-S08                 |
+| F8-S05 | Frontend dashboard real com KPIs e gráficos                              | 🟢 available | medium     | F8-S03, F1-S08                 |
+| F8-S06 | Backend — GET /api/admin/roles + roles na listagem de usuários           | ✅ done      | high       | —                              |
+| F8-S07 | Promover roles.scope a coluna real (migration + backfill) e ler do banco | 🟢 available | medium     | F8-S06                         |
