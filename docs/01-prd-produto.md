@@ -175,9 +175,10 @@ A plataforma substitui Notion (CRM) e Trello (pipeline) e centraliza a operaçã
 ## 7. Princípio de UX
 
 - Densidade controlada, mas com respiração editorial. Referências: Linear, Stripe, Vercel.
-- Dark-first opcional via toggle, light como default.
-- Tipografia: Inter ou Geist. Sem fontes decorativas.
-- Cores: cinza-frio com acento único de marca; status com semântica clara (sucesso, atenção, erro, neutro).
+- Light-first, com dark mode opcional via toggle.
+- Tipografia: Bricolage Grotesque (display), Geist (texto), JetBrains Mono (dados/código).
+- Cores derivadas da bandeira de Rondônia; status com semântica clara (sucesso, atenção, erro, neutro).
+- **O Design System canônico é o [`docs/18-design-system.md`](18-design-system.md)** (tokens, profundidade, hovers, componentes) + `docs/design-system/index.html`. Esta seção é só o princípio de UX; o doc 18 vence em qualquer conflito.
 - Tabelas pesadas (CRM, Kanban) precisam de virtualização e filtros persistidos.
 - Forms com validação em tempo real, espelhando Zod do backend.
 - Estados sempre cobertos: vazio, carregando, erro, sem permissão, feature desligada.
