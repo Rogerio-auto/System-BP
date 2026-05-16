@@ -609,14 +609,19 @@ export async function getAvgDaysInStage(
 ): Promise<KanbanAvgDaysRow[]> {
   // Usamos SQL nativo para a janela de tempo (LEAD window function)
   // Drizzle não suporta LEAD/LAG nativamente em modo type-safe — justificado.
-  const cityScopeSql =
+  // City scope como fragmento SQL PARAMETRIZADO — nada de interpolação de string
+  // crua: os UUIDs entram via placeholders, não concatenados no texto da query.
+  const cityScopeFragment =
     cityScopeIds === null
-      ? ''
+      ? sql``
       : cityIdOverride !== undefined
-        ? `AND l.city_id = '${cityIdOverride}'`
+        ? sql`AND l.city_id = ${cityIdOverride}`
         : cityScopeIds.length === 0
-          ? 'AND 1 = 0'
-          : `AND l.city_id IN (${cityScopeIds.map((id) => `'${id}'`).join(', ')})`;
+          ? sql`AND 1 = 0`
+          : sql`AND l.city_id IN (${sql.join(
+              cityScopeIds.map((id) => sql`${id}`),
+              sql`, `,
+            )})`;
 
   // `as` justificado: sql`` retorna SQL<unknown> mas Drizzle aceita para execute()
   const result = await db.execute(sql`
@@ -634,7 +639,7 @@ export async function getAvgDaysInStage(
       INNER JOIN leads l ON l.id = kc.lead_id
       WHERE kc.organization_id = ${organizationId}
         AND (l.deleted_at IS NULL)
-        ${sql.raw(cityScopeSql)}
+        ${cityScopeFragment}
     ),
     durations AS (
       SELECT
