@@ -7,7 +7,7 @@
 //   - Tabela de agentes (AgentList)
 //   - Drawer create/edit (AgentDrawer)
 //
-// Acesso: agents:admin (verificado no backend; UI usa hasPermission para o botão).
+// Acesso: agents:manage (verificado no backend; UI usa hasPermission para o botão).
 // =============================================================================
 
 import * as React from 'react';
@@ -66,11 +66,11 @@ function StatCard({ label, value, sub, isLoading }: StatCardProps): React.JSX.El
 
 /**
  * Página de administração de agentes de crédito (/admin/agents).
- * Acesso controlado por agents:admin.
+ * Acesso controlado por agents:manage.
  */
 export function AgentsPage(): React.JSX.Element {
   const { hasPermission } = useAuth();
-  const canManage = hasPermission('agents:admin');
+  const canManage = hasPermission('agents:manage');
 
   const [page, setPage] = React.useState(1);
   const [search, setSearch] = React.useState('');

@@ -141,6 +141,13 @@
       "when": 1748995200000,
       "tag": "0021_roles_scope_column",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1749081600000,
+      "tag": "0022_drop_agents_admin_permission",
+      "breakpoints": true
     }
   ]
 }

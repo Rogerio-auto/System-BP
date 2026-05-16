@@ -5,19 +5,21 @@
 // em todo o código de autorização. Não criar permissões em runtime —
 // toda nova permissão exige migration + seed update + revisão de código.
 //
-// Keys canônicas (doc 10 §3.2):
+// Keys canônicas (doc 10 §3.2 — espelho do seed base + migrations de permissões):
 //   leads:read, leads:write, leads:merge, leads:transfer
 //   customers:read, customers:write
 //   kanban:move, kanban:revert, kanban:set_outcome
-//   simulations:create, simulations:read
+//   simulations:create, simulations:read       [seed base + 0018]
 //   analyses:read, analyses:write, analyses:approve, analyses:import
 //   imports:run, imports:cancel
 //   cities:manage, agents:manage, users:manage
 //   flags:manage, flags:read
 //   audit:read
-//   dashboard:read, dashboard:read_by_agent
+//   dashboard:read, dashboard:read_by_agent    [seed base + 0020]
 //   assistant:query, assistant:confirm_actions
 //   followup:manage, collection:manage
+//   credit_products:read, credit_products:write [0017 — atribuídas a admin]
+//   dlq:manage                                  [dlq.routes.ts — atribuída a admin via seed manual]
 // =============================================================================
 import { sql } from 'drizzle-orm';
 import { pgTable, uuid, text, uniqueIndex } from 'drizzle-orm/pg-core';

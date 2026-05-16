@@ -7,7 +7,7 @@
 //   - Tabela de usuários (UserList)
 //   - Drawer create/edit (UserDrawer)
 //
-// Acesso: users:admin (verificado no backend; UI usa hasPermission para ocultar
+// Acesso: users:manage (verificado no backend; UI usa hasPermission para ocultar
 // o botão de criação se o usuário não tiver a permissão).
 // =============================================================================
 
@@ -67,11 +67,11 @@ function StatCard({ label, value, sub, isLoading }: StatCardProps): React.JSX.El
 
 /**
  * Página de administração de usuários (/admin/users).
- * Acesso controlado por users:admin.
+ * Acesso controlado por users:manage.
  */
 export function UsersPage(): React.JSX.Element {
   const { hasPermission } = useAuth();
-  const canManage = hasPermission('users:admin');
+  const canManage = hasPermission('users:manage');
 
   const [page, setPage] = React.useState(1);
   const [search, setSearch] = React.useState('');

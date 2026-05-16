@@ -2,7 +2,7 @@
 // roles/routes.ts — Rotas admin de roles (F8-S06).
 //
 // GET /api/admin/roles — lista roles disponíveis da organização.
-//   Requer: authenticate() + authorize({ permissions: ['users:admin'] })
+//   Requer: authenticate() + authorize({ permissions: ['users:manage'] })
 //   (mesma permissão da gestão de usuários — roles é suporte a essa tela)
 //
 // Sem paginação: poucas roles por org.
@@ -28,7 +28,7 @@ export const rolesRoutes: FastifyPluginAsyncZod = async (app) => {
           200: listRolesResponseSchema,
         },
       },
-      preHandler: [authenticate(), authorize({ permissions: ['users:admin'] })],
+      preHandler: [authenticate(), authorize({ permissions: ['users:manage'] })],
     },
     listRolesController,
   );
