@@ -14,7 +14,6 @@ import * as React from 'react';
 import { NavLink } from 'react-router-dom';
 
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
-import { useAuth } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -125,89 +124,6 @@ function IconConfiguracoes(): React.JSX.Element {
   );
 }
 
-function IconCities(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      {/* Mapa simplificado: polígono + pin */}
-      <path d="M3 5l5-2 4 2 5-2v12l-5 2-4-2-5 2V5Z" />
-      <circle cx="10" cy="9" r="2" />
-    </svg>
-  );
-}
-
-function IconFeatureFlags(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      <path d="M4 3v15" />
-      <path d="M4 3h11l-2.5 3.5L15 10H4" />
-    </svg>
-  );
-}
-
-function IconUsers(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      <path d="M13 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-      <path d="M7 10a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" />
-      <path d="M1 17c0-2.8 2.69-5 6-5h6c3.31 0 6 2.2 6 5" />
-      <path d="M16 13l2 2" />
-      <circle cx="18" cy="13" r="0.5" fill="currentColor" />
-    </svg>
-  );
-}
-
-function IconAgents(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      {/* Pessoa com badge de crédito */}
-      <circle cx="10" cy="7" r="3.5" />
-      <path d="M3 18c0-3 3.13-5 7-5s7 2 7 5" />
-      <path d="M14 10l1.5 1.5L18 9" />
-    </svg>
-  );
-}
-
-function IconProducts(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      {/* Caixa de produto estilizada */}
-      <rect x="2" y="7" width="16" height="11" rx="2" />
-      <path d="M5 7V5a3 3 0 0 1 10 0v2" />
-      <path d="M8 11h4" />
-    </svg>
-  );
-}
-
 function IconSimulator(): React.JSX.Element {
   return (
     <svg
@@ -231,6 +147,9 @@ function IconSimulator(): React.JSX.Element {
 }
 
 // ─── Nav sections (base — feature flags aplicadas no componente) ──────────────
+//
+// Administração removida da sidebar (F8-S08): tudo acessível via /configuracoes.
+// Configurações move para rodapé isolado (padrão Linear) — ponto único de entrada.
 
 const NAV_SECTIONS_BASE: NavSection[] = [
   {
@@ -246,65 +165,24 @@ const NAV_SECTIONS_BASE: NavSection[] = [
   },
   {
     heading: 'Gestão',
-    items: [
-      { href: '/relatorios', label: 'Relatórios', icon: <IconRelatorios /> },
-      { href: '/configuracoes', label: 'Configurações', icon: <IconConfiguracoes /> },
-    ],
-  },
-  {
-    heading: 'Administração',
-    items: [
-      { href: '/admin/products', label: 'Produtos', icon: <IconProducts /> },
-      { href: '/admin/cities', label: 'Cidades', icon: <IconCities /> },
-      { href: '/admin/feature-flags', label: 'Feature Flags', icon: <IconFeatureFlags /> },
-    ],
+    items: [{ href: '/relatorios', label: 'Relatórios', icon: <IconRelatorios /> }],
   },
 ];
 
 /**
- * Hook que constrói as nav sections dinamicamente com base em feature flags e permissões.
+ * Hook que constrói as nav sections dinamicamente com base em feature flags.
  * - Quando credit_simulation.enabled está off, o item "Simulador" fica oculto.
- * - O item "Usuários" é visível apenas com permissão users:admin.
+ * - Seção "Administração" removida: tudo centralizado em /configuracoes (F8-S08).
  */
 function useNavSections(): NavSection[] {
   const { enabled: simulatorEnabled } = useFeatureFlag('credit_simulation.enabled');
-  const { hasPermission } = useAuth();
-  const canManageUsers = hasPermission('users:admin');
-  const canManageAgents = hasPermission('agents:admin');
 
   return React.useMemo(() => {
-    // Seção de Administração com "Usuários" condicional
-    const adminItems: NavItem[] = [
-      { href: '/admin/products', label: 'Produtos', icon: <IconProducts /> },
-      { href: '/admin/cities', label: 'Cidades', icon: <IconCities /> },
-      { href: '/admin/feature-flags', label: 'Feature Flags', icon: <IconFeatureFlags /> },
-    ];
-
-    if (canManageUsers) {
-      adminItems.splice(0, 0, { href: '/admin/users', label: 'Usuários', icon: <IconUsers /> });
-    }
-
-    if (canManageAgents) {
-      // Insere Agentes após Usuários (ou no início se sem users:admin)
-      const insertIdx = canManageUsers ? 1 : 0;
-      adminItems.splice(insertIdx, 0, {
-        href: '/admin/agents',
-        label: 'Agentes',
-        icon: <IconAgents />,
-      });
-    }
-
-    const administracaoSection: NavSection = {
-      heading: 'Administração',
-      items: adminItems,
-    };
-
     if (!simulatorEnabled) {
       return [
         NAV_SECTIONS_BASE[0]!, // Dashboard
         NAV_SECTIONS_BASE[1]!, // Operações
         NAV_SECTIONS_BASE[2]!, // Gestão
-        administracaoSection,
       ];
     }
 
@@ -316,9 +194,8 @@ function useNavSections(): NavSection[] {
         items: [{ href: '/simulator', label: 'Simulador', icon: <IconSimulator /> }],
       },
       NAV_SECTIONS_BASE[2]!, // Gestão
-      administracaoSection,
     ];
-  }, [simulatorEnabled, canManageUsers, canManageAgents]);
+  }, [simulatorEnabled]);
 }
 
 // ─── Marca da sidebar ─────────────────────────────────────────────────────────
@@ -446,6 +323,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps): React.JSX.Elemen
           </div>
         ))}
       </nav>
+
+      {/* Configurações — item isolado no rodapé (padrão Linear/F8-S08) */}
+      <div className="shrink-0 border-t border-border pt-2 px-0">
+        <SidebarNavLink
+          item={{ href: '/configuracoes', label: 'Configurações', icon: <IconConfiguracoes /> }}
+          collapsed={collapsed}
+        />
+      </div>
 
       {/* Toggle collapse — botão na base */}
       <div className="shrink-0 border-t border-border p-2">
