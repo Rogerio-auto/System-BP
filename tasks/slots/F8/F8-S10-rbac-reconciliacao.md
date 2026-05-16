@@ -3,11 +3,11 @@ id: F8-S10
 title: Reconciliação RBAC — padronizar permissões em :manage
 phase: F8
 task_ref: F8.10
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-16T16:52:15Z
 completed_at:
 pr_url:
 depends_on: []
