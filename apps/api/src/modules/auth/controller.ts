@@ -37,7 +37,7 @@ function refreshCookieOptions(isProduction: boolean, maxAgeSeconds: number) {
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'Strict' as const,
+    sameSite: 'strict' as const,
     path: '/api/auth',
     maxAge: maxAgeSeconds,
   };
@@ -47,7 +47,7 @@ function csrfCookieOptions(isProduction: boolean, maxAgeSeconds: number) {
   return {
     httpOnly: false,
     secure: isProduction,
-    sameSite: 'Strict' as const,
+    sameSite: 'strict' as const,
     // Path raiz: document.cookie precisa enxergar o csrf_token em qualquer
     // página do SPA (refresh é disparado de qualquer rota via interceptor 401).
     path: '/',
@@ -175,7 +175,7 @@ export async function logoutController(
   // não associa o Set-Cookie de expiração ao cookie original.
   const baseClear = {
     secure: isProduction,
-    sameSite: 'Strict' as const,
+    sameSite: 'strict' as const,
     maxAge: 0,
     expires: new Date(0),
   };

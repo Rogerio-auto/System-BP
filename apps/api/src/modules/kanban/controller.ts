@@ -1,9 +1,10 @@
 // =============================================================================
 // kanban/controller.ts — Handlers das rotas do módulo kanban (F1-S13).
 // =============================================================================
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { NotFoundError } from '../../shared/errors.js';
+import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
 import type { MoveCardBody, ListCardsQuery } from './schemas.js';
 import { listKanbanCards, listKanbanStages, moveCard } from './service.js';
@@ -13,18 +14,15 @@ import { listKanbanCards, listKanbanStages, moveCard } from './service.js';
 // ---------------------------------------------------------------------------
 
 export async function moveCardController(
-  request: FastifyRequest<{
-    Params: { id: string };
-    Body: MoveCardBody;
-  }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   if (!request.user) {
     throw new NotFoundError('Usuário não encontrado no contexto');
   }
 
-  const { id: cardId } = request.params;
-  const { toStageId } = request.body;
+  const { id: cardId } = typedParams<{ id: string }>(request);
+  const { toStageId } = typedBody<MoveCardBody>(request);
   const user = request.user;
 
   const updatedCard = await moveCard(cardId, toStageId, {
@@ -76,14 +74,14 @@ export async function listStagesController(
 // ---------------------------------------------------------------------------
 
 export async function listCardsController(
-  request: FastifyRequest<{ Querystring: ListCardsQuery }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   if (!request.user) {
     throw new NotFoundError('Usuário não encontrado no contexto');
   }
 
-  const { stage_id, city_id, agent_id, page, limit } = request.query;
+  const { stage_id, city_id, agent_id, page, limit } = typedQuery<ListCardsQuery>(request);
 
   const result = await listKanbanCards(
     {

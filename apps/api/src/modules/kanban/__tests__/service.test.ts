@@ -99,7 +99,7 @@ vi.mock('../../../db/client.js', () => ({
     select: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
-    transaction: (...args: unknown[]) => mockTransaction(...args),
+    transaction: (fn: (tx: unknown) => unknown) => mockTransaction(fn),
   },
 }));
 

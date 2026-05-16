@@ -168,11 +168,16 @@ async function buildTestApp(
       if (error.details !== undefined) body['details'] = error.details;
       return reply.status(error.statusCode).send(body);
     }
-    if (error.validation !== undefined) {
+    if (
+      error !== null &&
+      typeof error === 'object' &&
+      'validation' in error &&
+      (error as Record<string, unknown>)['validation'] !== undefined
+    ) {
       return reply.status(400).send({
         error: 'VALIDATION_ERROR',
         message: 'Validation failed',
-        details: error.validation,
+        details: (error as Record<string, unknown>)['validation'],
       });
     }
     return reply.status(500).send({ error: 'INTERNAL_ERROR', message: 'Internal server error' });

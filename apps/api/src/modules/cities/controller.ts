@@ -13,6 +13,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
 import { ForbiddenError } from '../../shared/errors.js';
+import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
 import type { CityCreate, CityIdParam, CityListQuery, CityUpdate } from './schemas.js';
 import type { ActorContext } from './service.js';
@@ -53,11 +54,11 @@ function getActorContext(request: FastifyRequest): ActorContext {
 // ---------------------------------------------------------------------------
 
 export async function listCitiesController(
-  request: FastifyRequest<{ Querystring: CityListQuery }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await listCities(db, actor, request.query);
+  const result = await listCities(db, actor, typedQuery<CityListQuery>(request));
   return reply.status(200).send(result);
 }
 
@@ -66,11 +67,12 @@ export async function listCitiesController(
 // ---------------------------------------------------------------------------
 
 export async function getCityController(
-  request: FastifyRequest<{ Params: CityIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await getCityById(db, actor, request.params.id);
+  const params = typedParams<CityIdParam>(request);
+  const result = await getCityById(db, actor, params.id);
   return reply.status(200).send(result);
 }
 
@@ -79,11 +81,11 @@ export async function getCityController(
 // ---------------------------------------------------------------------------
 
 export async function createCityController(
-  request: FastifyRequest<{ Body: CityCreate }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await createCity(db, actor, request.body);
+  const result = await createCity(db, actor, typedBody<CityCreate>(request));
   return reply.status(201).send(result);
 }
 
@@ -92,11 +94,12 @@ export async function createCityController(
 // ---------------------------------------------------------------------------
 
 export async function updateCityController(
-  request: FastifyRequest<{ Params: CityIdParam; Body: CityUpdate }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await updateCityService(db, actor, request.params.id, request.body);
+  const params = typedParams<CityIdParam>(request);
+  const result = await updateCityService(db, actor, params.id, typedBody<CityUpdate>(request));
   return reply.status(200).send(result);
 }
 
@@ -105,11 +108,12 @@ export async function updateCityController(
 // ---------------------------------------------------------------------------
 
 export async function deleteCityController(
-  request: FastifyRequest<{ Params: CityIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  await deleteCityService(db, actor, request.params.id);
+  const params = typedParams<CityIdParam>(request);
+  await deleteCityService(db, actor, params.id);
   return reply.status(204).send();
 }
 

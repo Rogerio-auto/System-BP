@@ -121,6 +121,7 @@ describe('authorize() middleware', () => {
   // -------------------------------------------------------------------------
   it('retorna 200 quando usuário tem a permissão requerida', async () => {
     mockLoadUserAuthContext.mockResolvedValue({
+      organizationId: FIXTURE_ORG_ID,
       permissions: ['leads:read', 'customers:read'],
       cityScopeIds: [CITY_ID],
     });
@@ -137,6 +138,7 @@ describe('authorize() middleware', () => {
   // -------------------------------------------------------------------------
   it('retorna 403 quando usuário não tem a permissão requerida', async () => {
     mockLoadUserAuthContext.mockResolvedValue({
+      organizationId: FIXTURE_ORG_ID,
       permissions: ['customers:read'], // sem leads:read
       cityScopeIds: [CITY_ID],
     });
@@ -154,6 +156,7 @@ describe('authorize() middleware', () => {
   // -------------------------------------------------------------------------
   it('retorna 200 quando usuário tem todas as permissões requeridas (AND)', async () => {
     mockLoadUserAuthContext.mockResolvedValue({
+      organizationId: FIXTURE_ORG_ID,
       permissions: ['leads:read', 'leads:merge', 'customers:read'],
       cityScopeIds: [CITY_ID],
     });
@@ -170,6 +173,7 @@ describe('authorize() middleware', () => {
   // -------------------------------------------------------------------------
   it('retorna 403 quando usuário tem apenas uma das permissões múltiplas requeridas', async () => {
     mockLoadUserAuthContext.mockResolvedValue({
+      organizationId: FIXTURE_ORG_ID,
       permissions: ['leads:read'], // tem leads:read mas não leads:merge
       cityScopeIds: [CITY_ID],
     });
@@ -186,6 +190,7 @@ describe('authorize() middleware', () => {
   // -------------------------------------------------------------------------
   it('retorna 200 para usuário com wildcard "*" (bypass total)', async () => {
     mockLoadUserAuthContext.mockResolvedValue({
+      organizationId: FIXTURE_ORG_ID,
       permissions: ['*'],
       cityScopeIds: null,
     });

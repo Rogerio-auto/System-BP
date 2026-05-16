@@ -205,14 +205,24 @@ async function buildTestApp(): Promise<FastifyInstance> {
       return reply.status(error.statusCode).send(body);
     }
     // Handle mock errors (plain Error with statusCode/code attached by auth mocks)
-    const mockErr = error as { statusCode?: number; code?: string; name?: string };
+    const mockErr = error as {
+      statusCode?: number;
+      code?: string;
+      name?: string;
+      message?: string;
+    };
     if (mockErr.name === 'AppError' && mockErr.statusCode !== undefined) {
       return reply.status(mockErr.statusCode).send({
         error: mockErr.code ?? 'ERROR',
-        message: error.message,
+        message: mockErr.message ?? 'Error',
       });
     }
-    if (error.validation !== undefined) {
+    if (
+      error !== null &&
+      typeof error === 'object' &&
+      'validation' in error &&
+      (error as Record<string, unknown>)['validation'] !== undefined
+    ) {
       return reply.status(400).send({ error: 'VALIDATION_ERROR', message: 'Validation failed' });
     }
     return reply.status(500).send({ error: 'INTERNAL_ERROR', message: 'Internal server error' });

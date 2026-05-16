@@ -121,7 +121,7 @@ const mockDb = {
   select: vi.fn(),
   insert: vi.fn(),
   update: vi.fn(),
-  transaction: (...args: unknown[]) => mockTransaction(...args),
+  transaction: (fn: (tx: unknown) => unknown) => mockTransaction(fn),
 };
 
 vi.mock('../../../db/client.js', () => ({
@@ -129,7 +129,7 @@ vi.mock('../../../db/client.js', () => ({
     select: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
-    transaction: (...args: unknown[]) => mockTransaction(...args),
+    transaction: (fn: (tx: unknown) => unknown) => mockTransaction(fn),
   },
 }));
 
@@ -150,8 +150,7 @@ vi.mock('../../../lib/crypto/pii.js', () => ({
 const ORG_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
 const OTHER_ORG = 'bbbbbbbb-0000-0000-0000-000000000002';
 const CITY_A = 'cccccccc-0000-0000-0000-000000000001';
-// CITY_B reserved for future cross-city scope tests
-const _CITY_B = 'dddddddd-0000-0000-0000-000000000001';
+// CITY_B = 'dddddddd-0000-0000-0000-000000000001' — reserved for future cross-city scope tests
 const LEAD_ID = 'eeeeeeee-0000-0000-0000-000000000001';
 const AGENT_ID = 'ffffffff-0000-0000-0000-000000000001';
 
@@ -244,8 +243,8 @@ beforeEach(() => {
     fn({ insert: vi.fn(), update: vi.fn(), select: vi.fn() });
   mockTransaction.mockImplementation(txImpl);
   // Ensure mockDb.transaction delegates to mockTransaction (vi.resetAllMocks clears it)
-  vi.spyOn(mockDb, 'transaction').mockImplementation((...args: unknown[]) =>
-    mockTransaction(...args),
+  vi.spyOn(mockDb, 'transaction').mockImplementation((fn: (tx: unknown) => unknown) =>
+    mockTransaction(fn),
   );
 });
 

@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { db } from '../../db/client.js';
 import { auditLog } from '../../lib/audit.js';
 import { findDlqById, listPendingDlq, replayFromDlq } from '../../services/outbox/dlq.js';
+import type { ListPendingDlqParams } from '../../services/outbox/dlq.js';
 import { NotFoundError, ConflictError } from '../../shared/errors.js';
 import { authenticate, authorize } from '../auth/middlewares/index.js';
 
@@ -82,14 +83,16 @@ export const adminDlqRoutes: FastifyPluginAsyncZod = async (app) => {
       const { event_name, limit, offset } = request.query;
       const user = request.user!;
 
-      const rows = await listPendingDlq({
+      // exactOptionalPropertyTypes: omit optional props instead of passing undefined.
+      const dlqParams: ListPendingDlqParams = {
         // Escopo de cidade: admin vê sua organização; superadmin pode ver todas.
         // Por ora filtra por organizationId do usuário (RBAC multi-tenant).
-        organizationId: user.cityScopeIds !== null ? user.organizationId : undefined,
-        eventName: event_name,
+        ...(user.cityScopeIds !== null ? { organizationId: user.organizationId } : {}),
+        ...(event_name !== undefined ? { eventName: event_name } : {}),
         limit,
         offset,
-      });
+      };
+      const rows = await listPendingDlq(dlqParams);
 
       const mapped = rows.map((row) => ({
         id: row.id,

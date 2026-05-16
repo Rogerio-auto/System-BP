@@ -110,8 +110,8 @@ export async function updateProfile(
         // (authenticate() não carrega role diretamente — apenas permissions).
         // Usamos 'self' como marker semântico para auditoria de self-service.
         role: 'self',
-        ip: actor.ip,
-        userAgent: actor.userAgent,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
       },
       action: 'account.profile_updated',
       resource: { type: 'user', id: actor.userId },
@@ -163,8 +163,8 @@ export async function changePassword(
       actor: {
         userId: actor.userId,
         role: 'self',
-        ip: actor.ip,
-        userAgent: actor.userAgent,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
       },
       action: 'account.password_changed',
       resource: { type: 'user', id: actor.userId },

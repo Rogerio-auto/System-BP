@@ -106,8 +106,17 @@ const actor = {
 // Mock do db com transaction
 // ---------------------------------------------------------------------------
 
+interface MockTx {
+  insert: ReturnType<typeof vi.fn>;
+  values: ReturnType<typeof vi.fn>;
+  delete: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+  set: ReturnType<typeof vi.fn>;
+  where: ReturnType<typeof vi.fn>;
+}
+
 function makeMockDb() {
-  const tx = {
+  const tx: MockTx = {
     insert: vi.fn().mockReturnThis(),
     values: vi.fn().mockResolvedValue(undefined),
     delete: vi.fn().mockReturnThis(),
@@ -116,7 +125,7 @@ function makeMockDb() {
     where: vi.fn().mockResolvedValue(undefined),
   };
   return {
-    transaction: vi.fn().mockImplementation(async (cb: (tx: typeof tx) => Promise<unknown>) => {
+    transaction: vi.fn().mockImplementation(async (cb: (tx: MockTx) => Promise<unknown>) => {
       return cb(tx);
     }),
   };

@@ -276,7 +276,12 @@ export async function createLead(
     // Audit log — LGPD §8.5: sanitizar PII antes de gravar
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
-      actor: { userId: actor.userId, role: actor.role, ip: actor.ip, userAgent: actor.userAgent },
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
       action: 'leads.create',
       resource: { type: 'lead', id: created.id },
       before: null,
@@ -372,7 +377,12 @@ export async function updateLeadService(
     // Audit log — LGPD §8.5: sanitizar PII antes de gravar
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
-      actor: { userId: actor.userId, role: actor.role, ip: actor.ip, userAgent: actor.userAgent },
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
       action: 'leads.update',
       resource: { type: 'lead', id: leadId },
       // redactLeadPii: substitui phone_e164, email, name por '[redacted]' — LGPD §8.5
@@ -425,7 +435,12 @@ export async function deleteLeadService(
     // Audit log — LGPD §8.5: sanitizar PII antes de gravar
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
-      actor: { userId: actor.userId, role: actor.role, ip: actor.ip, userAgent: actor.userAgent },
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
       action: 'leads.delete',
       resource: { type: 'lead', id: leadId },
       // redactLeadPii: substitui phone_e164, email, name por '[redacted]' — LGPD §8.5
@@ -490,7 +505,12 @@ export async function restoreLeadService(
     // Audit log — LGPD §8.5: sanitizar PII antes de gravar
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
-      actor: { userId: actor.userId, role: actor.role, ip: actor.ip, userAgent: actor.userAgent },
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
       action: 'leads.restore',
       resource: { type: 'lead', id: leadId },
       before: null,
