@@ -3,7 +3,7 @@
 //
 // Todas as rotas sob /api/admin/users exigem:
 //   - authenticate(): valida JWT e popula request.user
-//   - authorize({ permissions: ['users:admin'] }): verifica permissão
+//   - authorize({ permissions: ['users:manage'] }): verifica permissão
 //
 // Sem física delete — apenas deactivate (soft-delete via deletedAt).
 //
@@ -36,7 +36,7 @@ import {
   userResponseSchema,
 } from './schemas.js';
 
-const REQUIRED_PERMISSION = 'users:admin' as const;
+const REQUIRED_PERMISSION = 'users:manage' as const;
 
 export const usersRoutes: FastifyPluginAsyncZod = async (app) => {
   // Aplicar authenticate + authorize em todas as rotas deste plugin

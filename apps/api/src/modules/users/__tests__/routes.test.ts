@@ -16,7 +16,7 @@
 //   9. PUT  /api/admin/users/:id/roles roleIds vazio → 400 (Zod)
 //   10. PUT /api/admin/users/:id/roles → 422 last admin
 //   11. PUT /api/admin/users/:id/city-scopes → 204
-//   12. Sem permission users:admin → 403
+//   12. Sem permission users:manage → 403
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -122,7 +122,7 @@ function makeUserResponse(overrides?: Record<string, unknown>) {
 
 /**
  * Constrói o app de teste com autenticação mockada.
- * O parâmetro `hasPermission` controla se o usuário tem users:admin.
+ * O parâmetro `hasPermission` controla se o usuário tem users:manage.
  */
 async function buildTestApp(hasPermission = true): Promise<FastifyInstance> {
   const [
@@ -146,7 +146,7 @@ async function buildTestApp(hasPermission = true): Promise<FastifyInstance> {
     request.user = {
       id: FIXTURE_ACTOR_ID,
       organizationId: FIXTURE_ORG_ID,
-      permissions: hasPermission ? ['users:admin'] : ['leads:read'],
+      permissions: hasPermission ? ['users:manage'] : ['leads:read'],
       cityScopeIds: null,
     };
   });
@@ -546,10 +546,10 @@ describe('PUT /api/admin/users/:id/city-scopes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Autorização: sem permission users:admin → 403
+// Autorização: sem permission users:manage → 403
 // ---------------------------------------------------------------------------
 
-describe('Autorização — sem permission users:admin', () => {
+describe('Autorização — sem permission users:manage', () => {
   let appNoPerms: FastifyInstance;
 
   beforeAll(async () => {
@@ -560,7 +560,7 @@ describe('Autorização — sem permission users:admin', () => {
     await appNoPerms.close();
   });
 
-  it('retorna 403 em GET /api/admin/users sem users:admin', async () => {
+  it('retorna 403 em GET /api/admin/users sem users:manage', async () => {
     const res = await appNoPerms.inject({
       method: 'GET',
       url: '/api/admin/users',
@@ -569,7 +569,7 @@ describe('Autorização — sem permission users:admin', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('retorna 403 em POST /api/admin/users sem users:admin', async () => {
+  it('retorna 403 em POST /api/admin/users sem users:manage', async () => {
     const res = await appNoPerms.inject({
       method: 'POST',
       url: '/api/admin/users',
@@ -584,7 +584,7 @@ describe('Autorização — sem permission users:admin', () => {
     expect(res.statusCode).toBe(403);
   });
 
-  it('retorna 403 em PUT /api/admin/users/:id/roles sem users:admin', async () => {
+  it('retorna 403 em PUT /api/admin/users/:id/roles sem users:manage', async () => {
     const res = await appNoPerms.inject({
       method: 'PUT',
       url: `/api/admin/users/${FIXTURE_TARGET_ID}/roles`,

@@ -3,7 +3,7 @@
 //
 // Todos os endpoints exigem:
 //   - authenticate(): valida JWT e popula request.user
-//   - authorize({ permissions: ['agents:admin'] }): acesso restrito a admin
+//   - authorize({ permissions: ['agents:manage'] }): acesso restrito a gestores
 //
 // Prefixo: /api/admin/agents
 //
@@ -41,7 +41,7 @@ import {
   agentIdParamSchema,
 } from './schemas.js';
 
-const AGENTS_ADMIN: [string, ...string[]] = ['agents:admin'];
+const AGENTS_MANAGE: [string, ...string[]] = ['agents:manage'];
 
 export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
   // Autenticação obrigatória em todas as rotas deste plugin
@@ -59,7 +59,7 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
           200: AgentListResponseSchema,
         },
       },
-      preHandler: [authorize({ permissions: AGENTS_ADMIN })],
+      preHandler: [authorize({ permissions: AGENTS_MANAGE })],
     },
     listAgentsController,
   );
@@ -76,7 +76,7 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
           201: AgentResponseSchema,
         },
       },
-      preHandler: [authorize({ permissions: AGENTS_ADMIN })],
+      preHandler: [authorize({ permissions: AGENTS_MANAGE })],
     },
     createAgentController,
   );
@@ -94,7 +94,7 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
           200: AgentResponseSchema,
         },
       },
-      preHandler: [authorize({ permissions: AGENTS_ADMIN })],
+      preHandler: [authorize({ permissions: AGENTS_MANAGE })],
     },
     updateAgentController,
   );
@@ -111,7 +111,7 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
           200: AgentResponseSchema,
         },
       },
-      preHandler: [authorize({ permissions: AGENTS_ADMIN })],
+      preHandler: [authorize({ permissions: AGENTS_MANAGE })],
     },
     deactivateAgentController,
   );
@@ -128,7 +128,7 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
           200: AgentResponseSchema,
         },
       },
-      preHandler: [authorize({ permissions: AGENTS_ADMIN })],
+      preHandler: [authorize({ permissions: AGENTS_MANAGE })],
     },
     reactivateAgentController,
   );
@@ -146,7 +146,7 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
           200: AgentResponseSchema,
         },
       },
-      preHandler: [authorize({ permissions: AGENTS_ADMIN })],
+      preHandler: [authorize({ permissions: AGENTS_MANAGE })],
     },
     setAgentCitiesController,
   );

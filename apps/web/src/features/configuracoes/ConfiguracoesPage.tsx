@@ -16,8 +16,8 @@
 //   - Produtos & Regras : credit_products:read (Products.tsx L12)
 //   - Cidades           : sem gating na UI (Cities.tsx L14 — backend valida)
 //                         → card sempre visível para usuários autenticados
-//   - Agentes           : agents:admin (Agents.tsx L10 + Sidebar.tsx)
-//   - Usuários & Papéis : users:admin (Sidebar.tsx)
+//   - Agentes           : agents:manage (Agents.tsx + backend agents/routes.ts)
+//   - Usuários & Papéis : users:manage (backend users/routes.ts + roles/routes.ts)
 //   - Feature Flags     : flags:manage (FeatureFlags.tsx L14)
 // =============================================================================
 
@@ -349,7 +349,7 @@ function AdminSection(): React.JSX.Element {
   // Produtos: credit_products:read — confirmado em Products.tsx L12
   // Cidades: sem gating na UI — Cities.tsx L14 ("backend valida admin:cities:write")
   //          → card sempre visível para qualquer usuário autenticado
-  // Agentes: agents:admin — confirmado em Agents.tsx L10 + Sidebar.tsx
+  // Agentes: agents:manage — convenção canônica :manage (F8-S10)
   const gestaoCards: ConfigCard[] = [
     ...(hasPermission('credit_products:read')
       ? [
@@ -368,7 +368,7 @@ function AdminSection(): React.JSX.Element {
       icon: <IconCidades />,
       href: '/admin/cities',
     },
-    ...(hasPermission('agents:admin')
+    ...(hasPermission('agents:manage')
       ? [
           {
             title: 'Agentes',
@@ -381,10 +381,10 @@ function AdminSection(): React.JSX.Element {
   ];
 
   // ── Grupo Administração técnica ───────────────────────────────────────────────
-  // Usuários: users:admin — confirmado em Sidebar.tsx
+  // Usuários: users:manage — convenção canônica :manage (F8-S10)
   // Feature Flags: flags:manage — confirmado em FeatureFlags.tsx L14
   const tecnicaCards: ConfigCard[] = [
-    ...(hasPermission('users:admin')
+    ...(hasPermission('users:manage')
       ? [
           {
             title: 'Usuários & Papéis',

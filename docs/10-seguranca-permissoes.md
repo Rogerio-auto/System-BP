@@ -45,7 +45,7 @@
 
 ### 3.2 Permissões
 
-Catálogo (`permissions.key`):
+Catálogo (`permissions.key`) — espelho do seed base (`scripts/seed.ts`) e das migrations de permissões:
 
 - `leads:read`, `leads:write`, `leads:merge`, `leads:transfer`
 - `customers:read`, `customers:write`
@@ -59,6 +59,11 @@ Catálogo (`permissions.key`):
 - `dashboard:read`, `dashboard:read_by_agent`
 - `assistant:query`, `assistant:confirm_actions`
 - `followup:manage`, `collection:manage`
+- `credit_products:read`, `credit_products:write` (migration `0017` — atribuídas a `admin`)
+- `dlq:manage` (rotas admin DLQ — atribuída a `admin` via seed manual)
+
+> Convenção canônica: toda permissão de gestão usa sufixo `:manage`.
+> Não há `users:admin` nem `agents:admin` — essas chaves foram removidas em F8-S10.
 
 ### 3.3 Mapeamento role → permissions
 

@@ -20,7 +20,7 @@
 //   13. PUT  /api/admin/agents/:id/cities               → 200 cidades atualizadas
 //   14. PUT  /api/admin/agents/:id/cities               → 400 body inválido
 //   15. Sem auth → 403
-//   16. Sem permissão agents:admin → 403
+//   16. Sem permissão agents:manage → 403
 //   17. City scope: usuário com escopo limitado passa cityScopeIds corretamente
 // =============================================================================
 import Fastify from 'fastify';
@@ -140,7 +140,7 @@ const CREATE_AGENT_PAYLOAD = {
 // ---------------------------------------------------------------------------
 
 async function buildTestApp(
-  permissions = ['agents:admin'],
+  permissions = ['agents:manage'],
   injectUser = true,
   cityScopeIds: string[] | null = null,
 ): Promise<FastifyInstance> {
@@ -183,7 +183,7 @@ async function buildTestApp(
 }
 
 // ---------------------------------------------------------------------------
-// Shared app (permissions = agents:admin, cityScopeIds = null)
+// Shared app (permissions = agents:manage, cityScopeIds = null)
 // ---------------------------------------------------------------------------
 
 let app: FastifyInstance;
@@ -538,7 +538,7 @@ describe('PUT /api/admin/agents/:id/cities', () => {
 // ---------------------------------------------------------------------------
 
 describe('RBAC — agentes', () => {
-  it('retorna 403 quando usuário sem agents:admin acessa GET /api/admin/agents', async () => {
+  it('retorna 403 quando usuário sem agents:manage acessa GET /api/admin/agents', async () => {
     const restrictedApp = await buildTestApp(['leads:read']);
     mockListAgents.mockResolvedValue({
       data: [],
@@ -563,7 +563,7 @@ describe('RBAC — agentes', () => {
 
   it('repassa cityScopeIds ao service quando usuário tem escopo limitado', async () => {
     const scopedIds = [FIXTURE_CITY_ID_1];
-    const scopedApp = await buildTestApp(['agents:admin'], true, scopedIds);
+    const scopedApp = await buildTestApp(['agents:manage'], true, scopedIds);
 
     mockListAgents.mockResolvedValue({
       data: [],

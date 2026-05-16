@@ -3,7 +3,7 @@
 //
 // Cobre:
 //   1. GET /api/admin/roles → 200 com lista de roles (id, key, name, scope)
-//   2. GET /api/admin/roles → 403 sem permissão users:admin
+//   2. GET /api/admin/roles → 403 sem permissão users:manage
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -108,7 +108,7 @@ async function buildTestApp(hasPermission = true): Promise<FastifyInstance> {
     request.user = {
       id: FIXTURE_ACTOR_ID,
       organizationId: FIXTURE_ORG_ID,
-      permissions: hasPermission ? ['users:admin'] : ['leads:read'],
+      permissions: hasPermission ? ['users:manage'] : ['leads:read'],
       cityScopeIds: null,
     };
   });
@@ -207,7 +207,7 @@ describe('GET /api/admin/roles — sem permissão', () => {
     await appNoPerms.close();
   });
 
-  it('retorna 403 sem users:admin', async () => {
+  it('retorna 403 sem users:manage', async () => {
     const res = await appNoPerms.inject({
       method: 'GET',
       url: '/api/admin/roles',
