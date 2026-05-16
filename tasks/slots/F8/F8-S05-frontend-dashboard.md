@@ -3,13 +3,13 @@ id: F8-S05
 title: Frontend dashboard real com KPIs e gráficos
 phase: F8
 task_ref: F8.5
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: frontend-engineer
 claimed_at: 2026-05-16T15:06:47Z
 completed_at: 2026-05-16T15:17:58Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/70
 depends_on: [F8-S03, F1-S08]
 blocks: []
 labels: []
