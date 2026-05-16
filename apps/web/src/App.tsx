@@ -19,6 +19,7 @@ import { AuthGuard } from './app/AuthGuard';
 import { SessionBootstrap } from './app/SessionBootstrap';
 import { ToastProvider } from './components/ui/Toast';
 import { LoginPage } from './features/auth/LoginPage';
+import { ConfiguracoesPage } from './features/configuracoes/ConfiguracoesPage';
 import { CrmDetailPage } from './features/crm/CrmDetailPage';
 import { CrmListPage } from './features/crm/CrmListPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
@@ -95,7 +96,7 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/analise" element={<PlaceholderPage title="Análise" />} />
         <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
         <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
-        <Route path="/configuracoes" element={<PlaceholderPage title="Configurações" />} />
+        <Route path="/configuracoes" element={<ConfiguracoesPage />} />
         <Route path="/admin/cities" element={<CitiesPage />} />
         <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
         <Route path="/admin/products" element={<ProductsPage />} />
