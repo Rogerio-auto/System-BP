@@ -3,11 +3,11 @@ id: F8-S08
 title: Frontend — Hub de Configurações + reorganização da Administração
 phase: F8
 task_ref: F8.8
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: frontend-engineer
-claimed_at:
+claimed_at: 2026-05-16T16:31:23Z
 completed_at:
 pr_url:
 depends_on: []
