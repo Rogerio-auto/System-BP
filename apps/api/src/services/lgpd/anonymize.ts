@@ -25,19 +25,32 @@ import { createHash } from 'node:crypto';
 
 import { eq } from 'drizzle-orm';
 
+import type { auditLogs } from '../../db/schema/auditLogs.js';
 import { customers } from '../../db/schema/customers.js';
+import type { eventOutbox } from '../../db/schema/events.js';
 import { leads } from '../../db/schema/leads.js';
 import { emit } from '../../events/emit.js';
-import type { DrizzleTx } from '../../events/emit.js';
 import type { EventActor } from '../../events/types.js';
 import { auditLog } from '../../lib/audit.js';
-import type { AuditActor, AuditTx } from '../../lib/audit.js';
+import type { AuditActor } from '../../lib/audit.js';
 
 // ---------------------------------------------------------------------------
 // Combined transaction type (needs both audit + event insert capabilities)
+//
+// AuditTx and DrizzleTx each declare insert() for different tables, causing
+// TS2320 when extending both. We redeclare insert() here as an overloaded
+// signature that covers both table types.
 // ---------------------------------------------------------------------------
 
-export interface AnonymizeTx extends AuditTx, DrizzleTx {
+export interface AnonymizeTx {
+  // insert overload for audit_logs (satisfies AuditTx)
+  insert(table: typeof auditLogs): {
+    values(row: typeof auditLogs.$inferInsert): Promise<unknown>;
+  };
+  // insert overload for event_outbox (satisfies DrizzleTx)
+  insert(table: typeof eventOutbox): {
+    values(row: typeof eventOutbox.$inferInsert): Promise<unknown>;
+  };
   update(table: typeof customers | typeof leads): {
     set(values: Record<string, unknown>): {
       where(condition: unknown): Promise<unknown>;

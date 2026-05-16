@@ -199,7 +199,16 @@ describe('auditLog()', () => {
 
   it('salva correlationId como null quando não fornecido', async () => {
     const tx = makeTx();
-    await auditLog(tx, makeParams({ correlationId: undefined }));
+    // exactOptionalPropertyTypes: build params without correlationId (omit the optional key)
+    const paramsWithoutCorrelation: AuditLogParams = {
+      organizationId: ORG_ID,
+      actor: { userId: USER_ID, role: 'admin', ip: '192.168.1.1', userAgent: 'Mozilla/5.0 (test)' },
+      action: 'leads.created',
+      resource: { type: 'lead', id: RESOURCE_ID },
+      before: null,
+      after: { status: 'novo', cityId: 'aaa' },
+    };
+    await auditLog(tx, paramsWithoutCorrelation);
 
     const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(row['correlationId']).toBeNull();

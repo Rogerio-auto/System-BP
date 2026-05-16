@@ -67,10 +67,18 @@ export async function signAccessToken(
   const secret = encodeSecret(env.JWT_ACCESS_SECRET);
   const ttlSeconds = parseTtlToSeconds(env.JWT_ACCESS_TTL);
 
+  // payload.sub and .jti are declared as required `string` in AccessTokenPayload,
+  // but JWTPayload base declares them `string | undefined`. The typeof check provides
+  // a runtime guard AND allows TypeScript to narrow to `string` for downstream callers.
+  const sub = typeof payload.sub === 'string' ? payload.sub : undefined;
+  const jti = typeof payload.jti === 'string' ? payload.jti : undefined;
+  if (!sub) throw new Error('signAccessToken: payload.sub is required');
+  if (!jti) throw new Error('signAccessToken: payload.jti is required');
+
   return new SignJWT({ org: payload.org })
     .setProtectedHeader({ alg: 'HS256' })
-    .setSubject(payload.sub)
-    .setJti(payload.jti)
+    .setSubject(sub)
+    .setJti(jti)
     .setIssuedAt()
     .setExpirationTime(`${ttlSeconds}s`)
     .sign(secret);

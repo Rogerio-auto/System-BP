@@ -335,6 +335,7 @@ export class ChatwootClient {
 
     let response: Response;
     try {
+      // exactOptionalPropertyTypes: omit body key instead of passing undefined.
       response = await fetch(url, {
         method,
         headers: {
@@ -342,7 +343,7 @@ export class ChatwootClient {
           // Chatwoot usa api_access_token no header (não Bearer)
           api_access_token: this.apiToken,
         },
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         signal: controller.signal,
       });
     } catch (err) {

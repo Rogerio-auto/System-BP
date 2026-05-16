@@ -228,15 +228,18 @@ async function buildTestApp(rateLimitMax = 1000): Promise<FastifyInstance> {
       code?: string;
       name?: string;
       validation?: unknown;
+      message?: string;
     };
     // Rate-limit errors have statusCode 429
     if (appErr.statusCode === 429) {
-      return reply.status(429).send({ error: 'RATE_LIMIT_EXCEEDED', message: error.message });
+      return reply
+        .status(429)
+        .send({ error: 'RATE_LIMIT_EXCEEDED', message: appErr.message ?? 'Rate limit exceeded' });
     }
     if (appErr.name === 'AppError' && appErr.statusCode !== undefined) {
       return reply.status(appErr.statusCode).send({
         error: appErr.code ?? 'ERROR',
-        message: error.message,
+        message: appErr.message ?? 'Error',
       });
     }
     if (appErr.validation !== undefined) {
@@ -246,7 +249,9 @@ async function buildTestApp(rateLimitMax = 1000): Promise<FastifyInstance> {
         details: appErr.validation,
       });
     }
-    return reply.status(500).send({ error: 'INTERNAL_ERROR', message: error.message });
+    return reply
+      .status(500)
+      .send({ error: 'INTERNAL_ERROR', message: appErr.message ?? 'Internal server error' });
   });
 
   await app.register(dataSubjectRoutes);

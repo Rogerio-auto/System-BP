@@ -48,7 +48,7 @@ export type {
   CreditAnalysisAddedData,
   CreditAnalysisUpdatedData,
   CreditAnalysisStatusChangedData,
-  CreditProductChangedData,
+  CreditProductUpdatedData,
   ChatwootConversationCreatedData,
   ChatwootMessageReceivedData,
   ChatwootHandoffRequestedData,

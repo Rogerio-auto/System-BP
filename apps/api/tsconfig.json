@@ -8,7 +8,8 @@
     },
     "outDir": "dist",
     "rootDir": "src",
-    "noEmit": true
+    "noEmit": true,
+    "declarationMap": false
   },
   "include": ["src"]
 }

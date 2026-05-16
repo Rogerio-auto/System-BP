@@ -71,17 +71,19 @@ export const logger = pino({
   level: env.LOG_LEVEL,
 
   // Transporte legível apenas em dev — produção usa JSON estruturado.
-  transport:
-    env.NODE_ENV === 'development'
-      ? {
+  // exactOptionalPropertyTypes: transport não pode ser undefined; omitir a chave em prod.
+  ...(env.NODE_ENV === 'development'
+    ? {
+        transport: {
           target: 'pino-pretty',
           options: {
             translateTime: 'HH:MM:ss.l',
             ignore: 'pid,hostname',
             colorize: true,
           },
-        }
-      : undefined,
+        },
+      }
+    : {}),
 
   redact: {
     paths: [...REDACT_PATHS],
