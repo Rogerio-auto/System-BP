@@ -3,13 +3,13 @@ id: F8-S08
 title: Frontend — Hub de Configurações + reorganização da Administração
 phase: F8
 task_ref: F8.8
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: frontend-engineer
 claimed_at: 2026-05-16T16:31:23Z
 completed_at: 2026-05-16T16:40:30Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/71
 depends_on: []
 blocks: [F8-S09]
 labels: []

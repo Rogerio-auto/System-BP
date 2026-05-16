@@ -12,7 +12,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
-| F8   | 9     | 1   | 0   | 0   | 0   | 1   | 7   |
+| F8   | 9     | 1   | 0   | 0   | 0   | 0   | 8   |
 
 ## Fase 0 — Preparação
 
@@ -99,5 +99,5 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F8-S05 | Frontend dashboard real com KPIs e gráficos                              | ✅ done      | medium     | F8-S03, F1-S08                 |
 | F8-S06 | Backend — GET /api/admin/roles + roles na listagem de usuários           | ✅ done      | high       | —                              |
 | F8-S07 | Promover roles.scope a coluna real (migration + backfill) e ler do banco | ✅ done      | medium     | F8-S06                         |
-| F8-S08 | Frontend — Hub de Configurações + reorganização da Administração         | 🟣 review    | medium     | —                              |
+| F8-S08 | Frontend — Hub de Configurações + reorganização da Administração         | ✅ done      | medium     | —                              |
 | F8-S09 | Conta — self-service de perfil, senha e aparência (backend + frontend)   | 🟢 available | medium     | F8-S08                         |
