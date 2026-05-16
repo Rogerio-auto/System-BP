@@ -3,13 +3,13 @@ id: F8-S03
 title: Backend endpoint /api/dashboard/metrics (KPIs agregados)
 phase: F8
 task_ref: F8.3
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: backend-engineer
 claimed_at: 2026-05-16T14:38:11Z
 completed_at: 2026-05-16T14:49:36Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/68
 depends_on: [F1-S04, F1-S09, F1-S11, F1-S13]
 blocks: [F8-S05]
 labels: []
