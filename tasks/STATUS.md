@@ -8,30 +8,31 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
-| F0   | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
+| F0   | 15    | 1   | 0   | 0   | 0   | 0   | 14  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
-| F8   | 10    | 0   | 0   | 0   | 0   | 0   | 10  |
+| F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
 
-| ID      | Título                                                                        | Status  | Prioridade | Depende de                     |
-| ------- | ----------------------------------------------------------------------------- | ------- | ---------- | ------------------------------ |
-| F0-S01  | Verificar e travar lockfiles (pnpm + python)                                  | ✅ done | critical   | —                              |
-| F0-S02  | ESLint + Prettier — instalar e ligar nos workspaces                           | ✅ done | high       | F0-S01                         |
-| F0-S03  | Validar boot da API + healthcheck contra Postgres                             | ✅ done | high       | F0-S01                         |
-| F0-S03b | Upgrade fastify + vitest (CVE remediation)                                    | ✅ done | high       | F0-S03                         |
-| F0-S04  | Drizzle — primeira migration vazia + smoke test                               | ✅ done | high       | F0-S01                         |
-| F0-S05  | Web — dev server + design tokens + tela de login placeholder                  | ✅ done | medium     | F0-S01                         |
-| F0-S06  | LangGraph service — boot + health + cliente HTTP base                         | ✅ done | high       | F0-S01                         |
-| F0-S07  | docker-compose — validação ponta a ponta                                      | ✅ done | high       | F0-S03, F0-S04, F0-S05, F0-S06 |
-| F0-S08  | Husky + lint-staged + commitlint                                              | ✅ done | low        | F0-S02                         |
-| F0-S10  | Fix scripts/slot.py claim/finish em worktrees do Agent tool                   | ✅ done | high       | —                              |
-| F0-S11  | Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)           | ✅ done | medium     | —                              |
-| F0-S12  | Investigar staleness do Agent(isolation=worktree) vs commits recentes em main | ✅ done | medium     | —                              |
-| F0-S13  | Fix heurística de reconcile-merged (não detecta slots mergeados)              | ✅ done | medium     | —                              |
-| F0-S14  | Guard de sincronia entre migrations .sql e \_journal.json do Drizzle          | ✅ done | high       | —                              |
+| ID      | Título                                                                        | Status       | Prioridade | Depende de                     |
+| ------- | ----------------------------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
+| F0-S01  | Verificar e travar lockfiles (pnpm + python)                                  | ✅ done      | critical   | —                              |
+| F0-S02  | ESLint + Prettier — instalar e ligar nos workspaces                           | ✅ done      | high       | F0-S01                         |
+| F0-S03  | Validar boot da API + healthcheck contra Postgres                             | ✅ done      | high       | F0-S01                         |
+| F0-S03b | Upgrade fastify + vitest (CVE remediation)                                    | ✅ done      | high       | F0-S03                         |
+| F0-S04  | Drizzle — primeira migration vazia + smoke test                               | ✅ done      | high       | F0-S01                         |
+| F0-S05  | Web — dev server + design tokens + tela de login placeholder                  | ✅ done      | medium     | F0-S01                         |
+| F0-S06  | LangGraph service — boot + health + cliente HTTP base                         | ✅ done      | high       | F0-S01                         |
+| F0-S07  | docker-compose — validação ponta a ponta                                      | ✅ done      | high       | F0-S03, F0-S04, F0-S05, F0-S06 |
+| F0-S08  | Husky + lint-staged + commitlint                                              | ✅ done      | low        | F0-S02                         |
+| F0-S10  | Fix scripts/slot.py claim/finish em worktrees do Agent tool                   | ✅ done      | high       | —                              |
+| F0-S11  | Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)           | ✅ done      | medium     | —                              |
+| F0-S12  | Investigar staleness do Agent(isolation=worktree) vs commits recentes em main | ✅ done      | medium     | —                              |
+| F0-S13  | Fix heurística de reconcile-merged (não detecta slots mergeados)              | ✅ done      | medium     | —                              |
+| F0-S14  | Guard de sincronia entre migrations .sql e \_journal.json do Drizzle          | ✅ done      | high       | —                              |
+| F0-S15  | Saneamento — restaurar typecheck e testes verdes da API                       | 🟢 available | high       | —                              |
 
 ## Fase 1 — Base operacional
 
@@ -90,15 +91,16 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 8 —
 
-| ID     | Título                                                                   | Status  | Prioridade | Depende de                     |
-| ------ | ------------------------------------------------------------------------ | ------- | ---------- | ------------------------------ |
-| F8-S01 | Backend CRUD agents + agent_cities (admin)                               | ✅ done | high       | F1-S04, F1-S05, F1-S07         |
-| F8-S02 | Frontend gestão de usuários (admin/users)                                | ✅ done | high       | F1-S07, F1-S08                 |
-| F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados)                 | ✅ done | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
-| F8-S04 | Frontend gestão de agentes de crédito                                    | ✅ done | high       | F8-S01, F1-S08                 |
-| F8-S05 | Frontend dashboard real com KPIs e gráficos                              | ✅ done | medium     | F8-S03, F1-S08                 |
-| F8-S06 | Backend — GET /api/admin/roles + roles na listagem de usuários           | ✅ done | high       | —                              |
-| F8-S07 | Promover roles.scope a coluna real (migration + backfill) e ler do banco | ✅ done | medium     | F8-S06                         |
-| F8-S08 | Frontend — Hub de Configurações + reorganização da Administração         | ✅ done | medium     | —                              |
-| F8-S09 | Conta — self-service de perfil, senha e aparência (backend + frontend)   | ✅ done | medium     | F8-S08                         |
-| F8-S10 | Reconciliação RBAC — padronizar permissões em :manage                    | ✅ done | medium     | —                              |
+| ID     | Título                                                                     | Status       | Prioridade | Depende de                     |
+| ------ | -------------------------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
+| F8-S01 | Backend CRUD agents + agent_cities (admin)                                 | ✅ done      | high       | F1-S04, F1-S05, F1-S07         |
+| F8-S02 | Frontend gestão de usuários (admin/users)                                  | ✅ done      | high       | F1-S07, F1-S08                 |
+| F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados)                   | ✅ done      | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
+| F8-S04 | Frontend gestão de agentes de crédito                                      | ✅ done      | high       | F8-S01, F1-S08                 |
+| F8-S05 | Frontend dashboard real com KPIs e gráficos                                | ✅ done      | medium     | F8-S03, F1-S08                 |
+| F8-S06 | Backend — GET /api/admin/roles + roles na listagem de usuários             | ✅ done      | high       | —                              |
+| F8-S07 | Promover roles.scope a coluna real (migration + backfill) e ler do banco   | ✅ done      | medium     | F8-S06                         |
+| F8-S08 | Frontend — Hub de Configurações + reorganização da Administração           | ✅ done      | medium     | —                              |
+| F8-S09 | Conta — self-service de perfil, senha e aparência (backend + frontend)     | ✅ done      | medium     | F8-S08                         |
+| F8-S10 | Reconciliação RBAC — padronizar permissões em :manage                      | ✅ done      | medium     | —                              |
+| F8-S11 | 2FA / TOTP — enrolment, verificação, recovery codes e enforcement no login | 🟢 available | medium     | F8-S09                         |
