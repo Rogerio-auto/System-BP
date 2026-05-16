@@ -41,12 +41,14 @@ function buildAdminGroups(permissions: string[]): ConfigGroup[] {
       : []),
     // Cidades: sem gating de UI (Cities.tsx L14 — backend valida admin:cities:write)
     { title: 'Cidades', href: '/admin/cities' },
-    ...(hasPermission('agents:admin') ? [{ title: 'Agentes', href: '/admin/agents' }] : []),
+    ...(hasPermission('agents:manage') ? [{ title: 'Agentes', href: '/admin/agents' }] : []),
   ];
 
   // Grupo Administração técnica
   const tecnicaCards: ConfigCard[] = [
-    ...(hasPermission('users:admin') ? [{ title: 'Usuários & Papéis', href: '/admin/users' }] : []),
+    ...(hasPermission('users:manage')
+      ? [{ title: 'Usuários & Papéis', href: '/admin/users' }]
+      : []),
     ...(hasPermission('flags:manage')
       ? [{ title: 'Feature Flags', href: '/admin/feature-flags' }]
       : []),
@@ -78,14 +80,14 @@ describe('ConfiguracoesPage — lógica de gating de administração', () => {
     expect(gestao.cards.map((c) => c.title)).toContain('Produtos & Regras');
   });
 
-  it('Gestão: com agents:admin → inclui Agentes', () => {
-    const grupos = buildAdminGroups(['agents:admin']);
+  it('Gestão: com agents:manage → inclui Agentes', () => {
+    const grupos = buildAdminGroups(['agents:manage']);
     const gestao = grupos.find((g) => g.heading === 'Gestão')!;
     expect(gestao.cards.map((c) => c.title)).toContain('Agentes');
   });
 
   it('Gestão: com todas as permissões → ordem Produtos, Cidades, Agentes', () => {
-    const grupos = buildAdminGroups(['credit_products:read', 'agents:admin']);
+    const grupos = buildAdminGroups(['credit_products:read', 'agents:manage']);
     const gestao = grupos.find((g) => g.heading === 'Gestão')!;
     expect(gestao.cards.map((c) => c.title)).toEqual(['Produtos & Regras', 'Cidades', 'Agentes']);
   });
@@ -98,8 +100,8 @@ describe('ConfiguracoesPage — lógica de gating de administração', () => {
     expect(tecnica).toBeUndefined();
   });
 
-  it('Adm. técnica: com users:admin → inclui Usuários & Papéis', () => {
-    const grupos = buildAdminGroups(['users:admin']);
+  it('Adm. técnica: com users:manage → inclui Usuários & Papéis', () => {
+    const grupos = buildAdminGroups(['users:manage']);
     const tecnica = grupos.find((g) => g.heading === 'Administração técnica')!;
     expect(tecnica).toBeDefined();
     expect(tecnica.cards.map((c) => c.title)).toContain('Usuários & Papéis');
@@ -113,7 +115,7 @@ describe('ConfiguracoesPage — lógica de gating de administração', () => {
   });
 
   it('Adm. técnica: com ambas as permissões → ordem Usuários, Feature Flags', () => {
-    const grupos = buildAdminGroups(['users:admin', 'flags:manage']);
+    const grupos = buildAdminGroups(['users:manage', 'flags:manage']);
     const tecnica = grupos.find((g) => g.heading === 'Administração técnica')!;
     expect(tecnica.cards.map((c) => c.title)).toEqual(['Usuários & Papéis', 'Feature Flags']);
   });
@@ -123,8 +125,8 @@ describe('ConfiguracoesPage — lógica de gating de administração', () => {
   it('admin completo (todas as permissões) → ambos os grupos', () => {
     const grupos = buildAdminGroups([
       'credit_products:read',
-      'agents:admin',
-      'users:admin',
+      'agents:manage',
+      'users:manage',
       'flags:manage',
     ]);
     expect(grupos.map((g) => g.heading)).toEqual(['Gestão', 'Administração técnica']);
@@ -145,8 +147,8 @@ describe('ConfiguracoesPage — lógica de gating de administração', () => {
   it('hrefs das rotas de destino estão corretos', () => {
     const grupos = buildAdminGroups([
       'credit_products:read',
-      'agents:admin',
-      'users:admin',
+      'agents:manage',
+      'users:manage',
       'flags:manage',
     ]);
     const allCards = grupos.flatMap((g) => g.cards);
@@ -171,24 +173,24 @@ describe('ConfiguracoesPage — chaves de permissão (contrato)', () => {
    * Chaves verificadas diretamente nas páginas-fonte:
    *   - credit_products:read → Products.tsx L12 ("credit_products:read (ver)")
    *   - Cidades              → Cities.tsx L14 ("backend valida admin:cities:write") — sem gating UI
-   *   - agents:admin         → Agents.tsx L10 + Sidebar.tsx
-   *   - users:admin          → Sidebar.tsx (hasPermission('users:admin'))
+   *   - agents:manage         → Agents.tsx L10 + Sidebar.tsx
+   *   - users:manage          → Sidebar.tsx (hasPermission('users:manage'))
    *   - flags:manage         → FeatureFlags.tsx L14 ("permissão 'flags:manage'")
    */
   it('chaves de permissão formam um conjunto fechado e documentado', () => {
     const PERMISSION_KEYS = {
       produtos: 'credit_products:read',
       cidades: null, // sem gating de UI — sempre visível
-      agentes: 'agents:admin',
-      usuarios: 'users:admin',
+      agentes: 'agents:manage',
+      usuarios: 'users:manage',
       featureFlags: 'flags:manage',
     } as const;
 
     // Garante que as chaves não são strings vazias ou undefined por acidente
     expect(PERMISSION_KEYS.produtos).toBe('credit_products:read');
     expect(PERMISSION_KEYS.cidades).toBeNull(); // intencional: sem gating
-    expect(PERMISSION_KEYS.agentes).toBe('agents:admin');
-    expect(PERMISSION_KEYS.usuarios).toBe('users:admin');
+    expect(PERMISSION_KEYS.agentes).toBe('agents:manage');
+    expect(PERMISSION_KEYS.usuarios).toBe('users:manage');
     expect(PERMISSION_KEYS.featureFlags).toBe('flags:manage');
   });
 });
