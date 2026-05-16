@@ -65,19 +65,39 @@ Cards que levam às telas administrativas existentes. **Cada card só aparece se
 usuário tem a permissão correspondente** — usar `hasPermission()` do `useAuth()`
 (mesmo padrão que a `Sidebar.tsx` já usa para Usuários/Agentes).
 
-| Card              | Rota destino           | Permissão (CONFIRA no código)                 |
-| ----------------- | ---------------------- | --------------------------------------------- |
-| Usuários & Papéis | `/admin/users`         | `users:admin`                                 |
-| Agentes           | `/admin/agents`        | `agents:admin`                                |
-| Produtos & Regras | `/admin/products`      | conferir em `pages/admin/Products.tsx` / rota |
-| Cidades           | `/admin/cities`        | conferir em `pages/admin/Cities.tsx` / rota   |
-| Feature Flags     | `/admin/feature-flags` | conferir em `pages/admin/FeatureFlags.tsx`    |
+A camada Administração é subdividida em **dois grupos visuais** (cada um com seu
+heading), espelhando a hierarquia de papéis (doc 10 §3.1 + PRD §3.4/§3.5) — config de
+negócio vs config técnica de plataforma:
+
+**Grupo "Gestão"** — configuração de negócio (alcance típico: `gestor_geral` + `admin`):
+
+| Card              | Rota destino      | Permissão (CONFIRA no código)                 |
+| ----------------- | ----------------- | --------------------------------------------- |
+| Produtos & Regras | `/admin/products` | conferir em `pages/admin/Products.tsx` / rota |
+| Cidades           | `/admin/cities`   | conferir em `pages/admin/Cities.tsx` / rota   |
+| Agentes           | `/admin/agents`   | `agents:admin`                                |
+
+**Grupo "Administração técnica"** — configuração de plataforma (alcance típico: só `admin`):
+
+| Card              | Rota destino           | Permissão (CONFIRA no código)              |
+| ----------------- | ---------------------- | ------------------------------------------ |
+| Usuários & Papéis | `/admin/users`         | `users:admin`                              |
+| Feature Flags     | `/admin/feature-flags` | conferir em `pages/admin/FeatureFlags.tsx` |
+
+> **Auditoria / Logs** é uma tela prevista no PRD §5.1 mas ainda **não implementada**
+> (não existe rota `/admin/audit`). Quando existir, entra no grupo "Gestão". Não criar
+> card para ela agora — card sem rota é link quebrado.
 
 > **Não invente chaves de permissão.** Para cada card, abra a página/hook
 > correspondente e use exatamente a chave que aquela tela já usa. Onde a tela hoje
 > não faz gating (Produtos/Cidades/Feature Flags ficam visíveis a todos na sidebar
 > atual), use a chave que a **rota de API** daquele recurso exige. Se não houver
 > chave clara, deixe o card visível e **reporte no PR** — não chute.
+
+> **Grupo vazio não renderiza.** Se o usuário não tem permissão para nenhum card de um
+> grupo, o grupo inteiro (incluindo o heading) é omitido — sem heading órfão. Se ambos
+> os grupos ficam vazios (ex: `agente`), a camada Administração inteira não aparece e o
+> hub mostra só a camada Conta.
 
 As rotas `/admin/*` continuam existindo e funcionando (bookmarks preservados). O hub
 é a superfície de descoberta; as telas em si não mudam.
@@ -117,8 +137,9 @@ As rotas `/admin/*` continuam existindo e funcionando (bookmarks preservados). O
 
 - [ ] `/configuracoes` renderiza o hub de 2 camadas (não mais `PlaceholderPage`).
 - [ ] Camada Conta presente como esqueleto "Em breve" (sem formulários funcionais).
-- [ ] Camada Administração: cards gated por `hasPermission()`; card sem permissão não
-      aparece. Chaves conferidas no código, não inventadas.
+- [ ] Camada Administração subdividida em "Gestão" e "Administração técnica"; cards
+      gated por `hasPermission()`; card sem permissão não aparece; grupo vazio (e a
+      camada inteira, se ambos vazios) não renderiza. Chaves conferidas no código.
 - [ ] Seção "Administração" removida da sidebar; "Configurações" é o ponto de entrada.
 - [ ] Rotas `/admin/*` continuam acessíveis (bookmarks não quebram).
 - [ ] Tokens do DS (doc 18); funciona em light + dark; responsivo.
