@@ -3,11 +3,11 @@ id: F8-S09
 title: Conta — self-service de perfil, senha e aparência (backend + frontend)
 phase: F8
 task_ref: F8.9
-status: available
+status: in-progress
 priority: medium
 estimated_size: L
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-16T17:10:41Z
 completed_at:
 pr_url:
 depends_on: [F8-S08]
@@ -118,7 +118,7 @@ Tokens do DS (doc 18), light + dark, responsivo.
       política violada, revogação de sessões). Testes frontend: 3 seções renderizam e
       submetem.
 - [ ] `pnpm --filter @elemento/api test && lint` verdes; `pnpm --filter @elemento/web
-    typecheck && lint && test && build` verdes. (typecheck da API pode ter erro
+  typecheck && lint && test && build` verdes. (typecheck da API pode ter erro
       sistêmico pré-existente de Fastify — reportar, não arrumar.)
 - [ ] PR com screenshots da aba Conta (light + dark).
 
