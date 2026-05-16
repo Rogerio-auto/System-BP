@@ -97,4 +97,4 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados)       | 🟢 available | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
 | F8-S04 | Frontend gestão de agentes de crédito                          | 🟣 review    | high       | F8-S01, F1-S08                 |
 | F8-S05 | Frontend dashboard real com KPIs e gráficos                    | 🟢 available | medium     | F8-S03, F1-S08                 |
-| F8-S06 | Backend — GET /api/admin/roles + roles na listagem de usuários | 🟢 available | high       | —                              |
+| F8-S06 | Backend — GET /api/admin/roles + roles na listagem de usuários | 🟣 review    | high       | —                              |

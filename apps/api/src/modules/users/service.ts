@@ -25,6 +25,7 @@ import {
   countAdminUsers,
   createUser,
   deactivateUser,
+  findRolesByUserIds,
   findUserByEmailInOrg,
   findUserById,
   findUserCityScopes,
@@ -38,6 +39,7 @@ import {
 import type {
   CreateUserBody,
   CreateUserResponse,
+  EmbeddedRole,
   ListUsersQuery,
   ListUsersResponse,
   SetCityScopesBody,
@@ -93,8 +95,11 @@ function redactUser(user: User): Record<string, unknown> {
 /**
  * Serializa um User para o formato de resposta da API.
  * Nunca inclui password_hash, totp_secret (LGPD).
+ *
+ * @param user   - entidade do banco
+ * @param roles  - roles do usuário (default: [] para endpoints que não carregam roles)
  */
-function toUserResponse(user: User): UserResponse {
+function toUserResponse(user: User, roles: EmbeddedRole[] = []): UserResponse {
   return {
     id: user.id,
     organizationId: user.organizationId,
@@ -105,6 +110,7 @@ function toUserResponse(user: User): UserResponse {
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
     deletedAt: user.deletedAt?.toISOString() ?? null,
+    roles,
   };
 }
 
@@ -119,8 +125,24 @@ export async function listUsers(
 ): Promise<ListUsersResponse> {
   const { data, total } = await findUsers(db, actor.organizationId, query);
 
+  // Batch-load roles para todos os usuários da página em uma única query (sem N+1).
+  // Agrupa as rows por userId para mapeamento O(n).
+  const userIds = data.map((u) => u.id);
+  const roleRows = await findRolesByUserIds(db, userIds);
+
+  const rolesByUserId = new Map<string, EmbeddedRole[]>();
+  for (const row of roleRows) {
+    const existing = rolesByUserId.get(row.userId);
+    const embedded: EmbeddedRole = { id: row.id, key: row.key, name: row.label };
+    if (existing) {
+      existing.push(embedded);
+    } else {
+      rolesByUserId.set(row.userId, [embedded]);
+    }
+  }
+
   return {
-    data: data.map(toUserResponse),
+    data: data.map((u) => toUserResponse(u, rolesByUserId.get(u.id) ?? [])),
     pagination: {
       page: query.page,
       limit: query.limit,

@@ -47,6 +47,19 @@ export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 // Shared: user response (sem campos sensíveis — LGPD)
 // ---------------------------------------------------------------------------
 
+/**
+ * Role embutida na resposta de usuário.
+ * Inclui apenas id, key e name (label) — sem description/scope para manter
+ * o payload de listagem enxuto.
+ */
+export const embeddedRoleSchema = z.object({
+  id: z.string().uuid(),
+  key: z.string(),
+  name: z.string(),
+});
+
+export type EmbeddedRole = z.infer<typeof embeddedRoleSchema>;
+
 export const userResponseSchema = z.object({
   id: z.string().uuid(),
   organizationId: z.string().uuid(),
@@ -57,6 +70,11 @@ export const userResponseSchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   deletedAt: z.string().datetime().nullable(),
+  /**
+   * Roles do usuário. Campo adicionado em F8-S06 (retrocompatível — adição de campo).
+   * Listagem usa batch-load para evitar N+1.
+   */
+  roles: z.array(embeddedRoleSchema),
 });
 
 export type UserResponse = z.infer<typeof userResponseSchema>;

@@ -8,7 +8,7 @@
 // user_city_scopes. O applyCityScope aqui não é usado diretamente (admin vê
 // todos os usuários da org), mas as queries respeitam organizationId.
 // =============================================================================
-import { and, count, eq, ilike, isNull, or, sql } from 'drizzle-orm';
+import { and, count, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import { roles, userCityScopes, userRoles, users } from '../../db/schema/index.js';
@@ -233,6 +233,34 @@ export async function findUserRoles(
     .from(userRoles)
     .innerJoin(roles, eq(userRoles.roleId, roles.id))
     .where(eq(userRoles.userId, userId));
+
+  return rows;
+}
+
+/**
+ * Batch-load das roles de múltiplos usuários em uma única query (sem N+1).
+ * Usado pela listagem de usuários para incluir roles no payload de cada item.
+ *
+ * @param userIds - IDs dos usuários da página atual
+ * @returns rows com userId + dados da role para agrupamento no service
+ */
+export async function findRolesByUserIds(
+  db: Database,
+  userIds: string[],
+): Promise<Array<{ userId: string; id: string; key: string; label: string }>> {
+  if (userIds.length === 0) return [];
+
+  const rows = await db
+    .select({
+      userId: userRoles.userId,
+      id: roles.id,
+      key: roles.key,
+      label: roles.label,
+    })
+    .from(userRoles)
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    // `as` justificado: inArray retorna SQL<unknown> mas é condição válida para where()
+    .where(inArray(userRoles.userId, userIds) as ReturnType<typeof eq>);
 
   return rows;
 }

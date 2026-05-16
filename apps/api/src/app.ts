@@ -26,6 +26,7 @@ import { importsRoutes } from './modules/imports/routes.js';
 import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/routes.js';
 import { kanbanRoutes } from './modules/kanban/routes.js';
 import { leadsRoutes } from './modules/leads/routes.js';
+import { rolesRoutes } from './modules/roles/routes.js';
 import { internalSimulationsRoutes } from './modules/simulations/internal-routes.js';
 import { simulationsRoutes } from './modules/simulations/routes.js';
 import { usersRoutes } from './modules/users/routes.js';
@@ -135,6 +136,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(internalSimulationsRoutes);
   // Agentes de crédito + atribuições a cidades (F8-S01)
   await app.register(agentsRoutes);
+  // Roles disponíveis para gestão de usuários (F8-S06)
+  await app.register(rolesRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.
