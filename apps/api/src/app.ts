@@ -20,6 +20,7 @@ import { authRoutes } from './modules/auth/routes.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
 import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
 import { creditProductsRoutes } from './modules/credit-products/routes.js';
+import { dashboardRoutes } from './modules/dashboard/routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { importsRoutes } from './modules/imports/routes.js';
@@ -138,6 +139,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(agentsRoutes);
   // Roles disponíveis para gestão de usuários (F8-S06)
   await app.register(rolesRoutes);
+  // Dashboard KPIs agregados (F8-S03)
+  await app.register(dashboardRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.

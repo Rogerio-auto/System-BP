@@ -12,7 +12,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 1     | 0   | 0   | 0   | 0   | 0   | 1   |
-| F8   | 7     | 3   | 0   | 0   | 0   | 0   | 4   |
+| F8   | 7     | 2   | 0   | 0   | 0   | 1   | 4   |
 
 ## Fase 0 — Preparação
 
@@ -94,7 +94,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ------ | ------------------------------------------------------------------------ | ------------ | ---------- | ------------------------------ |
 | F8-S01 | Backend CRUD agents + agent_cities (admin)                               | ✅ done      | high       | F1-S04, F1-S05, F1-S07         |
 | F8-S02 | Frontend gestão de usuários (admin/users)                                | ✅ done      | high       | F1-S07, F1-S08                 |
-| F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados)                 | 🟢 available | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
+| F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados)                 | 🟣 review    | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
 | F8-S04 | Frontend gestão de agentes de crédito                                    | ✅ done      | high       | F8-S01, F1-S08                 |
 | F8-S05 | Frontend dashboard real com KPIs e gráficos                              | 🟢 available | medium     | F8-S03, F1-S08                 |
 | F8-S06 | Backend — GET /api/admin/roles + roles na listagem de usuários           | ✅ done      | high       | —                              |
