@@ -47,7 +47,7 @@ substituir a derivação por `key` pela leitura da coluna.
   fechado, força integridade). `NOT NULL`.
 - Exportar o enum em `db/schema/index.ts` se o padrão do projeto exigir.
 
-### 2. Migration — `0020_roles_scope_column.sql`
+### 2. Migration — `0021_roles_scope_column.sql`
 
 - Gerar via `pnpm --filter @elemento/api db:generate` (NÃO escrever o `.sql` à mão —
   deixar o Drizzle gerar enum + coluna + snapshot).
@@ -60,7 +60,7 @@ substituir a derivação por `key` pela leitura da coluna.
   `agente`, `operador`, `leitura`) para `global`/`city` **conforme doc 10 §3.1** — ler
   o doc, não chutar. Se alguma role existir no banco com key fora dessas 6, a migration
   deve falhar de forma explícita (ou logar) em vez de deixar `NULL` — não silenciar.
-- **`_journal.json`:** garantir que a entrada `0020` seja adicionada com `when`
+- **`_journal.json`:** garantir que a entrada `0021` seja adicionada com `when`
   estritamente maior que o de `0019` (`1748822400000`). Migration com `when` não
   monotônico é silenciosamente pulada pelo migrator — incidente já ocorreu neste repo.
   Rodar `python scripts/slot.py check-migrations` antes de fechar.
@@ -91,9 +91,9 @@ substituir a derivação por `key` pela leitura da coluna.
 
 - `apps/api/src/db/schema/roles.ts`
 - `apps/api/src/db/schema/index.ts`
-- `apps/api/src/db/migrations/0020_roles_scope_column.sql`
+- `apps/api/src/db/migrations/0021_roles_scope_column.sql`
 - `apps/api/src/db/migrations/meta/_journal.json`
-- `apps/api/src/db/migrations/meta/0020_snapshot.json`
+- `apps/api/src/db/migrations/meta/0021_snapshot.json`
 - `apps/api/src/modules/roles/**`
 
 > Uma única migration neste slot: a coluna `scope`. Se concluir que precisa de outra,
@@ -102,9 +102,9 @@ substituir a derivação por `key` pela leitura da coluna.
 ## Definition of Done
 
 - [ ] `roles.scope` existe como coluna `NOT NULL` (`pgEnum role_scope`).
-- [ ] Migration `0020` gerada pelo Drizzle, com backfill das 6 roles canônicas conforme
+- [ ] Migration `0021` gerada pelo Drizzle, com backfill das 6 roles canônicas conforme
       doc 10 §3.1, e `SET NOT NULL` no fim.
-- [ ] `_journal.json` com entrada `0020` e `when` monotônico; `slot.py check-migrations`
+- [ ] `_journal.json` com entrada `0021` e `when` monotônico; `slot.py check-migrations`
       verde.
 - [ ] `GET /api/admin/roles` lê `scope` da coluna — derivação por `key` removida (sem
       código morto).
