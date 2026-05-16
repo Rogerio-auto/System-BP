@@ -3,11 +3,11 @@ id: F8-S03
 title: Backend endpoint /api/dashboard/metrics (KPIs agregados)
 phase: F8
 task_ref: F8.3
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-16T14:38:11Z
 completed_at:
 pr_url:
 depends_on: [F1-S04, F1-S09, F1-S11, F1-S13]
