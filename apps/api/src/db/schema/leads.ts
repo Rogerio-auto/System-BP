@@ -197,25 +197,32 @@ export const leads = pgTable(
      * Índice único de dedupe (phone_normalized) é parcial sobre deleted_at IS NULL.
      */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+
+    /**
+     * Data/hora em que os dados PII foram anonimizados (LGPD art. 18 IV).
+     * null = dados ainda não anonimizados.
+     * Adicionado em migration 0010_data_subject.sql (F1-S25).
+     */
+    anonymizedAt: timestamp('anonymized_at', { withTimezone: true }),
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys (nomeadas explicitamente)
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_leads_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkCity: foreignKey({
       name: 'fk_leads_city',
       columns: [table.cityId],
       foreignColumns: [cities.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkAgent: foreignKey({
       name: 'fk_leads_agent',
       columns: [table.agentId],
       foreignColumns: [agents.id],
@@ -229,13 +236,16 @@ export const leads = pgTable(
      * phone_e164 deve seguir E.164: + seguido de 10-15 dígitos.
      * Exemplos válidos: +5511999999999, +5569912345678.
      */
-    check('chk_leads_phone_e164_format', sql`${table.phoneE164} ~ '^\\+\\d{10,15}$'`),
+    chkPhoneE164: check('chk_leads_phone_e164_format', sql`${table.phoneE164} ~ '^\\+\\d{10,15}$'`),
 
     /**
      * phone_normalized: apenas dígitos, 10-15 caracteres.
      * Derivado de phone_e164 pela app (strip do '+').
      */
-    check('chk_leads_phone_normalized_format', sql`${table.phoneNormalized} ~ '^\\d{10,15}$'`),
+    chkPhoneNormalized: check(
+      'chk_leads_phone_normalized_format',
+      sql`${table.phoneNormalized} ~ '^\\d{10,15}$'`,
+    ),
 
     // -------------------------------------------------------------------------
     // Índices
@@ -246,7 +256,7 @@ export const leads = pgTable(
      * Parcial: só bloqueia duplicatas para leads ativos (deleted_at IS NULL).
      * Permite criar novo lead com mesmo número após soft-delete do anterior.
      */
-    uniqueIndex('uq_leads_org_phone_active')
+    uqOrgPhoneActive: uniqueIndex('uq_leads_org_phone_active')
       .on(table.organizationId, table.phoneNormalized)
       .where(sql`${table.deletedAt} IS NULL`),
 
@@ -254,19 +264,23 @@ export const leads = pgTable(
      * Listagem principal do CRM: por org + status + data (pipeline view).
      * Suporta queries: "todos os leads 'new' da org X, mais recentes primeiro".
      */
-    index('idx_leads_org_status_created').on(table.organizationId, table.status, table.createdAt),
+    idxOrgStatusCreated: index('idx_leads_org_status_created').on(
+      table.organizationId,
+      table.status,
+      table.createdAt,
+    ),
 
     /**
      * Escopo multi-cidade: filtrar leads de uma cidade específica.
      * Usado pelo RBAC/city-scope middleware.
      */
-    index('idx_leads_org_city').on(table.organizationId, table.cityId),
+    idxOrgCity: index('idx_leads_org_city').on(table.organizationId, table.cityId),
 
     /**
      * Atendimentos por agente: "todos os leads atribuídos ao agente X".
      * Parcial: exclui leads sem agente para manter o índice enxuto.
      */
-    index('idx_leads_agent')
+    idxAgent: index('idx_leads_agent')
       .on(table.agentId)
       .where(sql`${table.agentId} IS NOT NULL`),
 
@@ -276,8 +290,8 @@ export const leads = pgTable(
      * NOTA: gin_trgm_ops não é suportado pelo Drizzle schema — a migration SQL
      * (0007_leads_core.sql) foi ajustada manualmente com o operator class correto.
      */
-    index('idx_leads_name_trgm').using('gin', table.name),
-  ],
+    idxNameTrgm: index('idx_leads_name_trgm').using('gin', table.name),
+  }),
 );
 
 export type Lead = typeof leads.$inferSelect;

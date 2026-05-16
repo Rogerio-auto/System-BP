@@ -112,36 +112,39 @@ export const cities = pgTable(
     /** Soft-delete: mantém histórico de leads de cidades desativadas. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (table) => [
+  (table) => ({
     // FK explícita para organizations (multi-tenant root)
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_cities_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
     }).onDelete('restrict'),
 
     // B-tree em FK para joins org → cities
-    index('idx_cities_org').on(table.organizationId),
+    idxOrg: index('idx_cities_org').on(table.organizationId),
 
     // GIN trigram em name_normalized — fuzzy search para identify_city (F3)
     // Requer: CREATE EXTENSION IF NOT EXISTS pg_trgm (0000_init.sql)
     // NOTA: gin_trgm_ops não é suportado nativamente pelo Drizzle — a migration
     // SQL (0002_cities_agents.sql) foi escrita manualmente com o operator class correto.
-    index('idx_cities_name_normalized_trgm').using('gin', table.nameNormalized),
+    idxNameNormalizedTrgm: index('idx_cities_name_normalized_trgm').using(
+      'gin',
+      table.nameNormalized,
+    ),
 
     // GIN em aliases[] — lookup por variação de nome
-    index('idx_cities_aliases_gin').using('gin', table.aliases),
+    idxAliasesGin: index('idx_cities_aliases_gin').using('gin', table.aliases),
 
     // Unique por org+ibge_code (excluindo soft-deleted e nulos tratados separadamente)
-    uniqueIndex('uq_cities_org_ibge_active')
+    uqOrgIbgeActive: uniqueIndex('uq_cities_org_ibge_active')
       .on(table.organizationId, table.ibgeCode)
       .where(sql`${table.deletedAt} IS NULL AND ${table.ibgeCode} IS NOT NULL`),
 
     // Unique por org+slug (excluindo soft-deleted)
-    uniqueIndex('uq_cities_org_slug_active')
+    uqOrgSlugActive: uniqueIndex('uq_cities_org_slug_active')
       .on(table.organizationId, table.slug)
       .where(sql`${table.deletedAt} IS NULL`),
-  ],
+  }),
 );
 
 export type City = typeof cities.$inferSelect;

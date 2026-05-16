@@ -59,13 +59,16 @@ export const whatsappMessages = pgTable(
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // UNIQUE em wa_message_id — garante idempotência de segundo nível
-    uniqueIndex('uq_whatsapp_messages_wa_message_id').on(table.waMessageId),
+    uqWaMessageId: uniqueIndex('uq_whatsapp_messages_wa_message_id').on(table.waMessageId),
 
     // Índice composto para queries por organização ordenadas por data (dashboard)
-    index('idx_whatsapp_messages_org_received').on(table.organizationId, table.receivedAt),
-  ],
+    idxOrgReceived: index('idx_whatsapp_messages_org_received').on(
+      table.organizationId,
+      table.receivedAt,
+    ),
+  }),
 );
 
 export type WhatsappMessage = typeof whatsappMessages.$inferSelect;

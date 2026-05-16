@@ -103,21 +103,35 @@ export const customers = pgTable(
       .notNull()
       .default(sql`'{}'::jsonb`),
 
+    /**
+     * Data/hora em que o titular revogou o consentimento (LGPD art. 9 §2).
+     * null = consentimento ativo ou não aplicável.
+     * Adicionado em migration 0010_data_subject.sql (F1-S25).
+     */
+    consentRevokedAt: timestamp('consent_revoked_at', { withTimezone: true }),
+
+    /**
+     * Data/hora em que os dados PII foram anonimizados (LGPD art. 18 IV).
+     * null = dados ainda não anonimizados.
+     * Adicionado em migration 0010_data_subject.sql (F1-S25).
+     */
+    anonymizedAt: timestamp('anonymized_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_customers_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkLead: foreignKey({
       name: 'fk_customers_lead',
       columns: [table.primaryLeadId],
       foreignColumns: [leads.id],
@@ -131,13 +145,16 @@ export const customers = pgTable(
      * Um lead pode ser convertido em no máximo 1 customer.
      * Garante idempotência na conversão (chamadas duplicadas são seguras).
      */
-    uniqueIndex('uq_customers_primary_lead').on(table.primaryLeadId),
+    uqPrimaryLead: uniqueIndex('uq_customers_primary_lead').on(table.primaryLeadId),
 
     /**
      * Listagem de clientes por org, mais recentes primeiro.
      * Suporta: dashboard de conversões, relatório de clientes ativos.
      */
-    index('idx_customers_org_converted').on(table.organizationId, table.convertedAt),
+    idxOrgConverted: index('idx_customers_org_converted').on(
+      table.organizationId,
+      table.convertedAt,
+    ),
 
     /**
      * Índice único parcial em (organization_id, document_hash) para dedupe de CPF.
@@ -145,10 +162,10 @@ export const customers = pgTable(
      * da constraint — permite inserção antes do CPF ser coletado.
      * Suporta: busca por CPF hash para verificar duplicidade antes de criar customer.
      */
-    uniqueIndex('uq_customers_org_document_hash')
+    uqOrgDocumentHash: uniqueIndex('uq_customers_org_document_hash')
       .on(table.organizationId, table.documentHash)
       .where(sql`${table.documentHash} IS NOT NULL`),
-  ],
+  }),
 );
 
 export type Customer = typeof customers.$inferSelect;

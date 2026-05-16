@@ -78,30 +78,30 @@ export const kanbanStageHistory = pgTable(
       .notNull()
       .default(sql`'{}'::jsonb`),
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys (nomeadas explicitamente)
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkCard: foreignKey({
       name: 'fk_kanban_stage_history_card',
       columns: [table.cardId],
       foreignColumns: [kanbanCards.id],
     }).onDelete('cascade'),
 
-    foreignKey({
+    fkFromStage: foreignKey({
       name: 'fk_kanban_stage_history_from_stage',
       columns: [table.fromStageId],
       foreignColumns: [kanbanStages.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkToStage: foreignKey({
       name: 'fk_kanban_stage_history_to_stage',
       columns: [table.toStageId],
       foreignColumns: [kanbanStages.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkActor: foreignKey({
       name: 'fk_kanban_stage_history_actor',
       columns: [table.actorUserId],
       foreignColumns: [users.id],
@@ -115,14 +115,14 @@ export const kanbanStageHistory = pgTable(
      * Timeline do card: transições mais recentes primeiro.
      * Query principal: "histórico do card X".
      */
-    index('idx_kanban_stage_history_card_time').on(table.cardId, table.transitionedAt),
+    idxCardTime: index('idx_kanban_stage_history_card_time').on(table.cardId, table.transitionedAt),
 
     /**
      * Análise de funil por stage de destino.
      * Query: "quantas transições chegaram ao stage Y?".
      */
-    index('idx_kanban_stage_history_to_stage').on(table.toStageId),
-  ],
+    idxToStage: index('idx_kanban_stage_history_to_stage').on(table.toStageId),
+  }),
 );
 
 export type KanbanStageHistoryEntry = typeof kanbanStageHistory.$inferSelect;

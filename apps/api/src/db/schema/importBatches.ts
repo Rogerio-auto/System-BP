@@ -81,13 +81,17 @@ export const importBatches = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // Índice único parcial por (organization_id, file_hash) em batches ativos
     // Nota: a cláusula WHERE parcial é implementada na migration SQL diretamente.
     // Drizzle 0.34.1 não suporta índice parcial via API — definido apenas em 0012_imports.sql.
-    index('idx_import_batches_org_hash').on(table.organizationId, table.fileHash),
-    index('idx_import_batches_org_status').on(table.organizationId, table.status, table.createdAt),
-  ],
+    idxOrgHash: index('idx_import_batches_org_hash').on(table.organizationId, table.fileHash),
+    idxOrgStatus: index('idx_import_batches_org_status').on(
+      table.organizationId,
+      table.status,
+      table.createdAt,
+    ),
+  }),
 );
 
 // ---------------------------------------------------------------------------

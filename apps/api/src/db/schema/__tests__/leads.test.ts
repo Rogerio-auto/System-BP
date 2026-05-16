@@ -80,35 +80,19 @@ vi.mock('../../client.js', () => ({
 // ---------------------------------------------------------------------------
 // Imports após mocks
 // ---------------------------------------------------------------------------
-import {
-  customers,
-  type Customer,
-  type NewCustomer,
-} from '../customers.js';
-import {
-  interactions,
-  type Interaction,
-  type NewInteraction,
-} from '../interactions.js';
-import {
-  leadHistory,
-  type LeadHistory,
-  type NewLeadHistory,
-} from '../leadHistory.js';
-import {
-  leads,
-  type Lead,
-  type NewLead,
-} from '../leads.js';
+import { customers, type Customer, type NewCustomer } from '../customers.js';
+import { interactions, type Interaction, type NewInteraction } from '../interactions.js';
+import { leadHistory, type LeadHistory, type NewLeadHistory } from '../leadHistory.js';
+import { leads, type Lead, type NewLead } from '../leads.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
-const ORG_ID  = 'aabbccdd-0001-0000-0000-000000000001';
+const ORG_ID = 'aabbccdd-0001-0000-0000-000000000001';
 const CITY_ID = 'aabbccdd-0002-0000-0000-000000000001';
 const AGENT_ID = 'aabbccdd-0003-0000-0000-000000000001';
-const USER_ID  = 'aabbccdd-0004-0000-0000-000000000001';
-const LEAD_ID  = 'aabbccdd-0005-0000-0000-000000000001';
+const USER_ID = 'aabbccdd-0004-0000-0000-000000000001';
+const LEAD_ID = 'aabbccdd-0005-0000-0000-000000000001';
 const LEAD_ID2 = 'aabbccdd-0005-0000-0000-000000000002';
 
 function makeNewLead(overrides: Partial<NewLead> = {}): NewLead {
@@ -180,9 +164,7 @@ describe('leads — schema e types', () => {
     );
 
     const newLead = makeNewLead();
-    await expect(mockDb.insert(leads).values(newLead)).rejects.toThrow(
-      'uq_leads_org_phone_active',
-    );
+    await expect(mockDb.insert(leads).values(newLead)).rejects.toThrow('uq_leads_org_phone_active');
   });
 
   it('duplicate phone_normalized com deleted_at: deve ser aceito (índice parcial)', async () => {
@@ -226,14 +208,13 @@ describe('leads — schema e types', () => {
     );
 
     const newLead = makeNewLead({ organizationId: '00000000-dead-beef-0000-000000000000' });
-    await expect(mockDb.insert(leads).values(newLead)).rejects.toThrow(
-      'fk_leads_organization',
-    );
+    await expect(mockDb.insert(leads).values(newLead)).rejects.toThrow('fk_leads_organization');
   });
 
   it('lead sem agente (agentId null): aceito', async () => {
     mockInsertValues.mockResolvedValueOnce([{ id: LEAD_ID }]);
-    const newLead = makeNewLead({ agentId: undefined });
+    // exactOptionalPropertyTypes: use null instead of undefined for nullable optional columns.
+    const newLead = makeNewLead({ agentId: null });
 
     const result = await mockDb.insert(leads).values(newLead);
     expect(result).toEqual([{ id: LEAD_ID }]);
@@ -287,9 +268,7 @@ describe('customers — schema e types', () => {
     const newCustomer = makeNewCustomer({
       primaryLeadId: '00000000-dead-beef-0000-000000000000',
     });
-    await expect(mockDb.insert(customers).values(newCustomer)).rejects.toThrow(
-      'fk_customers_lead',
-    );
+    await expect(mockDb.insert(customers).values(newCustomer)).rejects.toThrow('fk_customers_lead');
   });
 });
 
@@ -389,8 +368,9 @@ describe('interactions — schema e types', () => {
       .mockResolvedValueOnce([{ id: 'int-id-1' }])
       .mockResolvedValueOnce([{ id: 'int-id-2' }]);
 
-    const i1 = makeNewInteraction({ externalRef: undefined });
-    const i2 = makeNewInteraction({ externalRef: undefined });
+    // exactOptionalPropertyTypes: null (not undefined) for nullable optional columns
+    const i1 = makeNewInteraction({ externalRef: null });
+    const i2 = makeNewInteraction({ externalRef: null });
 
     const r1 = await mockDb.insert(interactions).values(i1);
     const r2 = await mockDb.insert(interactions).values(i2);
@@ -450,6 +430,7 @@ describe('tipos Drizzle — compilação sem any', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
       deletedAt: null,
+      anonymizedAt: null,
     };
     expect(lead.id).toBe(LEAD_ID);
     expect(lead.source).toBe('whatsapp');
@@ -462,6 +443,10 @@ describe('tipos Drizzle — compilação sem any', () => {
       organizationId: ORG_ID,
       primaryLeadId: LEAD_ID,
       convertedAt: new Date(),
+      documentNumber: null,
+      documentHash: null,
+      consentRevokedAt: null,
+      anonymizedAt: null,
       metadata: {},
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -519,7 +504,12 @@ describe('tipos Drizzle — compilação sem any', () => {
   it('status enum: apenas valores válidos são aceitos pelo tipo', () => {
     // Teste de compile-time via runtime — os valores válidos do enum
     const validStatuses: NewLead['status'][] = [
-      'new', 'qualifying', 'simulation', 'closed_won', 'closed_lost', 'archived',
+      'new',
+      'qualifying',
+      'simulation',
+      'closed_won',
+      'closed_lost',
+      'archived',
     ];
     expect(validStatuses).toHaveLength(6);
     expect(validStatuses).toContain('new');
@@ -527,15 +517,17 @@ describe('tipos Drizzle — compilação sem any', () => {
   });
 
   it('source enum: apenas valores válidos são aceitos pelo tipo', () => {
-    const validSources: NewLead['source'][] = [
-      'whatsapp', 'manual', 'import', 'chatwoot', 'api',
-    ];
+    const validSources: NewLead['source'][] = ['whatsapp', 'manual', 'import', 'chatwoot', 'api'];
     expect(validSources).toHaveLength(5);
   });
 
   it('channel enum interactions: apenas valores válidos', () => {
     const validChannels: NewInteraction['channel'][] = [
-      'whatsapp', 'phone', 'email', 'in_person', 'chatwoot',
+      'whatsapp',
+      'phone',
+      'email',
+      'in_person',
+      'chatwoot',
     ];
     expect(validChannels).toHaveLength(5);
   });
@@ -558,13 +550,14 @@ describe('LGPD — cpf_* colunas reservadas para F1-S24', () => {
       status: 'new',
       lastSimulationId: null,
       email: null,
-      cpfEncrypted: null,  // NULL até F1-S24
-      cpfHash: null,       // NULL até F1-S24
+      cpfEncrypted: null, // NULL até F1-S24
+      cpfHash: null, // NULL até F1-S24
       notes: null,
       metadata: {},
       createdAt: new Date(),
       updatedAt: new Date(),
       deletedAt: null,
+      anonymizedAt: null,
     };
     expect(lead.cpfEncrypted).toBeNull();
     expect(lead.cpfHash).toBeNull();

@@ -15,24 +15,24 @@ export const rolePermissions = pgTable(
     roleId: uuid('role_id').notNull(),
     permissionId: uuid('permission_id').notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.roleId, table.permissionId] }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.roleId, table.permissionId] }),
 
-    foreignKey({
+    fkRole: foreignKey({
       name: 'fk_role_permissions_role',
       columns: [table.roleId],
       foreignColumns: [roles.id],
     }).onDelete('cascade'),
 
-    foreignKey({
+    fkPermission: foreignKey({
       name: 'fk_role_permissions_permission',
       columns: [table.permissionId],
       foreignColumns: [permissions.id],
     }).onDelete('cascade'),
 
     // B-tree em permission_id para queries "quais roles têm esta permissão?"
-    index('idx_role_permissions_permission').on(table.permissionId),
-  ],
+    idxPermission: index('idx_role_permissions_permission').on(table.permissionId),
+  }),
 );
 
 export type RolePermission = typeof rolePermissions.$inferSelect;

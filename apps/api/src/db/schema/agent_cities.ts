@@ -36,27 +36,27 @@ export const agentCities = pgTable(
      */
     isPrimary: boolean('is_primary').notNull().default(false),
   },
-  (table) => [
+  (table) => ({
     // PK composta: cada par (agente, cidade) é único
-    primaryKey({ columns: [table.agentId, table.cityId] }),
+    pk: primaryKey({ columns: [table.agentId, table.cityId] }),
 
     // FK → agents com cascade: remoção de agente limpa atribuições
-    foreignKey({
+    fkAgent: foreignKey({
       name: 'fk_agent_cities_agent',
       columns: [table.agentId],
       foreignColumns: [agents.id],
     }).onDelete('cascade'),
 
     // FK → cities com cascade: remoção de cidade limpa atribuições
-    foreignKey({
+    fkCity: foreignKey({
       name: 'fk_agent_cities_city',
       columns: [table.cityId],
       foreignColumns: [cities.id],
     }).onDelete('cascade'),
 
     // B-tree em city_id para query "quais agentes cobrem esta cidade?"
-    index('idx_agent_cities_city').on(table.cityId),
-  ],
+    idxCity: index('idx_agent_cities_city').on(table.cityId),
+  }),
 );
 
 export type AgentCity = typeof agentCities.$inferSelect;

@@ -191,7 +191,8 @@ describe('credit_products — schema e types', () => {
 
   it('produto sem description: aceito (campo opcional)', async () => {
     mockInsertValues.mockResolvedValueOnce([{ id: PRODUCT_ID }]);
-    const newProduct = makeNewProduct({ description: undefined });
+    // exactOptionalPropertyTypes: use null (not undefined) for nullable optional columns
+    const newProduct = makeNewProduct({ description: null });
 
     const result = await mockDb.insert(creditProducts).values(newProduct);
     expect(result).toEqual([{ id: PRODUCT_ID }]);
@@ -257,8 +258,9 @@ describe('credit_product_rules — schema e types', () => {
       new Error('new row violates check constraint "chk_credit_product_rules_amortization"'),
     );
 
+    // exactOptionalPropertyTypes: cast to non-undefined union to avoid assigning undefined
     const newRule = makeNewRule({
-      amortization: 'bullet' as NewCreditProductRule['amortization'],
+      amortization: 'bullet' as 'price' | 'sac',
     });
     await expect(mockDb.insert(creditProductRules).values(newRule)).rejects.toThrow(
       'chk_credit_product_rules_amortization',
@@ -354,8 +356,9 @@ describe('credit_simulations — schema e types', () => {
       new Error('new row violates check constraint "chk_credit_simulations_origin"'),
     );
 
+    // exactOptionalPropertyTypes: cast to non-undefined union
     const newSim = makeNewSimulation({
-      origin: 'webhook' as NewCreditSimulation['origin'],
+      origin: 'webhook' as 'manual' | 'import' | 'ai',
     });
     await expect(mockDb.insert(creditSimulations).values(newSim)).rejects.toThrow(
       'chk_credit_simulations_origin',

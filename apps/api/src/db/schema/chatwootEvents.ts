@@ -88,20 +88,20 @@ export const chatwootEvents = pgTable(
      */
     processedAt: timestamp('processed_at', { withTimezone: true }),
   },
-  (table) => [
+  (table) => ({
     // UNIQUE em (organization_id, chatwoot_id, updated_at_chatwoot) — idempotência
-    uniqueIndex('uq_chatwoot_events_org_id_updated_at').on(
+    uqOrgIdUpdatedAt: uniqueIndex('uq_chatwoot_events_org_id_updated_at').on(
       table.organizationId,
       table.chatwootId,
       table.updatedAtChatwoot,
     ),
 
     // Índice em event_type para queries de processamento por tipo
-    index('idx_chatwoot_events_event_type').on(table.eventType),
+    idxEventType: index('idx_chatwoot_events_event_type').on(table.eventType),
 
     // Índice em received_at para limpeza e queries temporais
-    index('idx_chatwoot_events_received_at').on(table.receivedAt),
-  ],
+    idxReceivedAt: index('idx_chatwoot_events_received_at').on(table.receivedAt),
+  }),
 );
 
 export type ChatwootEvent = typeof chatwootEvents.$inferSelect;

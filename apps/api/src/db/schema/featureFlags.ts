@@ -83,10 +83,10 @@ export const featureFlags = pgTable(
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // B-tree por status — queries de lista filtradas por estado
-    index('idx_feature_flags_status').on(table.status),
-  ],
+    idxStatus: index('idx_feature_flags_status').on(table.status),
+  }),
 );
 
 export type FeatureFlag = typeof featureFlags.$inferSelect;

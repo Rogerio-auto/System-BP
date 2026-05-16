@@ -46,7 +46,9 @@ export const roles = pgTable(
      */
     scope: roleScopeEnum('scope').notNull(),
   },
-  (table) => [uniqueIndex('uq_roles_key').on(table.key)],
+  (table) => ({
+    uqKey: uniqueIndex('uq_roles_key').on(table.key),
+  }),
 );
 
 export type Role = typeof roles.$inferSelect;

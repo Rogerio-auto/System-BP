@@ -144,18 +144,18 @@ export const creditProductRules = pgTable(
     // Sem updatedAt: regras são imutáveis após criação (exceto is_active e effective_to).
     // Campos mutáveis: is_active, effective_to.
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkProduct: foreignKey({
       name: 'fk_credit_product_rules_product',
       columns: [table.productId],
       foreignColumns: [creditProducts.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkCreatedBy: foreignKey({
       name: 'fk_credit_product_rules_created_by',
       columns: [table.createdBy],
       foreignColumns: [users.id],
@@ -169,7 +169,10 @@ export const creditProductRules = pgTable(
      * Versão única por produto.
      * Impede publicar duas vezes a mesma versão de um produto.
      */
-    uniqueIndex('uq_credit_product_rules_product_version').on(table.productId, table.version),
+    uqProductVersion: uniqueIndex('uq_credit_product_rules_product_version').on(
+      table.productId,
+      table.version,
+    ),
 
     // -------------------------------------------------------------------------
     // Índices
@@ -179,13 +182,19 @@ export const creditProductRules = pgTable(
      * Busca da regra ativa de um produto.
      * Suporta: "qual a versão ativa do produto X?".
      */
-    index('idx_credit_product_rules_product_active').on(table.productId, table.isActive),
+    idxProductActive: index('idx_credit_product_rules_product_active').on(
+      table.productId,
+      table.isActive,
+    ),
 
     /**
      * Busca de regras por versão (para auditoria).
      */
-    index('idx_credit_product_rules_product_version').on(table.productId, table.version),
-  ],
+    idxProductVersion: index('idx_credit_product_rules_product_version').on(
+      table.productId,
+      table.version,
+    ),
+  }),
 );
 
 export type CreditProductRule = typeof creditProductRules.$inferSelect;
