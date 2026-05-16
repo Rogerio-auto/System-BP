@@ -1,13 +1,14 @@
 // =============================================================================
-// roles/schemas.ts — Zod schemas para o módulo de roles (F8-S06).
+// roles/schemas.ts — Zod schemas para o módulo de roles (F8-S07).
 //
 // Rotas cobertas:
 //   GET /api/admin/roles  — lista roles disponíveis da organização
 //
-// Nota: o campo `scope` é derivado em código a partir do `key` da role —
-// não existe coluna `scope` no banco. Regra em roleKeyToScope() no service.
-// Keys globais (doc 10 §3.1): admin, gestor_geral.
-// Keys de cidade: gestor_regional, agente, operador, leitura.
+// `scope` é lido da coluna roles.scope (pgEnum role_scope, NOT NULL).
+// Migration 0021 faz o backfill e garante a integridade via NOT NULL + CHECK.
+// Mapeamento key→scope (doc 10 §3.1):
+//   global: admin, gestor_geral
+//   city:   gestor_regional, agente, operador, leitura
 // =============================================================================
 import { z } from 'zod';
 

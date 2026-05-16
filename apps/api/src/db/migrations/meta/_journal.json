@@ -134,6 +134,13 @@
       "when": 1748908800000,
       "tag": "0020_seed_dashboard_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1748995200000,
+      "tag": "0021_roles_scope_column",
+      "breakpoints": true
     }
   ]
 }

@@ -7,9 +7,16 @@
 //
 // Keys canônicas (doc 10 §3.1):
 //   admin | gestor_geral | gestor_regional | agente | operador | leitura
+//
+// Escopo (doc 10 §3.1):
+//   global → admin, gestor_geral (acesso a todas as cidades da org)
+//   city   → gestor_regional, agente, operador, leitura (filtrado por user_city_scopes)
 // =============================================================================
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgEnum, pgTable, uuid, text, uniqueIndex } from 'drizzle-orm/pg-core';
+
+/** Domínio fechado de escopo de role (doc 10 §3.1). */
+export const roleScopeEnum = pgEnum('role_scope', ['global', 'city']);
 
 export const roles = pgTable(
   'roles',
@@ -30,6 +37,14 @@ export const roles = pgTable(
 
     /** Descrição do escopo do papel para documentação interna. */
     description: text('description'),
+
+    /**
+     * Escopo de acesso geográfico da role (doc 10 §3.1).
+     * global → acesso a todas as cidades da org (admin, gestor_geral).
+     * city   → acesso filtrado por user_city_scopes (gestor_regional, agente, operador, leitura).
+     * Persistido como coluna — NOT NULL — não derivado em runtime.
+     */
+    scope: roleScopeEnum('scope').notNull(),
   },
   (table) => [uniqueIndex('uq_roles_key').on(table.key)],
 );
