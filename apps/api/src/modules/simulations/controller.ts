@@ -16,6 +16,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
 import { ForbiddenError } from '../../shared/errors.js';
+import { typedBody } from '../../shared/fastify-types.js';
 
 import type { SimulationCreate } from './schemas.js';
 import type { SimulationActorContext } from './service.js';
@@ -45,12 +46,12 @@ function getActorContext(request: FastifyRequest): SimulationActorContext {
 // ---------------------------------------------------------------------------
 
 export async function createSimulationController(
-  request: FastifyRequest<{ Body: SimulationCreate }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
 
-  const result = await createSimulation(db, actor, request.body, {
+  const result = await createSimulation(db, actor, typedBody<SimulationCreate>(request), {
     origin: 'manual',
     idempotencyKey: null,
   });

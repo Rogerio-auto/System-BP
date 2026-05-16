@@ -15,24 +15,24 @@ export const userRoles = pgTable(
     userId: uuid('user_id').notNull(),
     roleId: uuid('role_id').notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.userId, table.roleId] }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.roleId] }),
 
-    foreignKey({
+    fkUser: foreignKey({
       name: 'fk_user_roles_user',
       columns: [table.userId],
       foreignColumns: [users.id],
     }).onDelete('cascade'),
 
-    foreignKey({
+    fkRole: foreignKey({
       name: 'fk_user_roles_role',
       columns: [table.roleId],
       foreignColumns: [roles.id],
     }).onDelete('restrict'),
 
     // B-tree em role_id para queries "quais usuários têm este papel?"
-    index('idx_user_roles_role').on(table.roleId),
-  ],
+    idxRole: index('idx_user_roles_role').on(table.roleId),
+  }),
 );
 
 export type UserRole = typeof userRoles.$inferSelect;

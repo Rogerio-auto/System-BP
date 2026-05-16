@@ -72,12 +72,12 @@ export const creditProducts = pgTable(
      */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_credit_products_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
@@ -92,7 +92,7 @@ export const creditProducts = pgTable(
      * WHERE deleted_at IS NULL: produtos deletados não participam da constraint.
      * Permite criar novo produto com mesmo slug após soft-delete.
      */
-    uniqueIndex('uq_credit_products_org_key_active')
+    uqOrgKeyActive: uniqueIndex('uq_credit_products_org_key_active')
       .on(table.organizationId, table.key)
       .where(sql`${table.deletedAt} IS NULL`),
 
@@ -100,8 +100,8 @@ export const creditProducts = pgTable(
      * Listagem de produtos da org com filtro de ativo/inativo.
      * Suporta: "todos os produtos ativos da org X".
      */
-    index('idx_credit_products_org_active').on(table.organizationId, table.isActive),
-  ],
+    idxOrgActive: index('idx_credit_products_org_active').on(table.organizationId, table.isActive),
+  }),
 );
 
 export type CreditProduct = typeof creditProducts.$inferSelect;

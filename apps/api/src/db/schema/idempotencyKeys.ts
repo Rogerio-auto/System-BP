@@ -42,10 +42,10 @@ export const idempotencyKeys = pgTable(
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // Índice em created_at para o job de limpeza periódica
-    index('idx_idempotency_keys_created_at').on(table.createdAt),
-  ],
+    idxCreatedAt: index('idx_idempotency_keys_created_at').on(table.createdAt),
+  }),
 );
 
 export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;

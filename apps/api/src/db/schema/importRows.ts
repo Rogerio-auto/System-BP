@@ -70,7 +70,9 @@ export const importRows = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_import_rows_batch_status').on(table.batchId, table.status)],
+  (table) => ({
+    idxBatchStatus: index('idx_import_rows_batch_status').on(table.batchId, table.status),
+  }),
 );
 
 // ---------------------------------------------------------------------------

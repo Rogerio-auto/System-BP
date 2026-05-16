@@ -13,6 +13,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
 import { ForbiddenError } from '../../shared/errors.js';
+import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
 import type { LeadCreate, LeadIdParam, LeadListQuery, LeadUpdate } from './schemas.js';
 import type { ActorContext } from './service.js';
@@ -55,11 +56,11 @@ function getActorContext(request: FastifyRequest): ActorContext {
 // ---------------------------------------------------------------------------
 
 export async function listLeadsController(
-  request: FastifyRequest<{ Querystring: LeadListQuery }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await listLeads(db, actor, request.query);
+  const result = await listLeads(db, actor, typedQuery<LeadListQuery>(request));
   return reply.status(200).send(result);
 }
 
@@ -68,11 +69,12 @@ export async function listLeadsController(
 // ---------------------------------------------------------------------------
 
 export async function getLeadController(
-  request: FastifyRequest<{ Params: LeadIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await getLeadById(db, actor, request.params.id);
+  const params = typedParams<LeadIdParam>(request);
+  const result = await getLeadById(db, actor, params.id);
   return reply.status(200).send(result);
 }
 
@@ -81,11 +83,11 @@ export async function getLeadController(
 // ---------------------------------------------------------------------------
 
 export async function createLeadController(
-  request: FastifyRequest<{ Body: LeadCreate }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await createLead(db, actor, request.body);
+  const result = await createLead(db, actor, typedBody<LeadCreate>(request));
   return reply.status(201).send(result);
 }
 
@@ -94,11 +96,12 @@ export async function createLeadController(
 // ---------------------------------------------------------------------------
 
 export async function updateLeadController(
-  request: FastifyRequest<{ Params: LeadIdParam; Body: LeadUpdate }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await updateLeadService(db, actor, request.params.id, request.body);
+  const params = typedParams<LeadIdParam>(request);
+  const result = await updateLeadService(db, actor, params.id, typedBody<LeadUpdate>(request));
   return reply.status(200).send(result);
 }
 
@@ -107,11 +110,12 @@ export async function updateLeadController(
 // ---------------------------------------------------------------------------
 
 export async function deleteLeadController(
-  request: FastifyRequest<{ Params: LeadIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  await deleteLeadService(db, actor, request.params.id);
+  const params = typedParams<LeadIdParam>(request);
+  await deleteLeadService(db, actor, params.id);
   return reply.status(204).send();
 }
 
@@ -120,10 +124,11 @@ export async function deleteLeadController(
 // ---------------------------------------------------------------------------
 
 export async function restoreLeadController(
-  request: FastifyRequest<{ Params: LeadIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await restoreLeadService(db, actor, request.params.id);
+  const params = typedParams<LeadIdParam>(request);
+  const result = await restoreLeadService(db, actor, params.id);
   return reply.status(200).send(result);
 }

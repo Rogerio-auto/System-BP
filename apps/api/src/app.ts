@@ -6,7 +6,7 @@ import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import sensible from '@fastify/sensible';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify from 'fastify';
 import {
   serializerCompiler,
   validatorCompiler,
@@ -36,17 +36,21 @@ import { whatsappRoutes } from './modules/whatsapp/routes.js';
 import { dataSubjectRoutes } from './routes/data-subject.routes.js';
 import { isAppError } from './shared/errors.js';
 
-export async function buildApp(): Promise<FastifyInstance> {
+// Return type inferred — Fastify<Http2SecureServer, ..., ZodTypeProvider> diverges from
+// the FastifyInstance<RawServerDefault, ...> default alias; letting TypeScript infer avoids
+// a spurious TS2322 without losing safety (callers use the inferred type correctly).
+export async function buildApp() {
   const app = Fastify({
     logger: {
       level: env.LOG_LEVEL,
-      transport:
-        env.NODE_ENV === 'development'
-          ? {
+      ...(env.NODE_ENV === 'development'
+        ? {
+            transport: {
               target: 'pino-pretty',
               options: { translateTime: 'HH:MM:ss.l', ignore: 'pid,hostname' },
-            }
-          : undefined,
+            },
+          }
+        : {}),
       // -----------------------------------------------------------------------
       // pino.redact — lista canônica de PII (doc 17).
       // Garante que nenhum campo sensível apareça em logs estruturados,
@@ -177,13 +181,20 @@ export async function buildApp(): Promise<FastifyInstance> {
       return reply.status(error.statusCode).send(body);
     }
 
-    // Erros de validação gerados pelo Fastify (fastify-type-provider-zod)
-    if (error.validation !== undefined) {
+    // Erros de validação gerados pelo Fastify (fastify-type-provider-zod).
+    // `error` é `unknown` no setErrorHandler — narrowing estrutural para acessar
+    // `.validation` que Fastify injeta em erros de validação de schema Zod.
+    if (
+      error !== null &&
+      typeof error === 'object' &&
+      'validation' in error &&
+      error.validation !== undefined
+    ) {
       request.log.warn({ err: error }, 'validation error');
       return reply.status(400).send({
         error: 'VALIDATION_ERROR',
         message: 'Validation failed',
-        details: error.validation,
+        details: (error as { validation: unknown }).validation,
       });
     }
 

@@ -118,42 +118,42 @@ export const kanbanCards = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys (nomeadas explicitamente)
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_kanban_cards_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkLead: foreignKey({
       name: 'fk_kanban_cards_lead',
       columns: [table.leadId],
       foreignColumns: [leads.id],
     }).onDelete('cascade'),
 
-    foreignKey({
+    fkStage: foreignKey({
       name: 'fk_kanban_cards_stage',
       columns: [table.stageId],
       foreignColumns: [kanbanStages.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkAssignee: foreignKey({
       name: 'fk_kanban_cards_assignee',
       columns: [table.assigneeUserId],
       foreignColumns: [users.id],
     }).onDelete('set null'),
 
-    foreignKey({
+    fkProduct: foreignKey({
       name: 'fk_kanban_cards_product',
       columns: [table.productId],
       foreignColumns: [creditProducts.id],
     }).onDelete('set null'),
 
-    foreignKey({
+    fkLastSimulation: foreignKey({
       name: 'fk_kanban_cards_last_simulation',
       columns: [table.lastSimulationId],
       foreignColumns: [creditSimulations.id],
@@ -164,7 +164,7 @@ export const kanbanCards = pgTable(
     // -------------------------------------------------------------------------
 
     /** 1 card por lead — garante relação 1:1. */
-    uniqueIndex('uq_kanban_cards_lead').on(table.leadId),
+    uqLead: uniqueIndex('uq_kanban_cards_lead').on(table.leadId),
 
     // -------------------------------------------------------------------------
     // Índices
@@ -174,7 +174,7 @@ export const kanbanCards = pgTable(
      * Board query principal: cards de um stage na org, mais prioritários primeiro.
      * Suporta: "todos os cards do stage X da org Y, ordenados por prioridade".
      */
-    index('idx_kanban_cards_org_stage_priority').on(
+    idxOrgStagePriority: index('idx_kanban_cards_org_stage_priority').on(
       table.organizationId,
       table.stageId,
       table.priority,
@@ -184,7 +184,7 @@ export const kanbanCards = pgTable(
      * Cards atribuídos a um usuário.
      * Parcial: exclui cards sem assignee para manter o índice enxuto.
      */
-    index('idx_kanban_cards_assignee')
+    idxAssignee: index('idx_kanban_cards_assignee')
       .on(table.assigneeUserId)
       .where(sql`${table.assigneeUserId} IS NOT NULL`),
 
@@ -193,7 +193,7 @@ export const kanbanCards = pgTable(
      * Parcial: exclui cards sem produto (início do funil).
      * Suporta: "todos os cards usando o produto X".
      */
-    index('idx_kanban_cards_product')
+    idxProduct: index('idx_kanban_cards_product')
       .on(table.productId)
       .where(sql`${table.productId} IS NOT NULL`),
 
@@ -201,10 +201,10 @@ export const kanbanCards = pgTable(
      * Cards com simulação associada.
      * Parcial: exclui cards sem simulação.
      */
-    index('idx_kanban_cards_last_simulation')
+    idxLastSimulation: index('idx_kanban_cards_last_simulation')
       .on(table.lastSimulationId)
       .where(sql`${table.lastSimulationId} IS NOT NULL`),
-  ],
+  }),
 );
 
 export type KanbanCard = typeof kanbanCards.$inferSelect;

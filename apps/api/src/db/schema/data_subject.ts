@@ -142,47 +142,51 @@ export const dataSubjectRequests = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_dsr_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkCustomer: foreignKey({
       name: 'fk_dsr_customer',
       columns: [table.customerId],
       foreignColumns: [customers.id],
-    }).onDelete('setNull'),
+    }).onDelete('set null'),
 
-    foreignKey({
+    fkFulfilledBy: foreignKey({
       name: 'fk_dsr_fulfilled_by',
       columns: [table.fulfilledBy],
       foreignColumns: [users.id],
-    }).onDelete('setNull'),
+    }).onDelete('set null'),
 
     // -------------------------------------------------------------------------
     // Índices
     // -------------------------------------------------------------------------
 
     /** Busca de solicitações de um titular específico por data. */
-    index('idx_dsr_customer_created').on(table.customerId, table.createdAt),
+    idxCustomerCreated: index('idx_dsr_customer_created').on(table.customerId, table.createdAt),
 
     /** Fila de processamento: pegar solicitações pendentes por org. */
-    index('idx_dsr_org_status_created').on(table.organizationId, table.status, table.createdAt),
+    idxOrgStatusCreated: index('idx_dsr_org_status_created').on(
+      table.organizationId,
+      table.status,
+      table.createdAt,
+    ),
 
     /**
      * Casos órfãos: busca por document_hash quando customer_id não existe.
      * Parcial: apenas rows com document_hash preenchido.
      */
-    uniqueIndex('idx_dsr_document_hash')
+    uqDocumentHash: uniqueIndex('idx_dsr_document_hash')
       .on(table.documentHash)
       .where(sql`${table.documentHash} IS NOT NULL`),
-  ],
+  }),
 );
 
 export type DataSubjectRequest = typeof dataSubjectRequests.$inferSelect;

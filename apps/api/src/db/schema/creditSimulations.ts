@@ -150,42 +150,42 @@ export const creditSimulations = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     // Sem updatedAt — simulações são imutáveis após criação.
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys (todas nomeadas, com on delete explícito)
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_credit_simulations_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkLead: foreignKey({
       name: 'fk_credit_simulations_lead',
       columns: [table.leadId],
       foreignColumns: [leads.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkCustomer: foreignKey({
       name: 'fk_credit_simulations_customer',
       columns: [table.customerId],
       foreignColumns: [customers.id],
     }).onDelete('set null'),
 
-    foreignKey({
+    fkProduct: foreignKey({
       name: 'fk_credit_simulations_product',
       columns: [table.productId],
       foreignColumns: [creditProducts.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkRuleVersion: foreignKey({
       name: 'fk_credit_simulations_rule_version',
       columns: [table.ruleVersionId],
       foreignColumns: [creditProductRules.id],
     }).onDelete('restrict'),
 
-    foreignKey({
+    fkCreatedBy: foreignKey({
       name: 'fk_credit_simulations_created_by',
       columns: [table.createdByUserId],
       foreignColumns: [users.id],
@@ -198,21 +198,24 @@ export const creditSimulations = pgTable(
     /**
      * Histórico de simulações por lead (mais comum: "todas as simul. do lead X").
      */
-    index('idx_credit_simulations_lead').on(table.leadId),
+    idxLead: index('idx_credit_simulations_lead').on(table.leadId),
 
     /**
      * Analytics por produto: "quantas simulações do produto X na org Y".
      */
-    index('idx_credit_simulations_org_product').on(table.organizationId, table.productId),
+    idxOrgProduct: index('idx_credit_simulations_org_product').on(
+      table.organizationId,
+      table.productId,
+    ),
 
     /**
      * Simulações de clientes identificados (customer já tem CPF).
      * Parcial: exclui simulações sem customer (maioria no início do funil).
      */
-    index('idx_credit_simulations_customer')
+    idxCustomer: index('idx_credit_simulations_customer')
       .on(table.customerId)
       .where(sql`${table.customerId} IS NOT NULL`),
-  ],
+  }),
 );
 
 export type CreditSimulation = typeof creditSimulations.$inferSelect;

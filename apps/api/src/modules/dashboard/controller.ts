@@ -13,6 +13,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
 import { ForbiddenError } from '../../shared/errors.js';
+import { typedQuery } from '../../shared/fastify-types.js';
 
 import type { DashboardMetricsQuery } from './schemas.js';
 import type { ActorContext } from './service.js';
@@ -46,10 +47,10 @@ function getActorContext(request: FastifyRequest): ActorContext {
 // ---------------------------------------------------------------------------
 
 export async function getDashboardMetricsController(
-  request: FastifyRequest<{ Querystring: DashboardMetricsQuery }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await getDashboardMetrics(db, actor, request.query);
+  const result = await getDashboardMetrics(db, actor, typedQuery<DashboardMetricsQuery>(request));
   return reply.status(200).send(result);
 }

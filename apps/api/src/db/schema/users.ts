@@ -96,23 +96,23 @@ export const users = pgTable(
     /** Soft-delete: registros deletados ficam auditáveis. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (table) => [
+  (table) => ({
     // FK explícita com nome canônico
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_users_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
     }).onDelete('restrict'),
 
     // B-tree em FK para joins eficientes (org → users)
-    index('idx_users_org').on(table.organizationId),
+    idxOrg: index('idx_users_org').on(table.organizationId),
 
     // Unique composto (org, email) apenas para registros não deletados.
     // Permite reutilizar e-mail após soft-delete em orgs diferentes.
-    uniqueIndex('uq_users_org_email_active')
+    uqOrgEmailActive: uniqueIndex('uq_users_org_email_active')
       .on(table.organizationId, table.email)
       .where(sql`${table.deletedAt} IS NULL`),
-  ],
+  }),
 );
 
 export type User = typeof users.$inferSelect;

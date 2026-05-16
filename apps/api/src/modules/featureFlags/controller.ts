@@ -9,6 +9,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { db } from '../../db/client.js';
 import { emit } from '../../events/emit.js';
 import { NotFoundError } from '../../shared/errors.js';
+import { typedBody, typedParams } from '../../shared/fastify-types.js';
 
 import type { PatchFeatureFlagBody } from './schemas.js';
 import { getAllFlags, getMyFlags, patchFlag } from './service.js';
@@ -43,11 +44,11 @@ export async function listFlagsController(
 // ---------------------------------------------------------------------------
 
 export async function patchFlagController(
-  request: FastifyRequest<{ Params: { key: string }; Body: PatchFeatureFlagBody }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const { key } = request.params;
-  const body = request.body;
+  const { key } = typedParams<{ key: string }>(request);
+  const body = typedBody<PatchFeatureFlagBody>(request);
 
   // request.user is guaranteed by authenticate() preHandler.
   // authenticate() throws UnauthorizedError before this code if request.user is absent.

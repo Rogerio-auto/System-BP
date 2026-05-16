@@ -265,14 +265,24 @@ async function buildTestApp(): Promise<FastifyInstance> {
       if (error.details !== undefined) body['details'] = error.details;
       return reply.status(error.statusCode).send(body);
     }
-    const mockErr = error as { statusCode?: number; code?: string; name?: string };
+    const mockErr = error as {
+      statusCode?: number;
+      code?: string;
+      name?: string;
+      message?: string;
+    };
     if (mockErr.name === 'AppError' && mockErr.statusCode !== undefined) {
       return reply.status(mockErr.statusCode).send({
         error: mockErr.code ?? 'ERROR',
-        message: error.message,
+        message: mockErr.message ?? 'Error',
       });
     }
-    if (error.validation !== undefined) {
+    if (
+      error !== null &&
+      typeof error === 'object' &&
+      'validation' in error &&
+      (error as Record<string, unknown>)['validation'] !== undefined
+    ) {
       return reply.status(400).send({ error: 'VALIDATION_ERROR', message: 'Validation failed' });
     }
     return reply.status(500).send({ error: 'INTERNAL_ERROR', message: 'Internal server error' });
@@ -437,7 +447,7 @@ describe('GET /api/kanban/stages', () => {
     const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/stages' });
 
     expect(res.statusCode).toBe(200);
-    const body = res.json<{ stages: typeof mockStages }>();
+    const body = res.json() as { stages: typeof mockStages };
     expect(body.stages).toHaveLength(2);
     expect(body.stages[0]!.name).toBe('Novo Lead');
     expect(body.stages[0]!.position).toBe(0);
@@ -491,7 +501,7 @@ describe('GET /api/kanban/cards', () => {
     const res = await (app as any).inject({ method: 'GET', url: '/api/kanban/cards' });
 
     expect(res.statusCode).toBe(200);
-    const body = res.json<{ cards: typeof mockCards; total: number }>();
+    const body = res.json() as { cards: typeof mockCards; total: number };
     expect(body.total).toBe(1);
     expect(body.cards).toHaveLength(1);
     expect(body.cards[0]!.id).toBe(CARD_ID);

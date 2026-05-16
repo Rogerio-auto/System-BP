@@ -12,6 +12,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
 import { ForbiddenError } from '../../shared/errors.js';
+import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
 import type {
   CreditProductCreate,
@@ -56,11 +57,11 @@ function getActorContext(request: FastifyRequest): ActorContext {
 // ---------------------------------------------------------------------------
 
 export async function listProductsController(
-  request: FastifyRequest<{ Querystring: CreditProductListQuery }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await listProducts(db, actor, request.query);
+  const result = await listProducts(db, actor, typedQuery<CreditProductListQuery>(request));
   return reply.status(200).send(result);
 }
 
@@ -69,11 +70,11 @@ export async function listProductsController(
 // ---------------------------------------------------------------------------
 
 export async function createProductController(
-  request: FastifyRequest<{ Body: CreditProductCreate }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await createProduct(db, actor, request.body);
+  const result = await createProduct(db, actor, typedBody<CreditProductCreate>(request));
   return reply.status(201).send(result);
 }
 
@@ -82,11 +83,12 @@ export async function createProductController(
 // ---------------------------------------------------------------------------
 
 export async function getProductController(
-  request: FastifyRequest<{ Params: ProductIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await getProductById(db, actor, request.params.id);
+  const params = typedParams<ProductIdParam>(request);
+  const result = await getProductById(db, actor, params.id);
   return reply.status(200).send(result);
 }
 
@@ -95,11 +97,17 @@ export async function getProductController(
 // ---------------------------------------------------------------------------
 
 export async function updateProductController(
-  request: FastifyRequest<{ Params: ProductIdParam; Body: CreditProductUpdate }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await updateProductService(db, actor, request.params.id, request.body);
+  const params = typedParams<ProductIdParam>(request);
+  const result = await updateProductService(
+    db,
+    actor,
+    params.id,
+    typedBody<CreditProductUpdate>(request),
+  );
   return reply.status(200).send(result);
 }
 
@@ -108,11 +116,12 @@ export async function updateProductController(
 // ---------------------------------------------------------------------------
 
 export async function deleteProductController(
-  request: FastifyRequest<{ Params: ProductIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  await deleteProductService(db, actor, request.params.id);
+  const params = typedParams<ProductIdParam>(request);
+  await deleteProductService(db, actor, params.id);
   return reply.status(204).send();
 }
 
@@ -121,11 +130,17 @@ export async function deleteProductController(
 // ---------------------------------------------------------------------------
 
 export async function publishRuleController(
-  request: FastifyRequest<{ Params: ProductIdParam; Body: CreditProductRuleCreate }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await publishRule(db, actor, request.params.id, request.body);
+  const params = typedParams<ProductIdParam>(request);
+  const result = await publishRule(
+    db,
+    actor,
+    params.id,
+    typedBody<CreditProductRuleCreate>(request),
+  );
   return reply.status(201).send(result);
 }
 
@@ -134,10 +149,11 @@ export async function publishRuleController(
 // ---------------------------------------------------------------------------
 
 export async function listRulesController(
-  request: FastifyRequest<{ Params: ProductIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await listRules(db, actor, request.params.id);
+  const params = typedParams<ProductIdParam>(request);
+  const result = await listRules(db, actor, params.id);
   return reply.status(200).send(result);
 }

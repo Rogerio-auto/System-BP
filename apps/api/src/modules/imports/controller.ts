@@ -12,6 +12,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { ForbiddenError } from '../../shared/errors.js';
+import { typedParams, typedQuery } from '../../shared/fastify-types.js';
 
 import type { BatchIdParam, PreviewQuery } from './schemas.js';
 import { cancelBatch, confirmBatch, getBatch, previewBatch, uploadImport } from './service.js';
@@ -83,11 +84,11 @@ export async function uploadLeadsController(
 // ---------------------------------------------------------------------------
 
 export async function getBatchController(
-  request: FastifyRequest<{ Params: BatchIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActor(request);
-  const { id } = request.params;
+  const { id } = typedParams<BatchIdParam>(request);
 
   const batch = await getBatch(id, actor.organizationId);
 
@@ -113,15 +114,16 @@ export async function getBatchController(
 // ---------------------------------------------------------------------------
 
 export async function previewBatchController(
-  request: FastifyRequest<{ Params: BatchIdParam; Querystring: PreviewQuery }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActor(request);
-  const { id } = request.params;
-  const query = request.query;
+  const { id } = typedParams<BatchIdParam>(request);
+  const query = typedQuery<PreviewQuery>(request);
 
+  // exactOptionalPropertyTypes: omit optional props rather than pass undefined.
   const result = await previewBatch(id, actor.organizationId, {
-    status: query.status,
+    ...(query.status !== undefined ? { status: query.status } : {}),
     page: query.page,
     perPage: query.perPage,
   });
@@ -162,11 +164,11 @@ export async function previewBatchController(
 // ---------------------------------------------------------------------------
 
 export async function confirmBatchController(
-  request: FastifyRequest<{ Params: BatchIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActor(request);
-  const { id } = request.params;
+  const { id } = typedParams<BatchIdParam>(request);
 
   const batch = await confirmBatch(id, actor.organizationId, {
     userId: actor.userId,
@@ -188,11 +190,11 @@ export async function confirmBatchController(
 // ---------------------------------------------------------------------------
 
 export async function cancelBatchController(
-  request: FastifyRequest<{ Params: BatchIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActor(request);
-  const { id } = request.params;
+  const { id } = typedParams<BatchIdParam>(request);
 
   const batch = await cancelBatch(id, actor.organizationId, {
     userId: actor.userId,

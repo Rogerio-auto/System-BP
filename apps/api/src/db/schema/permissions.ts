@@ -40,7 +40,9 @@ export const permissions = pgTable(
     /** Descrição legível para tela de administração de permissões. */
     description: text('description').notNull(),
   },
-  (table) => [uniqueIndex('uq_permissions_key').on(table.key)],
+  (table) => ({
+    uqKey: uniqueIndex('uq_permissions_key').on(table.key),
+  }),
 );
 
 export type Permission = typeof permissions.$inferSelect;

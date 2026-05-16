@@ -113,18 +113,18 @@ export const interactions = pgTable(
      */
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkLead: foreignKey({
       name: 'fk_interactions_lead',
       columns: [table.leadId],
       foreignColumns: [leads.id],
     }).onDelete('cascade'),
 
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_interactions_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
@@ -138,12 +138,12 @@ export const interactions = pgTable(
      * Timeline de interações do lead.
      * Query principal: "todas as mensagens do lead X, mais recentes primeiro".
      */
-    index('idx_interactions_lead_created').on(table.leadId, table.createdAt),
+    idxLeadCreated: index('idx_interactions_lead_created').on(table.leadId, table.createdAt),
 
     /**
      * Relatórios por canal: "todas as interações WhatsApp da org X esta semana".
      */
-    index('idx_interactions_org_channel_created').on(
+    idxOrgChannelCreated: index('idx_interactions_org_channel_created').on(
       table.organizationId,
       table.channel,
       table.createdAt,
@@ -154,10 +154,10 @@ export const interactions = pgTable(
      * Garante que um mesmo message_id do WhatsApp/Chatwoot não seja inserido duas vezes.
      * Parcial: só aplica quando external_ref está presente.
      */
-    uniqueIndex('uq_interactions_channel_external_ref')
+    uqChannelExternalRef: uniqueIndex('uq_interactions_channel_external_ref')
       .on(table.channel, table.externalRef)
       .where(sql`${table.externalRef} IS NOT NULL`),
-  ],
+  }),
 );
 
 export type Interaction = typeof interactions.$inferSelect;

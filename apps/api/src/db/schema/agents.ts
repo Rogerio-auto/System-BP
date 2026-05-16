@@ -77,33 +77,33 @@ export const agents = pgTable(
      */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (table) => [
+  (table) => ({
     // FK para organizations (multi-tenant root)
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_agents_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
     }).onDelete('restrict'),
 
     // FK opcional para users (agente pode não ter login)
-    foreignKey({
+    fkUser: foreignKey({
       name: 'fk_agents_user',
       columns: [table.userId],
       foreignColumns: [users.id],
     }).onDelete('set null'),
 
     // B-tree em FK para joins org → agents
-    index('idx_agents_org').on(table.organizationId),
+    idxOrg: index('idx_agents_org').on(table.organizationId),
 
     // B-tree em user_id para lookup "qual agente tem este user?"
-    index('idx_agents_user_id').on(table.userId),
+    idxUserId: index('idx_agents_user_id').on(table.userId),
 
     // Unique parcial: um user só tem 1 agente ativo por org.
     // Permite que o mesmo user seja re-cadastrado após soft-delete.
-    uniqueIndex('uq_agents_org_user_active')
+    uqOrgUserActive: uniqueIndex('uq_agents_org_user_active')
       .on(table.organizationId, table.userId)
       .where(sql`${table.deletedAt} IS NULL AND ${table.userId} IS NOT NULL`),
-  ],
+  }),
 );
 
 export type Agent = typeof agents.$inferSelect;

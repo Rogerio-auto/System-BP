@@ -136,25 +136,28 @@ export const eventOutbox = pgTable(
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // FK multi-tenant
     // Nota: não declaramos foreignKey() aqui porque a migration SQL a define
     // de forma mais legível. Drizzle ainda infere a relação para queries.
 
     // B-tree em FK para joins org → events
-    index('idx_event_outbox_org').on(table.organizationId),
+    idxOrg: index('idx_event_outbox_org').on(table.organizationId),
 
     // Índice parcial para o worker — só eventos pendentes (não processados, não em DLQ)
     // Drizzle não suporta .where() em index() — gerado na migration SQL manualmente.
     // Declaramos um index simples para o Drizzle; o parcial está na migration.
-    index('idx_event_outbox_pending').on(table.createdAt),
+    idxPending: index('idx_event_outbox_pending').on(table.createdAt),
 
     // B-tree em aggregate_id para ordenação serial por agregado (ordering guarantee)
-    index('idx_event_outbox_aggregate').on(table.aggregateType, table.aggregateId),
+    idxAggregate: index('idx_event_outbox_aggregate').on(table.aggregateType, table.aggregateId),
 
     // Unique composto: (org, idempotency_key) para prevenir duplicatas de emissão
-    uniqueIndex('uq_event_outbox_idempotency').on(table.organizationId, table.idempotencyKey),
-  ],
+    uqIdempotency: uniqueIndex('uq_event_outbox_idempotency').on(
+      table.organizationId,
+      table.idempotencyKey,
+    ),
+  }),
 );
 
 export type EventOutbox = typeof eventOutbox.$inferSelect;
@@ -200,16 +203,19 @@ export const eventProcessingLogs = pgTable(
 
     processedAt: timestamp('processed_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // Unique por (event_id, handler_name) — garante idempotência
-    uniqueIndex('uq_event_processing_event_handler').on(table.eventId, table.handlerName),
+    uqEventHandler: uniqueIndex('uq_event_processing_event_handler').on(
+      table.eventId,
+      table.handlerName,
+    ),
 
     // B-tree em event_id para joins outbox → logs
-    index('idx_event_processing_event_id').on(table.eventId),
+    idxEventId: index('idx_event_processing_event_id').on(table.eventId),
 
     // B-tree em org para queries de observabilidade
-    index('idx_event_processing_org').on(table.organizationId),
-  ],
+    idxOrg: index('idx_event_processing_org').on(table.organizationId),
+  }),
 );
 
 export type EventProcessingLog = typeof eventProcessingLogs.$inferSelect;
@@ -264,16 +270,16 @@ export const eventDlq = pgTable(
     movedAt: timestamp('moved_at', { withTimezone: true }).notNull().defaultNow(),
     reprocessedAt: timestamp('reprocessed_at', { withTimezone: true }),
   },
-  (table) => [
+  (table) => ({
     // B-tree em org para queries de observabilidade e admin
-    index('idx_event_dlq_org').on(table.organizationId),
+    idxOrg: index('idx_event_dlq_org').on(table.organizationId),
 
     // B-tree em original_event_id para rastrear origem
-    index('idx_event_dlq_original').on(table.originalEventId),
+    idxOriginal: index('idx_event_dlq_original').on(table.originalEventId),
 
     // B-tree para filtrar não-reprocessados (lista admin)
-    index('idx_event_dlq_pending_reprocess').on(table.reprocessed),
-  ],
+    idxPendingReprocess: index('idx_event_dlq_pending_reprocess').on(table.reprocessed),
+  }),
 );
 
 export type EventDlq = typeof eventDlq.$inferSelect;

@@ -36,6 +36,7 @@ import {
   replaceUserRoles,
   updateUser,
 } from './repository.js';
+import type { UpdateUserInput } from './repository.js';
 import type {
   CreateUserBody,
   CreateUserResponse,
@@ -192,7 +193,12 @@ export async function createUserService(
     // Audit log
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
-      actor: { userId: actor.userId, role: actor.role, ip: actor.ip, userAgent: actor.userAgent },
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
       action: 'users.create',
       resource: { type: 'user', id: created.id },
       before: null,
@@ -228,20 +234,31 @@ export async function updateUserService(
   }
 
   const after = await db.transaction(async (tx) => {
+    // exactOptionalPropertyTypes: build update input without undefined values.
+    // body fields are z.infer of optional() → 'string | undefined'; UpdateUserInput
+    // uses optional props (can be absent, but not explicitly set to undefined).
+    const updateInput: UpdateUserInput = {
+      updatedAt: new Date(),
+      ...(body.email !== undefined ? { email: body.email } : {}),
+      ...(body.fullName !== undefined ? { fullName: body.fullName } : {}),
+      ...(body.status !== undefined ? { status: body.status } : {}),
+    };
     const updated = await updateUser(
       tx as unknown as Database,
       targetUserId,
       actor.organizationId,
-      {
-        ...body,
-        updatedAt: new Date(),
-      },
+      updateInput,
     );
     if (!updated) throw new NotFoundError('Usuário não encontrado');
 
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
-      actor: { userId: actor.userId, role: actor.role, ip: actor.ip, userAgent: actor.userAgent },
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
       action: 'users.update',
       resource: { type: 'user', id: targetUserId },
       before: redactUser(before),
@@ -276,7 +293,12 @@ export async function deactivateUserService(
 
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
-      actor: { userId: actor.userId, role: actor.role, ip: actor.ip, userAgent: actor.userAgent },
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
       action: 'users.deactivate',
       resource: { type: 'user', id: targetUserId },
       before: redactUser(before),
@@ -304,7 +326,12 @@ export async function reactivateUserService(
 
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
-      actor: { userId: actor.userId, role: actor.role, ip: actor.ip, userAgent: actor.userAgent },
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
       action: 'users.reactivate',
       resource: { type: 'user', id: targetUserId },
       before: null,
@@ -362,7 +389,12 @@ export async function setUserRolesService(
 
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
-      actor: { userId: actor.userId, role: actor.role, ip: actor.ip, userAgent: actor.userAgent },
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
       action: 'users.set_roles',
       resource: { type: 'user', id: targetUserId },
       before: { roles: beforeRoles },
@@ -391,7 +423,12 @@ export async function setUserCityScopesService(
 
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
-      actor: { userId: actor.userId, role: actor.role, ip: actor.ip, userAgent: actor.userAgent },
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
       action: 'users.set_city_scopes',
       resource: { type: 'user', id: targetUserId },
       before: { cityScopes: beforeScopes },

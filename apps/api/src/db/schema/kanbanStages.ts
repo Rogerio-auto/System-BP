@@ -85,12 +85,12 @@ export const kanbanStages = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkOrg: foreignKey({
       name: 'fk_kanban_stages_organization',
       columns: [table.organizationId],
       foreignColumns: [organizations.id],
@@ -104,7 +104,7 @@ export const kanbanStages = pgTable(
      * Um stage não pode ser ao mesmo tempo won e lost.
      * Violação indicaria inconsistência na configuração do pipeline.
      */
-    check(
+    chkTerminalExclusive: check(
       'chk_kanban_stages_terminal_exclusive',
       sql`NOT (${table.isTerminalWon} AND ${table.isTerminalLost})`,
     ),
@@ -114,18 +114,21 @@ export const kanbanStages = pgTable(
     // -------------------------------------------------------------------------
 
     /** Nome único por organização. */
-    uniqueIndex('uq_kanban_stages_org_name').on(table.organizationId, table.name),
+    uqOrgName: uniqueIndex('uq_kanban_stages_org_name').on(table.organizationId, table.name),
 
     /** Posição única por organização — sem colisão de order_index. */
-    uniqueIndex('uq_kanban_stages_org_order').on(table.organizationId, table.orderIndex),
+    uqOrgOrder: uniqueIndex('uq_kanban_stages_org_order').on(
+      table.organizationId,
+      table.orderIndex,
+    ),
 
     // -------------------------------------------------------------------------
     // Índices
     // -------------------------------------------------------------------------
 
     /** Listagem dos stages de uma org na ordem correta. */
-    index('idx_kanban_stages_org_order').on(table.organizationId, table.orderIndex),
-  ],
+    idxOrgOrder: index('idx_kanban_stages_org_order').on(table.organizationId, table.orderIndex),
+  }),
 );
 
 export type KanbanStage = typeof kanbanStages.$inferSelect;

@@ -126,19 +126,19 @@ export const auditLogs = pgTable(
      */
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // Índice principal: filtro por organização + período (mais comum na tela /admin/audit)
     // DESC em created_at: retorna mais recente primeiro sem sort adicional
-    index('idx_audit_logs_org_created').on(table.organizationId, table.createdAt),
+    idxOrgCreated: index('idx_audit_logs_org_created').on(table.organizationId, table.createdAt),
 
     // Índice para timeline de um recurso específico
-    index('idx_audit_logs_resource').on(table.resourceType, table.resourceId),
+    idxResource: index('idx_audit_logs_resource').on(table.resourceType, table.resourceId),
 
     // Índice para auditoria por ator (ex: "o que o usuário X fez?")
     // Drizzle não suporta índice parcial WHERE IS NOT NULL nativamente —
     // o índice completo é declarado aqui; o parcial está na migration SQL.
-    index('idx_audit_logs_actor_user').on(table.actorUserId),
-  ],
+    idxActorUser: index('idx_audit_logs_actor_user').on(table.actorUserId),
+  }),
 );
 
 export type AuditLog = typeof auditLogs.$inferSelect;

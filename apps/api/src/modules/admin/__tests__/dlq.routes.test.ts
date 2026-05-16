@@ -186,16 +186,19 @@ async function buildTestApp(): Promise<FastifyInstance> {
     if (isAppError(error)) {
       return reply.status(error.statusCode).send({ error: error.code, message: error.message });
     }
-    const code = (error as { code?: string }).code;
-    if (error.statusCode === 401 || code === 'UNAUTHORIZED') {
-      return reply.status(401).send({ error: 'UNAUTHORIZED', message: error.message });
+    const errObj = error as { code?: string; statusCode?: number; message?: string };
+    const code = errObj.code;
+    if (errObj.statusCode === 401 || code === 'UNAUTHORIZED') {
+      return reply
+        .status(401)
+        .send({ error: 'UNAUTHORIZED', message: errObj.message ?? 'Unauthorized' });
     }
-    if (error.statusCode === 403 || code === 'FORBIDDEN') {
-      return reply.status(403).send({ error: 'FORBIDDEN', message: error.message });
+    if (errObj.statusCode === 403 || code === 'FORBIDDEN') {
+      return reply.status(403).send({ error: 'FORBIDDEN', message: errObj.message ?? 'Forbidden' });
     }
     return reply
-      .status(error.statusCode ?? 500)
-      .send({ error: 'INTERNAL_ERROR', message: error.message });
+      .status(errObj.statusCode ?? 500)
+      .send({ error: 'INTERNAL_ERROR', message: errObj.message ?? 'Internal server error' });
   });
 
   await app.register(adminDlqRoutes);

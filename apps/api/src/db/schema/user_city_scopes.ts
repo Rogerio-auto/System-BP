@@ -31,24 +31,24 @@ export const userCityScopes = pgTable(
      */
     isPrimary: boolean('is_primary').notNull().default(false),
   },
-  (table) => [
-    primaryKey({ columns: [table.userId, table.cityId] }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.cityId] }),
 
-    foreignKey({
+    fkUser: foreignKey({
       name: 'fk_user_city_scopes_user',
       columns: [table.userId],
       foreignColumns: [users.id],
     }).onDelete('cascade'),
 
-    foreignKey({
+    fkCity: foreignKey({
       name: 'fk_user_city_scopes_city',
       columns: [table.cityId],
       foreignColumns: [cities.id],
     }).onDelete('cascade'),
 
     // B-tree em city_id para queries "quais usuários têm acesso a esta cidade?"
-    index('idx_user_city_scopes_city').on(table.cityId),
-  ],
+    idxCity: index('idx_user_city_scopes_city').on(table.cityId),
+  }),
 );
 
 export type UserCityScope = typeof userCityScopes.$inferSelect;

@@ -44,8 +44,13 @@ const CITY_PORTO_VELHO = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
 const CITY_JI_PARANA = 'd4e5f6a7-b8c9-0123-defa-234567890123';
 
 const makeUserCtx = (
-  overrides?: Partial<{ permissions: string[]; cityScopeIds: string[] | null }>,
+  overrides?: Partial<{
+    permissions: string[];
+    cityScopeIds: string[] | null;
+    organizationId: string;
+  }>,
 ) => ({
+  organizationId: FIXTURE_ORG_ID,
   permissions: ['leads:read', 'customers:read'],
   cityScopeIds: [CITY_PORTO_VELHO],
   ...overrides,

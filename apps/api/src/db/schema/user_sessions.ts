@@ -56,21 +56,21 @@ export const userSessions = pgTable(
      */
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
   },
-  (table) => [
-    foreignKey({
+  (table) => ({
+    fkUser: foreignKey({
       name: 'fk_user_sessions_user',
       columns: [table.userId],
       foreignColumns: [users.id],
     }).onDelete('cascade'),
 
     // B-tree para buscar sessões de um usuário (tela "Minhas sessões")
-    index('idx_user_sessions_user').on(table.userId),
+    idxUser: index('idx_user_sessions_user').on(table.userId),
 
     // Índice parcial para busca eficiente de sessões ativas (exclui revogadas)
-    index('idx_user_sessions_active')
+    idxActive: index('idx_user_sessions_active')
       .on(table.userId, table.expiresAt)
       .where(sql`${table.revokedAt} IS NULL`),
-  ],
+  }),
 );
 
 export type UserSession = typeof userSessions.$inferSelect;

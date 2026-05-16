@@ -25,15 +25,7 @@
 // nome do agente). Não incluir CPF, telefone ou email nos snapshots.
 // =============================================================================
 import { sql } from 'drizzle-orm';
-import {
-  pgTable,
-  uuid,
-  text,
-  jsonb,
-  timestamp,
-  index,
-  foreignKey,
-} from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, timestamp, index, foreignKey } from 'drizzle-orm/pg-core';
 
 import { leads } from './leads.js';
 import { users } from './users.js';
@@ -98,18 +90,18 @@ export const leadHistory = pgTable(
      */
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
+  (table) => ({
     // -------------------------------------------------------------------------
     // Foreign Keys
     // -------------------------------------------------------------------------
 
-    foreignKey({
+    fkLead: foreignKey({
       name: 'fk_lead_history_lead',
       columns: [table.leadId],
       foreignColumns: [leads.id],
     }).onDelete('cascade'),
 
-    foreignKey({
+    fkActorUser: foreignKey({
       name: 'fk_lead_history_actor_user',
       columns: [table.actorUserId],
       foreignColumns: [users.id],
@@ -123,16 +115,16 @@ export const leadHistory = pgTable(
      * Timeline do lead: todos os eventos em ordem cronológica reversa.
      * Query principal: "histórico do lead X, mais recentes primeiro".
      */
-    index('idx_lead_history_lead_created').on(table.leadId, table.createdAt),
+    idxLeadCreated: index('idx_lead_history_lead_created').on(table.leadId, table.createdAt),
 
     /**
      * Auditoria por usuário: "todas as ações do usuário X".
      * Parcial: exclui eventos de sistema (actor_user_id IS NULL).
      */
-    index('idx_lead_history_actor').on(table.actorUserId).where(
-      sql`${table.actorUserId} IS NOT NULL`,
-    ),
-  ],
+    idxActor: index('idx_lead_history_actor')
+      .on(table.actorUserId)
+      .where(sql`${table.actorUserId} IS NOT NULL`),
+  }),
 );
 
 export type LeadHistory = typeof leadHistory.$inferSelect;

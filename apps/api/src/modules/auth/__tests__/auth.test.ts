@@ -135,19 +135,24 @@ async function buildTestApp(): Promise<FastifyInstance> {
         message: error.message,
       });
     }
-    if (error.validation !== undefined) {
+    if (
+      error !== null &&
+      typeof error === 'object' &&
+      'validation' in error &&
+      (error as Record<string, unknown>)['validation'] !== undefined
+    ) {
       return reply.status(400).send({
         error: 'VALIDATION_ERROR',
         message: 'Validation failed',
-        details: error.validation,
+        details: (error as Record<string, unknown>)['validation'],
       });
     }
     // Erros com statusCode explícito (ex: rate-limit 429, sensible errors)
-    const statusCode = (error as { statusCode?: number }).statusCode;
-    if (statusCode !== undefined && statusCode >= 400 && statusCode < 600) {
-      return reply.status(statusCode).send({
-        error: (error as { code?: string }).code ?? 'ERROR',
-        message: error.message,
+    const errObj = error as { statusCode?: number; code?: string; message?: string };
+    if (errObj.statusCode !== undefined && errObj.statusCode >= 400 && errObj.statusCode < 600) {
+      return reply.status(errObj.statusCode).send({
+        error: errObj.code ?? 'ERROR',
+        message: errObj.message ?? 'Error',
       });
     }
     return reply.status(500).send({ error: 'INTERNAL_ERROR', message: 'Internal server error' });

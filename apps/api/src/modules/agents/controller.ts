@@ -12,6 +12,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
 import { ForbiddenError } from '../../shared/errors.js';
+import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
 import type {
   AgentCreate,
@@ -52,14 +53,14 @@ function getActorContext(request: FastifyRequest): ActorContext {
 // ---------------------------------------------------------------------------
 
 export async function listAgentsController(
-  request: FastifyRequest<{ Querystring: AgentListQuery }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
   // request.user é garantido; cityScopeIds pode ser null (admin global) ou string[]
   // `as` justificado: request.user é definido pelo authenticate() e segue UserScopeCtx
   const scopeCtx = request.user as { cityScopeIds: string[] | null };
-  const result = await listAgents(db, actor, request.query, scopeCtx);
+  const result = await listAgents(db, actor, typedQuery<AgentListQuery>(request), scopeCtx);
   return reply.status(200).send(result);
 }
 
@@ -68,11 +69,11 @@ export async function listAgentsController(
 // ---------------------------------------------------------------------------
 
 export async function createAgentController(
-  request: FastifyRequest<{ Body: AgentCreate }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await createAgent(db, actor, request.body);
+  const result = await createAgent(db, actor, typedBody<AgentCreate>(request));
   return reply.status(201).send(result);
 }
 
@@ -81,11 +82,12 @@ export async function createAgentController(
 // ---------------------------------------------------------------------------
 
 export async function updateAgentController(
-  request: FastifyRequest<{ Params: AgentIdParam; Body: AgentUpdate }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await updateAgentService(db, actor, request.params.id, request.body);
+  const params = typedParams<AgentIdParam>(request);
+  const result = await updateAgentService(db, actor, params.id, typedBody<AgentUpdate>(request));
   return reply.status(200).send(result);
 }
 
@@ -94,11 +96,12 @@ export async function updateAgentController(
 // ---------------------------------------------------------------------------
 
 export async function deactivateAgentController(
-  request: FastifyRequest<{ Params: AgentIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await deactivateAgentService(db, actor, request.params.id);
+  const params = typedParams<AgentIdParam>(request);
+  const result = await deactivateAgentService(db, actor, params.id);
   return reply.status(200).send(result);
 }
 
@@ -107,11 +110,12 @@ export async function deactivateAgentController(
 // ---------------------------------------------------------------------------
 
 export async function reactivateAgentController(
-  request: FastifyRequest<{ Params: AgentIdParam }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await reactivateAgentService(db, actor, request.params.id);
+  const params = typedParams<AgentIdParam>(request);
+  const result = await reactivateAgentService(db, actor, params.id);
   return reply.status(200).send(result);
 }
 
@@ -120,10 +124,11 @@ export async function reactivateAgentController(
 // ---------------------------------------------------------------------------
 
 export async function setAgentCitiesController(
-  request: FastifyRequest<{ Params: AgentIdParam; Body: AgentSetCities }>,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const actor = getActorContext(request);
-  const result = await setAgentCities(db, actor, request.params.id, request.body);
+  const params = typedParams<AgentIdParam>(request);
+  const result = await setAgentCities(db, actor, params.id, typedBody<AgentSetCities>(request));
   return reply.status(200).send(result);
 }
