@@ -11,6 +11,8 @@
 // (ex: features flags por usuário), adicionar aqui e no authenticate.ts.
 // =============================================================================
 
+import 'fastify';
+
 declare module 'fastify' {
   interface FastifyRequest {
     /**
