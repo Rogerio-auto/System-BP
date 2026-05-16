@@ -3,11 +3,11 @@ id: F8-S05
 title: Frontend dashboard real com KPIs e gráficos
 phase: F8
 task_ref: F8.5
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: frontend-engineer
-claimed_at:
+claimed_at: 2026-05-16T15:06:47Z
 completed_at:
 pr_url:
 depends_on: [F8-S03, F1-S08]
