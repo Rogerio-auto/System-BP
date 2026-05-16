@@ -3,12 +3,12 @@ id: F8-S07
 title: Promover roles.scope a coluna real (migration + backfill) e ler do banco
 phase: F8
 task_ref: F8.7
-status: in-progress
+status: review
 priority: medium
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-16T14:57:36Z
-completed_at:
+completed_at: 2026-05-16T15:04:18Z
 pr_url:
 depends_on: [F8-S06]
 blocks: []
