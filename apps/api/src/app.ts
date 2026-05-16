@@ -14,6 +14,7 @@ import {
 } from 'fastify-type-provider-zod';
 
 import { env } from './config/env.js';
+import { accountRoutes } from './modules/account/routes.js';
 import { adminDlqRoutes } from './modules/admin/dlq.routes.js';
 import { agentsRoutes } from './modules/agents/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
@@ -68,6 +69,11 @@ export async function buildApp(): Promise<FastifyInstance> {
           '*.password',
           'req.body.password_hash',
           '*.password_hash',
+          // Troca de senha self-service (F8-S09) — LGPD §3.4
+          'req.body.currentPassword',
+          'req.body.newPassword',
+          '*.currentPassword',
+          '*.newPassword',
           'req.headers.authorization',
           '*.token',
           '*.refresh_token',
@@ -137,6 +143,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(internalSimulationsRoutes);
   // Agentes de crédito + atribuições a cidades (F8-S01)
   await app.register(agentsRoutes);
+  // Self-service de conta: perfil, senha, aparência (F8-S09)
+  await app.register(accountRoutes);
   // Roles disponíveis para gestão de usuários (F8-S06)
   await app.register(rolesRoutes);
   // Dashboard KPIs agregados (F8-S03)
