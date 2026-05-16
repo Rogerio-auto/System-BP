@@ -566,7 +566,7 @@ export async function countKanbanCardsByStage(
           isNull(leads.deletedAt) as ReturnType<typeof eq>,
         ),
       )
-      .groupBy(kanbanCards.stageId, kanbanStages.name)
+      .groupBy(kanbanCards.stageId, kanbanStages.name, kanbanStages.orderIndex)
       .orderBy(kanbanStages.orderIndex);
   } else {
     rows = await db
@@ -578,7 +578,7 @@ export async function countKanbanCardsByStage(
       .from(kanbanCards)
       .innerJoin(kanbanStages, eq(kanbanCards.stageId, kanbanStages.id))
       .where(and(...baseConditions))
-      .groupBy(kanbanCards.stageId, kanbanStages.name)
+      .groupBy(kanbanCards.stageId, kanbanStages.name, kanbanStages.orderIndex)
       .orderBy(kanbanStages.orderIndex);
   }
 
