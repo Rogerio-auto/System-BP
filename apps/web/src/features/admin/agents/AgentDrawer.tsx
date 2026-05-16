@@ -146,7 +146,7 @@ function CreateAgentForm({ onClose }: CreateFormProps): React.JSX.Element {
             <UserCombobox
               value={field.value ?? null}
               onChange={field.onChange}
-              error={errors.userId?.message}
+              {...(errors.userId?.message !== undefined ? { error: errors.userId.message } : {})}
             />
           )}
         />
@@ -166,7 +166,7 @@ function CreateAgentForm({ onClose }: CreateFormProps): React.JSX.Element {
             setCitiesValue(v);
             if (v.cityIds.length > 0) setCitiesError(undefined);
           }}
-          error={citiesError}
+          {...(citiesError !== undefined ? { error: citiesError } : {})}
         />
       </div>
 
@@ -315,7 +315,7 @@ function EditAgentForm({ agentId, agent, onClose }: EditFormProps): React.JSX.El
             <UserCombobox
               value={field.value ?? null}
               onChange={field.onChange}
-              error={errors.userId?.message}
+              {...(errors.userId?.message !== undefined ? { error: errors.userId.message } : {})}
             />
           )}
         />
@@ -338,7 +338,7 @@ function EditAgentForm({ agentId, agent, onClose }: EditFormProps): React.JSX.El
             setCitiesValue(v);
             if (v.cityIds.length > 0) setCitiesError(undefined);
           }}
-          error={citiesError}
+          {...(citiesError !== undefined ? { error: citiesError } : {})}
         />
       </div>
 
