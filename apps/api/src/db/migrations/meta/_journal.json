@@ -148,6 +148,13 @@
       "when": 1749081600000,
       "tag": "0022_drop_agents_admin_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1747872000000,
+      "tag": "0023_ai_conversation",
+      "breakpoints": true
     }
   ]
 }

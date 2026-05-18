@@ -88,8 +88,14 @@ export const leads = pgTable(
      * Cidade onde o lead será atendido.
      * Determina qual agente (e pool de agentes) pode atender.
      * FK ON DELETE RESTRICT: cidade não pode ser removida se tiver leads.
+     *
+     * NULLABLE (alterado em migration 0023_ai_conversation.sql, F3-S01):
+     * O agente WhatsApp cria o lead no primeiro contato (get_or_create_lead),
+     * antes de o nó `identify_city` ser executado. A cidade é preenchida
+     * pelo nó identify_city em turno posterior via PATCH /internal/leads/:id.
+     * null = lead ainda não teve a cidade identificada.
      */
-    cityId: uuid('city_id').notNull(),
+    cityId: uuid('city_id'),
 
     /**
      * Agente responsável pelo atendimento do lead.
@@ -273,8 +279,11 @@ export const leads = pgTable(
     /**
      * Escopo multi-cidade: filtrar leads de uma cidade específica.
      * Usado pelo RBAC/city-scope middleware.
+     * Parcial: exclui leads sem cidade (fase pré-identify_city do agente IA).
      */
-    idxOrgCity: index('idx_leads_org_city').on(table.organizationId, table.cityId),
+    idxOrgCity: index('idx_leads_org_city')
+      .on(table.organizationId, table.cityId)
+      .where(sql`${table.cityId} IS NOT NULL`),
 
     /**
      * Atendimentos por agente: "todos os leads atribuídos ao agente X".

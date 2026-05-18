@@ -445,6 +445,7 @@ describe('tipos Drizzle — compilação sem any', () => {
       amortizationTable: [],
       origin: 'manual',
       createdByUserId: USER_ID,
+      sentAt: null,
       createdAt: new Date(),
     };
     expect(sim.origin).toBe('manual');
