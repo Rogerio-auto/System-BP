@@ -3,11 +3,11 @@ id: F3-S04
 title: Endpoint POST /internal/leads/get-or-create + plugin agregador /internal/*
 phase: F3
 task_ref: T3.4
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-18T19:45:32Z
 completed_at:
 pr_url:
 depends_on: []
