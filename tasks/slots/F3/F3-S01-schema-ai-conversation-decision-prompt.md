@@ -3,11 +3,11 @@ id: F3-S01
 title: Schema ai_conversation_states + ai_decision_logs + prompt_versions
 phase: F3
 task_ref: T3.1
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: db-schema-engineer
-claimed_at:
+claimed_at: 2026-05-18T21:51:26Z
 completed_at:
 pr_url:
 depends_on: []
