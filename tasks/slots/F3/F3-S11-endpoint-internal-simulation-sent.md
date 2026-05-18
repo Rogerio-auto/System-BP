@@ -3,12 +3,12 @@ id: F3-S11
 title: Endpoint POST /internal/simulations/:id/sent (mark_simulation_sent)
 phase: F3
 task_ref: T3.7
-status: in-progress
+status: review
 priority: medium
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-18T19:45:32Z
-completed_at:
+completed_at: 2026-05-18T19:56:26Z
 pr_url:
 depends_on: []
 blocks: [F3-S21]
