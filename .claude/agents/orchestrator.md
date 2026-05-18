@@ -61,7 +61,9 @@ Você é o orquestrador. Você não escreve código. Você decide o quê, quem e
    ```
    Implementar F1-SXX. Rode `python scripts/slot.py brief F1-SXX` para obter
    frontmatter, files_allowed, specialist, source_docs e seções relevantes
-   em 1 call. Siga o fluxo canônico (claim → impl → validate → finish).
+   em 1 call. Siga o fluxo canônico: claim → impl → validate →
+   **git add + git commit do código** → finish → push → verificar com
+   `git log --stat origin/feat/<slot>`. `slot.py finish` NÃO commita seu código.
    ```
 
 4. **Após retorno do especialista:** rodar `python scripts/slot.py auto-review <SLOT-ID>` antes de invocar `security-reviewer`. Auto-review entrega achados determinísticos (grep) para o reviewer só validar/expandir — economiza ~25k tokens por slot.
@@ -101,7 +103,10 @@ Sempre inclua, com brevidade:
   Use os scripts canônicos. NÃO faça checkout/edit manual de frontmatter/STATUS.md:
     python scripts/slot.py claim   <SLOT-ID>     # cria branch + frontmatter + STATUS.md + commit chore
     python scripts/slot.py validate <SLOT-ID>    # roda comandos do bloco Validação
-    python scripts/slot.py finish  <SLOT-ID>     # marca review + STATUS.md + commit
+    git add <arquivos> ; git commit              # ⚠️ commit do código — slot.py finish NÃO faz isso
+    python scripts/slot.py finish  <SLOT-ID>     # marca review + STATUS.md + commit chore
+    git push origin feat/<slot-id>
+    git log --stat origin/feat/<slot-id>         # verificar que o código subiu
   ```
 - Lista de `files_allowed` (apenas os caminhos — não copie comentários do slot).
 - Lista de `source_docs` (apenas os paths).

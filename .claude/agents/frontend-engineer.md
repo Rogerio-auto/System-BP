@@ -31,8 +31,16 @@ Sujo ou branch errado → **aborte e reporte**. Não tente "limpar" — outro ag
 ```powershell
 python scripts/slot.py claim   <SLOT-ID>   # branch + frontmatter + STATUS.md + commit chore
 python scripts/slot.py validate <SLOT-ID>  # roda Validação do slot
-python scripts/slot.py finish  <SLOT-ID>   # frontmatter review + STATUS.md + commit
+git add <arquivos do slot> ; git commit    # ⚠️ COMMITE SEU CÓDIGO — passo obrigatório
+python scripts/slot.py finish  <SLOT-ID>   # frontmatter review + STATUS.md + commit chore
+git push origin feat/<slot-id>
+git log --stat origin/feat/<slot-id>       # VERIFIQUE que seus arquivos aparecem
 ```
+
+> ⚠️ **`slot.py finish` NÃO commita seu código** — ele só commita `STATUS.md` + frontmatter.
+> Rode `git add` + `git commit` do seu código de implementação **antes** do `finish`.
+> Depois do push, confirme com `git log --stat origin/feat/<slot-id>` que seus arquivos
+> estão lá. Pular esse passo = código perdido (incidente 2026-05-18).
 
 NÃO edite STATUS.md à mão. NÃO `checkout -b` manual.
 

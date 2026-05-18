@@ -82,11 +82,19 @@ A branch `feat/<slot-id>` é criada via `git switch -c feat/<slot-id>` diretamen
 ### 2.4 Ao terminar
 
 ```powershell
+git add <arquivos de implementação do slot>
+git commit -m "feat(<modulo>): <descrição> (<SLOT-ID>)"   # ⚠️ commit do SEU código
 python scripts/slot.py finish <SLOT-ID>
 git push origin feat/<slot-id-lowercase>
+git log --stat origin/feat/<slot-id-lowercase>            # verificação obrigatória
 ```
 
-`finish` atualiza frontmatter para `review`, regenera STATUS.md, commita `chore(tasks): <SLOT-ID> review`.
+**⚠️ `slot.py finish` NÃO commita seu código.** Ele só atualiza o frontmatter para
+`review`, regenera STATUS.md e commita `chore(tasks): <SLOT-ID> review`. O código de
+implementação é responsabilidade sua: rode `git add` + `git commit` **antes** do `finish`.
+Depois do push, confirme com `git log --stat origin/feat/<slot-id>` que os arquivos de
+implementação aparecem no histórico — se só houver commits `chore(tasks)`, o código
+**não subiu** e será perdido na próxima limpeza de worktree (ver §7.10).
 
 **NÃO** abre PR. O Rogério (ou orquestrador) abre o PR via `gh pr create`. Você apenas pusha a branch.
 
@@ -309,3 +317,24 @@ git push origin main   # sincroniza estado local → origin antes do dispatch
 ```
 
 O orchestrator.md foi atualizado com esta regra. Ver `docs/sessions/2026-05-14-f2-s02-worktree-bug.md` para análise completa.
+
+### 7.10 Código não-commitado perdido em worktree-clean (2026-05-18)
+
+**Sintoma:** 4 agentes de F3 rodaram `slot.py finish` + `git push` e reportaram sucesso,
+mas as branches no `origin` continham apenas os 2 commits `chore(tasks)` — o código de
+implementação nunca foi commitado. Ao rodar `worktree-clean`, os diretórios dos worktrees
+foram removidos junto com o código não-commitado. 2 slots tiveram de ser re-implementados
+(F3-S04 e F3-S11 foram recuperados do working tree / stash do lint-staged; F3-S01 e F3-S03
+foram perdidos por terem só arquivos novos untracked).
+
+**Causa raiz:** `slot.py finish` commita apenas STATUS.md + frontmatter. Os agentes
+assumiram que `finish` commitava o código — não commita. O fluxo canônico documentado
+(`claim → validate → finish`) **omitia o passo de commit do código de implementação**.
+
+**Mitigação:**
+
+- §2.4 reescrito: `git add` + `git commit` do código é passo explícito e obrigatório,
+  **antes** do `finish`, com verificação `git log --stat origin/feat/<slot>` após o push.
+- Os 4 arquivos `.claude/agents/*-engineer.md` receberam o mesmo aviso no bloco de scripts.
+- `worktree-clean` é ferramenta **pós-merge**. Nunca rodar com worktrees não-mergeados
+  ativos sem antes confirmar que todo o trabalho está commitado **e** pushado.
