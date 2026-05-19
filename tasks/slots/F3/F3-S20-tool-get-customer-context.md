@@ -3,12 +3,12 @@ id: F3-S20
 title: Tool get_customer_context (Python)
 phase: F3
 task_ref: T3.4
-status: available
+status: review
 priority: medium
 estimated_size: S
 agent_id: python-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-19T02:18:01Z
+completed_at: 2026-05-19T02:25:06Z
 pr_url:
 depends_on: [F3-S10, F3-S13]
 blocks: []

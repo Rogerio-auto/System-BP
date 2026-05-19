@@ -1,9 +1,18 @@
-"""Tool LangGraph: get_or_create_lead.
+"""Tools LangGraph: get_or_create_lead + get_customer_context.
 
-Wrapper fino sobre POST /internal/leads/get-or-create (F3-S04).
+Wrappers finos sobre endpoints internos do backend Node.
 Nunca acessa Postgres diretamente — toda I/O passa por InternalApiClient.
 
-Doc de referência: docs/06-langgraph-agentes.md §7.1
+Docs de referência:
+  - get_or_create_lead  → docs/06-langgraph-agentes.md §7.1
+  - get_customer_context → docs/06-langgraph-agentes.md §7.6
+
+LGPD (doc 06 §7.6 + doc 17 §3.4):
+  - get_customer_context retorna ficha resumida sem PII sensível.
+  - NÃO retorna CPF, phone, email, document_number, notes.
+  - `name` retornado por necessidade operacional (personalização da conversa);
+    base legal: legítimo interesse (doc 17 §3.3 item 1).
+  - Log de name proibido — omitido de todos os log.info/log.warning abaixo.
 """
 from __future__ import annotations
 
@@ -225,3 +234,248 @@ def _mask_phone(phone: str) -> str:
     if len(phone) < 8:
         return "***"
     return f"{phone[:6]}****{phone[-4:]}"
+
+
+# ===========================================================================
+# Tool: get_customer_context (doc 06 §7.6)
+# ===========================================================================
+
+_CONTEXT_ENDPOINT_TPL = "/internal/customers/{entity_id}/context"
+
+# ---------------------------------------------------------------------------
+# Schema de entrada
+# ---------------------------------------------------------------------------
+
+
+class GetCustomerContextInput(BaseModel):
+    """Input validado para a tool get_customer_context (doc 06 §7.6).
+
+    Aceita ``lead_id`` OU ``customer_id`` (exatamente um deve ser fornecido).
+    Se ambos forem fornecidos, ``lead_id`` tem precedência.
+    """
+
+    lead_id: str | None = Field(
+        default=None,
+        description=(
+            "UUID do lead a ser consultado. "
+            "Use este campo quando o LangGraph já conhece o lead_id."
+        ),
+    )
+    customer_id: str | None = Field(
+        default=None,
+        description=(
+            "UUID do customer (entidade convertida). "
+            "Use quando o lead_id não está disponível mas o customer_id sim."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Schemas de saída
+# ---------------------------------------------------------------------------
+
+
+class LastSimulation(BaseModel):
+    """Ficha resumida da última simulação de crédito (dados financeiros — não PII)."""
+
+    simulation_id: str
+    amount_requested: str
+    term_months: int
+    monthly_payment: str
+    created_at: str
+    sent_at: str | None
+
+
+class LastAnalysis(BaseModel):
+    """Ficha resumida da última análise de crédito (apenas status e datas — não PII)."""
+
+    analysis_id: str
+    status: str
+    created_at: str
+    concluded_at: str | None
+
+
+class GetCustomerContextSuccess(BaseModel):
+    """Ficha resumida do lead/customer — sem dados sensíveis (doc 06 §7.6 + doc 17 §3.4).
+
+    Campos NÃO presentes (propositalmente omitidos por LGPD):
+      CPF, phone, email, RG, document_number, document_hash, notes.
+
+    ``name`` é retornado por necessidade operacional (personalização da conversa);
+    base legal: legítimo interesse (doc 17 §3.3 item 1). Não logar em claro.
+    """
+
+    ok: Literal[True] = True
+    lead_id: str
+    customer_id: str | None
+    name: str
+    city_name: str | None
+    agent_name: str | None
+    current_stage: str | None
+    lead_status: str
+    last_simulation: LastSimulation | None
+    last_analysis: LastAnalysis | None
+    messages_last_30_days: int
+
+
+class GetCustomerContextError(BaseModel):
+    """Resposta de erro mapeada para get_customer_context."""
+
+    ok: Literal[False] = False
+    error_code: str
+    message: str
+
+
+GetCustomerContextResult = GetCustomerContextSuccess | GetCustomerContextError
+
+# Códigos de erro canônicos
+_ERR_NOT_FOUND = "CUSTOMER_NOT_FOUND"
+_ERR_INVALID_INPUT = "INVALID_INPUT"
+_ERR_BACKEND_UNAVAILABLE = "BACKEND_UNAVAILABLE"
+
+# ---------------------------------------------------------------------------
+# Implementação da tool
+# ---------------------------------------------------------------------------
+
+
+@tool(args_schema=GetCustomerContextInput)
+async def get_customer_context(
+    lead_id: str | None = None,
+    customer_id: str | None = None,
+) -> GetCustomerContextResult:
+    """Retorna ficha resumida de um lead/customer sem dados sensíveis.
+
+    Chama GET /internal/customers/:id/context no backend Node.
+    Aceita lead_id OU customer_id — lead_id tem precedência quando ambos fornecidos.
+
+    A ficha inclui: nome, cidade, agente, estágio atual, último estágio,
+    última simulação (dados financeiros), última análise (status + datas),
+    contagem de mensagens nos últimos 30 dias.
+
+    NÃO retorna: CPF, phone, email, RG, documentos, notes.
+
+    Erros mapeados:
+      - CUSTOMER_NOT_FOUND: backend retornou 404.
+      - INVALID_INPUT: nem lead_id nem customer_id fornecidos.
+      - BACKEND_UNAVAILABLE: timeout ou erro 5xx.
+    """
+    import httpx
+
+    # Validar que ao menos um identificador foi fornecido
+    if lead_id is None and customer_id is None:
+        return GetCustomerContextError(
+            error_code=_ERR_INVALID_INPUT,
+            message="Forneça lead_id ou customer_id para consultar o contexto.",
+        )
+
+    # Determinar entidade e query-param ?type
+    if lead_id is not None:
+        entity_id = lead_id
+        entity_type = "lead"
+    else:
+        # customer_id is not None por exclusão do if acima
+        entity_id = customer_id  # type: ignore[assignment]
+        entity_type = "customer"
+
+    path = _CONTEXT_ENDPOINT_TPL.format(entity_id=entity_id)
+    client = InternalApiClient()
+
+    try:
+        data = await client.get(path, params={"type": entity_type})
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+
+        if status == 404:
+            log.warning(
+                "get_customer_context_not_found",
+                entity_type=entity_type,
+                entity_id=entity_id,
+                http_status=status,
+            )
+            return GetCustomerContextError(
+                error_code=_ERR_NOT_FOUND,
+                message=f"{entity_type.capitalize()} não encontrado: {entity_id}.",
+            )
+
+        log.error(
+            "get_customer_context_backend_error",
+            entity_type=entity_type,
+            entity_id=entity_id,
+            http_status=status,
+        )
+        return GetCustomerContextError(
+            error_code=_ERR_BACKEND_UNAVAILABLE,
+            message=f"Backend respondeu com status {status}.",
+        )
+
+    except httpx.TimeoutException:
+        log.error(
+            "get_customer_context_timeout",
+            entity_type=entity_type,
+            entity_id=entity_id,
+        )
+        return GetCustomerContextError(
+            error_code=_ERR_BACKEND_UNAVAILABLE,
+            message="Timeout ao contactar o backend.",
+        )
+
+    # Deserializar ficha resumida
+    try:
+        raw_sim = data.get("last_simulation")
+        last_simulation: LastSimulation | None = (
+            LastSimulation(
+                simulation_id=str(raw_sim["simulation_id"]),
+                amount_requested=str(raw_sim["amount_requested"]),
+                term_months=int(raw_sim["term_months"]),
+                monthly_payment=str(raw_sim["monthly_payment"]),
+                created_at=str(raw_sim["created_at"]),
+                sent_at=str(raw_sim["sent_at"]) if raw_sim.get("sent_at") else None,
+            )
+            if raw_sim is not None
+            else None
+        )
+
+        raw_analysis = data.get("last_analysis")
+        last_analysis: LastAnalysis | None = (
+            LastAnalysis(
+                analysis_id=str(raw_analysis["analysis_id"]),
+                status=str(raw_analysis["status"]),
+                created_at=str(raw_analysis["created_at"]),
+                concluded_at=(
+                    str(raw_analysis["concluded_at"])
+                    if raw_analysis.get("concluded_at")
+                    else None
+                ),
+            )
+            if raw_analysis is not None
+            else None
+        )
+
+        result = GetCustomerContextSuccess(
+            lead_id=str(data["lead_id"]),
+            customer_id=str(data["customer_id"]) if data.get("customer_id") else None,
+            name=str(data["name"]),
+            city_name=str(data["city_name"]) if data.get("city_name") else None,
+            agent_name=str(data["agent_name"]) if data.get("agent_name") else None,
+            current_stage=str(data["current_stage"]) if data.get("current_stage") else None,
+            lead_status=str(data["lead_status"]),
+            last_simulation=last_simulation,
+            last_analysis=last_analysis,
+            messages_last_30_days=int(data.get("messages_last_30_days", 0)),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        log.error("get_customer_context_parse_error", error=str(exc))
+        return GetCustomerContextError(
+            error_code=_ERR_BACKEND_UNAVAILABLE,
+            message=f"Resposta inesperada do backend: {exc}",
+        )
+
+    # LGPD: não logar name em claro (doc 17 §3.4 / pino.redact equivalente)
+    log.info(
+        "get_customer_context_ok",
+        lead_id=result.lead_id,
+        customer_id=result.customer_id,
+        lead_status=result.lead_status,
+        messages_last_30_days=result.messages_last_30_days,
+    )
+    return result
