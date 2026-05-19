@@ -3,13 +3,13 @@ id: F3-S01
 title: Schema ai_conversation_states + ai_decision_logs + prompt_versions
 phase: F3
 task_ref: T3.1
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: db-schema-engineer
 claimed_at: 2026-05-18T21:51:26Z
 completed_at: 2026-05-18T22:02:58Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/75
 depends_on: []
 blocks: [F3-S02, F3-S09]
 labels: [lgpd-impact]

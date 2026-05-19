@@ -3,13 +3,13 @@ id: F3-S03
 title: Estado tipado ConversationState (Python)
 phase: F3
 task_ref: T3.11
-status: review
+status: done
 priority: critical
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-18T21:51:50Z
 completed_at: 2026-05-18T21:59:06Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/76
 depends_on: []
 blocks: [F3-S23, F3-S24, F3-S25, F3-S26, F3-S27, F3-S28, F3-S29, F3-S30]
 labels: []

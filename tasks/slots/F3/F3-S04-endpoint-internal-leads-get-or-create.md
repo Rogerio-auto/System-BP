@@ -3,13 +3,13 @@ id: F3-S04
 title: Endpoint POST /internal/leads/get-or-create + plugin agregador /internal/*
 phase: F3
 task_ref: T3.4
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: backend-engineer
 claimed_at: 2026-05-18T19:45:32Z
 completed_at: 2026-05-18T20:12:46Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/77
 depends_on: []
 blocks: [F3-S02, F3-S05, F3-S06, F3-S07, F3-S08, F3-S09, F3-S10, F3-S12, F3-S13]
 labels: [lgpd-impact]

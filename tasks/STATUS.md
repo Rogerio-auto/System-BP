@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 37    | 32  | 0   | 0   | 0   | 4   | 1   |
+| F3   | 37    | 32  | 0   | 0   | 0   | 0   | 5   |
 | F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
@@ -88,17 +88,17 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ID     | Título                                                                      | Status       | Prioridade | Depende de                                                     |
 | ------ | --------------------------------------------------------------------------- | ------------ | ---------- | -------------------------------------------------------------- |
 | F3-S00 | LLM Gateway — abstração OpenRouter + fallback Anthropic/OpenAI              | ✅ done      | critical   | F0-S06                                                         |
-| F3-S01 | Schema ai_conversation_states + ai_decision_logs + prompt_versions          | 🟣 review    | critical   | —                                                              |
+| F3-S01 | Schema ai_conversation_states + ai_decision_logs + prompt_versions          | ✅ done      | critical   | —                                                              |
 | F3-S02 | Endpoints /internal/conversations/:id/state (load/save)                     | 🟢 available | critical   | F3-S01, F3-S04                                                 |
-| F3-S03 | Estado tipado ConversationState (Python)                                    | 🟣 review    | critical   | —                                                              |
-| F3-S04 | Endpoint POST /internal/leads/get-or-create + plugin agregador /internal/\* | 🟣 review    | critical   | —                                                              |
+| F3-S03 | Estado tipado ConversationState (Python)                                    | ✅ done      | critical   | —                                                              |
+| F3-S04 | Endpoint POST /internal/leads/get-or-create + plugin agregador /internal/\* | ✅ done      | critical   | —                                                              |
 | F3-S05 | Endpoint POST /internal/cities/identify (fuzzy match)                       | 🟢 available | high       | F3-S04                                                         |
 | F3-S06 | Endpoint GET /internal/credit-products                                      | 🟢 available | high       | F3-S04                                                         |
 | F3-S07 | Endpoint POST /internal/handoffs (request_handoff)                          | 🟢 available | high       | F3-S04                                                         |
 | F3-S08 | Endpoint POST /internal/chatwoot/notes (create_chatwoot_note)               | 🟢 available | medium     | F3-S04                                                         |
 | F3-S09 | Endpoint POST /internal/ai/decisions (log_ai_decision)                      | 🟢 available | high       | F3-S01, F3-S04                                                 |
 | F3-S10 | Endpoint GET /internal/customers/:id/context (get_customer_context)         | 🟢 available | medium     | F3-S04                                                         |
-| F3-S11 | Endpoint POST /internal/simulations/:id/sent (mark_simulation_sent)         | 🟣 review    | medium     | —                                                              |
+| F3-S11 | Endpoint POST /internal/simulations/:id/sent (mark_simulation_sent)         | ✅ done      | medium     | —                                                              |
 | F3-S12 | Endpoint PATCH /internal/leads/:id (update_lead_profile)                    | 🟢 available | medium     | F3-S04                                                         |
 | F3-S13 | Tool get_or_create_lead (Python)                                            | 🟢 available | high       | F3-S04                                                         |
 | F3-S14 | Tool identify_city (Python)                                                 | 🟢 available | high       | F3-S05                                                         |
