@@ -1,10 +1,13 @@
 """Tools de Chatwoot para os grafos LangGraph.
 
-Expõe ``request_handoff`` — wrapper fino sobre ``POST /internal/handoffs``
-(F3-S07/F3-S37) com suporte a ``Idempotency-Key`` via ``InternalApiClient``.
+Expõe:
+- ``request_handoff`` — wrapper fino sobre ``POST /internal/handoffs``
+  (F3-S07/F3-S37) com suporte a ``Idempotency-Key`` via ``InternalApiClient``.
+- ``create_chatwoot_note`` — wrapper fino sobre ``POST /internal/chatwoot/notes``
+  (F3-S08) para criar notas internas numa conversa do Chatwoot.
 
 Usado pelos nós ``request_handoff`` e ``decide_next_step`` do grafo de
-pré-atendimento WhatsApp (doc 06 §5.2 / §7.4).
+pré-atendimento WhatsApp (doc 06 §5.2 / §7.4 / §7.5).
 
 Regra: NUNCA acessar Postgres diretamente. NUNCA chamar Chatwoot diretamente.
 Toda mutação passa pelo backend Node via /internal/*.
@@ -22,6 +25,7 @@ from app.tools._base import InternalApiClient
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
 _HANDOFFS_PATH = "/internal/handoffs"
+_CHATWOOT_NOTES_PATH = "/internal/chatwoot/notes"
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +156,118 @@ async def request_handoff(
         chatwoot_conversation_id=output.chatwoot_conversation_id,
         assigned_agent_id=output.assigned_agent_id,
         status=output.status,
+    )
+
+    return output
+
+
+# ---------------------------------------------------------------------------
+# create_chatwoot_note — I/O schemas (Pydantic v2)
+# ---------------------------------------------------------------------------
+
+
+class ChatwootNoteInput(BaseModel):
+    """Payload de entrada para criar uma nota interna numa conversa do Chatwoot.
+
+    Campos alinhados com doc 06 §7.5 e schema do endpoint F3-S08.
+    """
+
+    chatwoot_conversation_id: str = Field(
+        description="ID da conversa no Chatwoot onde a nota será criada."
+    )
+    body: str = Field(
+        description=(
+            "Conteúdo da nota em markdown. "
+            "Nunca incluir CPF ou dados sensíveis em texto plano — "
+            "omitir ou mascarar conforme LGPD (doc 17)."
+        )
+    )
+    type: Literal["internal"] = Field(
+        default="internal",
+        description="Tipo da nota. Sempre 'internal' para notas privadas de atendente.",
+    )
+
+
+class ChatwootNoteOutput(BaseModel):
+    """Resposta do backend após criar a nota no Chatwoot.
+
+    Campos conforme doc 06 §7.5 output.
+    """
+
+    note_id: str = Field(description="ID da nota criada no Chatwoot.")
+
+
+# ---------------------------------------------------------------------------
+# create_chatwoot_note — Tool function
+# ---------------------------------------------------------------------------
+
+
+async def create_chatwoot_note(
+    note_input: ChatwootNoteInput,
+    *,
+    client: InternalApiClient | None = None,
+    idempotency_key: str | None = None,
+) -> ChatwootNoteOutput:
+    """Cria uma nota interna numa conversa do Chatwoot via ``POST /internal/chatwoot/notes``.
+
+    Deve ser chamada pelos nós LangGraph que precisam registrar contexto visível
+    apenas para atendentes humanos (ex.: resumo pré-handoff, motivo de escalada).
+    Em caso de falha (5xx, timeout), o chamador deve tratar o erro e emitir
+    mensagem segura ao cliente — LangGraph não retenta sozinho (doc 06 §4).
+
+    Args:
+        note_input: Dados da nota a criar (conversa, corpo, tipo).
+        client: Instância de ``InternalApiClient`` (injetável em testes).
+                Se ``None``, cria uma instância padrão.
+        idempotency_key: Chave de idempotência para evitar notas duplicadas
+                         em reenvios. Se ``None``, gera um UUID v5 derivado de
+                         ``chatwoot_conversation_id + body[:64]`` para segurança.
+
+    Returns:
+        ``ChatwootNoteOutput`` com ``note_id`` da nota criada.
+
+    Raises:
+        httpx.HTTPStatusError: Quando o backend retorna erro não-transitório.
+        httpx.TimeoutException: Quando o backend não responde em 8 s.
+    """
+    _client = client or InternalApiClient()
+
+    # Derive um idempotency_key estável a partir de (chatwoot_conversation_id, body[:64])
+    # quando o chamador não fornece um. UUID v5 (namespace + nome) é determinístico:
+    # mesma combinação sempre gera o mesmo UUID — ideal para retries seguros.
+    if idempotency_key is None:
+        idempotency_key = str(
+            uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"{note_input.chatwoot_conversation_id}:{note_input.body[:64]}",
+            )
+        )
+
+    payload: dict[str, object] = {
+        "chatwoot_conversation_id": note_input.chatwoot_conversation_id,
+        "body": note_input.body,
+        "type": note_input.type,
+    }
+
+    log.info(
+        "chatwoot_note_requested",
+        chatwoot_conversation_id=note_input.chatwoot_conversation_id,
+        note_type=note_input.type,
+        idempotency_key=idempotency_key,
+    )
+
+    raw = await _client.post(
+        _CHATWOOT_NOTES_PATH,
+        json=payload,
+        idempotency_key=idempotency_key,
+    )
+
+    output = ChatwootNoteOutput.model_validate(raw)
+
+    log.info(
+        "chatwoot_note_created",
+        note_id=output.note_id,
+        chatwoot_conversation_id=note_input.chatwoot_conversation_id,
     )
 
     return output

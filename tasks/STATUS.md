@@ -105,7 +105,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S15 | Tool list_credit_products (Python)                                          | ✅ done      | high       | F3-S06                                                         |
 | F3-S16 | Tool generate_credit_simulation (Python)                                    | 🟣 review    | high       | F3-S15                                                         |
 | F3-S17 | Tool request_handoff (Python)                                               | ✅ done      | high       | F3-S07                                                         |
-| F3-S18 | Tool create_chatwoot_note (Python)                                          | 🟢 available | medium     | F3-S08, F3-S17                                                 |
+| F3-S18 | Tool create_chatwoot_note (Python)                                          | 🟣 review    | medium     | F3-S08, F3-S17                                                 |
 | F3-S19 | Tool log_ai_decision (Python)                                               | ✅ done      | high       | F3-S09                                                         |
 | F3-S20 | Tool get_customer_context (Python)                                          | 🟢 available | medium     | F3-S10, F3-S13                                                 |
 | F3-S21 | Tool mark_simulation_sent (Python)                                          | 🟢 available | medium     | F3-S11, F3-S15                                                 |
