@@ -51,3 +51,6 @@ tmp/
 # Claude Code — local-only files
 .claude/settings.local.json
 .claude/worktrees/
+
+# Material local de referência (export n8n — contém secrets, não versionar)
+docs/mvp-atual-ia-agente/
