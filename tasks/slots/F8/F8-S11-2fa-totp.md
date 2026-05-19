@@ -3,11 +3,11 @@ id: F8-S11
 title: 2FA / TOTP — enrolment, verificação, recovery codes e enforcement no login
 phase: F8
 task_ref: F8.11
-status: available
+status: in-progress
 priority: medium
 estimated_size: L
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-19T20:35:17Z
 completed_at:
 pr_url:
 depends_on: [F8-S09]
@@ -124,7 +124,7 @@ código TOTP após senha correta).
 - [ ] Testes backend (enroll, activate código certo/errado, login com/sem 2FA, recovery
       code single-use, disable) e frontend (seção Segurança, etapa de login).
 - [ ] `pnpm --filter @elemento/api test && lint` e `pnpm --filter @elemento/web
-    typecheck && lint && test && build` verdes.
+  typecheck && lint && test && build` verdes.
 - [ ] PR com screenshots do fluxo (ativação + login com 2FA).
 
 ## Validação
