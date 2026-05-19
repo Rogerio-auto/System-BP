@@ -78,6 +78,17 @@ const envSchema = z.object({
   // impedindo que um segredo dev-only ('dev-only-lgpd-pepper-...') seja usado em produção
   // silenciosamente (comprometeria o HMAC dos challenge tokens de 2FA).
   LGPD_DEDUPE_PEPPER: z.string().min(32, 'LGPD_DEDUPE_PEPPER precisa ter ao menos 32 caracteres'),
+
+  // ---- Custeio LLM (F9-S00) -----------------------------------------------
+  // Taxa de câmbio BRL/USD usada para converter custos de modelo LLM em reais.
+  // NÃO é persistida no banco — consultada em runtime pelo pricing.ts.
+  // OBRIGATÓRIA: boot falha se ausente ou <= 0.
+  // Atualizar manualmente ao trocar de faixa cambial (sugestão: revisão mensal).
+  // Exemplo: 5.20 = R$ 5,20 por USD 1,00.
+  FX_BRL_PER_USD: z.coerce
+    .number()
+    .min(0, 'FX_BRL_PER_USD deve ser >= 0 (use 0 para desabilitar conversão BRL)')
+    .refine((v) => v > 0, { message: 'FX_BRL_PER_USD é obrigatório e deve ser > 0' }),
 });
 
 export type Env = z.infer<typeof envSchema>;
