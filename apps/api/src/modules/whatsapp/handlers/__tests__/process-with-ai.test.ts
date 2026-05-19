@@ -621,19 +621,74 @@ describe('handleProcessWithAi', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 10. Erro do LangGraph é propagado
+  // 10. Erro do LangGraph aciona o fallback (F3-S34)
+  //     Quando LangGraph falha, triggerAiFallback() é chamado em vez de
+  //     propagar o erro original. Se o fallback também falhar, o erro do
+  //     fallback (ExternalServiceError) é propagado ao outbox-publisher.
   // -------------------------------------------------------------------------
-  it('propaga erro do LangGraph para que o outbox contabilize a tentativa', async () => {
+  it('aciona fallback quando LangGraph falha — propaga erro do fallback se ele também falhar', async () => {
     const lgFetch = makeFailingFetch(new Error('LangGraph timeout'));
+
+    // Fallback tenta enviar mensagem ao Chatwoot (conv id 42) → nock bloqueia (sem interceptor)
+    // Chatwoot "best-effort" — o fallback continua e tenta /internal/ai/decisions via fetchFn
+    // fetchFn não injetada no fallbackOptions → usa fetch global → nock bloqueia → ExternalServiceError
+    nock(CHATWOOT_BASE_URL).post(chatwootMessagesPath()).reply(201, chatwootMessageResponse);
 
     const { db } = makeMockDb({ waMessage: waMessageRow, convState: existingConvState });
 
+    // Fallback tenta /internal/ai/decisions sem fetchFn injetado → nock bloqueia → ExternalServiceError
+    // O erro propagado é do fallback, não do LangGraph original.
     await expect(
       handleProcessWithAi(db as never, makeLgOptions(lgFetch), makeEvent()),
-    ).rejects.toThrow('LangGraph timeout');
+    ).rejects.toThrow();
 
-    // Chatwoot não foi chamado (lgFetch falhou antes)
-    // nock não tem interceptors → qualquer chamada ao Chatwoot seria erro
+    // LangGraph foi chamado (1x) antes de falhar
+    expect(lgFetch).toHaveBeenCalledTimes(1);
+  });
+
+  // -------------------------------------------------------------------------
+  // 10b. Erro do LangGraph → fallback bem-sucedido → sem throw
+  //      Quando o fallback completo executa com sucesso, o handler retorna
+  //      sem propagar nenhum erro (evento processado com sucesso via fallback).
+  // -------------------------------------------------------------------------
+  it('retorna sem throw quando LangGraph falha mas o fallback completo é bem-sucedido', async () => {
+    const lgFetch = makeFailingFetch(new Error('LangGraph request timeout após 8000ms'));
+
+    // Fallback: passo 1 — Chatwoot
+    nock(CHATWOOT_BASE_URL).post(chatwootMessagesPath()).reply(201, chatwootMessageResponse);
+
+    // Fallback: passos 2 e 3 — fetchFn injetável via fallbackOptions
+    const internalFetch: typeof fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ decision_log_id: 'dddddddd-dddd-dddd-dddd-dddddddddddd' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    const { db } = makeMockDb({ waMessage: waMessageRow, convState: existingConvState });
+
+    const opts: ProcessWithAiOptions = {
+      ...makeLgOptions(lgFetch),
+      fallbackOptions: {
+        chatwootOptions: {
+          baseUrl: CHATWOOT_BASE_URL,
+          apiToken: 'test-chatwoot-token',
+          accountId: CHATWOOT_ACCOUNT_ID,
+          timeoutMs: 5_000,
+        },
+        internalBaseUrl: 'http://localhost:3333',
+        internalToken: 'a'.repeat(33),
+        fetchFn: internalFetch,
+      },
+    };
+
+    // Fallback bem-sucedido → sem throw
+    await expect(handleProcessWithAi(db as never, opts, makeEvent())).resolves.toBeUndefined();
+
+    // LangGraph chamado, fallback acionado
+    expect(lgFetch).toHaveBeenCalledTimes(1);
+    // fetchFn interno chamado (ai/decisions + handoffs = 2 chamadas)
+    expect(internalFetch).toHaveBeenCalledTimes(2);
   });
 
   // -------------------------------------------------------------------------

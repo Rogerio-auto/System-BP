@@ -5,7 +5,7 @@
 //   Consumir whatsapp.message_received (via outbox-publisher) e orquestrar o
 //   fluxo de IA: chama o LangGraph e envia a reply ao cliente via Chatwoot.
 //
-// Fluxo (caminho feliz — doc 06 §4.1, §4.2, §4.4):
+// Fluxo (doc 06 §4.1, §4.2, §4.4):
 //   1. Extrair whatsapp_message_id e lead_id do payload do evento.
 //   2. Carregar o payload bruto da mensagem de whatsapp_messages (contém PII).
 //   3. Garantir/criar conversation_id em ai_conversation_states.
@@ -16,14 +16,20 @@
 //      enviar resposta ao cliente via ChatwootClient.createMessage().
 //   8. Atualizar ai_conversation_states com lead_id e last_message_at.
 //
+// Caminho de falha (F3-S34):
+//   Se o LangGraph falhar em qualquer etapa (timeout, erro HTTP, response
+//   inválido), triggerAiFallback() é chamado — sem re-throw do erro original.
+//   triggerAiFallback() executa em 3 passos (doc 06 §4.4):
+//     a. Envia mensagem padrão ao cliente via Chatwoot.
+//     b. Registra decisão com `error` via POST /internal/ai/decisions.
+//     c. Cria handoff com reason='ai_unavailable' via POST /internal/handoffs.
+//   Se o próprio fallback falhar, o erro é propagado para o outbox-publisher
+//   que contabiliza a tentativa e reexecuta conforme a política de retry.
+//
 // Idempotência:
 //   O outbox-publisher garante dedupe via event_processing_logs (event_id, handler_name).
 //   O LangGraph recebe idempotency_key = "wa_msg_<wa_message_id>"; caso ele também
 //   duplique, o estado persistido no Postgres garante consistência.
-//
-// Escopo deste slot (F3-S33):
-//   Cobre o CAMINHO FELIZ. Tratamento de timeout/erro e handoff automático
-//   são implementados em F3-S34.
 //
 // LGPD §8.3 / §8.4:
 //   - Logs NÃO incluem customer_phone, message_text ou reply.content.
@@ -48,6 +54,9 @@ import { LangGraphClient } from '../../../integrations/langgraph/client.js';
 import type { LangGraphClientOptions } from '../../../integrations/langgraph/client.js';
 import type { LangGraphWhatsAppRequest } from '../../../integrations/langgraph/schemas.js';
 import { normalizePhone } from '../../../shared/phone.js';
+
+import { triggerAiFallback } from './ai-fallback.js';
+import type { AiFallbackOptions } from './ai-fallback.js';
 
 // ---------------------------------------------------------------------------
 // Logger auto-suficiente
@@ -130,6 +139,8 @@ interface WaMessagePayload {
 export interface ProcessWithAiOptions {
   langGraphOptions?: LangGraphClientOptions;
   chatwootOptions?: ChatwootClientOptions;
+  /** Opções injetáveis para o fallback de handoff (F3-S34). Útil em testes. */
+  fallbackOptions?: AiFallbackOptions;
 }
 
 // ---------------------------------------------------------------------------
@@ -393,9 +404,54 @@ export async function handleProcessWithAi(
   // -------------------------------------------------------------------------
   // 6. Chamar LangGraph (timeout 8s — doc 06 §4.4)
   //    Sem retry no cliente — o outbox-publisher orquestra retries em falha.
+  //
+  //    Caminho de FALHA (F3-S34):
+  //    Qualquer erro (timeout = ExternalServiceError com AbortError interno,
+  //    erro HTTP = ExternalServiceError, response inválido = ZodError) aciona
+  //    triggerAiFallback() em vez de propagar o erro ao outbox.
+  //    O fallback garante que o cliente não fica sem resposta.
   // -------------------------------------------------------------------------
   const langGraph = new LangGraphClient(options.langGraphOptions);
-  const aiResponse = await langGraph.processWhatsAppMessage(langGraphRequest, correlationId);
+
+  let aiResponse: Awaited<ReturnType<typeof langGraph.processWhatsAppMessage>>;
+  try {
+    aiResponse = await langGraph.processWhatsAppMessage(langGraphRequest, correlationId);
+  } catch (lgErr) {
+    logger.error(
+      {
+        eventId: event.id,
+        conversationId,
+        waMessageId,
+        errName: lgErr instanceof Error ? lgErr.name : 'unknown',
+        errMsg: lgErr instanceof Error ? lgErr.message : String(lgErr),
+      },
+      'LangGraph falhou — acionando fallback de handoff automático (F3-S34)',
+    );
+
+    // chatwootConversationId: '0' significa não sincronizado; parseInt retorna 0
+    const chatwootConvIdForFallback = parseInt(chatwootConversationId, 10);
+
+    // triggerAiFallback() pode lançar ExternalServiceError se o próprio
+    // fallback falhar — propagamos para o outbox-publisher contabilizar.
+    await triggerAiFallback(
+      {
+        eventId: event.id,
+        correlationId,
+        conversationId,
+        chatwootConversationId: isNaN(chatwootConvIdForFallback) ? 0 : chatwootConvIdForFallback,
+        organizationId,
+        leadId,
+        waMessageId,
+        // Truncar a mensagem de erro para evitar vazamento de PII residual
+        // e respeitar o limite de 2000 chars do schema (§8.3).
+        aiErrorMessage: (lgErr instanceof Error ? lgErr.message : String(lgErr)).slice(0, 500),
+      },
+      options.fallbackOptions,
+    );
+
+    // Fallback concluído — evento processado com sucesso (sem re-throw).
+    return;
+  }
 
   logger.info(
     {
