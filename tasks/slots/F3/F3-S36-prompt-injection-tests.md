@@ -3,12 +3,12 @@ id: F3-S36
 title: Testes de prompt injection
 phase: F3
 task_ref: T3.21
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: qa-tester
 claimed_at: 2026-05-19T15:39:16Z
-completed_at:
+completed_at: 2026-05-19T15:49:43Z
 pr_url:
 depends_on: [F3-S31]
 blocks: []
@@ -17,7 +17,6 @@ source_docs:
   - docs/06-langgraph-agentes.md
   - docs/17-lgpd-protecao-dados.md
 ---
-
 # F3-S36 — Testes de prompt injection
 
 ## Objetivo
