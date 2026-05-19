@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 38    | 21  | 0   | 0   | 0   | 3   | 14  |
+| F3   | 38    | 20  | 0   | 0   | 0   | 4   | 14  |
 | F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
@@ -104,7 +104,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S14 | Tool identify_city (Python)                                                 | 🟣 review    | high       | F3-S05                                                         |
 | F3-S15 | Tool list_credit_products (Python)                                          | 🟣 review    | high       | F3-S06                                                         |
 | F3-S16 | Tool generate_credit_simulation (Python)                                    | 🟢 available | high       | F3-S15                                                         |
-| F3-S17 | Tool request_handoff (Python)                                               | 🟢 available | high       | F3-S07                                                         |
+| F3-S17 | Tool request_handoff (Python)                                               | 🟣 review    | high       | F3-S07                                                         |
 | F3-S18 | Tool create_chatwoot_note (Python)                                          | 🟢 available | medium     | F3-S08, F3-S17                                                 |
 | F3-S19 | Tool log_ai_decision (Python)                                               | 🟢 available | high       | F3-S09                                                         |
 | F3-S20 | Tool get_customer_context (Python)                                          | 🟢 available | medium     | F3-S10, F3-S13                                                 |
