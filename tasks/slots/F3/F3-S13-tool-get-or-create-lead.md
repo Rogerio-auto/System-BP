@@ -3,19 +3,20 @@ id: F3-S13
 title: Tool get_or_create_lead (Python)
 phase: F3
 task_ref: T3.4
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T01:46:26Z
 completed_at: 2026-05-19T01:59:41Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/88
 depends_on: [F3-S04]
 blocks: [F3-S20, F3-S22, F3-S25]
 labels: []
 source_docs:
   - docs/06-langgraph-agentes.md
 ---
+
 # F3-S13 — Tool get_or_create_lead
 
 ## Objetivo

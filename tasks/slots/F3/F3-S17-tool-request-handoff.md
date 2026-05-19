@@ -3,13 +3,13 @@ id: F3-S17
 title: Tool request_handoff (Python)
 phase: F3
 task_ref: T3.8
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T01:45:54Z
 completed_at: 2026-05-19T01:56:37Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/91
 depends_on: [F3-S07]
 blocks: [F3-S18, F3-S29]
 labels: []

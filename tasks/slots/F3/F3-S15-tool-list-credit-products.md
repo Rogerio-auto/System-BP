@@ -3,13 +3,13 @@ id: F3-S15
 title: Tool list_credit_products (Python)
 phase: F3
 task_ref: T3.6
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T01:46:20Z
 completed_at: 2026-05-19T01:56:11Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/90
 depends_on: [F3-S06]
 blocks: [F3-S16, F3-S21, F3-S28]
 labels: []
