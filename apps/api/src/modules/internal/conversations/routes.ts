@@ -52,7 +52,7 @@ import {
  * Drizzle retorna Date objects — o schema Zod de resposta espera strings ISO.
  */
 function toIso(d: Date | null | undefined): string | null {
-  if (d == null) return null;
+  if (d === null || d === undefined) return null;
   return d.toISOString();
 }
 
