@@ -409,8 +409,9 @@ Dar ao operador (admin e, com escopo, manager) controle sobre o agente de IA do 
 
 ### Entregáveis
 
+- Schema novo `model_pricing` (USD por 1M tokens, input/output, com versionamento por `effective_from`/`effective_to`) + helper `priceModelTokens()` para cálculo de custo em USD/BRL (FX via `env.FX_BRL_PER_USD`). Permite custo em R$ no viewer de decisões.
 - API de `prompt_versions` (CRUD + ativação transacional) — admin escreve, manager lê.
-- API de leitura de `ai_decision_logs` (lista filtrável + timeline por conversa) com escopo de cidade via lead.
+- API de leitura de `ai_decision_logs` (lista filtrável + timeline por conversa) com escopo de cidade via lead, **incluindo `cost_usd` e `cost_brl` por decisão**.
 - Endpoint de **dry-run** no LangGraph (`POST /process/whatsapp/playground`) que executa o grafo sem persistir `ai_conversation_states` nem `ai_decision_logs` e devolve o trace completo.
 - Backend proxy `/api/ai-console/playground` com DLP na entrada do operador.
 - Frontend: três seções dentro do **Hub de Configurações** (F8-S08) — Prompts (editor com preview de markdown), Decisões (lista + timeline), Playground.
@@ -422,15 +423,16 @@ Fase 3 (schema `prompt_versions` + `ai_decision_logs` em F3-S01; grafo em F3-S31
 
 ### Ordem sugerida
 
-Três batches (`isolation: "worktree"` viável):
+Quatro batches (`isolation: "worktree"` viável a partir do B1):
 
-1. **B1 (paralelo, arquivos disjuntos):** API de prompts (T9.1) + API de decisões (T9.2) + dry-run no LangGraph (T9.3).
-2. **B2 (paralelo):** proxy do playground (T9.4) + UI de prompts (T9.5) + UI de decisões (T9.6).
-3. **B3:** UI do playground (T9.7).
+1. **B0 (sequencial, sozinho):** schema `model_pricing` + helper (T9.0).
+2. **B1 (paralelo, arquivos disjuntos):** API de prompts (T9.1) + API de decisões (T9.2) + dry-run no LangGraph (T9.3).
+3. **B2 (paralelo):** proxy do playground (T9.4) + UI de prompts (T9.5) + UI de decisões (T9.6).
+4. **B3:** UI do playground (T9.7).
 
 ### Regras
 
-- **Schema é reaproveitado.** F3-S01 já criou `prompt_versions` (com `active` + índice parcial em `(key) WHERE active`) e `ai_decision_logs` (append-only, indexado por conversa e org). Nenhum slot novo de schema.
+- **Schemas existentes reaproveitados + 1 schema novo.** F3-S01 já criou `prompt_versions` (com `active` + índice parcial em `(key) WHERE active`) e `ai_decision_logs` (append-only, indexado por conversa e org). T9.0 adiciona `model_pricing` para cálculo de custo em USD/BRL. Não há outra migration nesta fase.
 - **RBAC mandatório.** Admin tem console completo; manager (gestor_geral/gestor_regional) tem leitura de prompts e de decisões, este último city-scoped.
 - **Dry-run nunca persiste.** O endpoint de playground roda o grafo num sink in-memory, marca `dry_run: true` em todo log emitido, e descarta antes de retornar.
 - **DLP no operador.** A mensagem digitada no playground passa pelo mesmo DLP da entrada real antes de chegar ao gateway LLM (doc 17 §8.4).

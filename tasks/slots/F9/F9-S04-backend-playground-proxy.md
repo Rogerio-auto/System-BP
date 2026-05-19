@@ -38,10 +38,11 @@ Backend recebe a requisição de playground do operador, aplica DLP na mensagem 
 
 ## Rota
 
-- `POST /api/ai-console/playground` (`ai_playground:run` — admin-only).
+- `POST /api/ai-console/playground` (`ai_playground:run`).
   - Body: `{ message: string, lead_id?: UUID, city_id?: UUID, use_real_context: boolean }`.
-  - Quando `use_real_context = true`: carrega lead/city reais (read-only); rejeita com 403 se `gestor_regional` (mesmo que tenha `ai_playground:run` — neste slot é só admin).
+  - Quando `use_real_context = true`: carrega lead/city reais via repositórios existentes em modo somente leitura.
   - Quando `use_real_context = false`: passa `lead_id`/`city_id` como `null` (modo sintético).
+  - **Autorização:** o middleware `authorize({ permissions: ['ai_playground:run'] })` é a única barreira. A matriz canônica em `docs/10 §3.2` mantém `ai_playground:run` exclusiva de `admin` — sem `role-name check` redundante no service. Se no futuro `gestor_geral` receber a permissão, basta atualizar a matriz; este slot não precisa mudar.
 
 ## DLP
 

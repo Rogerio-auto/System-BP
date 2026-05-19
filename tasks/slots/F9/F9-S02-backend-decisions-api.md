@@ -10,7 +10,7 @@ agent_id: backend-engineer
 claimed_at:
 completed_at:
 pr_url:
-depends_on: [F3-S01, F1-S04]
+depends_on: [F3-S01, F9-S00, F1-S04]
 blocks: [F9-S06]
 labels: [lgpd-impact]
 source_docs:
@@ -30,7 +30,7 @@ Expor `ai_decision_logs` como API read-only para o viewer de decisões do Consol
 
 - `apps/api/src/modules/ai-console/decisions/`:
   - `repository.ts` — queries com `applyCityScope` (JOIN com `leads` quando `lead_id IS NOT NULL`; para `lead_id IS NULL`, restringir a admin/gestor_geral via flag de bypass explícita testada).
-  - `service.ts` — aplica masking defensivo na coluna `decision` jsonb antes de retornar (regex de telefone/CPF/email; mesmo `decision` já sendo proibida de carregar PII bruta — defesa em profundidade).
+  - `service.ts` — aplica masking defensivo na coluna `decision` jsonb antes de retornar (regex de telefone/CPF/email; mesmo `decision` já sendo proibida de carregar PII bruta — defesa em profundidade). Para cada decisão com `tokens_in`/`tokens_out` não-nulos, calcula `cost_usd` e `cost_brl` via `priceModelTokens()` (helper de F9-S00) consultando `model_pricing`. Modelos sem entry em `model_pricing` retornam `cost_usd: null` / `cost_brl: null` (F9-S06 mostra "—").
   - `controller.ts`, `schemas.ts`, `routes.ts`, `index.ts`.
   - `__tests__/decisions.routes.test.ts` — RBAC (admin / gestor_geral / gestor_regional com city-scope / agente sem permissão); testa que decisão de lead fora do escopo retorna 404 (não 403); testa masking defensivo (decisão com CPF injetado em `decision` jsonb não vaza na resposta).
 - `apps/api/src/app.ts` — registra plugin sob `/api/ai-console/decisions`.
@@ -86,6 +86,7 @@ Expor `ai_decision_logs` como API read-only para o viewer de decisões do Consol
 - [ ] Gestor regional não vê decisões fora do escopo (404, não 403).
 - [ ] Decisões `lead_id IS NULL` restritas a admin/gestor_geral, testado.
 - [ ] Permissão `ai_decisions:read` no seed + atribuição.
+- [ ] `cost_usd`/`cost_brl` calculados e retornados por decisão; `null` quando o modelo não tem entry em `model_pricing` (testado).
 - [ ] `pnpm typecheck`, `pnpm lint`, `pnpm test` verdes.
 - [ ] PR com label `lgpd-impact` e checklist §14.2 preenchido.
 

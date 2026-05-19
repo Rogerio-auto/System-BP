@@ -481,7 +481,12 @@
 
 ## Fase 9 — Console do Agente de IA
 
-> Fase nova (2026-05-19). UI de configuração e observabilidade do agente entregue em F3. Schemas `prompt_versions` e `ai_decision_logs` já existem (F3-S01) — **nenhuma migration nova**. Detalhes em [11-roadmap-executavel.md](11-roadmap-executavel.md#fase-9--console-do-agente-de-ia) e em [05-modulos-funcionais.md §12](05-modulos-funcionais.md). Pré-requisito de permissões em [10-seguranca-permissoes.md §3](10-seguranca-permissoes.md).
+> Fase nova (2026-05-19). UI de configuração e observabilidade do agente entregue em F3. Schemas `prompt_versions` e `ai_decision_logs` já existem (F3-S01); uma migration nova (`model_pricing`) é introduzida em T9.0 para permitir cálculo de custo em USD/BRL no viewer. Detalhes em [11-roadmap-executavel.md](11-roadmap-executavel.md#fase-9--console-do-agente-de-ia) e em [05-modulos-funcionais.md §12](05-modulos-funcionais.md). Pré-requisito de permissões em [10-seguranca-permissoes.md §3](10-seguranca-permissoes.md).
+
+### T9.0 — Schema `model_pricing` + helper de cálculo de custo
+
+**Arquivos:** `apps/api/src/db/migrations/0026_model_pricing.sql`, `apps/api/src/db/schema/modelPricing.ts`, `apps/api/src/db/seed/modelPricing.ts`, `apps/api/src/lib/pricing.ts`, `apps/api/src/config/env.ts`, `.env.example`.
+**Aceite:** tabela `model_pricing` com `(provider, model_id)` único parcial onde `effective_to is null` (1 preço ativo por modelo a cada momento); custos em USD por 1M de tokens (input/output); seed para os modelos atualmente em uso; helper `priceModelTokens()` retorna `{costUsd, costBrl}` usando `env.FX_BRL_PER_USD` (Zod-validado, obrigatório); modelos sem entry retornam `{null, null}` (UI mostra "—"); journal sincronizado; checks de não-negativo e `effective_to > effective_from`.
 
 ### T9.1 — Backend: API de `prompt_versions` (CRUD + ativação transacional)
 
@@ -493,7 +498,7 @@
 
 **Arquivos:** `apps/api/src/modules/ai-console/decisions/**`.
 **Rotas:** `GET /api/ai-console/decisions` (lista com filtros `conversation_id?`, `lead_id?`, `intent?`, `node?`, `from?`, `to?`, paginada), `GET /api/ai-console/decisions/conversations/:conversationId` (timeline cronológica).
-**Aceite:** RBAC `ai_decisions:read`; **escopo de cidade** via JOIN com `leads.city_id` (ou denormalização — registrar decisão na descrição do PR); masking de qualquer PII residual em `decision` jsonb antes de retornar (telefone, CPF, nome); read-only; teste com gestor regional confirma 404 fora do escopo; label `lgpd-impact`.
+**Aceite:** RBAC `ai_decisions:read`; **escopo de cidade** via JOIN com `leads.city_id` (ou denormalização — registrar decisão na descrição do PR); masking de qualquer PII residual em `decision` jsonb antes de retornar (telefone, CPF, nome); cálculo de `cost_usd` e `cost_brl` por decisão via `priceModelTokens()` de T9.0 (null/null para modelos sem entry em `model_pricing`); read-only; teste com gestor regional confirma 404 fora do escopo; label `lgpd-impact`.
 
 ### T9.3 — LangGraph: endpoint dry-run (`POST /process/whatsapp/playground`)
 
@@ -515,7 +520,7 @@
 ### T9.6 — Frontend: visualizador de decisões
 
 **Arquivos:** `apps/web/src/features/configuracoes/ai-console/decisions/**`, `apps/web/src/hooks/ai-console/useDecisions.ts`.
-**Aceite:** lista filtrável (data, conversa, lead, intent, node, model); abrir uma conversa mostra timeline cronológica das decisões com card por nó (intent, prompt version, model, tokens in/out, latência, custo estimado — opcional, ver §riscos do roadmap, erro se houver); link para a conversa Chatwoot quando disponível; manager-regional vê só conversas das suas cidades.
+**Aceite:** lista filtrável (data, conversa, lead, intent, node, model); abrir uma conversa mostra timeline cronológica das decisões com card por nó (intent, prompt version, model, tokens in/out, latência, `cost_usd` e `cost_brl` retornados por T9.2 — "—" quando null, erro se houver); link para a conversa Chatwoot quando disponível; manager-regional vê só conversas das suas cidades.
 
 ### T9.7 — Frontend: playground (com contexto real opcional)
 

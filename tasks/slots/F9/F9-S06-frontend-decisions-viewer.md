@@ -34,7 +34,7 @@ Tela dentro do Hub de Configurações, seção "Agente de IA → Decisões", con
 - **Timeline da conversa** (`/configuracoes/ia/decisoes/conversa/:conversationId`) — card por nó executado, em ordem cronológica:
   - Header: `node_name`, timestamp, latência, model, tokens in/out.
   - Body: intent, `prompt_version` (link para o detalhe em F9-S05 quando disponível), output estruturado (`decision` jsonb formatado), erro se houver.
-  - Custo: exibir tokens crus + custo estimado em R$ **apenas se houver tabela de preço por modelo no backend** (verificar — se não houver, mostrar só tokens e marcar custo como "—"; registrar no PR como follow-up).
+  - Custo: exibir `tokens_in`/`tokens_out`, `cost_usd` e `cost_brl` conforme retornado pela API de F9-S02 (preços vêm de `model_pricing`, entregue em F9-S00). Modelos sem preço cadastrado retornam `cost_usd: null`/`cost_brl: null` → UI mostra "—".
 - Link "Abrir no Chatwoot" quando `chatwoot_conversation_id` estiver presente no contexto.
 - Empty state.
 
