@@ -163,6 +163,11 @@ const PERMISSIONS = [
     key: 'ai_prompts:activate',
     description: 'Ativação transacional de versões de prompts do agente LangGraph',
   },
+  // ai-console/decisions — F9-S02 (migration 0028_seed_ai_decisions_permission)
+  {
+    key: 'ai_decisions:read',
+    description: 'Leitura de logs de decisão do agente LangGraph (ai_decision_logs)',
+  },
 ] as const;
 
 /**
@@ -204,6 +209,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'ai_prompts:read',
     'ai_prompts:write',
     'ai_prompts:activate',
+    // ai-console/decisions — F9-S02
+    'ai_decisions:read',
   ],
   gestor_geral: [
     'leads:read',
@@ -234,6 +241,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'assistant:confirm_actions',
     // ai-console/prompts — F9-S01 (somente leitura para gestor_geral)
     'ai_prompts:read',
+    // ai-console/decisions — F9-S02
+    'ai_decisions:read',
   ],
   gestor_regional: [
     'leads:read',
@@ -258,6 +267,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'dashboard:read_by_agent',
     'assistant:query',
     'assistant:confirm_actions',
+    // ai-console/decisions — F9-S02 (city-scoped via leads.city_id no código)
+    'ai_decisions:read',
   ],
   agente: [
     'leads:read',
