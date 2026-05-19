@@ -206,13 +206,18 @@ class TestRouteAfterCity:
 class TestRouteDecideNextStep:
     """Testes unitários de route_decide_next_step (saída de decide_next_step)."""
 
-    def _state(self, route: str | None) -> ConversationState:
+    def _state(
+        self,
+        route: str | None,
+        handoff: bool = False,
+    ) -> ConversationState:
         """Monta estado com um entry de decide_next_step em tool_results."""
         tool_results = []
         if route is not None:
             tool_results.append({"node": "decide_next_step", "route": route})
         return {  # type: ignore[return-value]
             "conversation_id": "test-conv-004",
+            "handoff_required": handoff,
             "tool_results": tool_results,
         }
 
@@ -239,3 +244,11 @@ class TestRouteDecideNextStep:
             ],
         }
         assert route_decide_next_step(state) == "request_handoff"
+
+    def test_handoff_required_overrides_tool_results(self) -> None:
+        """handoff_required=True tem precedência sobre qualquer route em tool_results."""
+        assert route_decide_next_step(self._state("continue", handoff=True)) == "request_handoff"
+
+    def test_handoff_required_with_no_tool_results(self) -> None:
+        """handoff_required=True rota para request_handoff mesmo sem tool_results."""
+        assert route_decide_next_step(self._state(None, handoff=True)) == "request_handoff"

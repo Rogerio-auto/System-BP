@@ -212,6 +212,15 @@ def route_decide_next_step(state: ConversationState) -> str:
     Returns:
         Nome do nó destino.
     """
+    if state.get("handoff_required"):
+        log.info(
+            "route_decide_next_step",
+            decision=_NODE_REQUEST_HANDOFF,
+            reason="handoff_required",
+            lead_id=state.get("lead_id"),
+        )
+        return _NODE_REQUEST_HANDOFF
+
     tool_results: list[dict[str, Any]] = state.get("tool_results") or []
 
     # Encontra o último registro de decide_next_step (mais recente)
