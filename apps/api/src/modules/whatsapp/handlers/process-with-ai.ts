@@ -32,7 +32,7 @@
 //   - DLP é responsabilidade do grafo LangGraph antes de qualquer chamada LLM.
 //   - outbox NOT emitido com PII bruta — apenas IDs (§8.5).
 // =============================================================================
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import pino from 'pino';
 
 import { env } from '../../../config/env.js';
@@ -152,12 +152,18 @@ async function getOrCreateConversationState(
   organizationId: string,
 ): Promise<AiConversationState> {
   // Tenta carregar estado existente para este telefone na org.
-  // A query usa phone + organizationId; não há índice dedicado nesta combinação
-  // mas o volume esperado por org é pequeno (conversas ativas < 1000).
+  // CRÍTICO: filtra por (organizationId, phone) para evitar cross-tenant leak (regra #3, #8).
+  // CRÍTICO: filtra deleted_at IS NULL para não reativar conversas soft-deletadas.
   const [existing] = await database
     .select()
     .from(aiConversationStates)
-    .where(eq(aiConversationStates.phone, phone))
+    .where(
+      and(
+        eq(aiConversationStates.organizationId, organizationId),
+        eq(aiConversationStates.phone, phone),
+        isNull(aiConversationStates.deletedAt),
+      ),
+    )
     .limit(1);
 
   if (existing !== undefined) {
@@ -183,16 +189,25 @@ async function getOrCreateConversationState(
 
   // ON CONFLICT DO NOTHING — outra instância inseriu durante a corrida.
   // Recarregar o estado criado pelo concorrente.
+  // CRÍTICO: filtra por (organizationId, phone) para evitar cross-tenant leak (regra #3, #8).
+  // CRÍTICO: filtra deleted_at IS NULL para não reativar conversas soft-deletadas.
   const [reloaded] = await database
     .select()
     .from(aiConversationStates)
-    .where(eq(aiConversationStates.phone, phone))
+    .where(
+      and(
+        eq(aiConversationStates.organizationId, organizationId),
+        eq(aiConversationStates.phone, phone),
+        isNull(aiConversationStates.deletedAt),
+      ),
+    )
     .limit(1);
 
   if (reloaded === undefined) {
     // Impossível em condições normais — lançar para acionar retry do outbox.
+    // LGPD §8.3: não incluir phone (PII) na mensagem de erro — usar eventId/organizationId.
     throw new Error(
-      `ai_conversation_states: estado para phone=${phone} não encontrado após INSERT — inconsistência`,
+      `ai_conversation_states: estado não encontrado após INSERT para organizationId=${organizationId} — inconsistência`,
     );
   }
 

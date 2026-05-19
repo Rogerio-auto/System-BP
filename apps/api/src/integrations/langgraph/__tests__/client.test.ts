@@ -366,12 +366,12 @@ describe('LangGraphClient.processWhatsAppMessage()', () => {
   // -------------------------------------------------------------------------
   // 8. Request com schema inválido lança ZodError antes de fetch
   // -------------------------------------------------------------------------
-  it('lança ZodError quando customer_phone não é E.164 válido', async () => {
+  it('lança ZodError quando customer_phone não é E.164 válido (sem +)', async () => {
     const mockFetch = vi.fn();
     const client = makeClient(mockFetch as unknown as typeof fetch);
 
-    // customer_phone inválido (muito curto)
-    const badRequest = makeRequest({ customer_phone: '123' });
+    // customer_phone sem prefixo + — não passa regex E.164
+    const badRequest = makeRequest({ customer_phone: '5569999999999' });
 
     await expect(client.processWhatsAppMessage(badRequest, CORRELATION_ID)).rejects.toBeInstanceOf(
       ZodError,
@@ -379,6 +379,40 @@ describe('LangGraphClient.processWhatsAppMessage()', () => {
 
     // fetch não deve ter sido chamado
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('[MÉDIO-2] lança ZodError quando customer_phone tem + mas não é E.164 (muito curto)', async () => {
+    const mockFetch = vi.fn();
+    const client = makeClient(mockFetch as unknown as typeof fetch);
+
+    // '+1234567' → apenas 7 dígitos após +1 → menos de 7+1 = 8 total → inválido
+    const badRequest = makeRequest({ customer_phone: '+123456' });
+
+    await expect(client.processWhatsAppMessage(badRequest, CORRELATION_ID)).rejects.toBeInstanceOf(
+      ZodError,
+    );
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('[MÉDIO-2] aceita customer_phone válido no formato E.164', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (k: string) => (k === 'content-type' ? 'application/json' : null) },
+      json: vi.fn().mockResolvedValue(makeResponse()),
+    } as unknown as Response);
+
+    const client = makeClient(mockFetch as unknown as typeof fetch);
+
+    // E.164 válido: +5569999999999 (Brasil)
+    const validRequest = makeRequest({ customer_phone: '+5569999999999' });
+
+    await expect(
+      client.processWhatsAppMessage(validRequest, CORRELATION_ID),
+    ).resolves.toBeDefined();
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it('lança ZodError quando channel não é whatsapp', async () => {

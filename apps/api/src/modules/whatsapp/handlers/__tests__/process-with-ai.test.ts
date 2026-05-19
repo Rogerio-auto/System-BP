@@ -21,6 +21,9 @@
 //   8. ai_conversation_states atualizado com lead_id após resposta da IA.
 //   9. Erro do Chatwoot é re-lançado (outbox contabiliza tentativa).
 //   10. Erro do LangGraph é propagado (outbox contabiliza tentativa).
+//   11. [CRÍTICO-1] Isolamento por organizationId — não retorna estado de outra org.
+//   12. [CRÍTICO-2] Soft-delete — estado deletado não é reativado.
+//   13. [CRÍTICO-1+2] SELECT usa and(organizationId, phone, deletedAt IS NULL).
 // =============================================================================
 import nock from 'nock';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -247,8 +250,11 @@ function makeEvent(overrides: Partial<EventOutbox> = {}): EventOutbox {
  * Constrói um mock mínimo de Database.
  * Ordem das chamadas select():
  *   0: whatsapp_messages (carregar mensagem pelo waMessageId)
- *   1: ai_conversation_states (tentar carregar estado existente pelo phone)
+ *   1: ai_conversation_states (tentar carregar estado existente pelo phone+org)
  *   2: ai_conversation_states (recarregar após INSERT com ON CONFLICT)
+ *
+ * `selectWhereArgs` captura os argumentos passados para cada .where() dos SELECTs,
+ * permitindo verificar isolamento por organizationId e filtro de soft-delete.
  */
 function makeMockDb(options: {
   waMessage?: unknown | null;
@@ -257,6 +263,7 @@ function makeMockDb(options: {
   reloadConvState?: unknown | null;
 }) {
   const updatedValues: unknown[] = [];
+  const selectWhereArgs: unknown[][] = [];
   let selectCallIndex = 0;
 
   const selectResponses = [
@@ -272,10 +279,15 @@ function makeMockDb(options: {
   function makeSelectChain() {
     const callIdx = selectCallIndex++;
     const result = selectResponses[callIdx] ?? [];
+    const whereArgs: unknown[] = [];
+    selectWhereArgs.push(whereArgs);
     return {
       from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue(result),
+        where: vi.fn().mockImplementation((...args: unknown[]) => {
+          whereArgs.push(...args);
+          return {
+            limit: vi.fn().mockResolvedValue(result),
+          };
         }),
       }),
     };
@@ -311,7 +323,7 @@ function makeMockDb(options: {
     transaction: vi.fn(),
   };
 
-  return { db, updatedValues };
+  return { db, updatedValues, selectWhereArgs };
 }
 
 // ---------------------------------------------------------------------------
@@ -620,5 +632,126 @@ describe('handleProcessWithAi', () => {
 
     // Chatwoot não foi chamado (lgFetch falhou antes)
     // nock não tem interceptors → qualquer chamada ao Chatwoot seria erro
+  });
+
+  // -------------------------------------------------------------------------
+  // 11. [CRÍTICO-1] Isolamento por organizationId
+  //     Se o estado existente pertence a outra org, não deve ser retornado.
+  //     O mock devolve [] para o SELECT da org do evento (ORG_ID) mesmo que
+  //     outro tenant tenha um estado para o mesmo número.
+  // -------------------------------------------------------------------------
+  it('[CRÍTICO-1] não retorna estado de outra organização para o mesmo telefone', async () => {
+    // Simula: org A tem o estado para esse telefone, mas o evento é da org B.
+    // O mock retorna [] para a query da org B (convState: null) →
+    // handler cria novo estado via INSERT (insertConvState com org B).
+    const orgBId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const newStateOrgB = {
+      ...existingConvState,
+      organizationId: orgBId,
+      conversationId: '55555555-5555-5555-5555-555555555555',
+      chatwootConversationId: null,
+      leadId: null,
+    };
+
+    const lgFetch = makeJsonFetch(makeAiResponse());
+
+    const { db, selectWhereArgs } = makeMockDb({
+      waMessage: waMessageRow,
+      convState: null, // SELECT da org B retorna vazio — sem cross-tenant
+      insertConvState: newStateOrgB,
+    });
+
+    const eventOrgB = makeEvent({ organizationId: orgBId });
+    await expect(
+      handleProcessWithAi(db as never, makeLgOptions(lgFetch), eventOrgB),
+    ).resolves.toBeUndefined();
+
+    // Verificar que o SELECT da ai_conversation_states usou and() com múltiplas condições
+    // (índice 1 = segunda chamada select = busca de conv state)
+    const convStateWhereArgs = selectWhereArgs[1];
+    // and() é chamado com (eq_organizationId, eq_phone, isNull_deletedAt)
+    // O mock de drizzle-orm retorna { __and: [...] } para and(...)
+    expect(convStateWhereArgs).toBeDefined();
+    expect(convStateWhereArgs?.[0]).toHaveProperty('__and');
+    const andConditions = (convStateWhereArgs?.[0] as { __and: unknown[] }).__and;
+    // Deve ter 3 condições: organizationId, phone, deletedAt IS NULL
+    expect(andConditions).toHaveLength(3);
+
+    // LangGraph foi chamado com o conversationId da nova org B
+    expect(lgFetch).toHaveBeenCalledTimes(1);
+    const sentBody = JSON.parse(
+      (lgFetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(sentBody['conversation_id']).toBe(newStateOrgB.conversationId);
+  });
+
+  // -------------------------------------------------------------------------
+  // 12. [CRÍTICO-2] Soft-delete — conversa encerrada não é reativada
+  //     Se o único estado para (org, phone) está soft-deletado, deve criar novo.
+  // -------------------------------------------------------------------------
+  it('[CRÍTICO-2] não reativa conversa soft-deletada — cria novo estado', async () => {
+    // Simula: o único estado existente está deleted_at != null.
+    // O mock retorna [] (deletedAt filtrado pelo handler) → handler cria novo via INSERT.
+    const newConvState = {
+      ...existingConvState,
+      conversationId: '66666666-6666-6666-6666-666666666666',
+      chatwootConversationId: null,
+      leadId: null,
+    };
+
+    const lgFetch = makeJsonFetch(makeAiResponse());
+
+    // convState: null — SELECT com isNull(deletedAt) não retorna o estado deletado
+    const { db, selectWhereArgs } = makeMockDb({
+      waMessage: waMessageRow,
+      convState: null,
+      insertConvState: newConvState,
+    });
+
+    await expect(
+      handleProcessWithAi(db as never, makeLgOptions(lgFetch), makeEvent()),
+    ).resolves.toBeUndefined();
+
+    // SELECT deve incluir isNull(deletedAt) — verificar que and() tem 3 condições
+    const convStateWhereArgs = selectWhereArgs[1];
+    expect(convStateWhereArgs?.[0]).toHaveProperty('__and');
+    const andConditions = (convStateWhereArgs?.[0] as { __and: unknown[] }).__and;
+    expect(andConditions).toHaveLength(3);
+
+    // Nova conversa foi criada e usada no request
+    expect(lgFetch).toHaveBeenCalledTimes(1);
+    const sentBody = JSON.parse(
+      (lgFetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.body as string,
+    ) as Record<string, unknown>;
+    expect(sentBody['conversation_id']).toBe(newConvState.conversationId);
+  });
+
+  // -------------------------------------------------------------------------
+  // 13. [MÉDIO-1] Mensagem de inconsistência não contém phone (PII)
+  //     ON CONFLICT → reload retorna vazio → deve lançar erro sem PII.
+  // -------------------------------------------------------------------------
+  it('[MÉDIO-1] erro de inconsistência não vaza phone no message — usa organizationId', async () => {
+    const lgFetch = vi.fn() as unknown as typeof fetch;
+
+    // Simula corrida: SELECT retorna [], INSERT com ON CONFLICT → returning: [],
+    // reload SELECT também retorna [] → inconsistência
+    const { db } = makeMockDb({
+      waMessage: waMessageRow,
+      convState: null, // SELECT inicial vazio
+      insertConvState: null, // INSERT → ON CONFLICT → returning []
+      reloadConvState: null, // reload também vazio → inconsistência
+    });
+
+    const error = await handleProcessWithAi(db as never, makeLgOptions(lgFetch), makeEvent()).catch(
+      (e: unknown) => e,
+    );
+
+    expect(error).toBeInstanceOf(Error);
+    const errMsg = (error as Error).message;
+    // Não deve conter o número de telefone (PII) — LGPD §8.3
+    expect(errMsg).not.toMatch(/phone=/);
+    expect(errMsg).not.toMatch(/5569999999999/);
+    // Deve conter organizationId para correlação
+    expect(errMsg).toContain(ORG_ID);
   });
 });

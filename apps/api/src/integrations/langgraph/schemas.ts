@@ -49,7 +49,10 @@ export const LangGraphWhatsAppRequestSchema = z.object({
   conversation_id: z.string().min(1),
   lead_id: z.string().nullable().default(null),
   // PII — NUNCA logar diretamente
-  customer_phone: z.string().min(10),
+  // E.164: + seguido de código de país (1-3 dígitos) + número (total 8-15 dígitos, ex: +5569999999999)
+  customer_phone: z
+    .string()
+    .regex(/^\+[1-9]\d{7,14}$/, 'customer_phone deve estar no formato E.164 (ex: +5569999999999)'),
   message_text: z.string().default(''),
   message_attachments: z.array(LangGraphMessageAttachmentSchema).default([]),
   message_timestamp: z.string().datetime({ offset: true }),
