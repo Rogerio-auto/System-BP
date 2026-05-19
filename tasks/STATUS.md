@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 38    | 2   | 0   | 0   | 0   | 4   | 32  |
+| F3   | 38    | 1   | 0   | 0   | 0   | 1   | 36  |
 | F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
@@ -118,12 +118,12 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S28 | Nós generate_simulation + save_simulation                                   | ✅ done      | high       | F3-S00, F3-S03, F3-S15, F3-S16, F3-S21                         |
 | F3-S29 | Nós decide_next_step + request_handoff                                      | ✅ done      | high       | F3-S03, F3-S17, F3-S18                                         |
 | F3-S30 | Nós send_response + persist_state + log_decision                            | ✅ done      | high       | F3-S00, F3-S02, F3-S03, F3-S19                                 |
-| F3-S31 | Edges + montagem do grafo whatsapp_pre_attendance                           | 🟣 review    | critical   | F3-S23, F3-S24, F3-S25, F3-S26, F3-S27, F3-S28, F3-S29, F3-S30 |
-| F3-S32 | POST /process/whatsapp/message no LangGraph                                 | 🟣 review    | critical   | F3-S31                                                         |
+| F3-S31 | Edges + montagem do grafo whatsapp_pre_attendance                           | ✅ done      | critical   | F3-S23, F3-S24, F3-S25, F3-S26, F3-S27, F3-S28, F3-S29, F3-S30 |
+| F3-S32 | POST /process/whatsapp/message no LangGraph                                 | ✅ done      | critical   | F3-S31                                                         |
 | F3-S33 | Backend integra webhook WhatsApp → LangGraph → resposta                     | 🟣 review    | critical   | F3-S32                                                         |
 | F3-S34 | Fallback de handoff em falha do LangGraph                                   | 🟢 available | high       | F3-S07, F3-S33                                                 |
-| F3-S35 | 5 fixtures conversacionais                                                  | 🟣 review    | high       | F3-S31                                                         |
-| F3-S36 | Testes de prompt injection                                                  | 🟢 available | high       | F3-S31                                                         |
+| F3-S35 | 5 fixtures conversacionais                                                  | ✅ done      | high       | F3-S31                                                         |
+| F3-S36 | Testes de prompt injection                                                  | ✅ done      | high       | F3-S31                                                         |
 | F3-S37 | Schema chatwoot_handoffs + persistência no endpoint de handoff              | ✅ done      | high       | F3-S01, F3-S07                                                 |
 
 ## Fase 8 —

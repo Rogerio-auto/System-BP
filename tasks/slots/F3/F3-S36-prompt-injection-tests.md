@@ -3,13 +3,13 @@ id: F3-S36
 title: Testes de prompt injection
 phase: F3
 task_ref: T3.21
-status: available
+status: done
 priority: high
 estimated_size: M
 agent_id: qa-tester
-claimed_at:
-completed_at:
-pr_url:
+claimed_at: 2026-05-19T15:39:16Z
+completed_at: 2026-05-19T15:49:43Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/109
 depends_on: [F3-S31]
 blocks: []
 labels: [lgpd-impact]
