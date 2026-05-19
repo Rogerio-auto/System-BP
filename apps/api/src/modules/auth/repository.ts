@@ -7,7 +7,8 @@
 import { and, eq, isNull, lt } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
-import { userSessions, users } from '../../db/schema/index.js';
+import { totpChallenges, userSessions, users } from '../../db/schema/index.js';
+import type { TotpChallenge } from '../../db/schema/totpChallenges.js';
 import type { UserSession } from '../../db/schema/user_sessions.js';
 import type { User } from '../../db/schema/users.js';
 
@@ -170,4 +171,79 @@ export async function purgeExpiredSessions(db: Database, userId: string): Promis
   await db
     .delete(userSessions)
     .where(and(eq(userSessions.userId, userId), lt(userSessions.expiresAt, cutoff)));
+}
+
+// ---------------------------------------------------------------------------
+// TOTP Challenges (2FA no login)
+// ---------------------------------------------------------------------------
+
+export interface CreateTotpChallengeInput {
+  userId: string;
+  tokenHash: string;
+  expiresAt: Date;
+}
+
+/**
+ * Cria um novo TOTP challenge para o passo de segundo fator no login.
+ */
+export async function createTotpChallenge(
+  db: Database,
+  input: CreateTotpChallengeInput,
+): Promise<void> {
+  await db.insert(totpChallenges).values({
+    userId: input.userId,
+    tokenHash: input.tokenHash,
+    expiresAt: input.expiresAt,
+  });
+}
+
+/**
+ * Busca um TOTP challenge pelo hash do token.
+ * Retorna null se não encontrado, já usado ou expirado.
+ */
+export async function findTotpChallengeByHash(
+  db: Database,
+  tokenHash: string,
+): Promise<TotpChallenge | null> {
+  const now = new Date();
+  const rows = await db
+    .select()
+    .from(totpChallenges)
+    .where(and(eq(totpChallenges.tokenHash, tokenHash), isNull(totpChallenges.usedAt)))
+    .limit(1);
+
+  const challenge = rows[0] ?? null;
+  // Double-check de expiração no JS (mesmo padrão de findSessionByTokenHash)
+  if (challenge && challenge.expiresAt < now) return null;
+
+  return challenge;
+}
+
+/**
+ * Marca um TOTP challenge como usado de forma atômica (gate CAS).
+ *
+ * Executa UPDATE ... WHERE id = $1 AND used_at IS NULL RETURNING id.
+ * Se não retornar linha, o challenge já foi consumido (race condition ou replay) —
+ * o caller deve rejeitar a requisição.
+ *
+ * Retorna true se marcado com sucesso, false se já estava consumido.
+ */
+export async function markTotpChallengeUsedAtomic(
+  db: Database,
+  challengeId: string,
+): Promise<boolean> {
+  const rows = await db
+    .update(totpChallenges)
+    .set({ usedAt: new Date() })
+    .where(and(eq(totpChallenges.id, challengeId), isNull(totpChallenges.usedAt)))
+    .returning({ id: totpChallenges.id });
+
+  return rows.length > 0;
+}
+
+/**
+ * Remove challenges expirados do banco (housekeeping LGPD).
+ */
+export async function purgeExpiredChallenges(db: Database): Promise<void> {
+  await db.delete(totpChallenges).where(lt(totpChallenges.expiresAt, new Date()));
 }

@@ -1,34 +1,59 @@
 // =============================================================================
-// account/service.ts — Regras de negócio do self-service de conta (F8-S09).
+// account/service.ts — Regras de negócio do self-service de conta (F8-S09/S11).
 //
 // Responsabilidades:
 //   getProfile        → retorna perfil do próprio usuário
 //   updateProfile     → edita full_name; audit log account.profile_updated
 //   changePassword    → verifica senha atual, re-hash, revoga outras sessões,
 //                       audit log account.password_changed
+//   get2faStatus      → retorna se 2FA está ativo
+//   enroll2fa         → gera secret TOTP pendente, retorna otpauth URI
+//   activate2fa       → confirma código TOTP, ativa 2FA, gera recovery codes
+//   disable2fa        → verifica código/recovery, desativa 2FA
 //
 // Segurança:
 //   - O alvo é SEMPRE o userId vindo de request.user.id — nunca de params/body.
-//   - Senha errada → erro genérico (não revela motivo detalhado para o cliente).
-//   - LGPD: currentPassword/newPassword NUNCA logados (pino.redact + nunca
-//     passados ao auditLog antes ou after).
-//   - Revogação de sessões na mesma transação que o re-hash de senha.
-//
-// Política de senha documentada em schemas.ts.
+//   - LGPD: totp_secret nunca logado. Recovery codes retornados plaintext UMA VEZ.
+//   - Audit log em mutações sensíveis (ativar/desativar 2FA).
 // =============================================================================
 
 import type { Database } from '../../db/client.js';
 import { auditLog } from '../../lib/audit.js';
+import { decryptPii, encryptPii } from '../../lib/crypto/pii.js';
+import {
+  generateOtpauthUri,
+  generateRecoveryCodes,
+  generateTotpSecret,
+  hashRecoveryCodes,
+  matchRecoveryCode,
+  verifyTotpCode,
+} from '../../lib/totp.js';
 import { NotFoundError, UnauthorizedError } from '../../shared/errors.js';
 import { passwordHash, passwordVerify } from '../../shared/password.js';
 
 import {
+  activateTotp,
+  deleteRecoveryCodes,
+  disableTotp,
   findUserProfileById,
+  insertRecoveryCodes,
+  listAvailableRecoveryCodes,
+  markRecoveryCodeUsedAtomic,
   revokeOtherSessions,
+  saveTotpSecretPending,
   updateUserFullName,
   updateUserPasswordHash,
 } from './repository.js';
-import type { ProfileResponse, UpdateProfileBody, ChangePasswordBody } from './schemas.js';
+import type {
+  ProfileResponse,
+  UpdateProfileBody,
+  ChangePasswordBody,
+  TwoFactorStatusResponse,
+  TwoFactorEnrollResponse,
+  TwoFactorActivateBody,
+  TwoFactorActivateResponse,
+  TwoFactorDisableBody,
+} from './schemas.js';
 
 // ---------------------------------------------------------------------------
 // Contexto do ator (sempre o próprio usuário — sem role de terceiro)
@@ -170,6 +195,207 @@ export async function changePassword(
       resource: { type: 'user', id: actor.userId },
       before: null,
       after: null, // intencional — nunca registrar hash de senha em audit_log
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// get2faStatus
+// ---------------------------------------------------------------------------
+
+export async function get2faStatus(
+  db: Database,
+  actor: AccountActorContext,
+): Promise<TwoFactorStatusResponse> {
+  const user = await findUserProfileById(db, actor.userId);
+  if (!user) throw new NotFoundError('Usuário não encontrado');
+
+  return { enabled: user.totpConfirmedAt !== null };
+}
+
+// ---------------------------------------------------------------------------
+// enroll2fa
+//
+// Gera um novo secret TOTP e persiste como pendente (sem ativar).
+// Retorna o URI otpauth para o frontend renderizar QR e o secret base32
+// para entrada manual.
+//
+// Idempotente: se chamar enroll novamente, sobrescreve o secret pendente
+// (sem interferir no 2FA ativo se já estiver ativo).
+// ---------------------------------------------------------------------------
+
+export async function enroll2fa(
+  db: Database,
+  actor: AccountActorContext,
+): Promise<TwoFactorEnrollResponse> {
+  const user = await findUserProfileById(db, actor.userId);
+  if (!user) throw new NotFoundError('Usuário não encontrado');
+
+  // Gerar novo secret
+  const secret = generateTotpSecret();
+
+  // Cifrar e salvar como pendente (não ativa o 2FA)
+  // encryptPii retorna Uint8Array — converter para Buffer para o Drizzle bytea
+  const encrypted = Buffer.from(await encryptPii(secret));
+  await saveTotpSecretPending(db, actor.userId, encrypted);
+
+  // Gerar URI para o QR code
+  const otpauthUri = generateOtpauthUri(secret, user.email);
+
+  return { otpauthUri, secret };
+}
+
+// ---------------------------------------------------------------------------
+// activate2fa
+//
+// Confirma o código TOTP fornecido pelo usuário, ativa o 2FA e gera os
+// recovery codes (exibidos UMA ÚNICA VEZ).
+//
+// Pré-condição: o usuário deve ter chamado enroll antes (secret pendente).
+// ---------------------------------------------------------------------------
+
+export async function activate2fa(
+  db: Database,
+  actor: AccountActorContext,
+  body: TwoFactorActivateBody,
+): Promise<TwoFactorActivateResponse> {
+  const user = await findUserProfileById(db, actor.userId);
+  if (!user) throw new NotFoundError('Usuário não encontrado');
+
+  // Verificar se há secret pendente
+  if (!user.totpSecret) {
+    throw new UnauthorizedError(
+      'Nenhum enrolamento pendente. Inicie o processo de ativação do 2FA.',
+    );
+  }
+
+  // Decifrar o secret
+  const secret = await decryptPii(user.totpSecret);
+
+  // Verificar o código TOTP
+  const codeOk = verifyTotpCode(secret, body.code);
+  if (!codeOk) {
+    throw new UnauthorizedError(
+      'Código inválido ou expirado. Verifique o código no seu app autenticador.',
+    );
+  }
+
+  // Gerar recovery codes (plaintext — retornar ao usuário UMA VEZ)
+  const plainCodes = generateRecoveryCodes();
+  const hashedCodes = await hashRecoveryCodes(plainCodes);
+
+  // Transação: ativar 2FA + inserir recovery codes + audit log
+  await db.transaction(async (tx) => {
+    await activateTotp(tx as unknown as Database, actor.userId);
+
+    // Limpar recovery codes antigos (se houver de enrolamentos anteriores)
+    await deleteRecoveryCodes(tx as unknown as Database, actor.userId);
+    await insertRecoveryCodes(tx as unknown as Database, actor.userId, hashedCodes);
+
+    // Audit log — NUNCA incluir secret nem recovery codes
+    await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
+      organizationId: actor.organizationId,
+      actor: {
+        userId: actor.userId,
+        role: 'self',
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
+      action: 'account.2fa_enabled',
+      resource: { type: 'user', id: actor.userId },
+      before: { twoFactorEnabled: false },
+      after: { twoFactorEnabled: true },
+    });
+  });
+
+  return { recoveryCodes: plainCodes };
+}
+
+// ---------------------------------------------------------------------------
+// disable2fa
+//
+// Desativa o 2FA após verificar um código TOTP válido OU um recovery code.
+// Limpa o secret e os recovery codes.
+// ---------------------------------------------------------------------------
+
+export async function disable2fa(
+  db: Database,
+  actor: AccountActorContext,
+  body: TwoFactorDisableBody,
+): Promise<void> {
+  const user = await findUserProfileById(db, actor.userId);
+  if (!user) throw new NotFoundError('Usuário não encontrado');
+
+  // 2FA já desativado — erro idempotente
+  if (!user.totpConfirmedAt || !user.totpSecret) {
+    throw new UnauthorizedError('O 2FA não está ativo nesta conta.');
+  }
+
+  // Decifrar o secret para verificar o código TOTP
+  const secret = await decryptPii(user.totpSecret);
+
+  // Determinar o tipo de verificação pelo formato do código:
+  //   - 6 dígitos → código TOTP
+  //   - qualquer outro formato → recovery code (XXXXX-XXXXX ou 10 chars)
+  const isTotpCode = /^\d{6}$/.test(body.code);
+  let verifiedOk = false;
+  let recoveryCodeId: string | null = null;
+
+  if (isTotpCode) {
+    verifiedOk = verifyTotpCode(secret, body.code);
+  } else {
+    // Recovery code: buscar todos os disponíveis e comparar hashes
+    const availableCodes = await listAvailableRecoveryCodes(db, actor.userId);
+    const hashes = availableCodes.map((c) => c.codeHash);
+    const matchIdx = await matchRecoveryCode(body.code, hashes);
+
+    if (matchIdx !== -1) {
+      verifiedOk = true;
+      recoveryCodeId = availableCodes[matchIdx]!.id;
+    }
+  }
+
+  if (!verifiedOk) {
+    throw new UnauthorizedError(
+      'Código inválido. Informe o código do app autenticador ou um recovery code válido.',
+    );
+  }
+
+  // Transação: (se recovery code) gate atômico de consumo + desativar 2FA +
+  // deletar recovery codes + audit log.
+  //
+  // SEGURANÇA (MED-2): o recovery code é consumido atomicamente dentro da mesma
+  // transação que desativa o 2FA. Se o gate retornar false (já consumido por
+  // requisição concorrente), toda a transação faz rollback — o 2FA permanece ativo.
+  await db.transaction(async (tx) => {
+    // Gate atômico no recovery code (se o código fornecido era um recovery code)
+    if (recoveryCodeId) {
+      const consumed = await markRecoveryCodeUsedAtomic(tx as unknown as Database, recoveryCodeId);
+      if (!consumed) {
+        // Recovery code já foi consumido em requisição concorrente — rejeitar.
+        throw new UnauthorizedError(
+          'Código inválido. Informe o código do app autenticador ou um recovery code válido.',
+        );
+      }
+    }
+
+    await disableTotp(tx as unknown as Database, actor.userId);
+    // deleteRecoveryCodes remove todos os recovery codes restantes (incluindo o
+    // que acabou de ser marcado como usado acima — limpeza total ao desativar).
+    await deleteRecoveryCodes(tx as unknown as Database, actor.userId);
+
+    await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
+      organizationId: actor.organizationId,
+      actor: {
+        userId: actor.userId,
+        role: 'self',
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
+      action: 'account.2fa_disabled',
+      resource: { type: 'user', id: actor.userId },
+      before: { twoFactorEnabled: true },
+      after: { twoFactorEnabled: false },
     });
   });
 }

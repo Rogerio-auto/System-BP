@@ -86,9 +86,19 @@ export const users = pgTable(
      * TOTP secret cifrado com AES-256-GCM pela camada de aplicação (F1-S24).
      * Armazenado como bytea — plaintext NUNCA é persistido.
      * Usar encryptPii/decryptPii de lib/crypto/pii.ts para read/write.
-     * null = 2FA não configurado.
+     * null = 2FA não configurado ou pendente de ativação.
      */
     totpSecret: bytea('totp_secret'),
+
+    /**
+     * Quando o 2FA foi ativado (confirmado com código válido).
+     * null = 2FA desativado ou pendente (secret gerado mas ainda não confirmado).
+     * not-null = 2FA ativo — login exige segundo fator.
+     *
+     * Separar "secret gerado" (pendente) de "2FA ativo" (confirmado) previne
+     * que um secret incompleto bloqueie o login antes da ativação.
+     */
+    totpConfirmedAt: timestamp('totp_confirmed_at', { withTimezone: true }),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

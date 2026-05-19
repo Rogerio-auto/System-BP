@@ -86,3 +86,72 @@ export const changePasswordBodySchema = z
   });
 
 export type ChangePasswordBody = z.infer<typeof changePasswordBodySchema>;
+
+// ---------------------------------------------------------------------------
+// GET /api/account/2fa/status — response
+// ---------------------------------------------------------------------------
+
+export const twoFactorStatusResponseSchema = z.object({
+  /** true = 2FA ativo; false = desativado ou pendente de ativação */
+  enabled: z.boolean(),
+});
+
+export type TwoFactorStatusResponse = z.infer<typeof twoFactorStatusResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /api/account/2fa/enroll — response
+//
+// Retorna o URI otpauth (para QR code) e o secret base32 (para entrada manual).
+// NUNCA retorna o secret cifrado — apenas o plaintext para o usuário escanear.
+// LGPD: o secret é dado ao usuário para guardar em app autenticador — é a
+//   credencial dele, análogo a uma senha. Não persistir o plaintext.
+// ---------------------------------------------------------------------------
+
+export const twoFactorEnrollResponseSchema = z.object({
+  /** URI otpauth:// — encodar como QR code no frontend */
+  otpauthUri: z.string(),
+  /** Secret base32 para entrada manual no app autenticador */
+  secret: z.string(),
+});
+
+export type TwoFactorEnrollResponse = z.infer<typeof twoFactorEnrollResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /api/account/2fa/activate — body + response
+// ---------------------------------------------------------------------------
+
+export const twoFactorActivateBodySchema = z.object({
+  /** Código TOTP de 6 dígitos gerado pelo app autenticador */
+  code: z
+    .string()
+    .length(6, 'O código deve ter 6 dígitos')
+    .regex(/^\d{6}$/, 'O código deve conter apenas dígitos'),
+});
+
+export type TwoFactorActivateBody = z.infer<typeof twoFactorActivateBodySchema>;
+
+export const twoFactorActivateResponseSchema = z.object({
+  /**
+   * Recovery codes gerados na ativação — exibidos UMA ÚNICA VEZ.
+   * O usuário deve guardar em local seguro.
+   * LGPD: plaintext aqui é intencional — são credenciais do usuário.
+   */
+  recoveryCodes: z.array(z.string()),
+});
+
+export type TwoFactorActivateResponse = z.infer<typeof twoFactorActivateResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /api/account/2fa/disable — body
+// ---------------------------------------------------------------------------
+
+export const twoFactorDisableBodySchema = z.object({
+  /**
+   * Código TOTP de 6 dígitos OU recovery code.
+   * Ambos são aceitos para desativar — recuperação de acesso inclusive.
+   * O backend distingue o tipo pelo formato: 6 dígitos = TOTP, else = recovery code.
+   */
+  code: z.string().min(1, 'O código é obrigatório').max(12, 'Código inválido'),
+});
+
+export type TwoFactorDisableBody = z.infer<typeof twoFactorDisableBodySchema>;

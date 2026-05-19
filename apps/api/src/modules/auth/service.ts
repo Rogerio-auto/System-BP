@@ -1,17 +1,25 @@
 // =============================================================================
-// auth/service.ts — Regras de negócio de autenticação.
+// auth/service.ts — Regras de negócio de autenticação (F1-S02 / F8-S11).
 //
 // Responsabilidades:
-//   login    → verificar credenciais, emitir access + refresh, criar sessão
-//   refresh  → verificar refresh, rotacionar sessão, emitir novo access
-//   logout   → revogar sessão
+//   login      → verificar credenciais; se 2FA ativo emite challenge token
+//                em vez dos tokens de sessão; sem 2FA emite access + refresh.
+//   verify2fa  → troca challenge token + código TOTP/recovery → sessão completa.
+//   refresh    → verificar refresh, rotacionar sessão, emitir novo access.
+//   logout     → revogar sessão.
 //
-// Audit log: via Pino estruturado até F1-S16 prover auditLog().
-// Decision: audit via pino até F1-S16 prover auditLog()
+// Fluxo de login com 2FA:
+//   POST /api/auth/login
+//     → credenciais OK + 2FA ativo
+//     → resposta { status: '2fa_required', challengeToken: '<token>' }
+//     → frontend exibe etapa TOTP
+//   POST /api/auth/verify-2fa
+//     → challenge_token + code
+//     → emite access + refresh (sessão completa)
 //
 // LGPD (doc 17 §3.4):
 //   - Nada de senha ou email bruto em logs (coberto por pino.redact em app.ts).
-//   - cpf_hash usado para identificação em logs de falha (nunca CPF bruto).
+//   - totp_secret e recovery codes nunca logados.
 //   - IP e UA armazenados na sessão — retenção 90d após expiração (repository).
 // =============================================================================
 import { timingSafeEqual } from 'node:crypto';
@@ -20,6 +28,14 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import { env } from '../../config/env.js';
 import type { Database } from '../../db/client.js';
+import { decryptPii } from '../../lib/crypto/pii.js';
+import {
+  generateChallengeToken,
+  hashChallengeToken,
+  matchRecoveryCode,
+  TOTP_CHALLENGE_TTL_MS,
+  verifyTotpCode,
+} from '../../lib/totp.js';
 import { UnauthorizedError } from '../../shared/errors.js';
 import {
   hashRefreshToken,
@@ -29,12 +45,16 @@ import {
   verifyRefreshToken,
 } from '../../shared/jwt.js';
 import { passwordVerify } from '../../shared/password.js';
+import { listAvailableRecoveryCodes, markRecoveryCodeUsedAtomic } from '../account/repository.js';
 
 import {
   createSession,
+  createTotpChallenge,
   findSessionByTokenHash,
+  findTotpChallengeByHash,
   findUserByEmail,
   findUserById,
+  markTotpChallengeUsedAtomic,
   purgeExpiredSessions,
   rotateSession,
   revokeSession,
@@ -54,7 +74,18 @@ function timingSafeEqualString(a: string, b: string): boolean {
 // Tipos de saída
 // ---------------------------------------------------------------------------
 
-export interface LoginResult {
+/**
+ * Login com credenciais válidas e 2FA ativo.
+ * O frontend deve exibir a etapa de segundo fator antes de emitir a sessão.
+ */
+export interface LoginResult2faRequired {
+  status: '2fa_required';
+  /** Token de curta duração (5 min) — usado em POST /api/auth/verify-2fa */
+  challengeToken: string;
+}
+
+export interface LoginResultOk {
+  status: 'ok';
   accessToken: string;
   /** TTL em segundos do access token (para o campo expires_in da resposta). */
   expiresIn: number;
@@ -70,6 +101,8 @@ export interface LoginResult {
     organizationId: string;
   };
 }
+
+export type LoginResult = LoginResult2faRequired | LoginResultOk;
 
 export interface RefreshResult {
   accessToken: string;
@@ -89,6 +122,14 @@ export interface RefreshResult {
 export interface LoginInput {
   email: string;
   password: string;
+  ip: string | null;
+  userAgent: string | null;
+}
+
+export interface Verify2faInput {
+  challengeToken: string;
+  /** Código TOTP de 6 dígitos OU recovery code */
+  code: string;
   ip: string | null;
   userAgent: string | null;
 }
@@ -155,7 +196,47 @@ export async function login(
     throw new UnauthorizedError('Conta inativa ou pendente. Contate o administrador.');
   }
 
-  // Geração do par access+refresh
+  // ---------------------------------------------------------------------------
+  // 2FA enforcement: se o 2FA estiver ativo, não emite sessão diretamente.
+  // Emite um challenge token de curta duração (5 min) — o frontend troca por
+  // uma sessão completa via POST /api/auth/verify-2fa.
+  // ---------------------------------------------------------------------------
+  if (user.totpConfirmedAt !== null) {
+    const { token, tokenHash } = generateChallengeToken();
+    const expiresAt = new Date(Date.now() + TOTP_CHALLENGE_TTL_MS);
+
+    await createTotpChallenge(db, { userId: user.id, tokenHash, expiresAt });
+
+    log.info(
+      {
+        event: 'auth.login.2fa_required',
+        user_id: user.id,
+        ip,
+      },
+      'login: 2FA required, challenge issued',
+    );
+
+    return { status: '2fa_required', challengeToken: token };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sem 2FA: emite sessão diretamente (fluxo original)
+  // ---------------------------------------------------------------------------
+  return _issueSession(db, user, { ip, userAgent }, log);
+}
+
+/**
+ * Helper interno: gera access + refresh + cria sessão.
+ * Reutilizado pelo login sem 2FA e pelo verify2fa.
+ */
+async function _issueSession(
+  db: Database,
+  user: { id: string; email: string; fullName: string; organizationId: string },
+  context: { ip: string | null; userAgent: string | null },
+  log: FastifyBaseLogger,
+): Promise<LoginResultOk> {
+  const { ip, userAgent } = context;
+
   const sessionId = crypto.randomUUID();
   const accessTtlSeconds = parseTtlToSeconds(env.JWT_ACCESS_TTL);
   const refreshTtlSeconds = parseTtlToSeconds(env.JWT_REFRESH_TTL);
@@ -191,6 +272,7 @@ export async function login(
   );
 
   return {
+    status: 'ok',
     accessToken,
     expiresIn: accessTtlSeconds,
     refreshToken,
@@ -203,6 +285,134 @@ export async function login(
       organizationId: user.organizationId,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Verify 2FA
+// ---------------------------------------------------------------------------
+
+/**
+ * Troca um challenge token + código TOTP/recovery por uma sessão completa.
+ *
+ * Segurança:
+ *   - Challenge token é de uso único (marcado como usado após sucesso).
+ *   - Código TOTP: ±1 step de janela de tolerância.
+ *   - Recovery code: consumível uma única vez (marcado como usado).
+ *   - Erros genéricos — não revela o motivo específico da falha.
+ *
+ * LGPD: totp_secret decifrado apenas em memória — nunca logado.
+ */
+export async function verify2fa(
+  db: Database,
+  input: Verify2faInput,
+  log: FastifyBaseLogger,
+): Promise<LoginResultOk> {
+  const { challengeToken, code, ip, userAgent } = input;
+
+  // 1. Verificar o challenge token
+  const tokenHash = hashChallengeToken(challengeToken);
+  const challenge = await findTotpChallengeByHash(db, tokenHash);
+
+  if (!challenge) {
+    log.warn(
+      { event: 'auth.2fa.invalid_challenge', ip },
+      '2FA verify: invalid or expired challenge token',
+    );
+    throw new UnauthorizedError('Código de desafio inválido ou expirado. Faça login novamente.');
+  }
+
+  // 2. Buscar o usuário
+  const user = await findUserById(db, challenge.userId);
+  if (!user || user.status !== 'active') {
+    log.warn(
+      { event: 'auth.2fa.user_inactive', user_id: challenge.userId, ip },
+      '2FA verify: user not found or inactive',
+    );
+    throw new UnauthorizedError('Credenciais inválidas.');
+  }
+
+  if (!user.totpSecret || !user.totpConfirmedAt) {
+    log.warn(
+      { event: 'auth.2fa.not_configured', user_id: user.id, ip },
+      '2FA verify: 2FA not configured for user',
+    );
+    throw new UnauthorizedError('Credenciais inválidas.');
+  }
+
+  // 3. Verificar o código: TOTP (6 dígitos) ou recovery code
+  const isTotpCode = /^\d{6}$/.test(code);
+  let verifiedOk = false;
+  let recoveryCodeId: string | null = null;
+
+  if (isTotpCode) {
+    // Decifrar o secret TOTP em memória — NUNCA logar
+    const secret = await decryptPii(user.totpSecret);
+    verifiedOk = verifyTotpCode(secret, code);
+  } else {
+    // Recovery code
+    const availableCodes = await listAvailableRecoveryCodes(db, user.id);
+    const hashes = availableCodes.map((c) => c.codeHash);
+    const matchIdx = await matchRecoveryCode(code, hashes);
+    if (matchIdx !== -1) {
+      verifiedOk = true;
+      recoveryCodeId = availableCodes[matchIdx]!.id;
+    }
+  }
+
+  if (!verifiedOk) {
+    log.warn({ event: 'auth.2fa.invalid_code', user_id: user.id, ip }, '2FA verify: invalid code');
+    throw new UnauthorizedError('Código inválido ou expirado. Tente novamente.');
+  }
+
+  // 4. Marcar challenge + recovery code de forma atômica dentro de uma transação.
+  //
+  // SEGURANÇA (MED-1): as três operações — marcar challenge, marcar recovery code e
+  // emitir sessão — são executadas na MESMA transação de banco com gate CAS.
+  //
+  // Gate CAS: UPDATE ... WHERE used_at IS NULL RETURNING id.
+  //   - Se 0 linhas retornam → challenge/recovery já foi consumido (race condition
+  //     ou replay) → rejeitar com 401. Isso impede que duas requisições concorrentes
+  //     com o mesmo challenge emitam duas sessões distintas.
+  //   - Se a emissão de sessão falhar após o gate, a transação inteira faz rollback
+  //     e o challenge volta a estar disponível para nova tentativa legítima.
+  return db.transaction(async (tx) => {
+    // Gate atômico no challenge
+    const challengeConsumed = await markTotpChallengeUsedAtomic(
+      tx as unknown as Database,
+      challenge.id,
+    );
+    if (!challengeConsumed) {
+      // Challenge já foi consumido em requisição concorrente — rejeitar.
+      log.warn(
+        { event: 'auth.2fa.challenge_already_used', user_id: user.id, ip },
+        '2FA verify: challenge token already consumed (possible replay/race)',
+      );
+      throw new UnauthorizedError('Código de desafio inválido ou expirado. Faça login novamente.');
+    }
+
+    // Gate atômico no recovery code (se aplicável)
+    if (recoveryCodeId) {
+      const recoveryConsumed = await markRecoveryCodeUsedAtomic(
+        tx as unknown as Database,
+        recoveryCodeId,
+      );
+      if (!recoveryConsumed) {
+        log.warn(
+          { event: 'auth.2fa.recovery_already_used', user_id: user.id, ip },
+          '2FA verify: recovery code already consumed (possible replay/race)',
+        );
+        throw new UnauthorizedError('Código inválido ou expirado. Tente novamente.');
+      }
+
+      log.info(
+        { event: 'auth.2fa.recovery_code_used', user_id: user.id, ip },
+        '2FA verify: recovery code consumed',
+      );
+    }
+
+    // 5. Emitir sessão completa dentro da mesma transação
+    return _issueSession(tx as unknown as Database, user, { ip, userAgent }, log);
+  });
 }
 
 // ---------------------------------------------------------------------------
