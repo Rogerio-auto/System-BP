@@ -35,10 +35,11 @@ import { ConflictError, NotFoundError, ValidationError } from '../../../shared/e
 import {
   activateVersion,
   deactivateActiveVersion,
-  findActiveVersionByKey,
-  findVersionByKeyAndHash,
+  findActiveVersionByKeyForUpdate,
+  findVersionByKeyAndHashInTx,
   findVersionByKeyAndNum,
-  getMaxVersionForKey,
+  findVersionByKeyAndNumForUpdate,
+  getMaxVersionForKeyForUpdate,
   insertPromptVersion,
   listPromptKeys,
   listVersionsByKey,
@@ -229,14 +230,20 @@ export interface CreateVersionContext {
 }
 
 /**
- * Cria nova versão de prompt de forma atômica.
+ * Cria nova versão de prompt de forma atômica e livre de race condition.
  *
  * Fluxo:
  *   1. Valida PII no body.
  *   2. Calcula content_hash.
- *   3. Verifica idempotência (mesmo key + hash → retorna versão existente).
- *   4. Calcula próxima versão (max + 1).
- *   5. Transação: insert + audit + outbox.
+ *   3. Abre transação — todo o estado crítico é lido/escrito dentro dela:
+ *      a. SELECT MAX(version) FOR UPDATE → lock exclusivo na key.
+ *      b. Verifica idempotência (mesmo key + hash → retorna versão existente).
+ *      c. Incrementa version e faz INSERT.
+ *      d. Audit log + outbox na mesma transação.
+ *
+ * Nota: o check de idempotência (hash) acontece DENTRO da transação após o
+ * lock FOR UPDATE, garantindo que duas requests concorrentes com o mesmo body
+ * não criem versões duplicadas.
  *
  * @param idempotencyKey Header Idempotency-Key opcional do caller.
  */
@@ -247,26 +254,35 @@ export async function createVersionSvc(
   ctx: CreateVersionContext,
   idempotencyKey?: string | null,
 ): Promise<PromptVersionResponse> {
-  // 1. Validação defensiva de PII no body
+  // 1. Validação defensiva de PII no body (antes de abrir tx — falha rápida)
   assertNoPiiInBody(body.body);
 
   // 2. Calcular content_hash
   const contentHash = hashBody(body.body);
 
-  // 3. Idempotência: se já existe versão com mesmo key + hash, retorna ela
-  const existing = await findVersionByKeyAndHash(db, key, contentHash);
-  if (existing) {
-    return toVersionResponse(existing);
-  }
+  // 3. Transação com lock exclusivo para eliminar race condition
+  const result = await db.transaction(async (tx) => {
+    // Justificativa dos casts `as unknown as Database`: o callback de db.transaction
+    // recebe NodePgTransaction que não é exportado de forma estável. É estruturalmente
+    // compatível com Database para todas as operações — o cast é seguro.
+    const txDb = tx as unknown as Database;
 
-  // 4. Calcular próxima versão
-  const maxVersion = await getMaxVersionForKey(db, key);
-  const nextVersion = maxVersion + 1;
+    // 3a. Adquire lock exclusivo na key (SELECT MAX FOR UPDATE).
+    // Bloqueia transações concorrentes para o mesmo key até o commit desta tx.
+    // Elimina a race condition entre getMax e INSERT.
+    const maxVersion = await getMaxVersionForKeyForUpdate(txDb, key);
 
-  // 5. Transação: insert + audit + outbox
-  const inserted = await db.transaction(async (tx) => {
-    // 5a. Inserir nova versão
-    // Justificativa: `as PromptServiceTx` — Drizzle não exporta tipo de tx.
+    // 3b. Idempotência dentro da tx: se já existe versão com mesmo hash, retorna ela.
+    // Feito APÓS o lock para garantir visibilidade de commits concorrentes recentes.
+    const existing = await findVersionByKeyAndHashInTx(txDb, key, contentHash);
+    if (existing) {
+      return existing;
+    }
+
+    const nextVersion = maxVersion + 1;
+
+    // 3c. Inserir nova versão
+    // Justificativa do cast `as PromptServiceTx`: Drizzle não exporta tipo de tx.
     // A interface estrutural cobre exatamente insert(promptVersions).values().returning().
     const newRow = await insertPromptVersion(tx as unknown as PromptServiceTx, {
       key,
@@ -279,7 +295,7 @@ export async function createVersionSvc(
       createdBy: ctx.actor?.userId ?? null,
     });
 
-    // 5b. Audit log — sem body (LGPD: apenas key, version, content_hash)
+    // 3d. Audit log — sem body (LGPD: apenas key, version, content_hash)
     await auditLog(tx, {
       organizationId: ctx.organizationId,
       actor: ctx.actor,
@@ -294,7 +310,7 @@ export async function createVersionSvc(
       },
     });
 
-    // 5c. Outbox — evento local (não registrado em AppEventDataMap — tipos definidos localmente)
+    // 3e. Outbox — evento local (não registrado em AppEventDataMap — tipos definidos localmente)
     // Justificativa: events/types.ts não está em files_allowed do slot F9-S01.
     // Usamos inserção direta com tipagem local em vez de emit() tipado globalmente.
     const eventId = randomUUID();
@@ -319,7 +335,7 @@ export async function createVersionSvc(
     };
 
     // Justificativa do cast: eventPayload satisfaz a estrutura jsonb esperada pelo schema.
-    // O tipo inferido de payload em eventOutbox é `unknown` (jsonb) — o cast é para Record<string,unknown>.
+    // O tipo inferido de payload em eventOutbox é `unknown` (jsonb) — cast para Record<string,unknown>.
     await (tx as unknown as PromptServiceTx).insert(eventOutbox).values({
       id: eventId,
       organizationId: ctx.organizationId,
@@ -329,7 +345,9 @@ export async function createVersionSvc(
       aggregateId: newRow.id,
       payload: eventPayload as unknown as Record<string, unknown>,
       correlationId: null,
-      idempotencyKey: idempotencyKey ?? `ai_prompts.version_created:${newRow.id}:${Date.now()}`,
+      // Idempotência determinística: usa newRow.id (UUID único gerado pelo Postgres).
+      // Não usa Date.now() — idempotency keys devem ser determinísticos para retry seguro.
+      idempotencyKey: idempotencyKey ?? `ai_prompts.version_created:${newRow.id}`,
       attempts: 0,
       lastError: null,
       processedAt: null,
@@ -339,7 +357,7 @@ export async function createVersionSvc(
     return newRow;
   });
 
-  return toVersionResponse(inserted);
+  return toVersionResponse(result);
 }
 
 // ---------------------------------------------------------------------------
@@ -353,16 +371,21 @@ export interface ActivateVersionContext {
 }
 
 /**
- * Ativa uma versão de prompt de forma atômica.
+ * Ativa uma versão de prompt de forma atômica e livre de race condition.
  *
- * Fluxo dentro de uma única transação:
- *   1. Verifica que a versão existe (NotFoundError se não).
- *   2. Se já está ativa, retorna sem erro (idempotente).
- *   3. Captura versão ativa anterior (para audit before).
- *   4. UPDATE SET active = false WHERE key = $key AND active = true.
- *   5. UPDATE SET active = true WHERE id = $id.
- *   6. Audit log com before/after (key + version — sem body).
- *   7. Outbox ai_prompts.version_activated.
+ * Fluxo dentro de uma única transação (tudo lido e escrito com lock):
+ *   1. SELECT versão alvo FOR UPDATE → garante lock exclusivo.
+ *   2. Se não existe → NotFoundError.
+ *   3. Se já está ativa → retorna sem modificar (idempotente).
+ *   4. SELECT versão ativa anterior FOR UPDATE → snapshot consistente.
+ *   5. UPDATE SET active = false WHERE key AND active = true.
+ *   6. UPDATE SET active = true WHERE id = $id.
+ *   7. Audit log com before/after (sem body — LGPD).
+ *   8. Outbox ai_prompts.version_activated com idempotency key determinístico.
+ *
+ * Race condition eliminada: reads de target e previousActive acontecem DENTRO
+ * da transação com FOR UPDATE, garantindo que nenhuma outra transação modifique
+ * o estado entre o check e os UPDATEs.
  */
 export async function activateVersionSvc(
   db: Database,
@@ -370,38 +393,43 @@ export async function activateVersionSvc(
   version: number,
   ctx: ActivateVersionContext,
 ): Promise<{ ok: boolean; id: string; key: string; version: number; contentHash: string }> {
-  // Verificar que a versão existe antes de abrir a transação
-  const target = await findVersionByKeyAndNum(db, key, version);
-  if (!target) {
-    throw new NotFoundError(`Versão ${version} do prompt '${key}' não encontrada`);
-  }
-
-  // Idempotência: já ativa — retorna sem modificar estado
-  if (target.active) {
-    return {
-      ok: true,
-      id: target.id,
-      key: target.key,
-      version: target.version,
-      contentHash: target.contentHash,
-    };
-  }
-
-  // Snapshot da versão ativa anterior (para audit before)
-  const previousActive = await findActiveVersionByKey(db, key);
-
-  await db.transaction(async (tx) => {
-    // Justificativa do cast: Drizzle não exporta o tipo interno da transação.
-    // PromptServiceTx cobre exatamente as operações necessárias aqui.
+  const activationResult = await db.transaction(async (tx) => {
+    // Justificativa dos casts `as unknown as Database / PromptServiceTx`:
+    // NodePgTransaction não é exportado de forma estável pelo Drizzle.
+    // É estruturalmente compatível com Database (todas as queries) e
+    // PromptServiceTx (insert/update nas tabelas necessárias) — casts seguros.
+    const txDb = tx as unknown as Database;
     const promiseTx = tx as unknown as PromptServiceTx;
 
-    // Passo 1: desativar versão atualmente ativa (se houver)
+    // Passo 1: lock exclusivo na versão alvo — elimina race condition entre
+    // check de existência e UPDATE de ativação.
+    const target = await findVersionByKeyAndNumForUpdate(txDb, key, version);
+    if (!target) {
+      throw new NotFoundError(`Versão ${version} do prompt '${key}' não encontrada`);
+    }
+
+    // Passo 2: idempotência — já ativa → retorna sem modificar estado
+    if (target.active) {
+      return {
+        ok: true as const,
+        id: target.id,
+        key: target.key,
+        version: target.version,
+        contentHash: target.contentHash,
+        skipped: true as const,
+      };
+    }
+
+    // Passo 3: snapshot da versão ativa anterior (FOR UPDATE — snapshot consistente)
+    const previousActive = await findActiveVersionByKeyForUpdate(txDb, key);
+
+    // Passo 4: desativar versão atualmente ativa (se houver)
     await deactivateActiveVersion(promiseTx, key);
 
-    // Passo 2: ativar a versão alvo
+    // Passo 5: ativar a versão alvo
     await activateVersion(promiseTx, target.id);
 
-    // Passo 3: audit log — before = versão que saiu, after = versão que entrou
+    // Passo 6: audit log — before = versão que saiu, after = versão que entrou
     // Sem body no audit (LGPD: apenas key, version, content_hash)
     await auditLog(tx, {
       organizationId: ctx.organizationId,
@@ -422,7 +450,7 @@ export async function activateVersionSvc(
       },
     });
 
-    // Passo 4: outbox event — tipos locais (ver justificativa no createVersionSvc)
+    // Passo 7: outbox event — tipos locais (ver justificativa no createVersionSvc)
     const eventId = randomUUID();
     const eventPayload: PromptVersionActivatedPayload = {
       event_id: eventId,
@@ -453,20 +481,31 @@ export async function activateVersionSvc(
       aggregateId: target.id,
       payload: eventPayload as unknown as Record<string, unknown>,
       correlationId: null,
-      idempotencyKey: `ai_prompts.version_activated:${target.id}:${Date.now()}`,
+      // Idempotência determinística: target.id é único por versão — garantido pela
+      // UNIQUE (key, version) do schema. Não usa Date.now() para retry seguro.
+      idempotencyKey: `ai_prompts.version_activated:${target.id}`,
       attempts: 0,
       lastError: null,
       processedAt: null,
       failedAt: null,
     });
+
+    return {
+      ok: true as const,
+      id: target.id,
+      key: target.key,
+      version: target.version,
+      contentHash: target.contentHash,
+      skipped: false as const,
+    };
   });
 
   return {
-    ok: true,
-    id: target.id,
-    key: target.key,
-    version: target.version,
-    contentHash: target.contentHash,
+    ok: activationResult.ok,
+    id: activationResult.id,
+    key: activationResult.key,
+    version: activationResult.version,
+    contentHash: activationResult.contentHash,
   };
 }
 
