@@ -45,9 +45,11 @@ class ActionItem(BaseModel):
     """Evento de domínio emitido pelo grafo (doc 06 §4.2 / §5.1 actions_emitted).
 
     O backend processa estas ações depois de receber a resposta.
+    extra="ignore" — campos desconhecidos do estado interno são descartados silenciosamente
+    para evitar vazamento de PII na resposta HTTP (MED-2).
     """
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="ignore")
 
     type: str = Field(
         description="Tipo da ação: 'lead_created', 'city_identified', 'simulation_sent', etc.",
@@ -79,9 +81,11 @@ class StateSnapshot(BaseModel):
     """Snapshot resumido do estado do grafo após o turno (doc 06 §4.2).
 
     Inclui apenas campos de fluxo — nunca PII bruta.
+    extra="ignore" — campos extras do estado interno são descartados para
+    evitar vazamento de dados na resposta HTTP (MED-2).
     """
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="ignore")
 
     current_stage: str | None = None
     current_intent: str | None = None

@@ -9,6 +9,9 @@ Cobre:
 - Timeout do grafo retorna HTTP 504.
 - Resposta inclui graph_version, latency_ms, model, prompt_version.
 - Handoff required: handoff.required=True na resposta.
+- Autenticação: ausência ou token errado retorna HTTP 401.
+- Idempotência: segunda chamada com mesma chave retorna resposta cacheada sem
+  reexecutar o grafo.
 - LLM e backend são sempre mockados — sem chamadas reais.
 """
 from __future__ import annotations
@@ -32,6 +35,9 @@ _CONVERSATION_ID = "cccccccc-0000-0000-0000-000000000001"
 _PHONE = "+5569988887777"
 _CORRELATION_ID = "corr-test-001"
 _IDEMPOTENCY_KEY = "wa_msg_test_001"
+# Token configurado no conftest / env de testes (ver conftest.py)
+_INTERNAL_TOKEN = "test-internal-token-for-tests"
+_AUTH_HEADERS = {"X-Internal-Token": _INTERNAL_TOKEN}
 
 
 def _valid_payload(**overrides: Any) -> dict[str, Any]:
@@ -150,6 +156,14 @@ def _reset_rate_limit() -> None:  # type: ignore[return]
     _process_module._rate_limit_windows.clear()
 
 
+@pytest.fixture(autouse=True)
+def _reset_idempotency_cache() -> None:  # type: ignore[return]
+    """Limpa o cache de idempotência entre testes."""
+    _process_module._idempotency_cache.clear()
+    yield
+    _process_module._idempotency_cache.clear()
+
+
 @pytest.fixture()
 def client() -> TestClient:
     return _build_client()
@@ -170,7 +184,11 @@ class TestPayloadValidation:
             "app.api.process.build_graph",
             return_value=_MockGraph(final_state),
         ):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message",
+                json=_valid_payload(),
+                headers=_AUTH_HEADERS,
+            )
         # Pode retornar 200 ou erro de backend (respx não está mockado aqui),
         # mas não deve retornar 422 de validação de schema inbound.
         assert resp.status_code != 422, f"Unexpected 422: {resp.text}"
@@ -178,28 +196,28 @@ class TestPayloadValidation:
     def test_extra_field_rejected(self, client: TestClient) -> None:
         """Campos não documentados no schema inbound devem retornar 422."""
         payload = _valid_payload(campo_desconhecido="valor_extra")
-        resp = client.post("/process/whatsapp/message", json=payload)
+        resp = client.post("/process/whatsapp/message", json=payload, headers=_AUTH_HEADERS)
         assert resp.status_code == 422
 
     def test_missing_conversation_id_rejected(self, client: TestClient) -> None:
         """Payload sem conversation_id deve retornar 422."""
         payload = _valid_payload()
         del payload["conversation_id"]
-        resp = client.post("/process/whatsapp/message", json=payload)
+        resp = client.post("/process/whatsapp/message", json=payload, headers=_AUTH_HEADERS)
         assert resp.status_code == 422
 
     def test_missing_customer_phone_rejected(self, client: TestClient) -> None:
         """Payload sem customer_phone deve retornar 422."""
         payload = _valid_payload()
         del payload["customer_phone"]
-        resp = client.post("/process/whatsapp/message", json=payload)
+        resp = client.post("/process/whatsapp/message", json=payload, headers=_AUTH_HEADERS)
         assert resp.status_code == 422
 
     def test_missing_correlation_id_rejected(self, client: TestClient) -> None:
         """Payload sem correlation_id deve retornar 422."""
         payload = _valid_payload()
         del payload["correlation_id"]
-        resp = client.post("/process/whatsapp/message", json=payload)
+        resp = client.post("/process/whatsapp/message", json=payload, headers=_AUTH_HEADERS)
         assert resp.status_code == 422
 
     def test_phone_without_plus_rejected(self, client: TestClient) -> None:
@@ -207,6 +225,7 @@ class TestPayloadValidation:
         resp = client.post(
             "/process/whatsapp/message",
             json=_valid_payload(customer_phone="5569988887777"),
+            headers=_AUTH_HEADERS,
         )
         assert resp.status_code == 422
 
@@ -215,6 +234,7 @@ class TestPayloadValidation:
         resp = client.post(
             "/process/whatsapp/message",
             json=_valid_payload(customer_phone="+556998ABC7777"),
+            headers=_AUTH_HEADERS,
         )
         assert resp.status_code == 422
 
@@ -222,7 +242,7 @@ class TestPayloadValidation:
         """Campo extra dentro de metadata deve retornar 422."""
         payload = _valid_payload()
         payload["metadata"]["campo_desconhecido"] = "valor"
-        resp = client.post("/process/whatsapp/message", json=payload)
+        resp = client.post("/process/whatsapp/message", json=payload, headers=_AUTH_HEADERS)
         assert resp.status_code == 422
 
     def test_message_timestamp_invalid_format_rejected(self, client: TestClient) -> None:
@@ -230,6 +250,7 @@ class TestPayloadValidation:
         resp = client.post(
             "/process/whatsapp/message",
             json=_valid_payload(message_timestamp="nao-e-data"),
+            headers=_AUTH_HEADERS,
         )
         assert resp.status_code == 422
 
@@ -246,14 +267,18 @@ class TestResponseStructure:
         """Processamento bem-sucedido deve retornar HTTP 200."""
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
 
     def test_response_has_conversation_id(self, client: TestClient) -> None:
         """Resposta deve incluir conversation_id ecoado."""
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert body["conversation_id"] == _CONVERSATION_ID
@@ -262,7 +287,9 @@ class TestResponseStructure:
         """Resposta deve incluir graph_version (SemVer)."""
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert "graph_version" in body
@@ -273,7 +300,9 @@ class TestResponseStructure:
         """Resposta deve incluir latency_ms >= 0."""
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert "latency_ms" in body
@@ -283,7 +312,9 @@ class TestResponseStructure:
         """Resposta deve incluir model extraído de tool_results."""
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert body["model"] == "anthropic/claude-3.5-haiku"
@@ -292,7 +323,9 @@ class TestResponseStructure:
         """Resposta deve incluir prompt_version extraído de tool_results."""
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert body["prompt_version"] == "pre_attendance@v1"
@@ -301,7 +334,9 @@ class TestResponseStructure:
         """reply.type deve ser 'text' quando send_response emite texto."""
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert body["reply"]["type"] == "text"
@@ -311,7 +346,9 @@ class TestResponseStructure:
         """handoff.required deve ser False quando o grafo não ativou handoff."""
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert body["handoff"]["required"] is False
@@ -320,7 +357,9 @@ class TestResponseStructure:
         """state deve incluir current_intent e missing_fields."""
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert "state" in body
@@ -331,7 +370,9 @@ class TestResponseStructure:
         """errors deve ser lista vazia em processamento sem erros."""
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         assert resp.json()["errors"] == []
 
@@ -357,7 +398,9 @@ class TestHandoffResponse:
             ],
         )
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert body["handoff"]["required"] is True
@@ -376,7 +419,9 @@ class TestHandoffResponse:
             ],
         )
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         assert resp.json()["reply"]["type"] == "none"
 
@@ -394,7 +439,11 @@ class TestRateLimit:
         final_state = _make_final_state()
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
             for _ in range(5):
-                resp = client.post("/process/whatsapp/message", json=_valid_payload())
+                resp = client.post(
+                    "/process/whatsapp/message",
+                    json=_valid_payload(idempotency_key=f"wa_msg_{_}"),
+                    headers=_AUTH_HEADERS,
+                )
             # A última dentro do limite deve ser 200
             assert resp.status_code == 200
 
@@ -406,7 +455,9 @@ class TestRateLimit:
         for i in range(20):
             window.append(now - i * 0.1)  # 20 timestamps nos últimos 2 segundos
 
-        resp = client.post("/process/whatsapp/message", json=_valid_payload())
+        resp = client.post(
+            "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+        )
         assert resp.status_code == 429
 
     def test_429_has_retry_after_header(self, client: TestClient) -> None:
@@ -416,7 +467,9 @@ class TestRateLimit:
         for i in range(20):
             window.append(now - i * 0.1)
 
-        resp = client.post("/process/whatsapp/message", json=_valid_payload())
+        resp = client.post(
+            "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+        )
         assert resp.status_code == 429
         assert "retry-after" in resp.headers
 
@@ -427,7 +480,9 @@ class TestRateLimit:
         for i in range(20):
             window.append(now - i * 0.1)
 
-        resp = client.post("/process/whatsapp/message", json=_valid_payload())
+        resp = client.post(
+            "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+        )
         assert resp.status_code == 429
         body = resp.json()
         assert body["detail"]["error"] == "rate_limit_exceeded"
@@ -446,6 +501,7 @@ class TestRateLimit:
             resp = client.post(
                 "/process/whatsapp/message",
                 json=_valid_payload(conversation_id="conv-b-001"),
+                headers=_AUTH_HEADERS,
             )
         # Não deve ser 429 (pode ser 200 ou outro erro de backend)
         assert resp.status_code != 429
@@ -475,7 +531,9 @@ class TestTimeout:
             patch("app.api.process.build_graph", return_value=_SlowGraph()),
             patch("app.api.process._GRAPH_TIMEOUT_SEC", 0.05),
         ):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 504
         body = resp.json()
         assert body["detail"]["error"] == "graph_timeout"
@@ -495,7 +553,9 @@ class TestReplyFallback:
         """Quando grafo não tem send_response em tool_results, reply.type='none'."""
         final_state = _make_final_state(tool_results=[])
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         assert resp.json()["reply"]["type"] == "none"
 
@@ -503,7 +563,9 @@ class TestReplyFallback:
         """Quando grafo não usou LLM, model e prompt_version devem ser null."""
         final_state = _make_final_state(tool_results=[])
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert body["model"] is None
@@ -526,7 +588,9 @@ class TestActionsEmitted:
             ]
         )
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         body = resp.json()
         assert len(body["actions"]) == 1
@@ -537,7 +601,9 @@ class TestActionsEmitted:
         """Sem actions_emitted, a lista deve ser vazia."""
         final_state = _make_final_state(actions_emitted=[])
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         assert resp.json()["actions"] == []
 
@@ -554,7 +620,9 @@ class TestLeadId:
         """lead_id do estado final deve aparecer na resposta."""
         final_state = _make_final_state(lead_id="lead-uuid-999")
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         assert resp.json()["lead_id"] == "lead-uuid-999"
 
@@ -562,6 +630,124 @@ class TestLeadId:
         """Quando lead_id ainda é None, deve aparecer como null na resposta."""
         final_state = _make_final_state(lead_id=None)
         with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
-            resp = client.post("/process/whatsapp/message", json=_valid_payload())
+            resp = client.post(
+                "/process/whatsapp/message", json=_valid_payload(), headers=_AUTH_HEADERS
+            )
         assert resp.status_code == 200
         assert resp.json()["lead_id"] is None
+
+
+# ---------------------------------------------------------------------------
+# Testes de autenticação (HIGH-1)
+# ---------------------------------------------------------------------------
+
+
+class TestAuthentication:
+    """Valida que X-Internal-Token é obrigatório e verificado em tempo constante."""
+
+    def test_missing_token_returns_401(self, client: TestClient) -> None:
+        """Ausência do header X-Internal-Token deve retornar HTTP 401."""
+        resp = client.post("/process/whatsapp/message", json=_valid_payload())
+        assert resp.status_code == 401
+
+    def test_wrong_token_returns_401(self, client: TestClient) -> None:
+        """Token incorreto deve retornar HTTP 401."""
+        resp = client.post(
+            "/process/whatsapp/message",
+            json=_valid_payload(),
+            headers={"X-Internal-Token": "token-errado-qualquer"},
+        )
+        assert resp.status_code == 401
+
+    def test_empty_token_returns_401(self, client: TestClient) -> None:
+        """Token vazio deve retornar HTTP 401."""
+        resp = client.post(
+            "/process/whatsapp/message",
+            json=_valid_payload(),
+            headers={"X-Internal-Token": ""},
+        )
+        assert resp.status_code == 401
+
+    def test_valid_token_does_not_return_401(self, client: TestClient) -> None:
+        """Token correto não deve retornar HTTP 401 (pode retornar 200 ou outro erro)."""
+        final_state = _make_final_state()
+        with patch("app.api.process.build_graph", return_value=_MockGraph(final_state)):
+            resp = client.post(
+                "/process/whatsapp/message",
+                json=_valid_payload(),
+                headers=_AUTH_HEADERS,
+            )
+        assert resp.status_code != 401
+
+
+# ---------------------------------------------------------------------------
+# Testes de idempotência (HIGH-2)
+# ---------------------------------------------------------------------------
+
+
+class TestIdempotency:
+    """Valida que chamadas duplicadas com mesma idempotency_key não reexecutam o grafo."""
+
+    def test_duplicate_key_returns_cached_response(self, client: TestClient) -> None:
+        """Segunda chamada com mesma idempotency_key deve retornar resposta cacheada."""
+        final_state = _make_final_state()
+        call_count = 0
+
+        class _CountingGraph:
+            def compile(self) -> _CountingCompiledGraph:
+                return _CountingCompiledGraph()
+
+        class _CountingCompiledGraph:
+            async def ainvoke(self, _state: Any, **_kwargs: Any) -> dict[str, Any]:
+                nonlocal call_count
+                call_count += 1
+                return final_state
+
+        with patch("app.api.process.build_graph", return_value=_CountingGraph()):
+            resp1 = client.post(
+                "/process/whatsapp/message",
+                json=_valid_payload(idempotency_key="wa_msg_idem_001"),
+                headers=_AUTH_HEADERS,
+            )
+            resp2 = client.post(
+                "/process/whatsapp/message",
+                json=_valid_payload(idempotency_key="wa_msg_idem_001"),
+                headers=_AUTH_HEADERS,
+            )
+
+        assert resp1.status_code == 200
+        assert resp2.status_code == 200
+        # O grafo deve ter sido executado exatamente 1 vez (segunda chamada usa cache)
+        assert call_count == 1, f"Grafo executado {call_count}x — esperado 1x"
+        # As respostas devem ter o mesmo conversation_id
+        assert resp1.json()["conversation_id"] == resp2.json()["conversation_id"]
+
+    def test_different_keys_execute_graph_twice(self, client: TestClient) -> None:
+        """Chaves diferentes devem resultar em execuções independentes do grafo."""
+        final_state = _make_final_state()
+        call_count = 0
+
+        class _CountingGraph2:
+            def compile(self) -> _CountingCompiledGraph2:
+                return _CountingCompiledGraph2()
+
+        class _CountingCompiledGraph2:
+            async def ainvoke(self, _state: Any, **_kwargs: Any) -> dict[str, Any]:
+                nonlocal call_count
+                call_count += 1
+                return final_state
+
+        with patch("app.api.process.build_graph", return_value=_CountingGraph2()):
+            client.post(
+                "/process/whatsapp/message",
+                json=_valid_payload(idempotency_key="wa_msg_idem_A"),
+                headers=_AUTH_HEADERS,
+            )
+            client.post(
+                "/process/whatsapp/message",
+                json=_valid_payload(idempotency_key="wa_msg_idem_B"),
+                headers=_AUTH_HEADERS,
+            )
+
+        # Grafo executado 2x com chaves diferentes
+        assert call_count == 2, f"Grafo executado {call_count}x — esperado 2x"

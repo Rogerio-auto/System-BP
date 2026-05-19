@@ -15,7 +15,7 @@ LGPD (doc 17 §8.3 / §8.4):
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -67,7 +67,7 @@ class WhatsAppMessageRequest(BaseModel):
     # Dados da mensagem
     customer_phone: str = Field(
         description="Telefone do cliente no formato E.164 (+5569...).",
-        min_length=8,
+        min_length=10,
     )
     message_text: str = Field(
         default="",
@@ -82,7 +82,7 @@ class WhatsAppMessageRequest(BaseModel):
     )
 
     # Canal e integrações
-    channel: str = Field(
+    channel: Literal["whatsapp"] = Field(
         default="whatsapp",
         description="Canal de origem. Sempre 'whatsapp' nesta rota.",
     )
