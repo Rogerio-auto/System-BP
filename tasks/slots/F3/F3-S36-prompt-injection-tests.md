@@ -3,11 +3,11 @@ id: F3-S36
 title: Testes de prompt injection
 phase: F3
 task_ref: T3.21
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: qa-tester
-claimed_at:
+claimed_at: 2026-05-19T15:39:16Z
 completed_at:
 pr_url:
 depends_on: [F3-S31]
