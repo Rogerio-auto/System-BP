@@ -3,13 +3,13 @@ id: F3-S31
 title: Edges + montagem do grafo whatsapp_pre_attendance
 phase: F3
 task_ref: T3.16
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: python-engineer
 claimed_at: 2026-05-19T13:44:24Z
 completed_at: 2026-05-19T13:54:10Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/106
 depends_on: [F3-S23, F3-S24, F3-S25, F3-S26, F3-S27, F3-S28, F3-S29, F3-S30]
 blocks: [F3-S32, F3-S35, F3-S36]
 labels: []

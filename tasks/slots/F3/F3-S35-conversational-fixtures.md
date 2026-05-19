@@ -3,13 +3,13 @@ id: F3-S35
 title: 5 fixtures conversacionais
 phase: F3
 task_ref: T3.20
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: qa-tester
 claimed_at: 2026-05-19T14:08:23Z
 completed_at: 2026-05-19T15:04:57Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/107
 depends_on: [F3-S31]
 blocks: []
 labels: []

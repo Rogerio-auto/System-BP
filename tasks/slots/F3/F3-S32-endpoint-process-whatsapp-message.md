@@ -3,13 +3,13 @@ id: F3-S32
 title: POST /process/whatsapp/message no LangGraph
 phase: F3
 task_ref: T3.17
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: python-engineer
 claimed_at: 2026-05-19T14:09:40Z
 completed_at: 2026-05-19T14:21:38Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/108
 depends_on: [F3-S31]
 blocks: [F3-S33]
 labels: [lgpd-impact]
