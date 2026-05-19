@@ -11,6 +11,7 @@ import structlog
 from fastapi import FastAPI
 
 from app.api.health import router as health_router
+from app.api.process import router as process_router
 from app.config import settings
 
 
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json" if settings.environment != "production" else None,
     )
     app.include_router(health_router)
+    app.include_router(process_router)
     return app
 
 

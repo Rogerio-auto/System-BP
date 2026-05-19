@@ -119,7 +119,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S29 | Nós decide_next_step + request_handoff                                      | ✅ done      | high       | F3-S03, F3-S17, F3-S18                                         |
 | F3-S30 | Nós send_response + persist_state + log_decision                            | ✅ done      | high       | F3-S00, F3-S02, F3-S03, F3-S19                                 |
 | F3-S31 | Edges + montagem do grafo whatsapp_pre_attendance                           | 🟣 review    | critical   | F3-S23, F3-S24, F3-S25, F3-S26, F3-S27, F3-S28, F3-S29, F3-S30 |
-| F3-S32 | POST /process/whatsapp/message no LangGraph                                 | 🟢 available | critical   | F3-S31                                                         |
+| F3-S32 | POST /process/whatsapp/message no LangGraph                                 | 🟣 review    | critical   | F3-S31                                                         |
 | F3-S33 | Backend integra webhook WhatsApp → LangGraph → resposta                     | 🟢 available | critical   | F3-S32                                                         |
 | F3-S34 | Fallback de handoff em falha do LangGraph                                   | 🟢 available | high       | F3-S07, F3-S33                                                 |
 | F3-S35 | 5 fixtures conversacionais                                                  | 🟣 review    | high       | F3-S31                                                         |
