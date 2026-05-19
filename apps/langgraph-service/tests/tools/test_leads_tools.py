@@ -1,6 +1,6 @@
-"""Testes unitários para get_or_create_lead.
+"""Testes unitários para leads_tools: get_or_create_lead + get_customer_context.
 
-Cobre:
+Cobre get_or_create_lead:
 - Sucesso: lead criado (created=True)
 - Sucesso: lead encontrado (created=False)
 - Erro INVALID_PHONE (400 com código no body)
@@ -9,6 +9,16 @@ Cobre:
 - Erro BACKEND_UNAVAILABLE: timeout
 - Propagação do X-Correlation-Id via contextvars
 - Header Idempotency-Key enviado com phone na chave
+
+Cobre get_customer_context:
+- Sucesso: ficha de lead (type=lead)
+- Sucesso: ficha de customer (type=customer)
+- Erro: 404 → CUSTOMER_NOT_FOUND
+- Erro: INVALID_INPUT (nem lead_id nem customer_id)
+- Erro: BACKEND_UNAVAILABLE (5xx)
+- Erro: BACKEND_UNAVAILABLE (timeout)
+- Ausência de PII sensível no output (CPF, phone, email)
+- Header X-Internal-Token presente
 """
 from __future__ import annotations
 
@@ -18,9 +28,12 @@ import respx
 
 from app.config import settings
 from app.tools.leads_tools import (
+    GetCustomerContextError,
+    GetCustomerContextSuccess,
     GetOrCreateLeadError,
     GetOrCreateLeadSuccess,
     LeadErrorCode,
+    get_customer_context,
     get_or_create_lead,
 )
 
@@ -285,3 +298,282 @@ async def test_unknown_error_code_mapped_to_backend_unavailable() -> None:
     assert isinstance(result, GetOrCreateLeadError)
     assert result.error_code == LeadErrorCode.BACKEND_UNAVAILABLE
     assert "SOME_NEW_CODE" in result.message
+
+
+# ===========================================================================
+# Tests: get_customer_context
+# ===========================================================================
+
+_LEAD_ID = "bbbbbbbb-0000-0000-0000-000000000001"
+_CUSTOMER_ID = "cccccccc-0000-0000-0000-000000000002"
+
+
+def _context_url(entity_id: str) -> str:
+    raw = str(settings.backend_internal_url)
+    base = raw if raw.endswith("/") else f"{raw}/"
+    return f"{base}internal/customers/{entity_id}/context"
+
+
+_CONTEXT_BODY_MINIMAL: dict[str, object] = {
+    "lead_id": _LEAD_ID,
+    "customer_id": None,
+    "name": "Maria Silva",
+    "city_name": None,
+    "agent_name": None,
+    "current_stage": None,
+    "lead_status": "new",
+    "last_simulation": None,
+    "last_analysis": None,
+    "messages_last_30_days": 0,
+}
+
+_CONTEXT_BODY_FULL: dict[str, object] = {
+    "lead_id": _LEAD_ID,
+    "customer_id": _CUSTOMER_ID,
+    "name": "João Pereira",
+    "city_name": "Porto Velho",
+    "agent_name": "Ana Lima",
+    "current_stage": "qualificacao",
+    "lead_status": "qualifying",
+    "last_simulation": {
+        "simulation_id": "dddddddd-0000-0000-0000-000000000003",
+        "amount_requested": "5000.00",
+        "term_months": 12,
+        "monthly_payment": "450.00",
+        "created_at": "2026-01-15T10:00:00.000Z",
+        "sent_at": "2026-01-15T10:05:00.000Z",
+    },
+    "last_analysis": None,
+    "messages_last_30_days": 7,
+}
+
+
+# ---------------------------------------------------------------------------
+# Sucesso — ficha de lead (type=lead, padrão)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_context_success_lead_minimal() -> None:
+    """Tool deve retornar GetCustomerContextSuccess para lead com campos opcionais nulos."""
+    with respx.mock:
+        route = respx.get(_context_url(_LEAD_ID)).mock(
+            return_value=httpx.Response(200, json=_CONTEXT_BODY_MINIMAL)
+        )
+        result = await get_customer_context.ainvoke({"lead_id": _LEAD_ID})
+
+    assert route.called
+    assert isinstance(result, GetCustomerContextSuccess)
+    assert result.ok is True
+    assert result.lead_id == _LEAD_ID
+    assert result.customer_id is None
+    assert result.name == "Maria Silva"
+    assert result.city_name is None
+    assert result.agent_name is None
+    assert result.current_stage is None
+    assert result.lead_status == "new"
+    assert result.last_simulation is None
+    assert result.last_analysis is None
+    assert result.messages_last_30_days == 0
+
+    # Verifica query param ?type=lead enviado
+    assert route.calls.last.request.url.params.get("type") == "lead"
+
+
+@pytest.mark.asyncio()
+async def test_context_success_lead_full() -> None:
+    """Tool deve retornar ficha completa (com simulação e campos opcionais) para lead."""
+    with respx.mock:
+        respx.get(_context_url(_LEAD_ID)).mock(
+            return_value=httpx.Response(200, json=_CONTEXT_BODY_FULL)
+        )
+        result = await get_customer_context.ainvoke({"lead_id": _LEAD_ID})
+
+    assert isinstance(result, GetCustomerContextSuccess)
+    assert result.customer_id == _CUSTOMER_ID
+    assert result.city_name == "Porto Velho"
+    assert result.agent_name == "Ana Lima"
+    assert result.current_stage == "qualificacao"
+    assert result.lead_status == "qualifying"
+    assert result.messages_last_30_days == 7
+
+    sim = result.last_simulation
+    assert sim is not None
+    assert sim.simulation_id == "dddddddd-0000-0000-0000-000000000003"
+    assert sim.amount_requested == "5000.00"
+    assert sim.term_months == 12
+    assert sim.monthly_payment == "450.00"
+    assert sim.sent_at == "2026-01-15T10:05:00.000Z"
+
+
+# ---------------------------------------------------------------------------
+# Sucesso — ficha de customer (type=customer)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_context_success_customer() -> None:
+    """Tool deve usar ?type=customer quando apenas customer_id fornecido."""
+    body = {**_CONTEXT_BODY_FULL, "customer_id": _CUSTOMER_ID}
+    with respx.mock:
+        route = respx.get(_context_url(_CUSTOMER_ID)).mock(
+            return_value=httpx.Response(200, json=body)
+        )
+        result = await get_customer_context.ainvoke({"customer_id": _CUSTOMER_ID})
+
+    assert route.called
+    assert isinstance(result, GetCustomerContextSuccess)
+    assert result.customer_id == _CUSTOMER_ID
+
+    # Verifica query param ?type=customer enviado
+    assert route.calls.last.request.url.params.get("type") == "customer"
+
+
+# ---------------------------------------------------------------------------
+# lead_id tem precedência sobre customer_id quando ambos fornecidos
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_context_lead_id_takes_precedence() -> None:
+    """Quando lead_id e customer_id fornecidos, deve usar lead_id com type=lead."""
+    with respx.mock:
+        route = respx.get(_context_url(_LEAD_ID)).mock(
+            return_value=httpx.Response(200, json=_CONTEXT_BODY_MINIMAL)
+        )
+        result = await get_customer_context.ainvoke(
+            {"lead_id": _LEAD_ID, "customer_id": _CUSTOMER_ID}
+        )
+
+    assert route.called
+    assert isinstance(result, GetCustomerContextSuccess)
+    assert route.calls.last.request.url.params.get("type") == "lead"
+
+
+# ---------------------------------------------------------------------------
+# Erro: INVALID_INPUT — nenhum identificador fornecido
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_context_error_invalid_input_no_ids() -> None:
+    """Tool deve retornar INVALID_INPUT quando nem lead_id nem customer_id fornecidos."""
+    result = await get_customer_context.ainvoke({})
+
+    assert isinstance(result, GetCustomerContextError)
+    assert result.ok is False
+    assert result.error_code == "INVALID_INPUT"
+    assert "lead_id" in result.message or "customer_id" in result.message
+
+
+# ---------------------------------------------------------------------------
+# Erro: 404 → CUSTOMER_NOT_FOUND
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_context_error_404_lead() -> None:
+    """Tool deve retornar CUSTOMER_NOT_FOUND quando backend retorna 404 para lead."""
+    with respx.mock:
+        respx.get(_context_url(_LEAD_ID)).mock(
+            return_value=httpx.Response(404, json={"message": "Lead não encontrado"})
+        )
+        result = await get_customer_context.ainvoke({"lead_id": _LEAD_ID})
+
+    assert isinstance(result, GetCustomerContextError)
+    assert result.error_code == "CUSTOMER_NOT_FOUND"
+    assert _LEAD_ID in result.message
+
+
+@pytest.mark.asyncio()
+async def test_context_error_404_customer() -> None:
+    """Tool deve retornar CUSTOMER_NOT_FOUND quando backend retorna 404 para customer."""
+    with respx.mock:
+        respx.get(_context_url(_CUSTOMER_ID)).mock(
+            return_value=httpx.Response(404, json={"message": "Customer não encontrado"})
+        )
+        result = await get_customer_context.ainvoke({"customer_id": _CUSTOMER_ID})
+
+    assert isinstance(result, GetCustomerContextError)
+    assert result.error_code == "CUSTOMER_NOT_FOUND"
+    assert _CUSTOMER_ID in result.message
+
+
+# ---------------------------------------------------------------------------
+# Erro: BACKEND_UNAVAILABLE — 5xx
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_context_error_5xx() -> None:
+    """Tool deve retornar BACKEND_UNAVAILABLE quando backend retorna 5xx."""
+    with respx.mock:
+        respx.get(_context_url(_LEAD_ID)).mock(
+            return_value=httpx.Response(503, json={"error": "service unavailable"})
+        )
+        result = await get_customer_context.ainvoke({"lead_id": _LEAD_ID})
+
+    assert isinstance(result, GetCustomerContextError)
+    assert result.error_code == "BACKEND_UNAVAILABLE"
+    assert "503" in result.message
+
+
+# ---------------------------------------------------------------------------
+# Erro: BACKEND_UNAVAILABLE — timeout
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_context_error_timeout() -> None:
+    """Tool deve retornar BACKEND_UNAVAILABLE quando backend ultrapassa timeout."""
+    with respx.mock:
+        respx.get(_context_url(_LEAD_ID)).mock(
+            side_effect=httpx.ReadTimeout("timed out", request=None)  # type: ignore[arg-type]
+        )
+        result = await get_customer_context.ainvoke({"lead_id": _LEAD_ID})
+
+    assert isinstance(result, GetCustomerContextError)
+    assert result.error_code == "BACKEND_UNAVAILABLE"
+    assert "Timeout" in result.message
+
+
+# ---------------------------------------------------------------------------
+# LGPD: ausência de PII sensível no output
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_context_output_has_no_sensitive_pii() -> None:
+    """Output não deve conter CPF, phone, email, document_number, notes."""
+    with respx.mock:
+        respx.get(_context_url(_LEAD_ID)).mock(
+            return_value=httpx.Response(200, json=_CONTEXT_BODY_FULL)
+        )
+        result = await get_customer_context.ainvoke({"lead_id": _LEAD_ID})
+
+    assert isinstance(result, GetCustomerContextSuccess)
+
+    # Serializar o modelo e garantir ausência de campos PII sensíveis
+    data = result.model_dump()
+    pii_fields = {"cpf", "phone", "email", "document_number", "document_hash", "notes", "rg"}
+    assert pii_fields.isdisjoint(data.keys()), (
+        f"Campos PII sensíveis encontrados no output: {pii_fields & data.keys()}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Headers obrigatórios
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_context_sends_internal_token() -> None:
+    """X-Internal-Token deve estar presente em toda chamada."""
+    with respx.mock:
+        route = respx.get(_context_url(_LEAD_ID)).mock(
+            return_value=httpx.Response(200, json=_CONTEXT_BODY_MINIMAL)
+        )
+        await get_customer_context.ainvoke({"lead_id": _LEAD_ID})
+
+    token = route.calls.last.request.headers.get("x-internal-token")
+    assert token == settings.internal_token.get_secret_value()
