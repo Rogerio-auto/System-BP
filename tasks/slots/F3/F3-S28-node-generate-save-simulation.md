@@ -3,12 +3,12 @@ id: F3-S28
 title: Nós generate_simulation + save_simulation
 phase: F3
 task_ref: T3.15
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: python-engineer
 claimed_at:
-completed_at:
+completed_at: 2026-05-19T03:34:42Z
 pr_url:
 depends_on: [F3-S00, F3-S03, F3-S15, F3-S16, F3-S21]
 blocks: [F3-S31]
