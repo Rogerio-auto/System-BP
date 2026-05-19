@@ -3,13 +3,13 @@ id: F3-S30
 title: Nós send_response + persist_state + log_decision
 phase: F3
 task_ref: T3.16
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: python-engineer
 claimed_at: 2026-05-19T03:21:16Z
 completed_at: 2026-05-19T03:31:53Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/105
 depends_on: [F3-S00, F3-S02, F3-S03, F3-S19]
 blocks: [F3-S31]
 labels: [lgpd-impact]

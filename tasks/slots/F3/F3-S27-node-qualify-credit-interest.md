@@ -3,13 +3,13 @@ id: F3-S27
 title: Nó qualify_credit_interest
 phase: F3
 task_ref: T3.15
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: python-engineer
 claimed_at: 2026-05-19T03:20:56Z
 completed_at: 2026-05-19T03:30:21Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/102
 depends_on: [F3-S00, F3-S03]
 blocks: [F3-S31]
 labels: [lgpd-impact]

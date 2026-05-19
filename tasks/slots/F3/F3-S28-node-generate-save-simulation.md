@@ -3,13 +3,13 @@ id: F3-S28
 title: Nós generate_simulation + save_simulation
 phase: F3
 task_ref: T3.15
-status: in-progress
+status: done
 priority: high
 estimated_size: M
 agent_id: python-engineer
 claimed_at: 2026-05-19T03:21:15Z
-completed_at:
-pr_url:
+completed_at: 2026-05-19T03:50:04Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/103
 depends_on: [F3-S00, F3-S03, F3-S15, F3-S16, F3-S21]
 blocks: [F3-S31]
 labels: []

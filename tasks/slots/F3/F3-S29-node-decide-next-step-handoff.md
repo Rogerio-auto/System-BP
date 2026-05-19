@@ -3,13 +3,13 @@ id: F3-S29
 title: Nós decide_next_step + request_handoff
 phase: F3
 task_ref: T3.16
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T03:21:00Z
 completed_at: 2026-05-19T03:34:59Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/104
 depends_on: [F3-S03, F3-S17, F3-S18]
 blocks: [F3-S31]
 labels: []
