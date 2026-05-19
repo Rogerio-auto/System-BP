@@ -1,11 +1,20 @@
-"""Testes unitários para app/tools/chatwoot_tools.py — tool request_handoff.
+"""Testes unitários para app/tools/chatwoot_tools.py.
 
-Cobre:
+Cobre request_handoff:
 - Handoff criado com sucesso: payload correto, headers obrigatórios presentes.
 - Idempotency-Key gerado deterministicamente (UUID v5) quando não fornecido.
 - Idempotency-Key explícito enviado sem modificação.
 - Reenvio idempotente: mesma (conversation_id, reason) → mesmo idempotency_key.
 - simulation_id opcional: presente e ausente no payload.
+- Falha 5xx propaga HTTPStatusError ao chamador.
+- Falha de timeout propaga TimeoutException ao chamador.
+
+Cobre create_chatwoot_note:
+- Nota criada com sucesso: payload correto, headers obrigatórios presentes.
+- note_id retornado corretamente no output.
+- Idempotency-Key gerado deterministicamente (UUID v5) quando não fornecido.
+- Idempotency-Key explícito enviado sem modificação.
+- Reenvio idempotente: mesma (chatwoot_conversation_id, body) → mesmo idempotency_key.
 - Falha 5xx propaga HTTPStatusError ao chamador.
 - Falha de timeout propaga TimeoutException ao chamador.
 """
@@ -19,7 +28,14 @@ import respx
 
 from app.config import settings
 from app.tools._base import InternalApiClient
-from app.tools.chatwoot_tools import HandoffInput, HandoffOutput, request_handoff
+from app.tools.chatwoot_tools import (
+    ChatwootNoteInput,
+    ChatwootNoteOutput,
+    HandoffInput,
+    HandoffOutput,
+    create_chatwoot_note,
+    request_handoff,
+)
 
 
 def _handoff_url() -> str:
@@ -27,6 +43,13 @@ def _handoff_url() -> str:
     raw = str(settings.backend_internal_url)
     base = raw if raw.endswith("/") else f"{raw}/"
     return f"{base}internal/handoffs"
+
+
+def _notes_url() -> str:
+    """Monta URL absoluta do endpoint /internal/chatwoot/notes."""
+    raw = str(settings.backend_internal_url)
+    base = raw if raw.endswith("/") else f"{raw}/"
+    return f"{base}internal/chatwoot/notes"
 
 
 _MOCK_RESPONSE: dict[str, object] = {
@@ -288,3 +311,181 @@ async def test_request_handoff_raises_on_timeout() -> None:
         client = InternalApiClient(timeout=0.001)
         with pytest.raises(httpx.TimeoutException):
             await request_handoff(_make_input(), client=client)
+
+
+# ===========================================================================
+# create_chatwoot_note — testes (doc 06 §7.5)
+# ===========================================================================
+
+_CHATWOOT_CONV_ID = "cw-conv-0001"
+_NOTE_BODY = "Resumo pré-handoff: cliente solicitou crédito rural."
+
+_MOCK_NOTE_RESPONSE: dict[str, object] = {
+    "note_id": "note-0001-0001-0001-000000000001",
+}
+
+
+def _make_note_input(
+    *,
+    chatwoot_conversation_id: str = _CHATWOOT_CONV_ID,
+    body: str = _NOTE_BODY,
+) -> ChatwootNoteInput:
+    return ChatwootNoteInput(
+        chatwoot_conversation_id=chatwoot_conversation_id,
+        body=body,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Criação com sucesso — payload e headers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_create_chatwoot_note_returns_output_on_success() -> None:
+    """Deve retornar ChatwootNoteOutput populado com note_id do backend."""
+    url = _notes_url()
+    with respx.mock:
+        route = respx.post(url).mock(
+            return_value=httpx.Response(201, json=_MOCK_NOTE_RESPONSE)
+        )
+        client = InternalApiClient()
+        result = await create_chatwoot_note(_make_note_input(), client=client)
+
+    assert isinstance(result, ChatwootNoteOutput)
+    assert result.note_id == _MOCK_NOTE_RESPONSE["note_id"]
+    assert route.called
+
+
+@pytest.mark.asyncio()
+async def test_create_chatwoot_note_sends_internal_token() -> None:
+    """Header X-Internal-Token deve estar presente em toda chamada."""
+    url = _notes_url()
+    with respx.mock:
+        route = respx.post(url).mock(
+            return_value=httpx.Response(201, json=_MOCK_NOTE_RESPONSE)
+        )
+        client = InternalApiClient()
+        await create_chatwoot_note(_make_note_input(), client=client)
+
+    token = route.calls.last.request.headers.get("x-internal-token")
+    assert token == settings.internal_token.get_secret_value()
+
+
+@pytest.mark.asyncio()
+async def test_create_chatwoot_note_payload_contains_required_fields() -> None:
+    """Payload JSON deve conter chatwoot_conversation_id, body e type."""
+    url = _notes_url()
+    with respx.mock:
+        route = respx.post(url).mock(
+            return_value=httpx.Response(201, json=_MOCK_NOTE_RESPONSE)
+        )
+        client = InternalApiClient()
+        inp = _make_note_input(
+            chatwoot_conversation_id="cw-conv-9999",
+            body="Nota de teste.",
+        )
+        await create_chatwoot_note(inp, client=client)
+
+    import json
+
+    sent_body: dict[str, object] = json.loads(route.calls.last.request.content)
+    assert sent_body["chatwoot_conversation_id"] == "cw-conv-9999"
+    assert sent_body["body"] == "Nota de teste."
+    assert sent_body["type"] == "internal"
+
+
+# ---------------------------------------------------------------------------
+# Idempotency-Key — gerado deterministicamente (UUID v5)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_create_chatwoot_note_sends_idempotency_key_header() -> None:
+    """Idempotency-Key deve estar presente quando gerado internamente."""
+    url = _notes_url()
+    with respx.mock:
+        route = respx.post(url).mock(
+            return_value=httpx.Response(201, json=_MOCK_NOTE_RESPONSE)
+        )
+        client = InternalApiClient()
+        await create_chatwoot_note(_make_note_input(), client=client)
+
+    key_header = route.calls.last.request.headers.get("idempotency-key")
+    assert key_header is not None
+    # Deve ser um UUID válido
+    uuid.UUID(key_header)
+
+
+@pytest.mark.asyncio()
+async def test_create_chatwoot_note_idempotency_key_is_deterministic() -> None:
+    """Mesma (chatwoot_conversation_id, body) deve gerar o mesmo Idempotency-Key."""
+    url = _notes_url()
+    inp = _make_note_input()
+
+    keys: list[str] = []
+    for _ in range(2):
+        with respx.mock:
+            route = respx.post(url).mock(
+                return_value=httpx.Response(201, json=_MOCK_NOTE_RESPONSE)
+            )
+            client = InternalApiClient()
+            await create_chatwoot_note(inp, client=client)
+            keys.append(route.calls.last.request.headers.get("idempotency-key", ""))
+
+    assert keys[0] == keys[1], "Idempotency-Key deve ser determinístico para mesmos inputs"
+
+
+@pytest.mark.asyncio()
+async def test_create_chatwoot_note_uses_explicit_idempotency_key() -> None:
+    """Idempotency-Key explícito deve ser enviado sem modificação."""
+    url = _notes_url()
+    explicit_key = "note-explicit-key-xyz789"
+    with respx.mock:
+        route = respx.post(url).mock(
+            return_value=httpx.Response(201, json=_MOCK_NOTE_RESPONSE)
+        )
+        client = InternalApiClient()
+        await create_chatwoot_note(
+            _make_note_input(), client=client, idempotency_key=explicit_key
+        )
+
+    key_header = route.calls.last.request.headers.get("idempotency-key")
+    assert key_header == explicit_key
+
+
+# ---------------------------------------------------------------------------
+# Propagação de erros — 5xx e timeout
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_create_chatwoot_note_raises_on_5xx() -> None:
+    """HTTPStatusError deve ser propagado quando o backend retorna 5xx persistente."""
+    url = _notes_url()
+    with respx.mock:
+        # Dois 5xx esgotam os retries do InternalApiClient (MAX_RETRIES=1)
+        respx.post(url).mock(
+            side_effect=[
+                httpx.Response(500, json={"error": "internal server error"}),
+                httpx.Response(500, json={"error": "internal server error"}),
+            ]
+        )
+        client = InternalApiClient()
+        with pytest.raises(httpx.HTTPStatusError) as exc_info:
+            await create_chatwoot_note(_make_note_input(), client=client)
+
+    assert exc_info.value.response.status_code == 500
+
+
+@pytest.mark.asyncio()
+async def test_create_chatwoot_note_raises_on_timeout() -> None:
+    """TimeoutException deve ser propagado quando o backend não responde."""
+    url = _notes_url()
+    with respx.mock:
+        respx.post(url).mock(
+            side_effect=httpx.ReadTimeout("timed out", request=None)  # type: ignore[arg-type]
+        )
+        client = InternalApiClient(timeout=0.001)
+        with pytest.raises(httpx.TimeoutException):
+            await create_chatwoot_note(_make_note_input(), client=client)
