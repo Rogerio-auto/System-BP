@@ -3,12 +3,12 @@ id: F3-S24
 title: Nó classify_intent (prompt versionado)
 phase: F3
 task_ref: T3.13
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: python-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-19T02:56:14Z
+completed_at: 2026-05-19T03:05:07Z
 pr_url:
 depends_on: [F3-S00, F3-S03]
 blocks: [F3-S31]
