@@ -68,3 +68,6 @@ export * from './chatwootHandoffs.js';
 // 2FA / TOTP — recovery codes e desafios de login (F8-S11)
 export * from './userRecoveryCodes.js';
 export * from './totpChallenges.js';
+
+// Preços por modelo LLM — custeio de decisões IA (F9-S00)
+export * from './modelPricing.js';
