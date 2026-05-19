@@ -3,11 +3,11 @@ id: F3-S07
 title: Endpoint POST /internal/handoffs (request_handoff)
 phase: F3
 task_ref: T3.8
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-19T00:22:38Z
 completed_at:
 pr_url:
 depends_on: [F3-S04]
