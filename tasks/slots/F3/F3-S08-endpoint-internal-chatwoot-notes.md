@@ -3,11 +3,11 @@ id: F3-S08
 title: Endpoint POST /internal/chatwoot/notes (create_chatwoot_note)
 phase: F3
 task_ref: T3.9
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-19T01:14:55Z
 completed_at:
 pr_url:
 depends_on: [F3-S04]
