@@ -38,6 +38,7 @@ import {
   findUserProfileById,
   insertRecoveryCodes,
   listAvailableRecoveryCodes,
+  markRecoveryCodeUsedAtomic,
   revokeOtherSessions,
   saveTotpSecretPending,
   updateUserFullName,
@@ -338,19 +339,19 @@ export async function disable2fa(
   //   - qualquer outro formato → recovery code (XXXXX-XXXXX ou 10 chars)
   const isTotpCode = /^\d{6}$/.test(body.code);
   let verifiedOk = false;
+  let recoveryCodeId: string | null = null;
 
   if (isTotpCode) {
     verifiedOk = verifyTotpCode(secret, body.code);
   } else {
-    // Recovery code: buscar todos os disponíveis e comparar
+    // Recovery code: buscar todos os disponíveis e comparar hashes
     const availableCodes = await listAvailableRecoveryCodes(db, actor.userId);
     const hashes = availableCodes.map((c) => c.codeHash);
     const matchIdx = await matchRecoveryCode(body.code, hashes);
 
     if (matchIdx !== -1) {
-      // Marcar o recovery code como usado antes de desativar
-      // (transação garante atomicidade — ver abaixo)
       verifiedOk = true;
+      recoveryCodeId = availableCodes[matchIdx]!.id;
     }
   }
 
@@ -360,9 +361,27 @@ export async function disable2fa(
     );
   }
 
-  // Transação: desativar 2FA + limpar secret + limpar recovery codes + audit log
+  // Transação: (se recovery code) gate atômico de consumo + desativar 2FA +
+  // deletar recovery codes + audit log.
+  //
+  // SEGURANÇA (MED-2): o recovery code é consumido atomicamente dentro da mesma
+  // transação que desativa o 2FA. Se o gate retornar false (já consumido por
+  // requisição concorrente), toda a transação faz rollback — o 2FA permanece ativo.
   await db.transaction(async (tx) => {
+    // Gate atômico no recovery code (se o código fornecido era um recovery code)
+    if (recoveryCodeId) {
+      const consumed = await markRecoveryCodeUsedAtomic(tx as unknown as Database, recoveryCodeId);
+      if (!consumed) {
+        // Recovery code já foi consumido em requisição concorrente — rejeitar.
+        throw new UnauthorizedError(
+          'Código inválido. Informe o código do app autenticador ou um recovery code válido.',
+        );
+      }
+    }
+
     await disableTotp(tx as unknown as Database, actor.userId);
+    // deleteRecoveryCodes remove todos os recovery codes restantes (incluindo o
+    // que acabou de ser marcado como usado acima — limpeza total ao desativar).
     await deleteRecoveryCodes(tx as unknown as Database, actor.userId);
 
     await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {

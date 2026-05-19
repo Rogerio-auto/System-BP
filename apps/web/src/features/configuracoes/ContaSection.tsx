@@ -11,6 +11,7 @@
 // LGPD: recovery codes exibidos UMA VEZ — sem persistir em estado global.
 // =============================================================================
 
+import QRCode from 'qrcode';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -67,19 +68,41 @@ function SectionCard({
   );
 }
 
-// ─── QR Code SVG simples via URL ──────────────────────────────────────────────
+// ─── QR Code renderizado client-side ─────────────────────────────────────────
 
 /**
- * Renderiza o QR code do otpauth URI usando Google Charts API.
- * Em produção, usar uma lib local (ex: qrcode.react) para evitar dependência externa.
- * Para o MVP, o URI de otpauth é exibido como texto copiável e o QR via Charts API.
+ * Renderiza o QR code do otpauth URI inteiramente no cliente usando a lib `qrcode`.
  *
- * Decisão de engenharia: não importar qrcode.react agora para evitar adicionar
- * dependência ao pacote. O usuário pode escanear o QR (via Charts API) OU digitar
- * o secret manualmente. Registrado no PR conforme instrução do slot.
+ * SEGURANÇA (HIGH-1 / LGPD art. 7/46): o otpauthUri contém o secret TOTP do usuário.
+ * NUNCA enviar para serviço externo (ex: api.qrserver.com, chart.googleapis.com).
+ * A geração ocorre 100% no browser via Web Canvas — nenhuma chamada de rede é feita.
+ *
+ * Decisão de engenharia: lib `qrcode` (canvas-based, zero rede, tipos oficiais via
+ * @types/qrcode). Adicionada ao package.json do @elemento/web.
  */
 function QrCodeDisplay({ otpauthUri }: { otpauthUri: string }): React.JSX.Element {
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpauthUri)}`;
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Gera QR diretamente no canvas — sem rede, sem serviço externo
+    QRCode.toCanvas(canvas, otpauthUri, {
+      width: 200,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' },
+    }).catch(() => setError(true));
+  }, [otpauthUri]);
+
+  if (error) {
+    return (
+      <p className="font-sans text-red-500 text-center" style={{ fontSize: 'var(--text-xs)' }}>
+        Não foi possível gerar o QR code. Use o código manual abaixo.
+      </p>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-3">
@@ -87,12 +110,13 @@ function QrCodeDisplay({ otpauthUri }: { otpauthUri: string }): React.JSX.Elemen
         className="rounded-lg border border-border p-3 inline-flex"
         style={{ background: 'var(--bg-elev-0)' }}
       >
-        <img
-          src={qrUrl}
-          alt="QR code para configurar o app autenticador"
+        {/* Canvas onde o qrcode renderiza o QR localmente — sem chamada de rede */}
+        <canvas
+          ref={canvasRef}
           width={200}
           height={200}
           className="rounded"
+          aria-label="QR code para configurar o app autenticador"
         />
       </div>
       <p className="font-sans text-ink-3 text-center" style={{ fontSize: 'var(--text-xs)' }}>

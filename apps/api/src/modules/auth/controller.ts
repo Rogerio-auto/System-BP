@@ -18,6 +18,7 @@
 import type { LoginBody, RefreshBody, LogoutBody } from '@elemento/shared-schemas';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { env } from '../../config/env.js';
 import { db } from '../../db/client.js';
 import { UnauthorizedError } from '../../shared/errors.js';
 
@@ -64,7 +65,7 @@ export async function loginController(
   request: FastifyRequest<{ Body: LoginBody }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const isProduction = process.env['NODE_ENV'] === 'production';
+  const isProduction = env.NODE_ENV === 'production';
   const ip = request.ip;
   const userAgent = request.headers['user-agent'] ?? null;
 
@@ -116,7 +117,7 @@ export async function verify2faController(
   request: FastifyRequest<{ Body: Verify2faBody }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const isProduction = process.env['NODE_ENV'] === 'production';
+  const isProduction = env.NODE_ENV === 'production';
   const ip = request.ip;
   const userAgent = request.headers['user-agent'] ?? null;
 
@@ -164,7 +165,7 @@ export async function refreshController(
   request: FastifyRequest<{ Body: RefreshBody }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const isProduction = process.env['NODE_ENV'] === 'production';
+  const isProduction = env.NODE_ENV === 'production';
 
   const refreshToken = request.cookies[REFRESH_COOKIE];
   const csrfToken = request.headers['x-csrf-token'];
@@ -213,7 +214,7 @@ export async function logoutController(
   request: FastifyRequest<{ Body: LogoutBody }>,
   reply: FastifyReply,
 ): Promise<void> {
-  const isProduction = process.env['NODE_ENV'] === 'production';
+  const isProduction = env.NODE_ENV === 'production';
 
   const refreshToken = request.cookies[REFRESH_COOKIE];
 

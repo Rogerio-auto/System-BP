@@ -72,10 +72,12 @@ const envSchema = z.object({
       },
     ),
 
-  // Pepper HMAC-SHA256 para hash de dedupe de CPF/CNPJ (doc 17 §8.1).
+  // Pepper HMAC-SHA256 para hash de dedupe de CPF/CNPJ e challenge token de 2FA (doc 17 §8.1).
   // Formato: base64 de ≥32 bytes. Gerar: openssl rand -base64 32
-  // Em produção é obrigatória — falha de boot se ausente (validado em pii.ts).
-  LGPD_DEDUPE_PEPPER: z.string().optional(),
+  // OBRIGATÓRIA em todos os ambientes. Um deploy sem ela falha no boot imediatamente,
+  // impedindo que um segredo dev-only ('dev-only-lgpd-pepper-...') seja usado em produção
+  // silenciosamente (comprometeria o HMAC dos challenge tokens de 2FA).
+  LGPD_DEDUPE_PEPPER: z.string().min(32, 'LGPD_DEDUPE_PEPPER precisa ter ao menos 32 caracteres'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -33,6 +33,22 @@ vi.mock('pg', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Mock db/client — o service.ts de auth agora usa db.transaction em verify2fa
+// (MED-1 hardening). O mock executa o callback passando o próprio objeto db,
+// o que garante que os mocks de repository continuem a ser chamados dentro
+// da transação simulada.
+// ---------------------------------------------------------------------------
+vi.mock('../../../db/client.js', () => {
+  const mockDb = {
+    // Simula db.transaction executando o callback com o próprio mockDb como tx.
+    // Isso garante que markTotpChallengeUsedAtomic e createSession (chamados
+    // dentro do callback) continuem a usar os mocks de repository.
+    transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => unknown) => fn(mockDb)),
+  };
+  return { db: mockDb, pool: { end: vi.fn() } };
+});
+
+// ---------------------------------------------------------------------------
 // Mock do módulo de repositório — controla dados retornados por cada teste
 // ---------------------------------------------------------------------------
 const mockFindUserByEmail = vi.fn();
@@ -46,7 +62,8 @@ const mockPurgeExpiredSessions = vi.fn();
 // 2FA mocks
 const mockCreateTotpChallenge = vi.fn();
 const mockFindTotpChallengeByHash = vi.fn();
-const mockMarkTotpChallengeUsed = vi.fn();
+// markTotpChallengeUsedAtomic: gate CAS — retorna true (consumido com sucesso) por padrão.
+const mockMarkTotpChallengeUsedAtomic = vi.fn().mockResolvedValue(true);
 
 vi.mock('../repository.js', () => ({
   findUserByEmail: (...args: unknown[]) => mockFindUserByEmail(...args),
@@ -61,17 +78,19 @@ vi.mock('../repository.js', () => ({
   // 2FA
   createTotpChallenge: (...args: unknown[]) => mockCreateTotpChallenge(...args),
   findTotpChallengeByHash: (...args: unknown[]) => mockFindTotpChallengeByHash(...args),
-  markTotpChallengeUsed: (...args: unknown[]) => mockMarkTotpChallengeUsed(...args),
+  // Renomeado para gate atômico (F8-S11 hardening MED-1)
+  markTotpChallengeUsedAtomic: (...args: unknown[]) => mockMarkTotpChallengeUsedAtomic(...args),
   purgeExpiredChallenges: vi.fn().mockResolvedValue(undefined),
 }));
 
-// Mock do account/repository.js (para listAvailableRecoveryCodes e markRecoveryCodeUsed)
+// Mock do account/repository.js (para listAvailableRecoveryCodes e markRecoveryCodeUsedAtomic)
 const mockListAvailableRecoveryCodes = vi.fn();
-const mockMarkRecoveryCodeUsed = vi.fn();
+// markRecoveryCodeUsedAtomic: gate CAS — retorna true por padrão.
+const mockMarkRecoveryCodeUsedAtomic = vi.fn().mockResolvedValue(true);
 
 vi.mock('../../account/repository.js', () => ({
   listAvailableRecoveryCodes: (...args: unknown[]) => mockListAvailableRecoveryCodes(...args),
-  markRecoveryCodeUsed: (...args: unknown[]) => mockMarkRecoveryCodeUsed(...args),
+  markRecoveryCodeUsedAtomic: (...args: unknown[]) => mockMarkRecoveryCodeUsedAtomic(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -509,7 +528,8 @@ describe('POST /api/auth/verify-2fa', () => {
     vi.clearAllMocks();
     mockUpdateUserLastLogin.mockResolvedValue(undefined);
     mockCreateSession.mockResolvedValue(undefined);
-    mockMarkTotpChallengeUsed.mockResolvedValue(undefined);
+    // Gate atômico retorna true (consumido com sucesso) por padrão
+    mockMarkTotpChallengeUsedAtomic.mockResolvedValue(true);
   });
 
   it('retorna 401 quando challenge token inválido', async () => {
@@ -565,6 +585,50 @@ describe('POST /api/auth/verify-2fa', () => {
     });
 
     expect(res.statusCode).toBe(401);
+  });
+
+  it('retorna 401 quando challenge já foi consumido (gate CAS retorna false — replay/race)', async () => {
+    mockFindTotpChallengeByHash.mockResolvedValue({
+      id: 'challenge-id',
+      userId: FIXTURE_USER_ID,
+      tokenHash: 'hash',
+      expiresAt: new Date(Date.now() + 60000),
+      usedAt: null,
+      createdAt: new Date(),
+    });
+    const { encryptPii } = await import('../../../lib/crypto/pii.js');
+    const { generateTotpSecret, verifyTotpCode, generateOtpauthUri } = await import(
+      '../../../lib/totp.js'
+    );
+    const secret = generateTotpSecret();
+    const encrypted = Buffer.from(await encryptPii(secret));
+    mockFindUserById.mockResolvedValue(
+      makeUser({ totpSecret: encrypted, totpConfirmedAt: new Date() }),
+    );
+
+    // Simular o gate CAS retornando false — challenge já consumido por outra requisição
+    mockMarkTotpChallengeUsedAtomic.mockResolvedValueOnce(false);
+
+    // Gerar um código TOTP válido para o secret atual
+    const { TOTP } = await import('otpauth');
+    const totp = new TOTP({ secret, digits: 6, period: 30 });
+    const validCode = totp.generate();
+    // Confirma que o código é válido (o erro deve vir do gate, não do código)
+    expect(verifyTotpCode(secret, validCode)).toBe(true);
+    void generateOtpauthUri; // evitar lint de unused
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/verify-2fa',
+      payload: {
+        challengeToken: crypto.randomUUID(),
+        code: validCode,
+      },
+    });
+
+    // Deve rejeitar com 401 mesmo com código correto — o challenge foi consumido
+    expect(res.statusCode).toBe(401);
+    expect(mockMarkTotpChallengeUsedAtomic).toHaveBeenCalledOnce();
   });
 });
 

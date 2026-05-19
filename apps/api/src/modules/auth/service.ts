@@ -45,7 +45,7 @@ import {
   verifyRefreshToken,
 } from '../../shared/jwt.js';
 import { passwordVerify } from '../../shared/password.js';
-import { listAvailableRecoveryCodes, markRecoveryCodeUsed } from '../account/repository.js';
+import { listAvailableRecoveryCodes, markRecoveryCodeUsedAtomic } from '../account/repository.js';
 
 import {
   createSession,
@@ -54,7 +54,7 @@ import {
   findTotpChallengeByHash,
   findUserByEmail,
   findUserById,
-  markTotpChallengeUsed,
+  markTotpChallengeUsedAtomic,
   purgeExpiredSessions,
   rotateSession,
   revokeSession,
@@ -364,19 +364,55 @@ export async function verify2fa(
     throw new UnauthorizedError('Código inválido ou expirado. Tente novamente.');
   }
 
-  // 4. Marcar challenge como usado (single-use) e recovery code se aplicável
-  await markTotpChallengeUsed(db, challenge.id);
-  if (recoveryCodeId) {
-    await markRecoveryCodeUsed(db, recoveryCodeId);
-
-    log.info(
-      { event: 'auth.2fa.recovery_code_used', user_id: user.id, ip },
-      '2FA verify: recovery code consumed',
+  // 4. Marcar challenge + recovery code de forma atômica dentro de uma transação.
+  //
+  // SEGURANÇA (MED-1): as três operações — marcar challenge, marcar recovery code e
+  // emitir sessão — são executadas na MESMA transação de banco com gate CAS.
+  //
+  // Gate CAS: UPDATE ... WHERE used_at IS NULL RETURNING id.
+  //   - Se 0 linhas retornam → challenge/recovery já foi consumido (race condition
+  //     ou replay) → rejeitar com 401. Isso impede que duas requisições concorrentes
+  //     com o mesmo challenge emitam duas sessões distintas.
+  //   - Se a emissão de sessão falhar após o gate, a transação inteira faz rollback
+  //     e o challenge volta a estar disponível para nova tentativa legítima.
+  return db.transaction(async (tx) => {
+    // Gate atômico no challenge
+    const challengeConsumed = await markTotpChallengeUsedAtomic(
+      tx as unknown as Database,
+      challenge.id,
     );
-  }
+    if (!challengeConsumed) {
+      // Challenge já foi consumido em requisição concorrente — rejeitar.
+      log.warn(
+        { event: 'auth.2fa.challenge_already_used', user_id: user.id, ip },
+        '2FA verify: challenge token already consumed (possible replay/race)',
+      );
+      throw new UnauthorizedError('Código de desafio inválido ou expirado. Faça login novamente.');
+    }
 
-  // 5. Emitir sessão completa
-  return _issueSession(db, user, { ip, userAgent }, log);
+    // Gate atômico no recovery code (se aplicável)
+    if (recoveryCodeId) {
+      const recoveryConsumed = await markRecoveryCodeUsedAtomic(
+        tx as unknown as Database,
+        recoveryCodeId,
+      );
+      if (!recoveryConsumed) {
+        log.warn(
+          { event: 'auth.2fa.recovery_already_used', user_id: user.id, ip },
+          '2FA verify: recovery code already consumed (possible replay/race)',
+        );
+        throw new UnauthorizedError('Código inválido ou expirado. Tente novamente.');
+      }
+
+      log.info(
+        { event: 'auth.2fa.recovery_code_used', user_id: user.id, ip },
+        '2FA verify: recovery code consumed',
+      );
+    }
+
+    // 5. Emitir sessão completa dentro da mesma transação
+    return _issueSession(tx as unknown as Database, user, { ip, userAgent }, log);
+  });
 }
 
 // ---------------------------------------------------------------------------

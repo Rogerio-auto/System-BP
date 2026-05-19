@@ -31,4 +31,12 @@ export function setup(): void {
 
   // Chatwoot webhook HMAC (F1-S21)
   process.env['CHATWOOT_WEBHOOK_HMAC_SECRET'] = 'test-chatwoot-hmac-secret-vitest';
+
+  // LGPD — PII key e pepper (F8-S11 hardening: LGPD_DEDUPE_PEPPER agora obrigatório
+  // no envSchema para evitar boot silencioso com chave dev em produção).
+  // Valores de teste somente — nunca usar em produção.
+  // LGPD_DATA_KEY: base64 de exatamente 32 bytes (validado pelo refine do schema).
+  process.env['LGPD_DATA_KEY'] = 'P5Uc4j/vdAisFljJ0kdz08PLWmPvMC/NX5VIy99Bv+E=';
+  // LGPD_DEDUPE_PEPPER: string de ≥32 chars (validado pelo .min(32) do schema).
+  process.env['LGPD_DEDUPE_PEPPER'] = 'xgRqlH8Ag8bV/DI9gza3qIFx0w4RF3f9ZF/RSilyV2s=';
 }

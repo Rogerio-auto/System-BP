@@ -90,6 +90,10 @@ export async function buildApp() {
           // totp_secret: cifrado em bytea, mas nunca deve aparecer em logs
           '*.totpSecret',
           '*.totp_secret',
+          // otpauthUri: contém o secret TOTP em plaintext no query param — nunca logar
+          '*.otpauthUri',
+          '*.otpauth_uri',
+          'req.body.otpauthUri',
           // challenge_token: token de curta duração para passo 2FA
           'req.body.challengeToken',
           '*.challengeToken',

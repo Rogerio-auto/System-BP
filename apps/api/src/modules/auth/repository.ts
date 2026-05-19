@@ -220,14 +220,25 @@ export async function findTotpChallengeByHash(
 }
 
 /**
- * Marca um TOTP challenge como usado (consumido).
- * Idempotente: se já marcado, é no-op.
+ * Marca um TOTP challenge como usado de forma atômica (gate CAS).
+ *
+ * Executa UPDATE ... WHERE id = $1 AND used_at IS NULL RETURNING id.
+ * Se não retornar linha, o challenge já foi consumido (race condition ou replay) —
+ * o caller deve rejeitar a requisição.
+ *
+ * Retorna true se marcado com sucesso, false se já estava consumido.
  */
-export async function markTotpChallengeUsed(db: Database, challengeId: string): Promise<void> {
-  await db
+export async function markTotpChallengeUsedAtomic(
+  db: Database,
+  challengeId: string,
+): Promise<boolean> {
+  const rows = await db
     .update(totpChallenges)
     .set({ usedAt: new Date() })
-    .where(and(eq(totpChallenges.id, challengeId), isNull(totpChallenges.usedAt)));
+    .where(and(eq(totpChallenges.id, challengeId), isNull(totpChallenges.usedAt)))
+    .returning({ id: totpChallenges.id });
+
+  return rows.length > 0;
 }
 
 /**

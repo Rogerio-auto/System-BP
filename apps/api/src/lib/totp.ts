@@ -25,6 +25,8 @@ import { createHmac, randomBytes } from 'node:crypto';
 import bcryptjs from 'bcryptjs';
 import { TOTP } from 'otpauth';
 
+import { env } from '../config/env.js';
+
 // ---------------------------------------------------------------------------
 // Constantes
 // ---------------------------------------------------------------------------
@@ -233,13 +235,13 @@ export function generateChallengeToken(): { token: string; tokenHash: string } {
 
 /**
  * Gera o HMAC-SHA256 de um challenge token.
- * Usa o LGPD_DEDUPE_PEPPER como chave (ou fallback de dev).
+ *
+ * Usa env.LGPD_DEDUPE_PEPPER como chave HMAC — validado pelo schema Zod ao boot
+ * (obrigatório, mínimo 32 chars). Sem fallback de dev: um boot sem a variável
+ * falha imediatamente no parse do schema, impedindo silenciosamente o uso de
+ * um segredo fraco em produção.
  */
 export function hashChallengeToken(token: string): string {
-  const raw = process.env['LGPD_DEDUPE_PEPPER'];
-  const key = raw
-    ? Buffer.from(raw, 'base64')
-    : Buffer.from('dev-only-lgpd-pepper-do-not-use-prod', 'utf8');
-
+  const key = Buffer.from(env.LGPD_DEDUPE_PEPPER, 'base64');
   return createHmac('sha256', key).update(token, 'utf8').digest('hex');
 }

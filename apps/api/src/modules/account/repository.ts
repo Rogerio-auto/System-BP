@@ -157,6 +157,23 @@ export async function markRecoveryCodeUsed(db: Database, codeId: string): Promis
 }
 
 /**
+ * Marca um recovery code como usado de forma atômica (gate CAS).
+ *
+ * Executa UPDATE ... WHERE id = $1 AND used_at IS NULL RETURNING id.
+ * Retorna true se marcado com sucesso, false se já estava consumido (race condition).
+ * O caller deve rejeitar a requisição se retornar false.
+ */
+export async function markRecoveryCodeUsedAtomic(db: Database, codeId: string): Promise<boolean> {
+  const rows = await db
+    .update(userRecoveryCodes)
+    .set({ usedAt: new Date() })
+    .where(and(eq(userRecoveryCodes.id, codeId), isNull(userRecoveryCodes.usedAt)))
+    .returning({ id: userRecoveryCodes.id });
+
+  return rows.length > 0;
+}
+
+/**
  * Deleta todos os recovery codes do usuário (usado na desativação do 2FA).
  * Soft-delete não é necessário aqui — o audit log cobre o rastro.
  */
