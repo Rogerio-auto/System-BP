@@ -3,11 +3,11 @@ id: F3-S21
 title: Tool mark_simulation_sent (Python)
 phase: F3
 task_ref: T3.7
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: python-engineer
-claimed_at:
+claimed_at: 2026-05-19T02:32:37Z
 completed_at:
 pr_url:
 depends_on: [F3-S11, F3-S15]
