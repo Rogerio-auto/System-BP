@@ -3,12 +3,12 @@ id: F3-S10
 title: Endpoint GET /internal/customers/:id/context (get_customer_context)
 phase: F3
 task_ref: T3.4
-status: available
+status: review
 priority: medium
 estimated_size: S
 agent_id: backend-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-19T01:14:56Z
+completed_at: 2026-05-19T01:33:14Z
 pr_url:
 depends_on: [F3-S04]
 blocks: [F3-S20]
