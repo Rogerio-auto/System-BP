@@ -139,6 +139,105 @@ export const InternalGetOrCreateLeadResponseSchema = z.object({
 export type InternalGetOrCreateLeadResponse = z.infer<typeof InternalGetOrCreateLeadResponseSchema>;
 
 // ---------------------------------------------------------------------------
+// Schemas para PATCH /internal/leads/:id (update_lead_profile — F3-S12)
+// ---------------------------------------------------------------------------
+
+/**
+ * Params do PATCH /internal/leads/:id.
+ */
+export const InternalLeadParamsSchema = z.object({
+  id: z.string().uuid('id deve ser UUID'),
+});
+
+export type InternalLeadParams = z.infer<typeof InternalLeadParamsSchema>;
+
+/**
+ * Body do PATCH /internal/leads/:id.
+ *
+ * Campos atualizáveis pela IA (tool update_lead_profile, F3-S22).
+ * Campos sensíveis de negócio (status, source, agentId, cpf, email) são
+ * deliberadamente EXCLUÍDOS — IA só pode atualizar perfil coletado na conversa.
+ *
+ * LGPD (doc 17 §8.1):
+ *   - name é PII — coberto por pino.redact.
+ *   - cityId, requestedAmount, requestedTermMonths são dados de crédito, não PII direta.
+ *   - Resposta retorna IDs opacos e campos não-PII.
+ *
+ * Política de campos não permitidos:
+ *   Qualquer campo fora deste schema retorna 422 VALIDATION_ERROR.
+ *   Implementado via z.object().strict() — rejeita chaves desconhecidas.
+ */
+export const InternalUpdateLeadBodySchema = z
+  .object({
+    /**
+     * UUID da organização. Obrigatório — não há JWT para derivar o contexto de org.
+     * Consistente com /internal/leads/get-or-create.
+     */
+    organization_id: z
+      .string({ required_error: 'organization_id é obrigatório' })
+      .uuid('organization_id deve ser UUID'),
+
+    /**
+     * Nome atualizado do lead (coletado na conversa).
+     * LGPD: PII — coberto por pino.redact.
+     * Vazio não é aceito — min(1) garante que o nome não seja string vazia.
+     */
+    name: z.string().min(1, 'name não pode ser vazio').max(255).optional(),
+
+    /**
+     * UUID da cidade identificada na conversa.
+     * LGPD: UUID opaco — não é PII.
+     */
+    city_id: z.string().uuid('city_id deve ser UUID').optional(),
+
+    /**
+     * Valor de crédito solicitado pelo lead (em reais, dois decimais).
+     * Coletado pelo nó collect_missing_profile_data do grafo.
+     * Armazenado em leads.metadata['requested_amount'] até promoção a coluna própria.
+     */
+    requested_amount: z
+      .number({ invalid_type_error: 'requested_amount deve ser número' })
+      .positive('requested_amount deve ser positivo')
+      .optional(),
+
+    /**
+     * Prazo solicitado em meses (ex: 12, 24, 36, 48, 60).
+     * Coletado pelo nó collect_missing_profile_data do grafo.
+     * Armazenado em leads.metadata['requested_term_months'] até promoção a coluna própria.
+     */
+    requested_term_months: z
+      .number({ invalid_type_error: 'requested_term_months deve ser inteiro' })
+      .int('requested_term_months deve ser inteiro')
+      .positive('requested_term_months deve ser positivo')
+      .optional(),
+  })
+  .strict(); // rejeita chaves desconhecidas → 400 VALIDATION_ERROR
+
+export type InternalUpdateLeadBody = z.infer<typeof InternalUpdateLeadBodySchema>;
+
+/**
+ * Resposta de PATCH /internal/leads/:id.
+ *
+ * LGPD: retorna apenas IDs opacos e campos não-PII.
+ * name e phone não são incluídos — a IA já os conhece pelo estado da conversa.
+ */
+export const InternalUpdateLeadResponseSchema = z.object({
+  /** UUID do lead atualizado. */
+  lead_id: z.string().uuid(),
+
+  /** UUID da cidade do lead (atualizado ou existente). */
+  city_id: z.string().uuid().nullable(),
+
+  /** UUID do agente atribuído (inalterado por este endpoint). */
+  assigned_agent_id: z.string().uuid().nullable(),
+
+  /** Nome do stage atual no kanban (inalterado por este endpoint). */
+  current_stage: z.string().nullable(),
+});
+
+export type InternalUpdateLeadResponse = z.infer<typeof InternalUpdateLeadResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // Respostas de erro tipadas (doc 06 §7.1)
 // ---------------------------------------------------------------------------
 
