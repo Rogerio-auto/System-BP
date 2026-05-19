@@ -3,11 +3,11 @@ id: F3-S13
 title: Tool get_or_create_lead (Python)
 phase: F3
 task_ref: T3.4
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: python-engineer
-claimed_at:
+claimed_at: 2026-05-19T01:46:26Z
 completed_at:
 pr_url:
 depends_on: [F3-S04]
