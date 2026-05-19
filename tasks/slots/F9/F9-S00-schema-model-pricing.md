@@ -3,13 +3,13 @@ id: F9-S00
 title: Schema model_pricing — preços por modelo LLM (USD) + FX para BRL
 phase: F9
 task_ref: T9.0
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: db-schema-engineer
 claimed_at: 2026-05-19T22:09:48Z
 completed_at: 2026-05-19T22:28:14Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/113
 depends_on: []
 blocks: [F9-S02]
 labels: []
@@ -18,6 +18,7 @@ source_docs:
   - docs/05-modulos-funcionais.md
   - docs/12-tasks-tecnicas.md
 ---
+
 # F9-S00 — Schema `model_pricing`
 
 ## Objetivo
