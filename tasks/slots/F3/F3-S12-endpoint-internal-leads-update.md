@@ -3,12 +3,12 @@ id: F3-S12
 title: Endpoint PATCH /internal/leads/:id (update_lead_profile)
 phase: F3
 task_ref: T3.4
-status: in-progress
+status: review
 priority: medium
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-19T01:16:16Z
-completed_at:
+completed_at: 2026-05-19T01:29:41Z
 pr_url:
 depends_on: [F3-S04]
 blocks: [F3-S22]
