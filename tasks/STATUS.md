@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 38    | 8   | 0   | 0   | 2   | 0   | 28  |
+| F3   | 38    | 8   | 0   | 0   | 1   | 1   | 28  |
 | F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
@@ -117,7 +117,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S27 | Nó qualify_credit_interest                                                  | 🟢 available   | high       | F3-S00, F3-S03                                                 |
 | F3-S28 | Nós generate_simulation + save_simulation                                   | 🔵 in-progress | high       | F3-S00, F3-S03, F3-S15, F3-S16, F3-S21                         |
 | F3-S29 | Nós decide_next_step + request_handoff                                      | 🟢 available   | high       | F3-S03, F3-S17, F3-S18                                         |
-| F3-S30 | Nós send_response + persist_state + log_decision                            | 🔵 in-progress | high       | F3-S00, F3-S02, F3-S03, F3-S19                                 |
+| F3-S30 | Nós send_response + persist_state + log_decision                            | 🟣 review      | high       | F3-S00, F3-S02, F3-S03, F3-S19                                 |
 | F3-S31 | Edges + montagem do grafo whatsapp_pre_attendance                           | 🟢 available   | critical   | F3-S23, F3-S24, F3-S25, F3-S26, F3-S27, F3-S28, F3-S29, F3-S30 |
 | F3-S32 | POST /process/whatsapp/message no LangGraph                                 | 🟢 available   | critical   | F3-S31                                                         |
 | F3-S33 | Backend integra webhook WhatsApp → LangGraph → resposta                     | 🟢 available   | critical   | F3-S32                                                         |
