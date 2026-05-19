@@ -565,6 +565,46 @@ class TestRateLimit:
             )
         assert resp.status_code == 200
 
+    def test_rate_limit_accumulates_on_fresh_conversation_id(
+        self, client: TestClient
+    ) -> None:
+        """Regressão MOD-2: 61 chamadas sequenciais sem pré-popular o dict.
+
+        As primeiras 60 devem retornar 200 (permitido) e a 61ª deve retornar
+        429 (bloqueado). Testa o caminho real de uma conversation_id nova —
+        o bug do 'del' orfanizava a deque, fazendo o rate limit nunca acumular.
+
+        Este teste deve FALHAR com o código bugado e PASSAR após o fix.
+        """
+        final_state = _make_final_state()
+        fresh_conv_id = "fresh-conv-regressao-001"
+
+        results: list[int] = []
+        # Faz 61 chamadas: 60 dentro do limite + 1 que deve ser bloqueada
+        with patch("app.api.playground.build_graph", return_value=_MockGraph(final_state)):
+            for i in range(61):
+                resp = client.post(
+                    "/process/whatsapp/playground",
+                    json=_valid_payload(
+                        conversation_id=fresh_conv_id,
+                        idempotency_key=f"idem-regressao-{i}",
+                    ),
+                    headers=_AUTH_HEADERS,
+                )
+                results.append(resp.status_code)
+
+        first_60 = results[:60]
+        call_61 = results[60]
+
+        assert all(s == 200 for s in first_60), (
+            f"Esperado 200 nas 60 primeiras chamadas, obtido statuses: "
+            f"{[s for s in first_60 if s != 200]}"
+        )
+        assert call_61 == 429, (
+            f"Esperado 429 na 61ª chamada (rate limit deve bloquear), obtido: {call_61}. "
+            "Bug: o 'del' da deque orfaniza o window — rate limit nunca acumula."
+        )
+
 
 # ---------------------------------------------------------------------------
 # h. Timeout → 504

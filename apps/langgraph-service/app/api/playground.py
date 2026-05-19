@@ -85,17 +85,18 @@ def _check_playground_rate_limit(conversation_id: str) -> tuple[bool, int]:
 
     Returns:
         ``(permitido, retry_after_sec)``
+
+    Nota sobre memória: o dict cresce 1 entry por conversation_id ativa na
+    janela. Para o playground (operadores humanos, poucos IDs distintos), o
+    crescimento é negligenciável — nenhum cleanup periódico é necessário no MVP.
+    Não remover entradas vazias do dict: a referência local ``window`` ficaria
+    apontando para uma deque órfã, invalidando acumulações futuras.
     """
     now = time.monotonic()
     window = _playground_rate_windows[conversation_id]
 
     while window and (now - window[0]) > _PLAYGROUND_RATE_WINDOW_SEC:
         window.popleft()
-
-    if not window and conversation_id in _playground_rate_windows:
-        # MOD-2: após del, NÃO reler do defaultdict — isso recriaria a entrada
-        # vazia e vazaria memória ao longo do tempo. Remover e usar deque local.
-        del _playground_rate_windows[conversation_id]
 
     if len(window) >= _PLAYGROUND_RATE_LIMIT_MAX:
         oldest = window[0]
