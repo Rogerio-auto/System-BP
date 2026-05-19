@@ -1,0 +1,69 @@
+# Fixture 03 — Cliente pede atendente humano (handoff direto)
+# Cenário: intenção "falar_atendente" → handoff imediato sem passar pelo funil
+
+id: conv-fixture-003
+description: >
+  Cliente envia "Quero falar com atendente". classify_intent retorna
+  "falar_atendente", route_by_intent roteia diretamente para request_handoff.
+  Estado final: handoff_required=True, current_stage="handoff_requested".
+
+initial_state:
+  conversation_id: 'conv-fixture-003'
+  chatwoot_conversation_id: 'cw-fixture-003'
+  phone: '+5569900010003'
+  handoff_required: false
+  handoff_reason: null
+  missing_fields: []
+  messages:
+    - role: 'user'
+      content: 'Quero falar com um atendente humano agora'
+  tool_results: []
+  errors: []
+  actions_emitted: []
+  lead_id: 'lead-fixture-003'
+  customer_id: 'cust-fixture-003'
+  customer_name: 'Ana Ficticia'
+  city_id: 'city-fixture-pv'
+  city_name: 'Porto Velho'
+  current_intent: null
+  requested_amount: null
+  requested_term_months: null
+  selected_product_id: null
+  last_simulation_id: null
+  current_stage: 'qualificacao'
+
+llm_mocks:
+  classify_intent: 'falar_atendente'
+
+backend_mocks:
+  load_state:
+    status: 404
+
+  request_handoff:
+    status: 200
+    body:
+      handoff_id: 'hf-fixture-003'
+      chatwoot_conversation_id: 'cw-fixture-003'
+      assigned_agent_id: null
+      status: 'requested'
+
+  create_chatwoot_note:
+    status: 200
+    body:
+      note_id: 'note-fixture-003'
+
+  persist_state:
+    status: 200
+    body: {}
+
+  log_ai_decision:
+    status: 200
+    body:
+      decision_log_id: 'log-fixture-003'
+
+assertions:
+  handoff_required: true
+  current_stage: 'handoff_requested'
+  last_simulation_id_present: false
+  # handoff_reason deve conter a intenção
+  handoff_reason_contains: 'falar_atendente'
