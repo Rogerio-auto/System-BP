@@ -60,7 +60,7 @@ function BrandMark({ size = 56 }: { size?: number | undefined }): React.JSX.Elem
 
 // ─── Mensagem de erro amigável ─────────────────────────────────────────────────
 
-function friendlyError(error: unknown): string {
+function friendlyLoginError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 429) {
       return 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
@@ -76,10 +76,122 @@ function friendlyError(error: unknown): string {
   return 'Ocorreu um erro inesperado. Tente novamente.';
 }
 
-// ─── Form ─────────────────────────────────────────────────────────────────────
+function friendly2faError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 429) {
+      return 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
+    }
+    if (error.status === 401) {
+      return 'Código inválido ou expirado. Tente novamente.';
+    }
+  }
+  return 'Ocorreu um erro inesperado. Tente novamente.';
+}
+
+// ─── Form de segundo fator (2FA) ──────────────────────────────────────────────
+
+interface TwoFactorFormProps {
+  challengeToken: string;
+  onCancel: () => void;
+}
+
+function TwoFactorForm({ challengeToken, onCancel }: TwoFactorFormProps): React.JSX.Element {
+  const { verify2fa } = useAuth();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<{ code: string }>({
+    defaultValues: { code: '' },
+  });
+
+  const onSubmit = handleSubmit(async (data) => {
+    // LGPD: nunca logar data aqui
+    await verify2fa.mutateAsync({ challengeToken, code: data.code });
+  });
+
+  const serverError = verify2fa.error ? friendly2faError(verify2fa.error) : null;
+  const isPending = verify2fa.isPending || isSubmitting;
+
+  return (
+    <form
+      onSubmit={(e) => {
+        void onSubmit(e);
+      }}
+      noValidate
+      className="flex flex-col gap-5"
+    >
+      <div className="flex flex-col gap-1">
+        <p
+          className="font-display font-bold text-ink"
+          style={{ fontSize: 'var(--text-2xl)', letterSpacing: '-0.028em' }}
+        >
+          Verificação em dois fatores
+        </p>
+        <p className="text-sm text-ink-3">
+          Insira o código do seu app autenticador ou um recovery code.
+        </p>
+      </div>
+
+      {serverError && (
+        <div
+          role="alert"
+          className="rounded-sm border border-danger bg-danger/10 px-4 py-3 text-sm text-danger"
+        >
+          {serverError}
+        </div>
+      )}
+
+      <Input
+        id="totp-code"
+        label="Código de verificação"
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        placeholder="000000"
+        maxLength={12}
+        error={errors.code?.message}
+        disabled={isPending}
+        hint="Código de 6 dígitos ou recovery code (XXXXX-XXXXX)"
+        {...register('code', {
+          required: 'O código é obrigatório',
+          minLength: { value: 6, message: 'Código inválido' },
+        })}
+      />
+
+      <Button
+        type="submit"
+        variant="primary"
+        size="lg"
+        className="w-full"
+        disabled={isPending}
+        aria-busy={isPending}
+      >
+        {isPending ? 'Verificando…' : 'Verificar'}
+      </Button>
+
+      <button
+        type="button"
+        onClick={onCancel}
+        className="text-sm text-ink-3 hover:text-azul transition-colors duration-fast text-center hover:underline underline-offset-4"
+      >
+        Voltar ao login
+      </button>
+    </form>
+  );
+}
+
+// ─── Form de login principal ───────────────────────────────────────────────────
 
 function LoginForm(): React.JSX.Element {
-  const { login } = useAuth();
+  const [challengeToken, setChallengeToken] = React.useState<string | null>(null);
+
+  const { login } = useAuth({
+    onTwoFactorRequired: (token) => {
+      setChallengeToken(token);
+    },
+  });
 
   const {
     register,
@@ -90,12 +202,19 @@ function LoginForm(): React.JSX.Element {
     mode: 'onBlur',
   });
 
+  // ── Etapa de 2FA ──────────────────────────────────────────────────────────
+  if (challengeToken) {
+    return (
+      <TwoFactorForm challengeToken={challengeToken} onCancel={() => setChallengeToken(null)} />
+    );
+  }
+
   const onSubmit = handleSubmit(async (data) => {
     // LGPD: nunca logar data aqui — sem console.log/warn do payload
     await login.mutateAsync(data);
   });
 
-  const serverError = login.error ? friendlyError(login.error) : null;
+  const serverError = login.error ? friendlyLoginError(login.error) : null;
   const isPending = login.isPending || isSubmitting;
 
   return (

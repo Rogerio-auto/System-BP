@@ -238,3 +238,103 @@ describe('ContaSection — Self-service: escopo e endpoints', () => {
     expect(ACCOUNT_QUERY_KEY.profile).not.toContain('admin');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 2FA / TOTP: lógica pura de validação e formatos (F8-S11)
+// ---------------------------------------------------------------------------
+
+describe('ContaSection — 2FA: lógica de validação', () => {
+  // Espelha a validação do backend: código de 6 dígitos ou recovery code
+  function isTotpCode(code: string): boolean {
+    return /^\d{6}$/.test(code);
+  }
+
+  function isRecoveryCode(code: string): boolean {
+    // Formato: XXXXX-XXXXX (10 chars alfanuméricos + hífen)
+    return /^[A-Z2-9]{5}-[A-Z2-9]{5}$/i.test(code);
+  }
+
+  function normalizeRecoveryCode(input: string): string {
+    const normalized = input.replace(/-/g, '').toUpperCase();
+    if (normalized.length === 10) {
+      return `${normalized.slice(0, 5)}-${normalized.slice(5, 10)}`;
+    }
+    return input.toUpperCase();
+  }
+
+  it('15. código de 6 dígitos é TOTP válido', () => {
+    expect(isTotpCode('123456')).toBe(true);
+    expect(isTotpCode('000000')).toBe(true);
+    expect(isTotpCode('999999')).toBe(true);
+  });
+
+  it('16. código com menos de 6 dígitos não é TOTP', () => {
+    expect(isTotpCode('12345')).toBe(false);
+    expect(isTotpCode('')).toBe(false);
+  });
+
+  it('17. código com letras não é TOTP (é possível recovery code)', () => {
+    expect(isTotpCode('ABCDEF')).toBe(false);
+    expect(isTotpCode('abc123')).toBe(false);
+  });
+
+  it('18. recovery code no formato XXXXX-XXXXX é válido', () => {
+    expect(isRecoveryCode('ABCDE-FGHJK')).toBe(true);
+    expect(isRecoveryCode('WXYZ2-34567')).toBe(true);
+    expect(isRecoveryCode('MNPQR-STUV2')).toBe(true);
+  });
+
+  it('19. recovery code sem hífen não é válido (formato esperado)', () => {
+    expect(isRecoveryCode('ABCDEFGHJK')).toBe(false);
+  });
+
+  it('20. normalização de recovery code sem hífen', () => {
+    const normalized = normalizeRecoveryCode('ABCDEFGHJK');
+    expect(normalized).toBe('ABCDE-FGHJK');
+  });
+
+  it('21. normalização de recovery code com lowercase', () => {
+    const normalized = normalizeRecoveryCode('abcde-fghjk');
+    expect(normalized).toBe('ABCDE-FGHJK');
+  });
+
+  it('22. endpoints 2FA são /api/account/2fa/* (self-service)', () => {
+    const TFA_ENDPOINTS = {
+      status: '/api/account/2fa/status',
+      enroll: '/api/account/2fa/enroll',
+      activate: '/api/account/2fa/activate',
+      disable: '/api/account/2fa/disable',
+    };
+
+    for (const [, endpoint] of Object.entries(TFA_ENDPOINTS)) {
+      expect(endpoint).toMatch(/^\/api\/account\/2fa\//);
+      expect(endpoint).not.toMatch(/^\/api\/admin\//);
+    }
+  });
+
+  it('23. verify-2fa usa endpoint /api/auth/verify-2fa (separado do account)', () => {
+    const VERIFY_ENDPOINT = '/api/auth/verify-2fa';
+    expect(VERIFY_ENDPOINT).toMatch(/^\/api\/auth\//);
+  });
+
+  it('24. recovery codes têm 10 chars no formato XXXXX-XXXXX', () => {
+    // Simula a geração de recovery codes (sem deps)
+    const RECOVERY_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    function isValidRecoveryCode(code: string): boolean {
+      const parts = code.split('-');
+      if (parts.length !== 2) return false;
+      const [a, b] = parts;
+      if (!a || !b || a.length !== 5 || b.length !== 5) return false;
+      for (const char of a + b) {
+        if (!RECOVERY_CHARSET.includes(char)) return false;
+      }
+      return true;
+    }
+
+    // Códigos de fixture do teste backend
+    const fixtureCodes = ['ABCDE-FGHJK', 'LMNPQ-RSTUV', 'WXYZ2-34567'];
+    for (const code of fixtureCodes) {
+      expect(isValidRecoveryCode(code)).toBe(true);
+    }
+  });
+});

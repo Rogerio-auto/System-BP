@@ -43,6 +43,10 @@ const mockFindSessionByTokenHash = vi.fn();
 const mockRevokeSession = vi.fn();
 const mockRotateSession = vi.fn();
 const mockPurgeExpiredSessions = vi.fn();
+// 2FA mocks
+const mockCreateTotpChallenge = vi.fn();
+const mockFindTotpChallengeByHash = vi.fn();
+const mockMarkTotpChallengeUsed = vi.fn();
 
 vi.mock('../repository.js', () => ({
   findUserByEmail: (...args: unknown[]) => mockFindUserByEmail(...args),
@@ -54,6 +58,20 @@ vi.mock('../repository.js', () => ({
   revokeSession: (...args: unknown[]) => mockRevokeSession(...args),
   rotateSession: (...args: unknown[]) => mockRotateSession(...args),
   purgeExpiredSessions: (...args: unknown[]) => mockPurgeExpiredSessions(...args),
+  // 2FA
+  createTotpChallenge: (...args: unknown[]) => mockCreateTotpChallenge(...args),
+  findTotpChallengeByHash: (...args: unknown[]) => mockFindTotpChallengeByHash(...args),
+  markTotpChallengeUsed: (...args: unknown[]) => mockMarkTotpChallengeUsed(...args),
+  purgeExpiredChallenges: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock do account/repository.js (para listAvailableRecoveryCodes e markRecoveryCodeUsed)
+const mockListAvailableRecoveryCodes = vi.fn();
+const mockMarkRecoveryCodeUsed = vi.fn();
+
+vi.mock('../../account/repository.js', () => ({
+  listAvailableRecoveryCodes: (...args: unknown[]) => mockListAvailableRecoveryCodes(...args),
+  markRecoveryCodeUsed: (...args: unknown[]) => mockMarkRecoveryCodeUsed(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -80,6 +98,7 @@ const makeUser = (overrides?: Record<string, unknown>) => ({
   status: 'active' as const,
   lastLoginAt: null,
   totpSecret: null,
+  totpConfirmedAt: null, // 2FA desativado por padrão
   createdAt: new Date(),
   updatedAt: new Date(),
   deletedAt: null,
@@ -183,7 +202,7 @@ describe('POST /api/auth/login', () => {
     mockCreateSession.mockResolvedValue(undefined);
   });
 
-  it('retorna 200 com access_token e seta cookies quando credenciais corretas', async () => {
+  it('retorna 200 com access_token e seta cookies quando credenciais corretas (sem 2FA)', async () => {
     mockFindUserByEmail.mockResolvedValue(makeUser());
 
     const res = await app.inject({
@@ -194,6 +213,7 @@ describe('POST /api/auth/login', () => {
 
     expect(res.statusCode).toBe(200);
     const body = res.json<Record<string, unknown>>();
+    expect(body['status']).toBe('ok');
     expect(body).toHaveProperty('access_token');
     expect(body).toHaveProperty('expires_in');
     expect(body['user']).toMatchObject({
@@ -415,6 +435,136 @@ describe('POST /api/auth/logout', () => {
 
     expect(res.statusCode).toBe(204);
     expect(mockRevokeSession).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('POST /api/auth/login com 2FA ativo', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCreateTotpChallenge.mockResolvedValue(undefined);
+  });
+
+  it('retorna 2fa_required quando usuário tem 2FA ativo', async () => {
+    mockFindUserByEmail.mockResolvedValue(makeUser({ totpConfirmedAt: new Date() }));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'agente@bdp.ro.gov.br', password: 'senha-correta-123' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<Record<string, unknown>>();
+    expect(body['status']).toBe('2fa_required');
+    expect(body).toHaveProperty('challenge_token');
+    expect(typeof body['challenge_token']).toBe('string');
+    // Não deve emitir access_token nem cookies de sessão
+    expect(body).not.toHaveProperty('access_token');
+    expect(mockCreateTotpChallenge).toHaveBeenCalledOnce();
+  });
+
+  it('não emite cookies de sessão quando 2FA é requerido', async () => {
+    mockFindUserByEmail.mockResolvedValue(makeUser({ totpConfirmedAt: new Date() }));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'agente@bdp.ro.gov.br', password: 'senha-correta-123' },
+    });
+
+    const setCookieHeader = res.headers['set-cookie'];
+    // Não deve ter refresh_token nem csrf_token quando 2FA é requerido
+    const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader ?? ''];
+    const hasRefreshCookie = cookies.some(
+      (c) => c.startsWith('refresh_token=') && !c.includes('Max-Age=0'),
+    );
+    expect(hasRefreshCookie).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('POST /api/auth/verify-2fa', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUpdateUserLastLogin.mockResolvedValue(undefined);
+    mockCreateSession.mockResolvedValue(undefined);
+    mockMarkTotpChallengeUsed.mockResolvedValue(undefined);
+  });
+
+  it('retorna 401 quando challenge token inválido', async () => {
+    mockFindTotpChallengeByHash.mockResolvedValue(null);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/verify-2fa',
+      payload: {
+        challengeToken: 'token-invalido',
+        code: '123456',
+      },
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('retorna 400 quando body está vazio', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/verify-2fa',
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('retorna 401 quando código TOTP inválido', async () => {
+    mockFindTotpChallengeByHash.mockResolvedValue({
+      id: 'challenge-id',
+      userId: FIXTURE_USER_ID,
+      tokenHash: 'hash',
+      expiresAt: new Date(Date.now() + 60000),
+      usedAt: null,
+      createdAt: new Date(),
+    });
+    // Usuário com 2FA ativo mas totp_secret que não baterá com código 000000
+    const { encryptPii } = await import('../../../lib/crypto/pii.js');
+    const { generateTotpSecret } = await import('../../../lib/totp.js');
+    const secret = generateTotpSecret();
+    const encrypted = Buffer.from(await encryptPii(secret));
+    mockFindUserById.mockResolvedValue(
+      makeUser({ totpSecret: encrypted, totpConfirmedAt: new Date() }),
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/verify-2fa',
+      payload: {
+        challengeToken: crypto.randomUUID(),
+        code: '000000',
+      },
+    });
+
+    expect(res.statusCode).toBe(401);
   });
 });
 

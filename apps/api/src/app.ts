@@ -86,6 +86,20 @@ export async function buildApp() {
           '*.token',
           '*.refresh_token',
           '*.access_token',
+          // 2FA / TOTP (F8-S11) — LGPD §3.4
+          // totp_secret: cifrado em bytea, mas nunca deve aparecer em logs
+          '*.totpSecret',
+          '*.totp_secret',
+          // challenge_token: token de curta duração para passo 2FA
+          'req.body.challengeToken',
+          '*.challengeToken',
+          'req.body.challenge_token',
+          '*.challenge_token',
+          // recovery codes: plaintext retornado ao usuário UMA VEZ — nunca logar
+          '*.recoveryCodes',
+          '*.recovery_codes',
+          'req.body.code',
+          '*.code',
           // WhatsApp PII (F1-S19) — LGPD §8.3
           // payload.text.body pode conter mensagem livre do cidadão (CPF, endereço, etc.)
           '*.text.body',

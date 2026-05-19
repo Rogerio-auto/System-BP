@@ -1,17 +1,18 @@
 // =============================================================================
-// auth/routes.ts — Rotas de autenticação.
+// auth/routes.ts — Rotas de autenticação (F1-S02 / F8-S11).
 //
 // Registra @fastify/cookie neste escopo (encapsulamento Fastify).
-// Rate-limit por IP para /login: 5 req / 15min (doc 10 §2.1, §6.6).
+// Rate-limit por IP para /login e /verify-2fa: 5 req / 15min (doc 10 §2.1).
 //
 // Rotas:
-//   POST /api/auth/login   — emite access+refresh+csrf
-//   POST /api/auth/refresh — rotaciona sessão (cookie + header X-CSRF-Token)
-//   POST /api/auth/logout  — revoga sessão (204)
+//   POST /api/auth/login      — credenciais válidas → sessão ou challenge 2FA
+//   POST /api/auth/verify-2fa — troca challenge + código TOTP/recovery → sessão
+//   POST /api/auth/refresh    — rotaciona sessão (cookie + X-CSRF-Token)
+//   POST /api/auth/logout     — revoga sessão (204)
 //
-// Nota: /logout não requer middleware authenticate() (F1-S04) por ora — o
-//   refresh token no cookie identifica a sessão. Quando F1-S04 existir,
-//   adicionar preHandler: [authenticate()] no logout.
+// Fluxo com 2FA:
+//   POST /api/auth/login → { status: '2fa_required', challenge_token }
+//   POST /api/auth/verify-2fa → { status: 'ok', access_token, ... }
 // =============================================================================
 import cookie from '@fastify/cookie';
 // NOTA: @fastify/rate-limit precisa ser registrado em app.ts (follow-up). A config
@@ -19,13 +20,20 @@ import cookie from '@fastify/cookie';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
-import { loginController, refreshController, logoutController } from './controller.js';
+import {
+  loginController,
+  refreshController,
+  logoutController,
+  verify2faController,
+} from './controller.js';
 import {
   loginBodySchema,
   loginResponseSchema,
   refreshBodySchema,
   refreshResponseSchema,
   logoutBodySchema,
+  loginChallenge2faResponseSchema,
+  verify2faBodySchema,
 } from './schemas.js';
 
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -40,6 +48,10 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
   // ---------------------------------------------------------------------------
   // POST /api/auth/login
   // Rate-limit específico: 5 tentativas / 15min / IP (brute-force protection)
+  //
+  // Resposta possível:
+  //   - { status: 'ok', access_token, ... }         → login sem 2FA
+  //   - { status: '2fa_required', challenge_token }  → login com 2FA ativo
   // ---------------------------------------------------------------------------
   app.post(
     '/api/auth/login',
@@ -48,9 +60,6 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
         rateLimit: {
           max: 5,
           timeWindow: '15 minutes',
-          // errorResponseBuilder deve retornar um Error com statusCode para que
-          // o Fastify defina corretamente o status HTTP 429.
-          // O objeto simples não funciona — o plugin faz `throw` do retorno deste builder.
           errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
             const err = Object.assign(
               new Error('Muitas tentativas de login. Aguarde 15 minutos.'),
@@ -65,12 +74,45 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
       },
       schema: {
         body: loginBodySchema,
+        // União de schemas: login normal OR challenge 2FA.
+        // Fastify serializa conforme o discriminador status.
+        response: {
+          200: loginResponseSchema.or(loginChallenge2faResponseSchema),
+        },
+      },
+    },
+    loginController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/auth/verify-2fa
+  // Troca challenge_token + código TOTP/recovery por sessão completa.
+  // Rate-limit idêntico ao login (proteção contra brute force no 2FA).
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/auth/verify-2fa',
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '15 minutes',
+          errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
+            const err = Object.assign(new Error('Muitas tentativas. Aguarde 15 minutos.'), {
+              statusCode: context.statusCode,
+              code: 'RATE_LIMITED',
+            });
+            return err;
+          },
+        },
+      },
+      schema: {
+        body: verify2faBodySchema,
         response: {
           200: loginResponseSchema,
         },
       },
     },
-    loginController,
+    verify2faController,
   );
 
   // ---------------------------------------------------------------------------

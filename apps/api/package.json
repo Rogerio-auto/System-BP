@@ -41,6 +41,7 @@
     "fastify-type-provider-zod": "4.0.1",
     "jose": "5.9.3",
     "libphonenumber-js": "^1.13.1",
+    "otpauth": "^9.5.1",
     "pg": "8.13.0",
     "pino": "9.4.0",
     "pino-pretty": "11.2.2",

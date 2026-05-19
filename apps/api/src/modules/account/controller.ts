@@ -19,8 +19,21 @@ import { decodeJwt } from 'jose';
 
 import { db } from '../../db/client.js';
 
-import type { ChangePasswordBody, UpdateProfileBody } from './schemas.js';
-import { changePassword, getProfile, updateProfile } from './service.js';
+import type {
+  ChangePasswordBody,
+  TwoFactorActivateBody,
+  TwoFactorDisableBody,
+  UpdateProfileBody,
+} from './schemas.js';
+import {
+  activate2fa,
+  changePassword,
+  disable2fa,
+  enroll2fa,
+  get2faStatus,
+  getProfile,
+  updateProfile,
+} from './service.js';
 
 // ---------------------------------------------------------------------------
 // Helper: extrair sessionId (jti) do access token
@@ -110,6 +123,100 @@ export async function changePasswordController(
   const sessionId = extractSessionId(request);
 
   await changePassword(
+    db,
+    {
+      userId,
+      organizationId,
+      sessionId,
+      ip: request.ip,
+      userAgent: request.headers['user-agent'] ?? null,
+    },
+    request.body,
+  );
+
+  return reply.status(204).send();
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/account/2fa/status
+// ---------------------------------------------------------------------------
+
+export async function get2faStatusController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = request.user!.id;
+  const organizationId = request.user!.organizationId;
+  const sessionId = extractSessionId(request);
+
+  const status = await get2faStatus(db, { userId, organizationId, sessionId });
+
+  return reply.status(200).send(status);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/account/2fa/enroll
+// ---------------------------------------------------------------------------
+
+export async function enroll2faController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = request.user!.id;
+  const organizationId = request.user!.organizationId;
+  const sessionId = extractSessionId(request);
+
+  const result = await enroll2fa(db, {
+    userId,
+    organizationId,
+    sessionId,
+    ip: request.ip,
+    userAgent: request.headers['user-agent'] ?? null,
+  });
+
+  return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/account/2fa/activate
+// ---------------------------------------------------------------------------
+
+export async function activate2faController(
+  request: FastifyRequest<{ Body: TwoFactorActivateBody }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = request.user!.id;
+  const organizationId = request.user!.organizationId;
+  const sessionId = extractSessionId(request);
+
+  const result = await activate2fa(
+    db,
+    {
+      userId,
+      organizationId,
+      sessionId,
+      ip: request.ip,
+      userAgent: request.headers['user-agent'] ?? null,
+    },
+    request.body,
+  );
+
+  return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/account/2fa/disable
+// ---------------------------------------------------------------------------
+
+export async function disable2faController(
+  request: FastifyRequest<{ Body: TwoFactorDisableBody }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = request.user!.id;
+  const organizationId = request.user!.organizationId;
+  const sessionId = extractSessionId(request);
+
+  await disable2fa(
     db,
     {
       userId,

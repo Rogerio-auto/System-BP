@@ -21,7 +21,8 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { db } from '../../db/client.js';
 import { UnauthorizedError } from '../../shared/errors.js';
 
-import { login, logout, refresh } from './service.js';
+import type { Verify2faBody } from './schemas.js';
+import { login, logout, refresh, verify2fa } from './service.js';
 
 // Nomes canônicos dos cookies
 const REFRESH_COOKIE = 'refresh_token';
@@ -73,14 +74,21 @@ export async function loginController(
     request.log,
   );
 
-  // refresh_token: httpOnly, path=/api/auth — não acessível via JS
+  // 2FA ativo: retorna desafio sem emitir sessão
+  if (result.status === '2fa_required') {
+    return reply.status(200).send({
+      status: '2fa_required',
+      challenge_token: result.challengeToken,
+    });
+  }
+
+  // Sem 2FA ou 2FA verificado: emitir cookies de sessão
   reply.setCookie(
     REFRESH_COOKIE,
     result.refreshToken,
     refreshCookieOptions(isProduction, result.refreshExpiresIn),
   );
 
-  // csrf_token: visível ao JS, path=/ (lido pelo interceptor de refresh)
   reply.setCookie(
     CSRF_COOKIE,
     result.sessionId,
@@ -88,6 +96,55 @@ export async function loginController(
   );
 
   return reply.status(200).send({
+    status: 'ok',
+    access_token: result.accessToken,
+    expires_in: result.expiresIn,
+    user: {
+      id: result.user.id,
+      email: result.user.email,
+      full_name: result.user.fullName,
+      organization_id: result.user.organizationId,
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/auth/verify-2fa
+// ---------------------------------------------------------------------------
+
+export async function verify2faController(
+  request: FastifyRequest<{ Body: Verify2faBody }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const isProduction = process.env['NODE_ENV'] === 'production';
+  const ip = request.ip;
+  const userAgent = request.headers['user-agent'] ?? null;
+
+  const result = await verify2fa(
+    db,
+    {
+      challengeToken: request.body.challengeToken,
+      code: request.body.code,
+      ip,
+      userAgent,
+    },
+    request.log,
+  );
+
+  reply.setCookie(
+    REFRESH_COOKIE,
+    result.refreshToken,
+    refreshCookieOptions(isProduction, result.refreshExpiresIn),
+  );
+
+  reply.setCookie(
+    CSRF_COOKIE,
+    result.sessionId,
+    csrfCookieOptions(isProduction, result.refreshExpiresIn),
+  );
+
+  return reply.status(200).send({
+    status: 'ok',
     access_token: result.accessToken,
     expires_in: result.expiresIn,
     user: {
