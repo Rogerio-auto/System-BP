@@ -3,12 +3,12 @@ id: F9-S00
 title: Schema model_pricing — preços por modelo LLM (USD) + FX para BRL
 phase: F9
 task_ref: T9.0
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: db-schema-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-19T22:09:48Z
+completed_at: 2026-05-19T22:28:14Z
 pr_url:
 depends_on: []
 blocks: [F9-S02]
@@ -18,7 +18,6 @@ source_docs:
   - docs/05-modulos-funcionais.md
   - docs/12-tasks-tecnicas.md
 ---
-
 # F9-S00 — Schema `model_pricing`
 
 ## Objetivo
