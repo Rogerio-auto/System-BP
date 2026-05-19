@@ -3,11 +3,11 @@ id: F3-S25
 title: Nó identify_or_create_lead + collect_missing_profile_data
 phase: F3
 task_ref: T3.14
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: python-engineer
-claimed_at:
+claimed_at: 2026-05-19T02:56:14Z
 completed_at:
 pr_url:
 depends_on: [F3-S03, F3-S13]
