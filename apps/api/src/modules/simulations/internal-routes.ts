@@ -411,6 +411,22 @@ export const internalSimulationsRoutes: FastifyPluginAsyncZod = async (app) => {
           200: InternalSimulationSentResponseSchema,
         },
       },
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
+            const err = Object.assign(
+              new Error('Rate limit excedido: máximo 60 requisições por minuto.'),
+              {
+                statusCode: context.statusCode,
+                code: 'RATE_LIMITED',
+              },
+            );
+            return err;
+          },
+        },
+      },
     },
     async (request, reply) => {
       // -----------------------------------------------------------------------
