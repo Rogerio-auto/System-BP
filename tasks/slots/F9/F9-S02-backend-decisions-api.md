@@ -3,11 +3,11 @@ id: F9-S02
 title: Backend — API read de ai_decision_logs (lista + timeline, city-scoped)
 phase: F9
 task_ref: T9.2
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-19T23:17:29Z
 completed_at:
 pr_url:
 depends_on: [F3-S01, F9-S00, F1-S04]
