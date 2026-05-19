@@ -12,7 +12,7 @@
 //
 // LGPD: cidades não contêm PII (nome de município + UF).
 // =============================================================================
-import { and, count, eq, ilike, isNull, isNotNull, or } from 'drizzle-orm';
+import { and, count, eq, ilike, isNull, isNotNull, or, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import { cities } from '../../db/schema/cities.js';
@@ -293,4 +293,100 @@ export async function restoreCity(
     .returning();
 
   return rows[0] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Fuzzy match para identify_city (F3-S05)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resultado de um candidato de fuzzy match.
+ */
+export interface FuzzyCityCandidate {
+  id: string;
+  name: string;
+  /** Score de similaridade pg_trgm (0.0–1.0). */
+  similarity: number;
+  /**
+   * true  = cidade ativa e atendida pela organização.
+   * false = cidade soft-deleted ou is_active=false (fora de serviço).
+   */
+  is_active: boolean;
+}
+
+/**
+ * Busca cidades por similaridade de texto usando pg_trgm + unaccent.
+ *
+ * Estratégia de matching:
+ *   - Normaliza o texto de entrada via unaccent + lower (mesmo pipeline de name_normalized).
+ *   - Computa similarity() entre o texto normalizado e:
+ *       a) name_normalized  (nome sem acentos — index GIN trgm)
+ *       b) cada alias de aliases[] via unnest
+ *   - Retorna o score máximo entre name e qualquer alias.
+ *   - Inclui cidades não-ativas (deleted_at IS NULL, is_active=false) com flag is_active=false
+ *     para que a service layer possa detectar "cidade fora de serviço".
+ *   - Exclui apenas soft-deleted (deleted_at IS NOT NULL) — esses não existem mais na org.
+ *   - Ordena por similarity DESC, limita em `limit` resultados.
+ *
+ * Notas de performance:
+ *   - O índice GIN trgm em name_normalized acelera similarity() (Postgres usa idx se
+ *     pg_trgm.similarity_threshold <= score). Para textos curtos com erros de digitação
+ *     o fallback de seq scan é aceitável (tabela de cidades é pequena por org, ~10–200 rows).
+ *   - unaccent() é IMMUTABLE, compatível com índice GIN criado em 0002_cities_agents.sql.
+ *
+ * LGPD: `cityText` é texto livre — nenhum valor é persistido por esta função.
+ *
+ * @param db           Instância Drizzle (ou transação ativa).
+ * @param organizationId UUID da organização (city scope).
+ * @param cityText     Texto livre do usuário (ex: "porto velho", "PVH").
+ * @param limit        Número máximo de candidatos (default: 4 — 1 principal + 3 alternativas).
+ */
+export async function findCitiesByFuzzyMatch(
+  db: Database,
+  organizationId: string,
+  cityText: string,
+  limit = 4,
+): Promise<FuzzyCityCandidate[]> {
+  // `db.execute` com sql template: Drizzle parametriza valores automaticamente
+  // (previne SQL injection). A tipagem de retorno é unknown[] — cast explícito abaixo.
+  // `as` justificado: db.execute retorna QueryResult<Record<string,unknown>>;
+  //   precisamos tipar os rows como RawRow para acessar campos sem any.
+  interface RawRow {
+    id: string;
+    name: string;
+    similarity: string | number;
+    is_active: boolean;
+  }
+
+  const result = await db.execute(sql`
+    SELECT
+      c.id,
+      c.name,
+      GREATEST(
+        similarity(unaccent(lower(${cityText})), c.name_normalized),
+        COALESCE(
+          (
+            SELECT MAX(similarity(unaccent(lower(${cityText})), unaccent(lower(alias))))
+            FROM unnest(c.aliases) AS alias
+          ),
+          0
+        )
+      ) AS similarity,
+      c.is_active
+    FROM cities c
+    WHERE c.organization_id = ${organizationId}::uuid
+      AND c.deleted_at IS NULL
+    ORDER BY similarity DESC
+    LIMIT ${limit}
+  `);
+
+  // `as` justificado: db.execute retorna Record<string, unknown>[] — precisamos
+  // tipar as linhas para acessar os campos de forma segura sem usar `any`.
+  return (result.rows as RawRow[]).map((row) => ({
+    id: row.id,
+    name: row.name,
+    // similarity pode vir como string do driver pg (numeric → string)
+    similarity: typeof row.similarity === 'string' ? parseFloat(row.similarity) : row.similarity,
+    is_active: row.is_active,
+  }));
 }
