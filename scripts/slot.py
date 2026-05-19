@@ -92,6 +92,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import os
 import re
 import shlex
 import subprocess
@@ -922,6 +923,37 @@ _VALIDATION_BLOCK_RE = re.compile(
 _CODE_FENCE_RE = re.compile(r"^```(?:[a-z]*)\n(.*?)\n```", re.MULTILINE | re.DOTALL)
 
 
+def _link_node_modules_for_validate(worktree_root: Path, main_root: Path) -> list[str]:
+    """Linka node_modules/ do main para o worktree (junction no Windows, symlink
+    no POSIX), para que `validate` rode pnpm/tsc/vitest contra o código do
+    worktree usando as dependências instaladas no main. Best-effort: retorna
+    avisos para os links que não puderam ser criados."""
+    warnings: list[str] = []
+    main_nm_dirs: list[Path] = []
+    for pattern in ("node_modules", "apps/*/node_modules", "packages/*/node_modules"):
+        main_nm_dirs.extend(p for p in main_root.glob(pattern) if p.is_dir())
+    for main_nm in main_nm_dirs:
+        rel = main_nm.relative_to(main_root)
+        link = worktree_root / rel
+        if link.exists():
+            continue  # worktree já tem node_modules próprio nesse nível
+        try:
+            link.parent.mkdir(parents=True, exist_ok=True)
+            if sys.platform == "win32":
+                res = subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(link), str(main_nm)],
+                    capture_output=True,
+                    text=True,
+                )
+                if res.returncode != 0:
+                    warnings.append(f"junction {rel} falhou: {res.stderr.strip()}")
+            else:
+                os.symlink(main_nm, link, target_is_directory=True)
+        except OSError as exc:
+            warnings.append(f"link {rel} falhou: {exc}")
+    return warnings
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
     slot_id = args.slot_id
     path = find_slot_file(slot_id)
@@ -948,14 +980,20 @@ def cmd_validate(args: argparse.Namespace) -> int:
     if not commands:
         die(f"'## Validação' block has no shell commands in {path.name}")
 
-    # Em worktrees adicionais, node_modules/ não existe — rodar os comandos de
-    # validação a partir do working tree principal onde node_modules/ está presente.
+    # Em worktrees adicionais node_modules/ não existe. Linkamos node_modules do
+    # main para o worktree e validamos o CÓDIGO DO WORKTREE no cwd correto.
+    # Antes (bug — incidente 2026-05-19): rodava pnpm/tsc no main worktree →
+    # validava o código stale do main, não o da branch → falso "typecheck PASS".
     validate_cwd = REPO_ROOT
     if is_in_worktree():
         main = main_worktree_path()
         if main is not None:
-            validate_cwd = main
-            info(f"[validate] worktree detectado — usando cwd do main: {main}")
+            for w in _link_node_modules_for_validate(REPO_ROOT, Path(main)):
+                info(f"[validate] AVISO: {w}")
+            info(
+                "[validate] worktree detectado — node_modules linkado do main; "
+                "validando o código do worktree"
+            )
 
     results = []
     for cmd in commands:
@@ -963,8 +1001,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
         # Comandos Python (scripts/*.py) sempre rodam a partir do REPO_ROOT do
         # worktree corrente — não precisam de node_modules e devem usar a versão
         # local do script (importante quando o slot modifica o próprio slot.py).
-        # Comandos pnpm/npm/node usam validate_cwd (main worktree) onde
-        # node_modules/ está disponível.
+        # Comandos pnpm/npm/node usam validate_cwd (worktree corrente), com
+        # node_modules linkado do main.
         cmd_is_python = re.match(r"^\s*(python|python3)\b", cmd) is not None
         effective_cwd = REPO_ROOT if cmd_is_python else validate_cwd
         # Shell=True para suportar pipes e &&. POSIX/Windows-compatible.
