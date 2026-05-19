@@ -3,12 +3,12 @@ id: F3-S16
 title: Tool generate_credit_simulation (Python)
 phase: F3
 task_ref: T3.7
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T02:17:02Z
-completed_at:
+completed_at: 2026-05-19T02:25:04Z
 pr_url:
 depends_on: [F3-S15]
 blocks: [F3-S28]
