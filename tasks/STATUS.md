@@ -13,7 +13,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F9   | 8     | 6   | 0   | 0   | 0   | 0   | 2   |
+| F9   | 8     | 5   | 0   | 0   | 0   | 0   | 3   |
 
 ## Fase 0 — Preparação
 
@@ -150,7 +150,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F9-S00 | Schema model_pricing — preços por modelo LLM (USD) + FX para BRL            | ✅ done      | high       | —                      |
 | F9-S01 | Backend — API de prompt_versions (CRUD + ativação transacional)             | ✅ done      | high       | F3-S01, F1-S04, F1-S16 |
 | F9-S02 | Backend — API read de ai_decision_logs (lista + timeline, city-scoped)      | 🟢 available | high       | F3-S01, F9-S00, F1-S04 |
-| F9-S03 | LangGraph — endpoint dry-run (POST /process/whatsapp/playground)            | 🟢 available | high       | F3-S31, F3-S32         |
+| F9-S03 | LangGraph — endpoint dry-run (POST /process/whatsapp/playground)            | ✅ done      | high       | F3-S31, F3-S32         |
 | F9-S04 | Backend — proxy /api/ai-console/playground + DLP na entrada do operador     | 🟢 available | high       | F9-S03, F3-S33         |
 | F9-S05 | Frontend — gestão de prompts (editor + preview markdown + diff + ativação)  | 🟢 available | high       | F9-S01, F8-S08, F1-S08 |
 | F9-S06 | Frontend — visualizador de ai_decision_logs (lista + timeline por conversa) | 🟢 available | high       | F9-S02, F8-S08, F1-S08 |
