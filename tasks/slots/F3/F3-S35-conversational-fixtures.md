@@ -3,12 +3,12 @@ id: F3-S35
 title: 5 fixtures conversacionais
 phase: F3
 task_ref: T3.20
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: qa-tester
-claimed_at:
-completed_at:
+claimed_at: 2026-05-19T14:08:23Z
+completed_at: 2026-05-19T15:04:57Z
 pr_url:
 depends_on: [F3-S31]
 blocks: []

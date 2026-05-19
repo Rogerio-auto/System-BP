@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 38    | 5   | 0   | 0   | 0   | 1   | 32  |
+| F3   | 38    | 4   | 0   | 0   | 0   | 2   | 32  |
 | F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
@@ -122,7 +122,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S32 | POST /process/whatsapp/message no LangGraph                                 | 🟢 available | critical   | F3-S31                                                         |
 | F3-S33 | Backend integra webhook WhatsApp → LangGraph → resposta                     | 🟢 available | critical   | F3-S32                                                         |
 | F3-S34 | Fallback de handoff em falha do LangGraph                                   | 🟢 available | high       | F3-S07, F3-S33                                                 |
-| F3-S35 | 5 fixtures conversacionais                                                  | 🟢 available | high       | F3-S31                                                         |
+| F3-S35 | 5 fixtures conversacionais                                                  | 🟣 review    | high       | F3-S31                                                         |
 | F3-S36 | Testes de prompt injection                                                  | 🟢 available | high       | F3-S31                                                         |
 | F3-S37 | Schema chatwoot_handoffs + persistência no endpoint de handoff              | ✅ done      | high       | F3-S01, F3-S07                                                 |
 

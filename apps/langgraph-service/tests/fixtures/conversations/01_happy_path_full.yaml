@@ -1,0 +1,128 @@
+# Fixture 01 — Fluxo feliz completo
+# Cenário: saudação → cidade identificada → valor/prazo → simulação → encerrar
+# Nenhum dado real de pessoa física (LGPD).
+
+id: conv-fixture-001
+description: >
+  Fluxo feliz completo: saudação, lead identificado com nome, cidade confirmada
+  em alta confiança, qualificação com valor e prazo, simulação gerada com sucesso,
+  decide_next_step roteia para "end".
+
+initial_state:
+  conversation_id: 'conv-fixture-001'
+  chatwoot_conversation_id: 'cw-fixture-001'
+  phone: '+5569900010001'
+  handoff_required: false
+  handoff_reason: null
+  missing_fields: []
+  messages:
+    - role: 'user'
+      content: 'Olá, quero saber sobre empréstimo'
+  tool_results: []
+  errors: []
+  actions_emitted: []
+  lead_id: null
+  customer_id: null
+  customer_name: 'Maria Ficticia'
+  city_id: null
+  city_name: null
+  current_intent: null
+  requested_amount: null
+  requested_term_months: null
+  selected_product_id: null
+  last_simulation_id: null
+  current_stage: null
+
+# Sequência de respostas do LLM por nó (uma por chamada, em ordem)
+# 1ª chamada a classify_intent: "quer_simular" → inicia o funil de simulação
+# 2ª chamada a classify_intent: "fora_de_escopo" → route_by_intent → send_response → END
+# qualify_credit_interest só é chamado uma vez (no caminho da simulação)
+llm_sequence_mocks:
+  classify_intent:
+    - 'quer_simular'
+    - 'fora_de_escopo'
+  qualify_credit_interest:
+    - '{"requested_amount": 5000.0, "requested_term_months": 12, "next_question": null, "ready_to_simulate": true}'
+
+# Respostas determinísticas dos endpoints de backend (respx)
+backend_mocks:
+  # load_state: 404 → inicializa novo
+  load_state:
+    status: 404
+
+  get_or_create_lead:
+    status: 200
+    body:
+      ok: true
+      lead_id: 'lead-fixture-001'
+      customer_id: 'cust-fixture-001'
+      created: true
+      current_stage: 'novo'
+      city_id: null
+
+  identify_city:
+    status: 200
+    body:
+      city_id: 'city-fixture-pv'
+      city_name: 'Porto Velho'
+      matched: true
+      confidence: 0.97
+      out_of_service: false
+      alternatives: []
+
+  update_lead_profile:
+    status: 200
+    body:
+      ok: true
+
+  list_credit_products:
+    status: 200
+    # Backend retorna lista em campo "data" (não "products")
+    body:
+      data:
+        - id: 'prod-fixture-001'
+          name: 'Microcrédito Produtivo'
+          min_amount: '1000.00'
+          max_amount: '20000.00'
+          min_term: 6
+          max_term: 36
+          interest_rate: '0.025000'
+          amortization_type: 'price'
+
+  generate_credit_simulation:
+    status: 200
+    # Backend retorna os campos no formato camelCase dentro de "data"
+    body:
+      data:
+        id: 'sim-fixture-001'
+        installmentAmount: '462.00'
+        totalAmount: '5544.00'
+        totalInterest: '544.00'
+        monthlyRate: '0.025000'
+        ruleVersion: 'v1'
+
+  save_simulation:
+    status: 200
+    body:
+      ok: true
+
+  persist_state:
+    status: 200
+    body: {}
+
+  log_ai_decision:
+    status: 200
+    body:
+      decision_log_id: 'log-fixture-001'
+
+# LLM mock para o nó generate_simulation (composição da resposta em linguagem natural)
+generate_simulation_llm: 'Sua simulação de R$ 5.000,00 em 12 meses resultou em parcelas de R$ 462,00/mês. Deseja prosseguir?'
+
+# decide_next_step usa lógica interna (sem LLM) — injetamos tool_results
+decide_next_step_route: 'end'
+
+assertions:
+  handoff_required: false
+  last_simulation_id_present: true
+  simulation_id: 'sim-fixture-001'
+  actions_contains_simulation_generated: true

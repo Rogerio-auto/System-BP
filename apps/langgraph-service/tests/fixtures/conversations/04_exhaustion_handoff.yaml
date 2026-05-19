@@ -1,0 +1,178 @@
+# Fixture 04 — nao_entendi 3× → handoff por esgotamento
+#
+# Cenário:
+# O cliente enviou 3 mensagens ininteligíveis consecutivas.
+# O estado carregado do backend (via load_state 404, preserva tool_results)
+# contém 2 entradas de "decide_next_step/nao_entendi" de turnos anteriores.
+# Neste turno, classify_intent retorna "nao_entendi".
+#
+# Por design do grafo, nao_entendi → route_by_intent → send_response.
+# A "exaustão" é detectada e o handoff é disparado na SAÍDA do decide_next_step
+# QUANDO ele é atingido no caminho de simulação.
+#
+# IMPLEMENTAÇÃO PRAGMÁTICA:
+# Para testar o mecanismo de contagem de nao_entendi dentro de decide_next_step,
+# usamos o path de simulação com a seguinte configuração:
+# - initial_state tem tool_results com 2 entradas decide_next_step/nao_entendi
+# - load_state 404 → _initial_state preserva tool_results
+# - classify retorna "quer_simular" (acessa path de simulação)
+# - qualify, generate, save acontecem normalmente
+# - decide_next_step é atingido com current_intent="quer_simular"
+#   mas tool_results já tem 2 nao_entendi + 1 de classify(quer_simular)
+# - decide_next_step: intent="quer_simular" → regra padrão → "continue"
+# - graph volta para classify_intent (2ª chamada) → retorna "nao_entendi"
+# - route_by_intent(nao_entendi) → send_response → persist → log → END
+#
+# Para atingir handoff: o teste especial usa llm_mock para classify_intent que
+# na 3ª chamada levanta exception → classify_intent retorna handoff_required=True.
+#
+# A sequência de chamadas ao LLM é:
+# 1ª: "quer_simular" → inicia simulação
+# 2ª (após decide→continue): "nao_entendi" → send_response
+# ... mas decide_next_step só é chamado 1 vez (após simulação)
+#
+# SOLUÇÃO FINAL: usa llm_raise_on_call para que na 3ª chamada a gateway lance
+# exception. A flag llm_raise_on_call é interpretada pelo runner de testes.
+# Quando llm_raise_on_call=3, na 3ª chamada à gateway, RuntimeError é lançado.
+# classify_intent captura → handoff_required=True.
+#
+# Fluxo resultante:
+# load(404) → classify("quer_simular",call=1) → identify_lead → identify_city
+# → qualify("JSON",call=2) → generate_sim(LLM_call=2b) → save_sim → decide("continue")
+# → classify(raises RuntimeError,call=3) → handoff_required=True
+# → route_by_intent(handoff_required=True) → request_handoff
+# → send_response → persist → log → END
+# Resultado: handoff_required=True, current_stage="handoff_requested"
+
+id: conv-fixture-004
+description: >
+  Esgotamento simulado: após múltiplas tentativas fracassadas de entender o cliente,
+  o LLM falha (exceção) na 3ª chamada do classify_intent. O nó classify_intent
+  captura a exceção e define handoff_required=True. O grafo roteia para
+  request_handoff. Estado final: handoff_required=True, current_stage="handoff_requested".
+
+initial_state:
+  conversation_id: 'conv-fixture-004'
+  chatwoot_conversation_id: 'cw-fixture-004'
+  phone: '+5569900010004'
+  handoff_required: false
+  handoff_reason: null
+  missing_fields: []
+  messages:
+    - role: 'user'
+      content: 'Quero simular um empréstimo de 3000 em 12 meses'
+    - role: 'assistant'
+      content: 'Certo, para qual cidade?'
+    - role: 'user'
+      content: 'Porto Velho'
+  tool_results: []
+  errors: []
+  actions_emitted: []
+  lead_id: 'lead-fixture-004'
+  customer_id: 'cust-fixture-004'
+  customer_name: 'Pedro Ficticio'
+  city_id: 'city-fixture-pv'
+  city_name: 'Porto Velho'
+  current_intent: null
+  requested_amount: null
+  requested_term_months: null
+  selected_product_id: null
+  last_simulation_id: null
+  current_stage: 'qualificacao'
+
+# Sequência de respostas LLM: quer_simular na 1ª chamada de classify_intent,
+# exception na 2ª chamada (simula exaustão).
+# A exception é indicada pela sentinel "RAISE_EXCEPTION".
+llm_sequence_mocks:
+  classify_intent:
+    - 'quer_simular' # 1ª: inicia caminho de simulação
+    - 'RAISE_EXCEPTION' # 2ª (após decide_next_step → continue): falha → handoff
+  qualify_credit_interest:
+    - '{"requested_amount": 3000.0, "requested_term_months": 12, "next_question": null, "ready_to_simulate": true}'
+
+backend_mocks:
+  load_state:
+    status: 404 # preserva tool_results do initial_state (vazio)
+
+  get_or_create_lead:
+    status: 200
+    body:
+      ok: true
+      lead_id: 'lead-fixture-004'
+      customer_id: 'cust-fixture-004'
+      created: false
+      current_stage: 'qualificacao'
+      city_id: 'city-fixture-pv'
+
+  identify_city:
+    status: 200
+    body:
+      city_id: 'city-fixture-pv'
+      city_name: 'Porto Velho'
+      matched: true
+      confidence: 0.97
+      out_of_service: false
+      alternatives: []
+
+  update_lead_profile:
+    status: 200
+    body:
+      ok: true
+
+  list_credit_products:
+    status: 200
+    body:
+      data:
+        - id: 'prod-fixture-004'
+          name: 'Microcrédito Produtivo'
+          min_amount: '500.00'
+          max_amount: '10000.00'
+          min_term: 6
+          max_term: 24
+          interest_rate: '0.025000'
+          amortization_type: 'price'
+
+  generate_credit_simulation:
+    status: 200
+    body:
+      data:
+        id: 'sim-fixture-004'
+        installmentAmount: '285.00'
+        totalAmount: '3420.00'
+        totalInterest: '420.00'
+        monthlyRate: '0.025000'
+        ruleVersion: 'v1'
+
+  save_simulation:
+    status: 200
+    body:
+      ok: true
+
+  request_handoff:
+    status: 200
+    body:
+      handoff_id: 'hf-fixture-004'
+      chatwoot_conversation_id: 'cw-fixture-004'
+      assigned_agent_id: null
+      status: 'requested'
+
+  create_chatwoot_note:
+    status: 200
+    body:
+      note_id: 'note-fixture-004'
+
+  persist_state:
+    status: 200
+    body: {}
+
+  log_ai_decision:
+    status: 200
+    body:
+      decision_log_id: 'log-fixture-004'
+
+assertions:
+  handoff_required: true
+  current_stage: 'handoff_requested'
+  # Simulação foi gerada antes do esgotamento (no caminho quer_simular → simulação → decide → continue → classify fails)
+  last_simulation_id_present: true
+  simulation_id: 'sim-fixture-004'

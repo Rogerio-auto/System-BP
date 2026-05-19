@@ -1,0 +1,115 @@
+# Fixture 02 — Cidade incerta → confirmação do cliente
+# Cenário: cliente informa cidade com confiança < 0.85 → grafo pergunta confirmação
+
+id: conv-fixture-002
+description: >
+  Cidade com baixa confiança (confidence 0.60): o nó identify_city insere mensagem
+  de confirmação com alternativas em messages e roteia para send_response.
+  Nenhum handoff humano. city_id permanece null no estado final do turno.
+
+initial_state:
+  conversation_id: 'conv-fixture-002'
+  chatwoot_conversation_id: 'cw-fixture-002'
+  phone: '+5569900010002'
+  handoff_required: false
+  handoff_reason: null
+  missing_fields: []
+  messages:
+    - role: 'user'
+      content: 'Quero crédito'
+    - role: 'assistant'
+      content: 'Olá! Com prazer. Em qual cidade você está?'
+    - role: 'user'
+      content: 'Porto'
+  tool_results: []
+  errors: []
+  actions_emitted: []
+  lead_id: 'lead-fixture-002'
+  customer_id: 'cust-fixture-002'
+  customer_name: 'Carlos Teste'
+  city_id: null
+  city_name: null
+  current_intent: null
+  requested_amount: null
+  requested_term_months: null
+  selected_product_id: null
+  last_simulation_id: null
+  current_stage: 'qualificacao'
+
+llm_mocks:
+  classify_intent: 'quer_credito'
+
+backend_mocks:
+  load_state:
+    status: 200
+    body:
+      state:
+        conversation_id: 'conv-fixture-002'
+        chatwoot_conversation_id: 'cw-fixture-002'
+        phone: '+5569900010002'
+        handoff_required: false
+        handoff_reason: null
+        missing_fields: []
+        messages:
+          - role: 'user'
+            content: 'Quero crédito'
+          - role: 'assistant'
+            content: 'Olá! Com prazer. Em qual cidade você está?'
+          - role: 'user'
+            content: 'Porto'
+        tool_results: []
+        errors: []
+        actions_emitted: []
+        lead_id: 'lead-fixture-002'
+        customer_id: 'cust-fixture-002'
+        customer_name: 'Carlos Teste'
+        city_id: null
+        city_name: null
+        current_intent: null
+        requested_amount: null
+        requested_term_months: null
+        selected_product_id: null
+        last_simulation_id: null
+        current_stage: 'qualificacao'
+
+  get_or_create_lead:
+    status: 200
+    body:
+      ok: true
+      lead_id: 'lead-fixture-002'
+      customer_id: 'cust-fixture-002'
+      created: false
+      current_stage: 'qualificacao'
+      city_id: null
+
+  identify_city:
+    status: 200
+    body:
+      city_id: null
+      city_name: 'Porto Velho'
+      matched: false
+      confidence: 0.60
+      out_of_service: false
+      alternatives:
+        - city_id: 'city-fixture-pv'
+          city_name: 'Porto Velho'
+          confidence: 0.60
+        - city_id: 'city-fixture-pf'
+          city_name: 'Pimenta Bueno'
+          confidence: 0.45
+
+  persist_state:
+    status: 200
+    body: {}
+
+  log_ai_decision:
+    status: 200
+    body:
+      decision_log_id: 'log-fixture-002'
+
+assertions:
+  handoff_required: false
+  city_id_null: true
+  # A mensagem de confirmação deve ter sido inserida em messages
+  messages_contain_confirmation: true
+  last_simulation_id_present: false
