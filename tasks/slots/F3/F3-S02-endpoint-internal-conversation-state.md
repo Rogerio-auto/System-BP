@@ -3,11 +3,11 @@ id: F3-S02
 title: Endpoints /internal/conversations/:id/state (load/save)
 phase: F3
 task_ref: T3.2
-status: available
+status: in-progress
 priority: critical
 estimated_size: S
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-19T00:22:29Z
 completed_at:
 pr_url:
 depends_on: [F3-S01, F3-S04]
