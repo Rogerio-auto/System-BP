@@ -3,12 +3,12 @@ id: F9-S03
 title: LangGraph — endpoint dry-run (POST /process/whatsapp/playground)
 phase: F9
 task_ref: T9.3
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: python-engineer
 claimed_at: 2026-05-19T22:10:10Z
-completed_at:
+completed_at: 2026-05-19T22:34:26Z
 pr_url:
 depends_on: [F3-S31, F3-S32]
 blocks: [F9-S04]
@@ -18,7 +18,6 @@ source_docs:
   - docs/12-tasks-tecnicas.md
   - docs/17-lgpd-protecao-dados.md
 ---
-
 # F9-S03 — LangGraph: endpoint dry-run de playground
 
 ## Objetivo
