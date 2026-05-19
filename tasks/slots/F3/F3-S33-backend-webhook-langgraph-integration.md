@@ -3,13 +3,13 @@ id: F3-S33
 title: Backend integra webhook WhatsApp → LangGraph → resposta
 phase: F3
 task_ref: T3.18
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: backend-engineer
 claimed_at: 2026-05-19T15:38:04Z
 completed_at: 2026-05-19T15:57:02Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/110
 depends_on: [F3-S32]
 blocks: [F3-S34]
 labels: [lgpd-impact]
