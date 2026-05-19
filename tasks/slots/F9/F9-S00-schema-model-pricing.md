@@ -3,11 +3,11 @@ id: F9-S00
 title: Schema model_pricing — preços por modelo LLM (USD) + FX para BRL
 phase: F9
 task_ref: T9.0
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: db-schema-engineer
-claimed_at:
+claimed_at: 2026-05-19T22:09:48Z
 completed_at:
 pr_url:
 depends_on: []
