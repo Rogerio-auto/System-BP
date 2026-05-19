@@ -11,6 +11,7 @@ import structlog
 from fastapi import FastAPI
 
 from app.api.health import router as health_router
+from app.api.playground import router as playground_router
 from app.api.process import router as process_router
 from app.config import settings
 
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health_router)
     app.include_router(process_router)
+    app.include_router(playground_router)
     return app
 
 
