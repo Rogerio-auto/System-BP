@@ -3,13 +3,13 @@ id: F3-S22
 title: Tool update_lead_profile (Python)
 phase: F3
 task_ref: T3.4
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T02:33:17Z
 completed_at: 2026-05-19T02:43:57Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/97
 depends_on: [F3-S12, F3-S13]
 blocks: [F3-S26]
 labels: []

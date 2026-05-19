@@ -3,13 +3,13 @@ id: F3-S21
 title: Tool mark_simulation_sent (Python)
 phase: F3
 task_ref: T3.7
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T02:32:37Z
 completed_at: 2026-05-19T02:40:15Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/96
 depends_on: [F3-S11, F3-S15]
 blocks: [F3-S28]
 labels: []
