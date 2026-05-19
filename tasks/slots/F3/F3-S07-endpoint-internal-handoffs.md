@@ -3,13 +3,13 @@ id: F3-S07
 title: Endpoint POST /internal/handoffs (request_handoff)
 phase: F3
 task_ref: T3.8
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: backend-engineer
 claimed_at: 2026-05-19T00:22:38Z
 completed_at: 2026-05-19T00:32:57Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/82
 depends_on: [F3-S04]
 blocks: [F3-S17, F3-S34]
 labels: [lgpd-impact]

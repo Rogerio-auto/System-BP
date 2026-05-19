@@ -3,13 +3,13 @@ id: F3-S05
 title: Endpoint POST /internal/cities/identify (fuzzy match)
 phase: F3
 task_ref: T3.5
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-19T00:22:29Z
 completed_at: 2026-05-19T00:28:45Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/80
 depends_on: [F3-S04]
 blocks: [F3-S14]
 labels: []

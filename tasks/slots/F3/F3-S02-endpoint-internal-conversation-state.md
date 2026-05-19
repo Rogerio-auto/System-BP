@@ -3,13 +3,13 @@ id: F3-S02
 title: Endpoints /internal/conversations/:id/state (load/save)
 phase: F3
 task_ref: T3.2
-status: review
+status: done
 priority: critical
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-19T00:22:29Z
 completed_at: 2026-05-19T00:30:43Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/79
 depends_on: [F3-S01, F3-S04]
 blocks: [F3-S23, F3-S30]
 labels: [lgpd-impact]
@@ -18,6 +18,7 @@ source_docs:
   - docs/10-seguranca-permissoes.md
   - docs/17-lgpd-protecao-dados.md
 ---
+
 # F3-S02 — Endpoints internos de estado de conversa
 
 ## Objetivo

@@ -3,13 +3,13 @@ id: F3-S06
 title: Endpoint GET /internal/credit-products
 phase: F3
 task_ref: T3.6
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-19T00:22:32Z
 completed_at: 2026-05-19T00:29:07Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/81
 depends_on: [F3-S04]
 blocks: [F3-S15]
 labels: []
