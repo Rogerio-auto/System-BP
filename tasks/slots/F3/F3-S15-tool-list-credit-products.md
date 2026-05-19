@@ -3,12 +3,12 @@ id: F3-S15
 title: Tool list_credit_products (Python)
 phase: F3
 task_ref: T3.6
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T01:46:20Z
-completed_at:
+completed_at: 2026-05-19T01:56:11Z
 pr_url:
 depends_on: [F3-S06]
 blocks: [F3-S16, F3-S21, F3-S28]
@@ -16,7 +16,6 @@ labels: []
 source_docs:
   - docs/06-langgraph-agentes.md
 ---
-
 # F3-S15 — Tool list_credit_products
 
 ## Objetivo
