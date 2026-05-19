@@ -150,6 +150,19 @@ const PERMISSIONS = [
   { key: 'assistant:confirm_actions', description: 'Confirmar ações do assistente interno' },
   { key: 'followup:manage', description: 'Gerenciar regras e jobs de follow-up' },
   { key: 'collection:manage', description: 'Gerenciar regras e jobs de cobrança' },
+  // ai-console/prompts — F9-S01 (migration 0027_seed_ai_prompts_permissions)
+  {
+    key: 'ai_prompts:read',
+    description: 'Leitura de versões de prompts do agente LangGraph',
+  },
+  {
+    key: 'ai_prompts:write',
+    description: 'Criação de novas versões de prompts do agente LangGraph',
+  },
+  {
+    key: 'ai_prompts:activate',
+    description: 'Ativação transacional de versões de prompts do agente LangGraph',
+  },
 ] as const;
 
 /**
@@ -187,6 +200,10 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'assistant:confirm_actions',
     'followup:manage',
     'collection:manage',
+    // ai-console/prompts — F9-S01
+    'ai_prompts:read',
+    'ai_prompts:write',
+    'ai_prompts:activate',
   ],
   gestor_geral: [
     'leads:read',
@@ -215,6 +232,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'dashboard:read_by_agent',
     'assistant:query',
     'assistant:confirm_actions',
+    // ai-console/prompts — F9-S01 (somente leitura para gestor_geral)
+    'ai_prompts:read',
   ],
   gestor_regional: [
     'leads:read',

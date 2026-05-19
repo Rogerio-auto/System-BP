@@ -67,14 +67,20 @@ export const modelPricing = pgTable(
      * numeric(12,4): máx USD 99.999.999,9999 — suficiente para qualquer modelo.
      * CHECK: >= 0 (modelos gratuitos entram como 0).
      */
-    inputCostPerMillionUsd: numeric('input_cost_per_million_usd', { precision: 12, scale: 4 }).notNull(),
+    inputCostPerMillionUsd: numeric('input_cost_per_million_usd', {
+      precision: 12,
+      scale: 4,
+    }).notNull(),
 
     /**
      * Custo de tokens de OUTPUT por 1.000.000 tokens em USD.
      * Output geralmente custa 3–5x mais que input.
      * CHECK: >= 0.
      */
-    outputCostPerMillionUsd: numeric('output_cost_per_million_usd', { precision: 12, scale: 4 }).notNull(),
+    outputCostPerMillionUsd: numeric('output_cost_per_million_usd', {
+      precision: 12,
+      scale: 4,
+    }).notNull(),
 
     /**
      * Início da vigência deste preço. DEFAULT now().

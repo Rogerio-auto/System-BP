@@ -36,7 +36,14 @@ const { mockDb, mockInsertValues, mockLimitChain, mockSelectChain, mockFromChain
       select: vi.fn().mockReturnValue(mockSelectChain),
       insert: vi.fn().mockReturnValue({ values: mockInsertValues }),
     };
-    return { mockDb, mockInsertValues, mockLimitChain, mockSelectChain, mockFromChain, mockWhereChain };
+    return {
+      mockDb,
+      mockInsertValues,
+      mockLimitChain,
+      mockSelectChain,
+      mockFromChain,
+      mockWhereChain,
+    };
   });
 
 // ---------------------------------------------------------------------------
@@ -85,7 +92,11 @@ vi.mock('../../db/client.js', () => ({
 // ---------------------------------------------------------------------------
 // Imports após mocks (ordem importa — mocks devem ser declarados antes)
 // ---------------------------------------------------------------------------
-import { modelPricing, type ModelPricing, type NewModelPricing } from '../../db/schema/modelPricing.js';
+import {
+  modelPricing,
+  type ModelPricing,
+  type NewModelPricing,
+} from '../../db/schema/modelPricing.js';
 import { priceModelTokens, computeCostFromRates } from '../pricing.js';
 
 // ---------------------------------------------------------------------------
@@ -171,8 +182,8 @@ describe('priceModelTokens', () => {
     });
 
     // input: (500000 / 1_000_000) * 0.80 = 0.40 USD
-    expect(result.costUsd).toBeCloseTo(0.40, 6);
-    expect(result.costBrl).toBeCloseTo(0.40 * 5.75, 6);
+    expect(result.costUsd).toBeCloseTo(0.4, 6);
+    expect(result.costBrl).toBeCloseTo(0.4 * 5.75, 6);
   });
 
   it('modelo desconhecido: retorna { costUsd: null, costBrl: null }', async () => {
@@ -236,8 +247,8 @@ describe('priceModelTokens', () => {
 describe('computeCostFromRates', () => {
   it('calcula custo USD e BRL a partir de taxas já carregadas', () => {
     const result = computeCostFromRates({
-      inputCostPerMillionUsd: 0.80,
-      outputCostPerMillionUsd: 4.00,
+      inputCostPerMillionUsd: 0.8,
+      outputCostPerMillionUsd: 4.0,
       tokensIn: 1_000_000,
       tokensOut: 1_000_000,
     });
@@ -245,8 +256,8 @@ describe('computeCostFromRates', () => {
     // input: 1M * 0.80/M = 0.80
     // output: 1M * 4.00/M = 4.00
     // total: 4.80 USD
-    expect(result.costUsd).toBeCloseTo(4.80, 6);
-    expect(result.costBrl).toBeCloseTo(4.80 * 5.75, 4);
+    expect(result.costUsd).toBeCloseTo(4.8, 6);
+    expect(result.costBrl).toBeCloseTo(4.8 * 5.75, 4);
   });
 
   it('tokens zero: custo USD = 0', () => {
@@ -303,9 +314,7 @@ describe('modelPricing — schema e constraints', () => {
 
   it('unique parcial ativo: duplicate (provider, model_id) com effective_to NULL rejeitado', async () => {
     mockInsertValues.mockRejectedValueOnce(
-      new Error(
-        'duplicate key value violates unique constraint "uq_model_pricing_active"',
-      ),
+      new Error('duplicate key value violates unique constraint "uq_model_pricing_active"'),
     );
 
     const duplicate = makeNewPricing();
