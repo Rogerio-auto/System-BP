@@ -546,12 +546,15 @@ async def generate_simulation(state: ConversationState) -> dict[str, Any]:
         return {
             **state,
             "handoff_required": True,
-            "handoff_reason": f"generate_simulation falhou: {exc}",
+            # LGPD/segurança: handoff_reason e errors são persistidos no estado
+            # (jsonb). str(exc) de httpx expõe a URL interna — texto genérico +
+            # nome da exceção. O detalhe completo fica só no log estruturado acima.
+            "handoff_reason": "Erro ao gerar simulação. Transferindo para atendimento.",
             "errors": [
                 *list(state.get("errors") or []),
                 {
                     "node": "generate_simulation",
-                    "error": str(exc),
+                    "error": type(exc).__name__,
                     "latency_ms": latency_ms,
                 },
             ],

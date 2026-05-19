@@ -95,13 +95,15 @@ async def save_simulation(state: ConversationState) -> dict[str, Any]:
         return {
             **state,
             "handoff_required": True,
-            "handoff_reason": f"save_simulation falhou inesperadamente: {exc}",
+            # LGPD/segurança: campos persistidos no estado (jsonb) — não usar
+            # str(exc) (expõe URL interna). Texto genérico + nome da exceção.
+            "handoff_reason": "Erro ao registrar envio da simulação. Transferindo para atendimento.",
             "errors": [
                 *list(state.get("errors") or []),
                 {
                     "node": "save_simulation",
                     "error_code": "UNEXPECTED_ERROR",
-                    "error": str(exc),
+                    "error": type(exc).__name__,
                     "latency_ms": latency_ms,
                 },
             ],
