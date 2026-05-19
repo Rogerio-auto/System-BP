@@ -3,12 +3,12 @@ id: F3-S23
 title: Nó receive_message + load_conversation_state
 phase: F3
 task_ref: T3.12
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T02:57:12Z
-completed_at:
+completed_at: 2026-05-19T03:06:45Z
 pr_url:
 depends_on: [F3-S02, F3-S03]
 blocks: [F3-S31]
@@ -16,7 +16,6 @@ labels: []
 source_docs:
   - docs/06-langgraph-agentes.md
 ---
-
 # F3-S23 — Nós receive_message + load_conversation_state
 
 ## Objetivo
