@@ -3,11 +3,11 @@ id: F9-S01
 title: Backend — API de prompt_versions (CRUD + ativação transacional)
 phase: F9
 task_ref: T9.1
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-19T22:12:23Z
 completed_at:
 pr_url:
 depends_on: [F3-S01, F1-S04, F1-S16]
