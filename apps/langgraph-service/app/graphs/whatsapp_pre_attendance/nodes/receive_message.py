@@ -116,7 +116,8 @@ def receive_message(state: ConversationState, *, payload: dict[str, Any]) -> Con
     log.info(
         "receive_message_done",
         conversation_id=conversation_id,
-        phone=phone,
+        # LGPD doc 17 §8.3: telefone é PII — logar só o sufixo, nunca o número bruto.
+        phone_suffix=phone[-4:] if phone else "",
         message_length=len(message_text),
         messages_total=len(updated_messages),
         correlation_id=correlation_id,
