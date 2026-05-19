@@ -3,11 +3,11 @@ id: F3-S22
 title: Tool update_lead_profile (Python)
 phase: F3
 task_ref: T3.4
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: python-engineer
-claimed_at:
+claimed_at: 2026-05-19T02:33:17Z
 completed_at:
 pr_url:
 depends_on: [F3-S12, F3-S13]
