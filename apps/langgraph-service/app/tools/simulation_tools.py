@@ -286,13 +286,13 @@ async def generate_credit_simulation(
     if input.product_id is not None:
         payload["productId"] = input.product_id
 
+    # LGPD doc 17 §8.3: não logar `amount` nem `idempotency_key` (a chave embute
+    # lead_id+amount) — dado financeiro não pode ser associado a id pessoal no log.
     log.info(
         "generate_credit_simulation_start",
         lead_id=input.lead_id,
-        amount=input.amount,
         term_months=input.term_months,
         product_id=input.product_id,
-        idempotency_key=idempotency_key,
     )
 
     try:
@@ -359,12 +359,12 @@ async def generate_credit_simulation(
     rate = _str_or_none(data.get("monthlyRate"))
     rule_version = _str_or_none(data.get("ruleVersion"))
 
+    # LGPD doc 17 §8.3: `installment`/`total` (financeiro) não logados junto de
+    # lead_id. simulation_id é o handle operacional para rastreio.
     log.info(
         "generate_credit_simulation_ok",
         lead_id=input.lead_id,
         simulation_id=simulation_id,
-        installment=installment,
-        total=total,
         rule_version=rule_version,
     )
 
