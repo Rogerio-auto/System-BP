@@ -3,13 +3,13 @@ id: F3-S26
 title: Nó identify_city (com confirmação)
 phase: F3
 task_ref: T3.14
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T02:56:33Z
 completed_at: 2026-05-19T03:05:07Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/101
 depends_on: [F3-S03, F3-S14, F3-S22]
 blocks: [F3-S31]
 labels: []

@@ -3,13 +3,13 @@ id: F3-S23
 title: Nó receive_message + load_conversation_state
 phase: F3
 task_ref: T3.12
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T02:57:12Z
 completed_at: 2026-05-19T03:06:45Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/98
 depends_on: [F3-S02, F3-S03]
 blocks: [F3-S31]
 labels: []

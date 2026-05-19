@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 38    | 10  | 0   | 0   | 0   | 2   | 26  |
+| F3   | 38    | 10  | 0   | 0   | 0   | 0   | 28  |
 | F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
@@ -110,10 +110,10 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S20 | Tool get_customer_context (Python)                                          | ✅ done      | medium     | F3-S10, F3-S13                                                 |
 | F3-S21 | Tool mark_simulation_sent (Python)                                          | ✅ done      | medium     | F3-S11, F3-S15                                                 |
 | F3-S22 | Tool update_lead_profile (Python)                                           | ✅ done      | medium     | F3-S12, F3-S13                                                 |
-| F3-S23 | Nó receive_message + load_conversation_state                                | 🟣 review    | high       | F3-S02, F3-S03                                                 |
+| F3-S23 | Nó receive_message + load_conversation_state                                | ✅ done      | high       | F3-S02, F3-S03                                                 |
 | F3-S24 | Nó classify_intent (prompt versionado)                                      | ✅ done      | high       | F3-S00, F3-S03                                                 |
 | F3-S25 | Nó identify_or_create_lead + collect_missing_profile_data                   | ✅ done      | high       | F3-S03, F3-S13                                                 |
-| F3-S26 | Nó identify_city (com confirmação)                                          | 🟣 review    | high       | F3-S03, F3-S14, F3-S22                                         |
+| F3-S26 | Nó identify_city (com confirmação)                                          | ✅ done      | high       | F3-S03, F3-S14, F3-S22                                         |
 | F3-S27 | Nó qualify_credit_interest                                                  | 🟢 available | high       | F3-S00, F3-S03                                                 |
 | F3-S28 | Nós generate_simulation + save_simulation                                   | 🟢 available | high       | F3-S00, F3-S03, F3-S15, F3-S16, F3-S21                         |
 | F3-S29 | Nós decide_next_step + request_handoff                                      | 🟢 available | high       | F3-S03, F3-S17, F3-S18                                         |
