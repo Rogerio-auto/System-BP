@@ -27,6 +27,7 @@
 // =============================================================================
 import nock from 'nock';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { ZodError } from 'zod';
 
 // ---------------------------------------------------------------------------
 // Mock env (DEVE ser o primeiro mock)
@@ -787,6 +788,64 @@ describe('handleProcessWithAi', () => {
   // 13. [MÉDIO-1] Mensagem de inconsistência não contém phone (PII)
   //     ON CONFLICT → reload retorna vazio → deve lançar erro sem PII.
   // -------------------------------------------------------------------------
+  it('[M1] ZodError do LangGraph não vaza dump de schema em log — fallback acionado sem throw', async () => {
+    // Cria um ZodError real com múltiplos issues (simula resposta inválida do LangGraph)
+    const zodErr = new ZodError([
+      {
+        code: 'invalid_type',
+        expected: 'string',
+        received: 'number',
+        path: ['reply', 'content'],
+        message: 'Expected string, received number',
+      },
+      {
+        code: 'invalid_type',
+        expected: 'string',
+        received: 'undefined',
+        path: ['graph_version'],
+        message: 'Required',
+      },
+    ]);
+
+    // LangGraph lança ZodError (response inválido)
+    const lgFetch: typeof fetch = vi.fn().mockRejectedValue(zodErr);
+
+    // Fallback: Chatwoot (nock) + /internal/* (fetchFn injetável)
+    nock(CHATWOOT_BASE_URL).post(chatwootMessagesPath()).reply(201, chatwootMessageResponse);
+
+    const internalFetch: typeof fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ decision_log_id: 'dddddddd-dddd-dddd-dddd-dddddddddddd' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    const { db } = makeMockDb({ waMessage: waMessageRow, convState: existingConvState });
+
+    const opts: ProcessWithAiOptions = {
+      ...makeLgOptions(lgFetch),
+      fallbackOptions: {
+        chatwootOptions: {
+          baseUrl: CHATWOOT_BASE_URL,
+          apiToken: 'test-chatwoot-token',
+          accountId: CHATWOOT_ACCOUNT_ID,
+          timeoutMs: 5_000,
+        },
+        internalBaseUrl: 'http://localhost:3333',
+        internalToken: 'a'.repeat(33),
+        fetchFn: internalFetch,
+      },
+    };
+
+    // Não deve lançar — fallback completou; ZodError foi sanitizado no log
+    await expect(handleProcessWithAi(db as never, opts, makeEvent())).resolves.toBeUndefined();
+
+    // LangGraph chamado (1x) — falhou com ZodError
+    expect(lgFetch).toHaveBeenCalledTimes(1);
+    // Fallback acionou /internal/ai/decisions e /internal/handoffs (2 chamadas)
+    expect(internalFetch).toHaveBeenCalledTimes(2);
+  });
+
   it('[MÉDIO-1] erro de inconsistência não vaza phone no message — usa organizationId', async () => {
     const lgFetch = vi.fn() as unknown as typeof fetch;
 

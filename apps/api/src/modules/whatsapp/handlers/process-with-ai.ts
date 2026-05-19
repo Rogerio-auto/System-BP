@@ -40,6 +40,7 @@
 // =============================================================================
 import { and, eq, isNull } from 'drizzle-orm';
 import pino from 'pino';
+import { ZodError } from 'zod';
 
 import { env } from '../../../config/env.js';
 import { db } from '../../../db/client.js';
@@ -417,13 +418,24 @@ export async function handleProcessWithAi(
   try {
     aiResponse = await langGraph.processWhatsAppMessage(langGraphRequest, correlationId);
   } catch (lgErr) {
+    // Sanitizar errMsg: ZodError.message despeja o JSON completo dos erros de validação
+    // (estrutura interna do schema + valores recebidos), o que vaza topologia interna
+    // em logs de produção. Substituímos por uma mensagem sintética.
+    // Para outros erros, mantemos .message (já truncado ao passar ao fallback abaixo).
+    const errMsg =
+      lgErr instanceof ZodError
+        ? `ZodError: schema violation (${lgErr.issues.length} issue${lgErr.issues.length !== 1 ? 's' : ''})`
+        : lgErr instanceof Error
+          ? lgErr.message
+          : String(lgErr);
+
     logger.error(
       {
         eventId: event.id,
         conversationId,
         waMessageId,
         errName: lgErr instanceof Error ? lgErr.name : 'unknown',
-        errMsg: lgErr instanceof Error ? lgErr.message : String(lgErr),
+        errMsg,
       },
       'LangGraph falhou — acionando fallback de handoff automático (F3-S34)',
     );

@@ -275,14 +275,13 @@ export async function triggerAiFallback(
   // Passo 3: Criar handoff via POST /internal/handoffs
   //   Idempotência: chave derivada do waMessageId + 'fallback'.
   //   LGPD §8.5: summary é texto genérico fixo — sem PII do cidadão.
-  //   leadId obrigatório no body — se null, o handoff é criado com um
-  //   leadId nulo-like: o endpoint requer UUID, então usamos um placeholder
-  //   apenas quando leadId é realmente conhecido.
   //
-  //   Atenção: InternalHandoffBodySchema exige leadId como UUID não-nulo.
-  //   Se o lead ainda não foi identificado (leadId === null), o fallback
-  //   não pode criar o handoff da forma normal. Neste caso, logamos um aviso
-  //   e retornamos — o outbox reprocessará quando o lead existir.
+  //   Pré-condições para criar o handoff:
+  //     a) leadId não-nulo — InternalHandoffBodySchema exige UUID de lead.
+  //        Se ausente, logamos aviso e retornamos (outbox reprocessa quando lead existir).
+  //     b) chatwootConversationId > 0 — o handoff vincula-se à conversa Chatwoot.
+  //        Se = 0 (conversa ainda não sincronizada), vincular ao ID 1 seria errado
+  //        pois pode ser uma conversa real de OUTRO cliente. Retornamos sem criar.
   // -------------------------------------------------------------------------
   if (ctx.leadId === null) {
     logger.warn(
@@ -293,13 +292,18 @@ export async function triggerAiFallback(
     return;
   }
 
+  if (ctx.chatwootConversationId <= 0) {
+    logger.warn(
+      { waMessageId: ctx.waMessageId, chatwoot_conversation_id: ctx.chatwootConversationId },
+      'chatwootConversationId inválido — handoff ai_unavailable não pode ser criado sem ' +
+        'conversa Chatwoot identificada; o atendente será notificado quando a conversa sincronizar',
+    );
+    return;
+  }
+
   const handoffBody = {
     leadId: ctx.leadId,
-    // InternalHandoffBodySchema.conversationId é o ID numérico do Chatwoot.
-    // Se não disponível (= 0), o serviço de handoff ainda pode criar o registro.
-    // Coerce via schema aceita 0 (validado como positivo — usamos 1 se 0 para evitar erro de schema).
-    // Na prática chatwootConversationId > 0 para chamadas reais; para segurança usamos Math.max.
-    conversationId: Math.max(ctx.chatwootConversationId, 1),
+    conversationId: ctx.chatwootConversationId,
     reason: 'ai_unavailable',
     summary: FALLBACK_HANDOFF_SUMMARY,
     organizationId: ctx.organizationId,

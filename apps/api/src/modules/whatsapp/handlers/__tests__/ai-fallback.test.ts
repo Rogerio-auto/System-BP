@@ -262,9 +262,12 @@ describe('triggerAiFallback', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 3. chatwootConversationId = 0 → Chatwoot NÃO é chamado
+  // 3. chatwootConversationId = 0 → Chatwoot NÃO é chamado, handoff NÃO é criado
+  //    [M2] Enviar conversationId=0 ao POST /internal/handoffs vincularia o handoff
+  //    à conversa #1 do Chatwoot, que pode ser de outro cliente/organização.
+  //    Comportamento correto: early return com warn, sem criar o handoff.
   // -------------------------------------------------------------------------
-  it('não chama Chatwoot quando chatwootConversationId é 0', async () => {
+  it('não chama Chatwoot nem cria handoff quando chatwootConversationId é 0', async () => {
     // Sem interceptor nock — se Chatwoot for chamado, nock lançará erro
     const ctxNoChat: AiFallbackContext = { ...defaultCtx, chatwootConversationId: 0 };
     const { fetchFn, capturedRequests } = makeInternalFetch(decisionOk, handoffOk);
@@ -273,9 +276,10 @@ describe('triggerAiFallback', () => {
       triggerAiFallback(ctxNoChat, makeFallbackOptions({ fetchFn })),
     ).resolves.toBeUndefined();
 
-    // /internal/* ainda chamados
+    // ai/decisions ainda é chamado (registra a falha da IA)
     expect(capturedRequests.some((r) => r.url.includes('/ai/decisions'))).toBe(true);
-    expect(capturedRequests.some((r) => r.url.includes('/handoffs'))).toBe(true);
+    // handoffs NÃO deve ser chamado — sem conversa Chatwoot identificada
+    expect(capturedRequests.some((r) => r.url.includes('/handoffs'))).toBe(false);
   });
 
   // -------------------------------------------------------------------------
