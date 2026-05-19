@@ -47,6 +47,7 @@ import type { ChatwootClientOptions } from '../../../integrations/chatwoot/clien
 import { LangGraphClient } from '../../../integrations/langgraph/client.js';
 import type { LangGraphClientOptions } from '../../../integrations/langgraph/client.js';
 import type { LangGraphWhatsAppRequest } from '../../../integrations/langgraph/schemas.js';
+import { normalizePhone } from '../../../shared/phone.js';
 
 // ---------------------------------------------------------------------------
 // Logger auto-suficiente
@@ -265,11 +266,17 @@ export async function handleProcessWithAi(
   // 2. Carregar payload bruto da mensagem em whatsapp_messages
   //    O payload completo (com PII) está em whatsapp_messages.payload.
   //    Não logar nenhum campo do payload — LGPD §8.3.
+  //    CRÍTICO: filtra por (waMessageId, organizationId) para evitar cross-tenant leak (regra #3, #8).
   // -------------------------------------------------------------------------
   const [waMessageRow] = await database
     .select()
     .from(whatsappMessages)
-    .where(eq(whatsappMessages.waMessageId, waMessageId))
+    .where(
+      and(
+        eq(whatsappMessages.waMessageId, waMessageId),
+        eq(whatsappMessages.organizationId, organizationId),
+      ),
+    )
     .limit(1);
 
   if (waMessageRow === undefined) {
@@ -300,19 +307,36 @@ export async function handleProcessWithAi(
     return;
   }
 
-  // `from` é o número E.164 do remetente (PII — apenas usado internamente, não logado)
-  const customerPhone = waMsg.from;
+  // `from` é o número do remetente entregue pela Meta (PII — apenas usado internamente, não logado).
+  // ATENÇÃO: a Meta entrega `from` SEM o prefixo `+` (ex: '5569988887777').
+  // O schema LangGraph exige E.164 com `+` — normalizar antes de montar o request.
+  const customerPhoneRaw = waMsg.from;
   const messageText = waMsg.text?.body ?? '';
   const messageTimestamp = waMsg.timestamp;
 
-  if (!customerPhone) {
+  if (!customerPhoneRaw) {
     logger.warn({ eventId: event.id }, 'from ausente no payload; skip');
     return;
   }
 
-  // Normalizar phone para apenas dígitos (índice ai_conversation_states usa phone normalizado)
-  // Manter o E.164 original para envio ao LangGraph.
-  const phoneNormalized = customerPhone.replace(/\D/g, '');
+  // Normalizar para E.164 usando o utilitário canônico (libphonenumber-js).
+  // normalizePhone() lida com entradas com e sem `+`, validando o número contra BR por padrão.
+  // `phoneNormalized` (apenas dígitos) é usado como chave em ai_conversation_states;
+  // `customerPhoneE164` (com `+`) é o contrato do LangGraph (LangGraphWhatsAppRequestSchema).
+  const phoneResult = normalizePhone(customerPhoneRaw);
+
+  // Se o número for inválido para libphonenumber-js, tentamos prefixar `+` como fallback
+  // (garante que números válidos mas não reconhecidos pela lib não bloqueiem o fluxo).
+  // O schema Zod ainda valida a regex E.164 antes de enviar ao LangGraph.
+  const customerPhoneE164 =
+    phoneResult.isValid && phoneResult.e164 !== null
+      ? phoneResult.e164
+      : customerPhoneRaw.startsWith('+')
+        ? customerPhoneRaw
+        : `+${customerPhoneRaw}`;
+
+  // `phoneNormalized` — apenas dígitos — chave usada em ai_conversation_states.
+  const phoneNormalized = customerPhoneE164.replace(/\D/g, '');
 
   // -------------------------------------------------------------------------
   // 4. Carregar/criar conversation_id em ai_conversation_states
@@ -346,8 +370,9 @@ export async function handleProcessWithAi(
   const langGraphRequest: LangGraphWhatsAppRequest = {
     conversation_id: conversationId,
     lead_id: leadId,
-    // PII: customer_phone é necessário pelo contrato — não é logado pelo handler
-    customer_phone: customerPhone,
+    // PII: customer_phone é necessário pelo contrato — não é logado pelo handler.
+    // Sempre no formato E.164 (normalizado acima via normalizePhone).
+    customer_phone: customerPhoneE164,
     message_text: messageText,
     message_attachments: [],
     message_timestamp: messageTimestampIso,

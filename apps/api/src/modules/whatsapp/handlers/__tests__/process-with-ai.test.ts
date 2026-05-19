@@ -134,7 +134,8 @@ const rawWaPayload = {
             messages: [
               {
                 id: WA_MESSAGE_ID,
-                from: '+5569999999999',
+                // Formato real entregue pela Meta: SEM o prefixo `+`
+                from: '5569999999999',
                 timestamp: '1716115200',
                 type: 'text',
                 text: { body: 'Quero simular um crédito' },
@@ -427,6 +428,7 @@ describe('handleProcessWithAi', () => {
     expect(capturedBody?.['channel']).toBe('whatsapp');
     expect(capturedBody?.['idempotency_key']).toBe(`wa_msg_${WA_MESSAGE_ID}`);
     expect(capturedBody?.['correlation_id']).toBe(CORRELATION_ID);
+    // A Meta entrega `from` SEM `+` ('5569999999999'); o handler deve normalizar para E.164 com `+`.
     expect(capturedBody?.['customer_phone']).toBe('+5569999999999');
     // Headers de segurança
     expect(capturedHeaders?.['X-Internal-Token']).toBe('a'.repeat(33));
