@@ -258,18 +258,30 @@ async def dry_run_context(
     # - app.tools.audit_tools (log_ai_decision cria seu próprio cliente)
     # - nós individuais que importam de app.tools._base
     #
-    # Basta substituir no módulo-origem: ``app.tools._base.InternalApiClient``.
-    # Python resolve o nome no namespace do módulo na hora da instanciação
-    # (``InternalApiClient()``), portanto o patch no módulo-origem é suficiente
-    # para todos os callsites que fizeram ``from app.tools._base import InternalApiClient``.
+    # IMPORTANTE: ``from app.tools._base import InternalApiClient`` cria um binding
+    # LOCAL no namespace de cada módulo importador. O Python NÃO consulta o módulo-
+    # origem em tempo de execução para esses bindings locais — a referência já foi
+    # copiada no momento do import. Portanto, patchear apenas ``app.tools._base``
+    # NÃO afeta módulos que fizeram ``from ... import InternalApiClient``.
     #
-    # Para os nós que fizeram import do pacote e usam o nome qualificado,
-    # patchamos também nos módulos dos nós e do audit_tools.
+    # Cada módulo que faz esse import precisa ser patchado individualmente em seu
+    # próprio namespace. Os alvos abaixo cobrem TODOS os módulos que executam
+    # ``InternalApiClient()`` dentro do caminho de execução do grafo.
+    #
+    # Confirmado via: grep -r "from app.tools._base import InternalApiClient" app/
     patch_targets = [
+        # Módulo-origem (garante que qualquer import futuro também use o stub)
         "app.tools._base.InternalApiClient",
+        # Tools que criam InternalApiClient() localmente — bindings independentes
         "app.tools.audit_tools.InternalApiClient",
+        "app.tools.leads_tools.InternalApiClient",
+        "app.tools.simulation_tools.InternalApiClient",
+        "app.tools.chatwoot_tools.InternalApiClient",
+        "app.tools.city_tools.InternalApiClient",
+        # Nós do grafo que criam InternalApiClient() localmente
         "app.graphs.whatsapp_pre_attendance.nodes.load_state.InternalApiClient",
         "app.graphs.whatsapp_pre_attendance.nodes.persist_state.InternalApiClient",
+        "app.graphs.whatsapp_pre_attendance.nodes.request_handoff.InternalApiClient",
     ]
 
     patches = [patch(target, side_effect=_stub_factory) for target in patch_targets]

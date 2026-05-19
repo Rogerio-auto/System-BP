@@ -7,8 +7,17 @@ Cobre:
 - dry_run_context patches corretamente os módulos alvo.
 - Sink registra método e path; não armazena corpo JSON (PII safe).
 - allow_real_reads=True delega GET ao cliente real.
+
+Teste de integração (CRITICO-2):
+- Executa o grafo REAL (sem mock de build_graph) com intent que dispara
+  request_handoff, assegurando que NENHUMA chamada POST/PATCH/PUT chega
+  ao backend real (apenas ao sink do dry_run_context).
+- Esse teste FALHA antes do fix do CRITICO-1 (patch incompleto) e PASSA depois.
 """
 from __future__ import annotations
+
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -279,3 +288,237 @@ class TestDryRunContext:
         # Mas o sink registrou a chamada
         assert len(sink) == 1
         assert sink[0].method == "POST"
+
+
+# ---------------------------------------------------------------------------
+# Teste de integração — CRITICO-2
+# ---------------------------------------------------------------------------
+#
+# Propósito: executar o grafo REAL (sem mock de build_graph) com um cenário
+# que dispara o nó ``request_handoff``, que internamente chama:
+#   - POST /internal/handoffs           via app.tools.chatwoot_tools.InternalApiClient
+#   - POST /internal/chatwoot/notes     via app.tools.chatwoot_tools.InternalApiClient
+#   - PUT  /internal/conversations/…    via persist_state.InternalApiClient
+#   - POST /internal/ai/decisions       via audit_tools.InternalApiClient
+#
+# ANTES do fix do CRITICO-1: ``chatwoot_tools.InternalApiClient`` e
+# ``request_handoff.InternalApiClient`` (bindings locais criados por
+# ``from app.tools._base import InternalApiClient``) NÃO eram patchados —
+# o teste falhava com ConnectionRefusedError ao tentar chamar o backend real.
+#
+# APÓS o fix: todos os bindings são patchados e o sink captura as chamadas.
+# O teste asserta ``backend_stub.post_count == 0`` (nenhuma chamada HTTP real).
+#
+# Estratégia: o grafo real requer a classify_intent funcionar. Mockamos apenas
+# ``get_gateway()`` para retornar um gateway que classifica como
+# ``falar_atendente`` (intent que roteia diretamente para request_handoff).
+# O InternalApiClient real nunca é chamado — o dry_run_context o substitui.
+
+
+def _make_mock_gateway(intent_text: str) -> MagicMock:
+    """Cria um mock do LLM gateway que retorna ``intent_text`` como conteúdo."""
+    from app.llm.gateway import LLMResponse, TokenUsage
+
+    response = LLMResponse(
+        content=intent_text,
+        model="mock/test-model",
+        usage=TokenUsage(prompt_tokens=10, completion_tokens=2, total_tokens=12),
+        latency_ms=5.0,
+        finish_reason="stop",
+    )
+    gw = MagicMock()
+    gw.complete = AsyncMock(return_value=response)
+    return gw
+
+
+def _make_initial_state_for_handoff() -> Any:
+    """Estado inicial que força o grafo a executar classify_intent → request_handoff."""
+    from app.graphs.whatsapp_pre_attendance.state import ConversationState
+
+    state: ConversationState = {
+        "conversation_id": "integ-test-conv-001",
+        "chatwoot_conversation_id": "cw-integ-42",
+        "phone": "+5569988880001",
+        "handoff_required": False,
+        "handoff_reason": None,
+        "missing_fields": [],
+        "messages": [{"role": "user", "content": "Quero falar com um atendente"}],
+        "tool_results": [],
+        "errors": [],
+        "actions_emitted": [],
+        "lead_id": "lead-integ-001",
+        "customer_id": None,
+        "customer_name": "Teste Integração",
+        "city_id": None,
+        "city_name": None,
+        "current_intent": None,
+        "current_stage": None,
+        "requested_amount": None,
+        "requested_term_months": None,
+        "last_simulation_id": None,
+    }
+    return state
+
+
+class TestDryRunIntegrationRealGraph:
+    """Integração: grafo REAL + dry_run_context — prova que nenhuma chamada
+    mutável chega ao backend quando todos os bindings de InternalApiClient
+    estão corretamente patchados (fix do CRITICO-1).
+
+    Este teste FALHA se o patch_targets for incompleto (estado pré-fix):
+    o nó request_handoff tentaria criar uma conexão TCP real com o backend
+    e levantaria ConnectionRefusedError ou similar.
+
+    Este teste PASSA após o fix: dry_run_context intercepta todas as
+    chamadas em TODOS os módulos que importaram InternalApiClient localmente.
+    """
+
+    @pytest.mark.asyncio
+    async def test_real_graph_handoff_zero_real_http_calls(self) -> None:
+        """Grafo real com intent falar_atendente: sink captura todas as chamadas,
+        nenhuma chega ao backend HTTP.
+
+        Cenário:
+            - classify_intent classifica ``falar_atendente`` (via gateway mock).
+            - route_by_intent envia para request_handoff.
+            - request_handoff chama POST /internal/handoffs + POST /internal/chatwoot/notes.
+            - persist_state chama PUT /internal/conversations/.../state.
+            - log_decision chama POST /internal/ai/decisions.
+
+        Prova de CRITICO-1 (patch incompleto):
+            Antes do fix, ``chatwoot_tools.InternalApiClient`` não era patchado.
+            O nó request_handoff instancia InternalApiClient() localmente —
+            o binding local (criado por ``from app.tools._base import InternalApiClient``
+            em chatwoot_tools.py) NÃO era substituído pelo stub.
+            Resultado: o grafo tentava fazer TCP real para o backend inexistente
+            e falhava com ConnectionRefusedError/ConnectError — este teste
+            propagava essa exceção e FALHAVA.
+
+            Após o fix: todos os 9 bindings são patchados → o grafo executa
+            completamente → o sink captura ≥1 chamada POST → o teste PASSA.
+        """
+        import app.tools._base as _base_mod
+
+        from app.graphs.whatsapp_pre_attendance.graph import build_graph
+
+        mock_gateway = _make_mock_gateway("falar_atendente")
+        initial_state = _make_initial_state_for_handoff()
+
+        # Patchamos _execute no InternalApiClient original para detectar leaks:
+        # se algum binding não patchado instanciar o cliente real, _execute
+        # tentará TCP — aqui capturamos isso com um erro descritivo.
+        real_backend_calls: list[str] = []
+
+        original_execute = _base_mod.InternalApiClient._execute
+
+        async def _leak_detector(
+            self_obj: Any,
+            method: str,
+            url: str,
+            **kwargs: Any,
+        ) -> Any:
+            real_backend_calls.append(f"{method} {url}")
+            raise AssertionError(
+                f"CRITICO-1 LEAK: InternalApiClient._execute chamado para {method} {url}. "
+                "dry_run_context não patchou todos os bindings locais."
+            )
+
+        with (
+            # Mock do gateway LLM — evita chamadas reais à OpenRouter/Anthropic.
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=mock_gateway,
+            ),
+            # Detector de leak: qualquer instância do cliente real (não patchada)
+            # que tentar fazer TCP falhará com mensagem diagnóstica clara.
+            patch.object(_base_mod.InternalApiClient, "_execute", _leak_detector),
+        ):
+            async with dry_run_context(allow_real_reads=False) as sink:
+                graph = build_graph()
+                compiled = graph.compile()
+                await compiled.ainvoke(initial_state)
+
+        # Nenhum leak de backend real detectado.
+        assert real_backend_calls == [], (
+            f"CRITICO-1: Chamadas reais ao backend detectadas — "
+            f"dry_run_context não patchou: {real_backend_calls}"
+        )
+
+        # O sink deve ter capturado chamadas do caminho:
+        #   load_state      → GET  /internal/conversations/.../state
+        #   request_handoff → POST /internal/handoffs
+        #   request_handoff → POST /internal/chatwoot/notes
+        #   persist_state   → PUT  /internal/conversations/.../state
+        #   log_decision    → POST /internal/ai/decisions
+        intercepted_methods = [c.method for c in sink]
+        assert "POST" in intercepted_methods, (
+            f"Esperado ao menos 1 POST interceptado no sink. "
+            f"Sink atual: {intercepted_methods}"
+        )
+        assert "PUT" in intercepted_methods or "GET" in intercepted_methods, (
+            f"Esperado GET (load_state) ou PUT (persist_state) no sink. "
+            f"Sink atual: {intercepted_methods}"
+        )
+
+        # Confirma que request_handoff gerou chamadas ao backend (agora via stub)
+        post_paths = [c.path for c in sink if c.method == "POST"]
+        handoff_calls = [p for p in post_paths if "handoffs" in p or "chatwoot" in p]
+        assert len(handoff_calls) >= 1, (
+            f"Esperado ao menos 1 POST a /internal/handoffs ou /internal/chatwoot. "
+            f"POSTs interceptados: {post_paths}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_dry_run_patches_all_local_bindings(self) -> None:
+        """Verifica que dry_run_context patcha os 9 targets conhecidos.
+
+        Se um novo módulo importar InternalApiClient e não for adicionado ao
+        patch_targets, este teste documenta a expectativa — deve ser atualizado
+        junto com o patch_targets quando novos módulos forem criados.
+
+        Usa getattr() em vez de acesso direto ao atributo porque mypy strict
+        não expõe nomes importados via ``from X import Y`` como atributos
+        explícitos do módulo (attr-defined). O comportamento em runtime é
+        idêntico — getattr é a forma canônica de acessar bindings dinâmicos.
+        """
+        import importlib
+
+        # Mapeamento: nome legível → caminho do módulo
+        module_targets: list[tuple[str, str]] = [
+            ("_base", "app.tools._base"),
+            ("audit_tools", "app.tools.audit_tools"),
+            ("leads_tools", "app.tools.leads_tools"),
+            ("simulation_tools", "app.tools.simulation_tools"),
+            ("chatwoot_tools", "app.tools.chatwoot_tools"),
+            ("city_tools", "app.tools.city_tools"),
+            ("load_state", "app.graphs.whatsapp_pre_attendance.nodes.load_state"),
+            ("persist_state", "app.graphs.whatsapp_pre_attendance.nodes.persist_state"),
+            ("request_handoff", "app.graphs.whatsapp_pre_attendance.nodes.request_handoff"),
+        ]
+
+        # Captura as classes originais antes do contexto
+        modules = {
+            name: importlib.import_module(mod_path)
+            for name, mod_path in module_targets
+        }
+        original_classes = {
+            name: getattr(mod, "InternalApiClient")
+            for name, mod in modules.items()
+        }
+
+        async with dry_run_context(allow_real_reads=False):
+            # Durante o contexto, todos os bindings locais devem ser substituídos
+            for mod_name, mod in modules.items():
+                patched_class = getattr(mod, "InternalApiClient")
+                assert patched_class is not original_classes[mod_name], (
+                    f"Módulo '{mod_name}' não teve InternalApiClient patchado durante "
+                    f"dry_run_context. Adicione ao patch_targets em dry_run.py."
+                )
+
+        # Após o contexto, todos os bindings devem ser restaurados
+        for mod_name, mod in modules.items():
+            restored_class = getattr(mod, "InternalApiClient")
+            assert restored_class is original_classes[mod_name], (
+                f"Módulo '{mod_name}' não teve InternalApiClient restaurado após "
+                f"dry_run_context. Verifique se p.stop() está sendo chamado no finally."
+            )
