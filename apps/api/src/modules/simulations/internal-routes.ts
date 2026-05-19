@@ -1,38 +1,43 @@
 // =============================================================================
-// simulations/internal-routes.ts — Endpoint POST /internal/simulations (F2-S05).
+// simulations/internal-routes.ts — Endpoints M2M do módulo de simulações.
 //
-// Canal M2M: consumido exclusivamente pela tool `generate_credit_simulation`
-// do LangGraph (F3). Não usa JWT — autenticação via X-Internal-Token.
+// Canal M2M: consumido exclusivamente pelas tools do LangGraph (F3).
+// Não usa JWT — autenticação via X-Internal-Token.
 //
-// Endpoint:
-//   POST /internal/simulations
+// Endpoints:
+//   POST /internal/simulations           — F2-S05 (generate_credit_simulation)
+//   POST /internal/simulations/:id/sent  — F3-S11 (mark_simulation_sent)
 //
 // Autenticação:
 //   Header X-Internal-Token = env.LANGGRAPH_INTERNAL_TOKEN. Senão 401.
 //
-// Idempotência:
-//   Campo `idempotencyKey` (UUID v4) obrigatório no body.
-//   Primeira chamada → cria simulação, persiste chave na tabela idempotency_keys.
-//   Reenvio com mesma chave → retorna 200 com simulação original (sem novo INSERT,
-//   sem novo outbox — apenas o cached response_body + lookup por simulation_id).
+// POST /internal/simulations:
+//   Idempotência via campo `idempotencyKey` (UUID v4) obrigatório no body.
+//   Primeira chamada → cria simulação, persiste chave em idempotency_keys.
+//   Reenvio com mesma chave → 200 com simulação original (sem novo INSERT).
+//
+// POST /internal/simulations/:id/sent (F3-S11):
+//   Marca a simulação como enviada ao cliente (sent_at).
+//   Idempotente: reenvio não regrava sent_at já gravado.
+//   Emite simulations.sent_to_customer uma única vez via outbox.
+//   404 se a simulação não existir.
 //
 // Origin:
-//   Toda simulação criada por este endpoint recebe `origin='ai'`.
+//   Toda simulação criada por POST /internal/simulations recebe `origin='ai'`.
 //   `created_by_user_id` sempre NULL.
 //
 // LGPD:
-//   - Body contém apenas IDs opacos + números financeiros (sem PII).
+//   - Bodies contêm apenas IDs opacos + números financeiros (sem PII).
 //   - idempotency_keys.response_body armazena apenas { simulation_id: uuid }.
-//   - Audit log com actor_user_id=NULL, actor_type derivado (actor=null).
+//   - Audit log com actor_user_id=NULL, actor_type='ai'.
 //   - Rate limit 60 req/min por IP: proteção contra loop infinito da IA.
 //   - pino.redact no app.ts cobre req.body.* como medida extra.
 //   - DLP do LangGraph (F1-S26) garante que prompts não contêm PII antes desta
 //     chamada — este endpoint só recebe IDs + números.
 //
 // Invariantes:
-//   - Service compartilhado com F2-S04 (simulationsService.createSimulation).
-//   - Outbox emitido UMA ÚNICA VEZ (na criação, não no reenvio idempotente).
-//   - Audit emitido UMA ÚNICA VEZ (idem).
+//   - Outbox emitido UMA ÚNICA VEZ por operação.
+//   - Audit emitido UMA ÚNICA VEZ por operação.
 // =============================================================================
 import { eq } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -45,8 +50,34 @@ import { idempotencyKeys } from '../../db/schema/idempotencyKeys.js';
 import { AppError, UnauthorizedError } from '../../shared/errors.js';
 
 import { SimulationResponseSchema } from './schemas.js';
-import { createSimulation } from './service.js';
+import { createSimulation, markSimulationSent } from './service.js';
 import type { SimulationActorContext } from './service.js';
+
+// ---------------------------------------------------------------------------
+// Schema do body de POST /internal/simulations/:id/sent (F3-S11)
+// ---------------------------------------------------------------------------
+
+const InternalSimulationSentBodySchema = z.object({
+  /**
+   * Canal pelo qual a simulação foi enviada ao cliente.
+   * Ex: "whatsapp", "email", "sms".
+   */
+  channel: z.string().min(1, 'channel é obrigatório').max(50, 'channel excede o máximo'),
+  /**
+   * ID externo da mensagem enviada (ex: Chatwoot message ID).
+   * Opcional — nem todo canal retorna um message_id rastreável.
+   * LGPD: é um ID opaco (número ou string), não contém PII.
+   */
+  messageId: z.string().max(255, 'messageId excede o máximo').nullable().optional(),
+});
+
+type InternalSimulationSentBody = z.infer<typeof InternalSimulationSentBodySchema>;
+
+const InternalSimulationSentResponseSchema = z.object({
+  simulation_id: z.string().uuid(),
+  /** true = simulação já estava marcada; false = marcada agora. */
+  already_sent: z.boolean(),
+});
 
 // ---------------------------------------------------------------------------
 // Schema do body interno (estende F2-S04 com idempotencyKey + aiDecisionLogId)
@@ -341,6 +372,112 @@ export const internalSimulationsRoutes: FastifyPluginAsyncZod = async (app) => {
       // 7. Retornar 201 com simulação criada
       // -----------------------------------------------------------------------
       return reply.status(201).send(simulation);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /internal/simulations/:id/sent  (F3-S11)
+  //
+  // Marca uma simulação existente como enviada ao cliente.
+  // Consumido pela tool `mark_simulation_sent` do LangGraph.
+  //
+  // Pipeline:
+  //   1. Verificar X-Internal-Token → 401 se ausente/inválido.
+  //   2. Validar body via Zod (channel obrigatório, messageId opcional).
+  //   3. Chamar markSimulationSent() na service layer:
+  //        a. 404 se simulação não existir.
+  //        b. Idempotente: se já enviada → retorna { alreadySent: true }.
+  //        c. UPDATE sent_at + EMIT outbox + AUDIT na mesma transação.
+  //   4. Retornar 200 com { simulation_id, already_sent }.
+  //
+  // Idempotência:
+  //   Reenvio da mesma chamada retorna 200 com already_sent=true.
+  //   sent_at NÃO é alterado na segunda chamada.
+  //   Evento outbox emitido UMA ÚNICA VEZ (na primeira chamada).
+  //
+  // LGPD:
+  //   - Body contém apenas channel (string categórica) e messageId opaco.
+  //   - Audit log com actor_role='ai'.
+  // -------------------------------------------------------------------------
+  app.post(
+    '/internal/simulations/:id/sent',
+    {
+      schema: {
+        params: z.object({
+          id: z.string().uuid('id deve ser UUID'),
+        }),
+        body: InternalSimulationSentBodySchema,
+        response: {
+          200: InternalSimulationSentResponseSchema,
+        },
+      },
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
+            const err = Object.assign(
+              new Error('Rate limit excedido: máximo 60 requisições por minuto.'),
+              {
+                statusCode: context.statusCode,
+                code: 'RATE_LIMITED',
+              },
+            );
+            return err;
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      // -----------------------------------------------------------------------
+      // 1. Verificar X-Internal-Token
+      // -----------------------------------------------------------------------
+      const token = request.headers['x-internal-token'];
+      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+        throw new UnauthorizedError('Token interno inválido ou ausente');
+      }
+
+      const { id: simulationId } = request.params as { id: string };
+      const body = request.body as InternalSimulationSentBody;
+
+      // -----------------------------------------------------------------------
+      // 2. Montar SimulationActorContext para IA
+      //
+      // cityScopeIds: null → sem restrição (IA acessa qualquer simulação da org).
+      // organizationId: não disponível sem JWT — a service busca pela simulação.
+      //   Usamos string vazia como placeholder; markSimulationSent não usa o
+      //   organizationId do actor para autorizar (a simulação carrega sua própria org).
+      // -----------------------------------------------------------------------
+      const actor: SimulationActorContext = {
+        userId: '',
+        organizationId: '',
+        role: 'ai',
+        cityScopeIds: null,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] ?? null,
+      };
+
+      // -----------------------------------------------------------------------
+      // 3. Marcar como enviada via service layer
+      // -----------------------------------------------------------------------
+      const result = await markSimulationSent(
+        db,
+        simulationId,
+        actor,
+        body.channel,
+        body.messageId ?? null,
+      );
+
+      // -----------------------------------------------------------------------
+      // 4. Retornar 200
+      //
+      // Sempre 200: tanto criação quanto reenvio idempotente.
+      // already_sent=false = marcada agora; already_sent=true = já estava marcada.
+      // -----------------------------------------------------------------------
+      return reply.status(200).send({
+        simulation_id: result.simulationId,
+        already_sent: result.alreadySent,
+      });
     },
   );
 };

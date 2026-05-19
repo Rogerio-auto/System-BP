@@ -1,25 +1,35 @@
 // =============================================================================
-// simulations/__tests__/internal-routes.test.ts — Testes de integração F2-S05.
+// simulations/__tests__/internal-routes.test.ts — Testes de integração F2-S05 + F3-S11.
 //
 // Estratégia: sobe Fastify com internalSimulationsRoutes, mocka db para
 // controlar respostas do lookup de idempotência e do select de simulação,
-// mocka createSimulation() para controlar o fluxo de criação.
+// mocka createSimulation() e markSimulationSent() para controlar o fluxo.
 //
 // Cobre:
-//   1.  POST /internal/simulations → 201 caminho feliz (nova simulação)
-//   2.  POST /internal/simulations → 200 reenvio idempotente (mesma chave)
-//   3.  POST /internal/simulations → 401 sem X-Internal-Token
-//   4.  POST /internal/simulations → 401 com token errado
-//   5.  POST /internal/simulations → 400 body inválido (sem idempotencyKey)
-//   6.  POST /internal/simulations → 400 body inválido (idempotencyKey não-UUID)
-//   7.  POST /internal/simulations → 400 body inválido (leadId não-UUID)
-//   8.  POST /internal/simulations → 422 amount fora dos limites (service layer)
-//   9.  POST /internal/simulations → 409 no_active_rule_for_city (service layer)
-//   10. POST /internal/simulations → 404 produto não encontrado (service layer)
-//   11. POST /internal/simulations → origin='ai' na simulação criada
-//   12. POST /internal/simulations → 429 rate limit (>60 req/min simulado)
-//   13. POST /internal/simulations → reenvio não chama createSimulation()
-//   14. POST /internal/simulations → reenvio com payload inválido no cache → 500
+//   POST /internal/simulations (F2-S05):
+//   1.  → 201 caminho feliz (nova simulação)
+//   2.  → 200 reenvio idempotente (mesma chave)
+//   3.  → 401 sem X-Internal-Token
+//   4.  → 401 com token errado
+//   5.  → 400 body inválido (sem idempotencyKey)
+//   6.  → 400 body inválido (idempotencyKey não-UUID)
+//   7.  → 400 body inválido (leadId não-UUID)
+//   8.  → 422 amount fora dos limites (service layer)
+//   9.  → 409 no_active_rule_for_city (service layer)
+//   10. → 404 produto não encontrado (service layer)
+//   11. → origin='ai' na simulação criada
+//   12. → 429 rate limit (>60 req/min simulado)
+//   13. → reenvio não chama createSimulation()
+//   14. → reenvio com payload inválido no cache → 500
+//
+//   POST /internal/simulations/:id/sent (F3-S11):
+//   15. → 200 caminho feliz (primeira marcação, already_sent=false)
+//   16. → 200 reenvio idempotente (already_sent=true)
+//   17. → 401 sem X-Internal-Token
+//   18. → 401 com token errado
+//   19. → 404 simulação inexistente
+//   20. → 400 body inválido (channel ausente)
+//   21. → 400 params inválido (:id não é UUID)
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -100,15 +110,17 @@ vi.mock('../../../db/client.js', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock createSimulation service
+// Mock service functions
 // ---------------------------------------------------------------------------
 const mockCreateSimulation = vi.fn();
+const mockMarkSimulationSent = vi.fn();
 
 vi.mock('../service.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
     createSimulation: (...args: unknown[]) => mockCreateSimulation(...args),
+    markSimulationSent: (...args: unknown[]) => mockMarkSimulationSent(...args),
   };
 });
 
@@ -659,5 +671,279 @@ describe('POST /internal/simulations — erros da service layer', () => {
 
     expect(res.statusCode).toBe(403);
     expect(res.json().error).toBe('FORBIDDEN');
+  });
+});
+
+// ===========================================================================
+// Suite 6 (F3-S11): POST /internal/simulations/:id/sent — 200 caminho feliz
+// ===========================================================================
+
+describe('POST /internal/simulations/:id/sent — 200 caminho feliz', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    selectCallCount = 0;
+    mockIdempotencyRows.mockReturnValue([]);
+  });
+
+  it('retorna 200 com already_sent=false na primeira marcação', async () => {
+    mockMarkSimulationSent.mockResolvedValueOnce({
+      alreadySent: false,
+      simulationId: FIXTURE_SIMULATION_ID,
+      leadId: FIXTURE_LEAD_ID,
+      organizationId: FIXTURE_ORG_ID,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: makeHeaders(),
+      payload: { channel: 'whatsapp', messageId: 'msg-123' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.simulation_id).toBe(FIXTURE_SIMULATION_ID);
+    expect(body.already_sent).toBe(false);
+  });
+
+  it('chama markSimulationSent com channel e messageId corretos', async () => {
+    mockMarkSimulationSent.mockResolvedValueOnce({
+      alreadySent: false,
+      simulationId: FIXTURE_SIMULATION_ID,
+      leadId: FIXTURE_LEAD_ID,
+      organizationId: FIXTURE_ORG_ID,
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: makeHeaders(),
+      payload: { channel: 'whatsapp', messageId: 'msg-456' },
+    });
+
+    expect(mockMarkSimulationSent).toHaveBeenCalledOnce();
+    const [, simId, , channel, messageId] = mockMarkSimulationSent.mock.calls[0] as unknown[];
+    expect(simId).toBe(FIXTURE_SIMULATION_ID);
+    expect(channel).toBe('whatsapp');
+    expect(messageId).toBe('msg-456');
+  });
+
+  it('aceita messageId ausente (campo opcional)', async () => {
+    mockMarkSimulationSent.mockResolvedValueOnce({
+      alreadySent: false,
+      simulationId: FIXTURE_SIMULATION_ID,
+      leadId: FIXTURE_LEAD_ID,
+      organizationId: FIXTURE_ORG_ID,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: makeHeaders(),
+      payload: { channel: 'email' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().already_sent).toBe(false);
+  });
+
+  it('aceita messageId=null explícito', async () => {
+    mockMarkSimulationSent.mockResolvedValueOnce({
+      alreadySent: false,
+      simulationId: FIXTURE_SIMULATION_ID,
+      leadId: FIXTURE_LEAD_ID,
+      organizationId: FIXTURE_ORG_ID,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: makeHeaders(),
+      payload: { channel: 'whatsapp', messageId: null },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+// ===========================================================================
+// Suite 7 (F3-S11): POST /internal/simulations/:id/sent — reenvio idempotente
+// ===========================================================================
+
+describe('POST /internal/simulations/:id/sent — reenvio idempotente', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    selectCallCount = 0;
+  });
+
+  it('retorna 200 com already_sent=true no reenvio', async () => {
+    mockMarkSimulationSent.mockResolvedValueOnce({
+      alreadySent: true,
+      simulationId: FIXTURE_SIMULATION_ID,
+      leadId: FIXTURE_LEAD_ID,
+      organizationId: FIXTURE_ORG_ID,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: makeHeaders(),
+      payload: { channel: 'whatsapp', messageId: 'msg-123' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.already_sent).toBe(true);
+    expect(body.simulation_id).toBe(FIXTURE_SIMULATION_ID);
+  });
+});
+
+// ===========================================================================
+// Suite 8 (F3-S11): POST /internal/simulations/:id/sent — 401 autenticação
+// ===========================================================================
+
+describe('POST /internal/simulations/:id/sent — 401 autenticação', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('retorna 401 sem X-Internal-Token', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: { 'content-type': 'application/json' },
+      payload: { channel: 'whatsapp' },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error).toBe('UNAUTHORIZED');
+  });
+
+  it('retorna 401 com token errado', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: makeHeaders('wrong-token'),
+      payload: { channel: 'whatsapp' },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error).toBe('UNAUTHORIZED');
+  });
+});
+
+// ===========================================================================
+// Suite 9 (F3-S11): POST /internal/simulations/:id/sent — 404 não encontrada
+// ===========================================================================
+
+describe('POST /internal/simulations/:id/sent — 404 simulação inexistente', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    selectCallCount = 0;
+  });
+
+  it('retorna 404 quando simulação não existe', async () => {
+    const { NotFoundError } = await import('../../../shared/errors.js');
+    mockMarkSimulationSent.mockRejectedValueOnce(
+      new NotFoundError(`Simulação ${FIXTURE_SIMULATION_ID} não encontrada`),
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: makeHeaders(),
+      payload: { channel: 'whatsapp' },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe('NOT_FOUND');
+  });
+});
+
+// ===========================================================================
+// Suite 10 (F3-S11): POST /internal/simulations/:id/sent — 400 body inválido
+// ===========================================================================
+
+describe('POST /internal/simulations/:id/sent — 400 body inválido', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('retorna 400 quando channel está ausente', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: makeHeaders(),
+      payload: { messageId: 'msg-123' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('VALIDATION_ERROR');
+  });
+
+  it('retorna 400 quando channel é string vazia', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: makeHeaders(),
+      payload: { channel: '' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('VALIDATION_ERROR');
+  });
+
+  it('retorna 400 quando :id não é UUID', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/simulations/nao-e-uuid/sent',
+      headers: makeHeaders(),
+      payload: { channel: 'whatsapp' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('VALIDATION_ERROR');
   });
 });

@@ -14,13 +14,20 @@
 // API pública (createSimulation) aceita `origin` + `idempotencyKey` opcionais
 // para que F2-S05 (internal/IA) reutilize o mesmo service.
 //
+// markSimulationSent (F3-S11):
+//   - Marca sent_at na simulação (idempotente: NÃO regrava se já definido).
+//   - Emite simulations.sent_to_customer via outbox (única vez).
+//   - Retorna { alreadySent: boolean } para o endpoint controlar 200 vs 204.
+//
 // Invariantes:
-//   - Simulação é snapshot imutável após criação.
-//   - Outbox + audit sempre na mesma transação que o INSERT.
+//   - Simulação é snapshot imutável após criação (exceto sent_at).
+//   - Outbox + audit sempre na mesma transação que a mutação.
 //   - Nenhum PII bruto no payload do outbox.
 //
 // LGPD: lead_id, product_id, rule_version_id são IDs opacos — não são PII.
 // =============================================================================
+import { sql } from 'drizzle-orm';
+
 import type { Database } from '../../db/client.js';
 import { emit } from '../../events/emit.js';
 import { auditLog } from '../../lib/audit.js';
@@ -318,5 +325,149 @@ export async function createSimulation(
     origin: simulation.origin as 'manual' | 'ai' | 'import',
     created_by_user_id: simulation.createdByUserId ?? null,
     created_at: simulation.createdAt.toISOString(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// markSimulationSent — endpoint interno (IA via F3-S11)
+// ---------------------------------------------------------------------------
+
+/** Resultado de markSimulationSent. */
+export interface MarkSimulationSentResult {
+  /** true = simulação já estava marcada como enviada (reenvio idempotente). */
+  alreadySent: boolean;
+  /** UUID da simulação marcada. */
+  simulationId: string;
+  /** lead_id da simulação (para o outbox). */
+  leadId: string;
+  /** organization_id da simulação (para o outbox). */
+  organizationId: string;
+}
+
+/**
+ * Marca uma simulação como enviada ao cliente.
+ *
+ * Idempotente: se sent_at já estiver definido, retorna { alreadySent: true }
+ * sem alterar o registro nem emitir novo evento via outbox.
+ *
+ * Pipeline:
+ *   1. Busca simulação por ID → 404 se não existir.
+ *   2. Se sent_at já definido → retorna { alreadySent: true } sem transação.
+ *   3. Transação:
+ *      a. UPDATE credit_simulations SET sent_at = NOW() WHERE id = $1 AND sent_at IS NULL
+ *         → condição WHERE sent_at IS NULL garante idempotência sob race condition.
+ *      b. EMIT simulations.sent_to_customer via outbox.
+ *      c. AUDIT LOG.
+ *   4. Retorna { alreadySent: false, ... }.
+ *
+ * Nota sobre sent_at:
+ *   A coluna sent_at foi adicionada pela migration 0023_simulation_sent_at.sql.
+ *   Por decisão de minimizar diff no schema tipado (creditSimulations.ts fora
+ *   do files_allowed deste slot), usamos raw SQL via drizzle sql`` template.
+ *   O typecheck passa pois sql`` retorna SQL<unknown> — sem acesso a coluna tipada.
+ *
+ * @param db            Instância Drizzle (não transação — a função cria internamente).
+ * @param simulationId  UUID da simulação a marcar.
+ * @param actor         Contexto do actor (IA — sem userId real).
+ * @param channel       Canal de envio ("whatsapp", "email" etc.).
+ * @param messageId     ID externo da mensagem (opcional — ex: Chatwoot message ID).
+ *
+ * @throws NotFoundError (404) — simulação não existe.
+ */
+export async function markSimulationSent(
+  db: Database,
+  simulationId: string,
+  actor: SimulationActorContext,
+  channel: string,
+  messageId: string | null,
+): Promise<MarkSimulationSentResult> {
+  // ---------------------------------------------------------------------------
+  // 1. Busca simulação por ID (sem city scope — IA tem acesso global à org)
+  //
+  // Usamos sql`` para acessar sent_at sem o schema tipado.
+  // `as` justificado: drizzle sql`` retorna Row[] genérico; sentAt é nullable
+  //   timestamp coerced pelo driver pg para Date | null.
+  // ---------------------------------------------------------------------------
+  const rows = await db.execute(
+    sql`SELECT id, lead_id, organization_id, sent_at
+        FROM credit_simulations
+        WHERE id = ${simulationId}
+        LIMIT 1`,
+  );
+
+  type SimulationRow = {
+    id: string;
+    lead_id: string;
+    organization_id: string;
+    sent_at: Date | null;
+  };
+
+  const row = rows.rows[0] as SimulationRow | undefined;
+
+  if (!row) {
+    throw new NotFoundError(`Simulação ${simulationId} não encontrada`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // 2. Idempotência: sent_at já definido → reenvio, não emitir novo evento
+  // ---------------------------------------------------------------------------
+  if (row.sent_at !== null) {
+    return {
+      alreadySent: true,
+      simulationId: row.id,
+      leadId: row.lead_id,
+      organizationId: row.organization_id,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 3. Transação: UPDATE + EMIT + AUDIT
+  // ---------------------------------------------------------------------------
+  await db.transaction(async (tx) => {
+    // 3a. UPDATE sent_at (WHERE sent_at IS NULL garante idempotência sob race)
+    await tx.execute(
+      sql`UPDATE credit_simulations
+          SET sent_at = NOW()
+          WHERE id = ${simulationId} AND sent_at IS NULL`,
+    );
+
+    // 3b. EMIT simulations.sent_to_customer (sem PII)
+    await emit(tx as unknown as Parameters<typeof emit>[0], {
+      eventName: 'simulations.sent_to_customer',
+      aggregateType: 'credit_simulation',
+      aggregateId: simulationId,
+      organizationId: row.organization_id,
+      actor: { kind: 'ai', id: actor.userId || null, ip: actor.ip ?? null },
+      // Chave determinística: simulação enviada acontece uma única vez.
+      idempotencyKey: `simulations.sent_to_customer:${simulationId}`,
+      data: {
+        simulation_id: simulationId,
+        lead_id: row.lead_id,
+        channel,
+        message_id: messageId,
+      },
+    });
+
+    // 3c. AUDIT LOG
+    await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
+      organizationId: row.organization_id,
+      actor: buildAuditActor(actor),
+      action: 'credit_simulation.sent',
+      resource: { type: 'credit_simulation', id: simulationId },
+      before: { sent_at: null },
+      after: {
+        simulation_id: simulationId,
+        lead_id: row.lead_id,
+        channel,
+        message_id: messageId,
+      },
+    });
+  });
+
+  return {
+    alreadySent: false,
+    simulationId: row.id,
+    leadId: row.lead_id,
+    organizationId: row.organization_id,
   };
 }
