@@ -3,12 +3,12 @@ id: F3-S34
 title: Fallback de handoff em falha do LangGraph
 phase: F3
 task_ref: T3.19
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-19T16:22:23Z
-completed_at:
+completed_at: 2026-05-19T16:29:59Z
 pr_url:
 depends_on: [F3-S07, F3-S33]
 blocks: []
