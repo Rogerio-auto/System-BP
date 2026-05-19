@@ -3,13 +3,13 @@ id: F3-S20
 title: Tool get_customer_context (Python)
 phase: F3
 task_ref: T3.4
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-19T02:18:01Z
 completed_at: 2026-05-19T02:25:06Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/95
 depends_on: [F3-S10, F3-S13]
 blocks: []
 labels: []
