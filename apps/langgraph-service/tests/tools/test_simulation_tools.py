@@ -16,6 +16,13 @@ Cobre generate_credit_simulation (F3-S16):
 - NO_ACTIVE_PRODUCT retornado como ok=False + error_code correto.
 - Fallback gracioso em erro de infraestrutura (5xx).
 - Idempotency-Key e X-Internal-Token enviados ao backend.
+
+Cobre mark_simulation_sent (F3-S21):
+- Marcação com sucesso: ok=True, simulation_id preservado.
+- Reenvio idempotente: segundo POST retorna ok=True (backend garante).
+- 404: ok=False com error_message descritiva, sem retry.
+- Erro de infraestrutura (5xx): ok=False com UNKNOWN, sem levantar exceção.
+- X-Internal-Token enviado em toda chamada.
 """
 from __future__ import annotations
 
@@ -30,10 +37,13 @@ from app.tools.simulation_tools import (
     GenerateCreditSimulationOutput,
     ListCreditProductsInput,
     ListCreditProductsOutput,
+    MarkSimulationSentInput,
+    MarkSimulationSentOutput,
     SimulationErrorCode,
     _build_idempotency_key,
     generate_credit_simulation,
     list_credit_products,
+    mark_simulation_sent,
 )
 
 
@@ -477,3 +487,137 @@ async def test_generate_credit_simulation_sends_required_headers() -> None:
     idempotency_key = req_headers.get("idempotency-key")
     assert idempotency_key is not None
     assert idempotency_key.startswith("sim_")
+
+
+# ===========================================================================
+# mark_simulation_sent (F3-S21)
+# ===========================================================================
+
+_SIM_ID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+
+
+def _sent_endpoint(simulation_id: str) -> str:
+    """Monta a URL do endpoint POST /internal/simulations/:id/sent."""
+    return _base(f"/internal/simulations/{simulation_id}/sent")
+
+
+# ---------------------------------------------------------------------------
+# Marcação com sucesso
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_mark_simulation_sent_success() -> None:
+    """Deve retornar ok=True e simulation_id quando backend confirma a marcação."""
+    with respx.mock:
+        route = respx.post(_sent_endpoint(_SIM_ID)).mock(
+            return_value=httpx.Response(200, json={"ok": True})
+        )
+
+        result = await mark_simulation_sent(
+            MarkSimulationSentInput(simulation_id=_SIM_ID)
+        )
+
+    assert isinstance(result, MarkSimulationSentOutput)
+    assert result.ok is True
+    assert result.simulation_id == _SIM_ID
+    assert result.error_message is None
+    assert route.called
+
+
+# ---------------------------------------------------------------------------
+# Reenvio idempotente — segundo POST também retorna ok=True
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_mark_simulation_sent_idempotent_resubmit() -> None:
+    """Dois POSTs com o mesmo simulation_id devem ambos retornar ok=True."""
+    with respx.mock:
+        route = respx.post(_sent_endpoint(_SIM_ID)).mock(
+            return_value=httpx.Response(200, json={"ok": True})
+        )
+
+        result1 = await mark_simulation_sent(
+            MarkSimulationSentInput(simulation_id=_SIM_ID)
+        )
+        result2 = await mark_simulation_sent(
+            MarkSimulationSentInput(simulation_id=_SIM_ID)
+        )
+
+    assert result1.ok is True
+    assert result2.ok is True
+    assert result1.simulation_id == result2.simulation_id == _SIM_ID
+    assert route.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# 404 — simulação não encontrada
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_mark_simulation_sent_not_found() -> None:
+    """Deve retornar ok=False com error_message quando backend retorna 404."""
+    with respx.mock:
+        respx.post(_sent_endpoint(_SIM_ID)).mock(
+            return_value=httpx.Response(404, json={"error": "not found"})
+        )
+
+        result = await mark_simulation_sent(
+            MarkSimulationSentInput(simulation_id=_SIM_ID)
+        )
+
+    assert isinstance(result, MarkSimulationSentOutput)
+    assert result.ok is False
+    assert result.simulation_id == _SIM_ID
+    assert result.error_message is not None
+    assert "404" in result.error_message
+
+
+# ---------------------------------------------------------------------------
+# Erro de infraestrutura (5xx) — fallback gracioso
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_mark_simulation_sent_fallback_on_infra_error() -> None:
+    """Deve retornar ok=False sem levantar exceção quando backend retorna 5xx."""
+    with respx.mock:
+        respx.post(_sent_endpoint(_SIM_ID)).mock(
+            side_effect=[
+                httpx.Response(500, json={"error": "internal server error"}),
+                httpx.Response(500, json={"error": "internal server error"}),
+            ]
+        )
+
+        result = await mark_simulation_sent(
+            MarkSimulationSentInput(simulation_id=_SIM_ID)
+        )
+
+    assert isinstance(result, MarkSimulationSentOutput)
+    assert result.ok is False
+    assert result.simulation_id == _SIM_ID
+    assert result.error_message is not None
+
+
+# ---------------------------------------------------------------------------
+# Header X-Internal-Token enviado
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_mark_simulation_sent_sends_internal_token() -> None:
+    """X-Internal-Token deve estar presente em toda chamada."""
+    with respx.mock:
+        route = respx.post(_sent_endpoint(_SIM_ID)).mock(
+            return_value=httpx.Response(200, json={"ok": True})
+        )
+
+        await mark_simulation_sent(
+            MarkSimulationSentInput(simulation_id=_SIM_ID)
+        )
+
+    assert route.called
+    sent_token = route.calls.last.request.headers.get("x-internal-token")
+    assert sent_token == settings.internal_token.get_secret_value()

@@ -5,8 +5,9 @@ Toda chamada ao backend usa InternalApiClient (_base.py) — nunca acessa
 banco de dados diretamente.
 
 Endpoints cobertos:
-    GET  /internal/credit-products   → list_credit_products (F3-S15)
-    POST /internal/simulations       → generate_credit_simulation (F3-S16)
+    GET  /internal/credit-products         → list_credit_products (F3-S15)
+    POST /internal/simulations             → generate_credit_simulation (F3-S16)
+    POST /internal/simulations/:id/sent   → mark_simulation_sent (F3-S21)
 """
 from __future__ import annotations
 
@@ -384,3 +385,114 @@ def _str_or_none(value: object) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+# ---------------------------------------------------------------------------
+# mark_simulation_sent — F3-S21
+# ---------------------------------------------------------------------------
+
+
+class MarkSimulationSentInput(BaseModel):
+    """Parâmetros de entrada para mark_simulation_sent (doc 06 §7.4)."""
+
+    simulation_id: str = Field(
+        description=(
+            "UUID da simulação a marcar como enviada ao cliente. "
+            "Obtido a partir de generate_credit_simulation.simulation_id."
+        )
+    )
+
+
+class MarkSimulationSentOutput(BaseModel):
+    """Resultado de mark_simulation_sent.
+
+    A operação é idempotente: reenvios com o mesmo simulation_id são seguros
+    (o backend garante). ``ok=False`` ocorre apenas em erros de infraestrutura
+    ou quando a simulação não é encontrada (404).
+    """
+
+    ok: bool = Field(
+        description="True quando o backend confirmou a marcação (ou já estava marcada)."
+    )
+    simulation_id: str = Field(description="UUID da simulação informado na requisição.")
+    error_message: str | None = Field(
+        default=None,
+        description="Mensagem descritiva do erro quando ok=False.",
+    )
+
+
+async def mark_simulation_sent(
+    input: MarkSimulationSentInput,
+) -> MarkSimulationSentOutput:
+    """Marca uma simulação como enviada ao cliente via POST /internal/simulations/:id/sent.
+
+    Operação idempotente: chamadas repetidas com o mesmo simulation_id são
+    tratadas com segurança pelo backend (doc 06 §7.4). Não levanta exceção para
+    o grafo — em caso de erro, retorna ok=False com error_message descritiva
+    para que o grafo possa fazer handoff humano ou log estruturado.
+
+    Em erro 404 (simulação não encontrada), retorna ok=False sem retry —
+    a simulação pode ter sido removida ou o id está incorreto.
+
+    Args:
+        input: simulation_id (UUID da simulação a marcar).
+
+    Returns:
+        MarkSimulationSentOutput com ok=True em sucesso ou ok=False + error_message.
+    """
+    client = InternalApiClient()
+
+    # LGPD doc 17 §8.3: simulation_id é handle operacional (não PII), pode ser logado.
+    log.info(
+        "mark_simulation_sent_start",
+        simulation_id=input.simulation_id,
+    )
+
+    try:
+        await client.post(
+            f"/internal/simulations/{input.simulation_id}/sent",
+            json={},
+        )
+    except httpx.HTTPStatusError as exc:
+        status_code = exc.response.status_code
+        if status_code == 404:
+            log.warning(
+                "mark_simulation_sent_not_found",
+                simulation_id=input.simulation_id,
+                status_code=status_code,
+            )
+            return MarkSimulationSentOutput(
+                ok=False,
+                simulation_id=input.simulation_id,
+                error_message=f"Simulation {input.simulation_id} not found (404)",
+            )
+        log.exception(
+            "mark_simulation_sent_http_error",
+            simulation_id=input.simulation_id,
+            status_code=status_code,
+        )
+        return MarkSimulationSentOutput(
+            ok=False,
+            simulation_id=input.simulation_id,
+            error_message=f"Backend HTTP error {status_code}",
+        )
+    except Exception:
+        log.exception(
+            "mark_simulation_sent_error",
+            simulation_id=input.simulation_id,
+        )
+        return MarkSimulationSentOutput(
+            ok=False,
+            simulation_id=input.simulation_id,
+            error_message="Unexpected error contacting backend",
+        )
+
+    log.info(
+        "mark_simulation_sent_ok",
+        simulation_id=input.simulation_id,
+    )
+
+    return MarkSimulationSentOutput(
+        ok=True,
+        simulation_id=input.simulation_id,
+    )
