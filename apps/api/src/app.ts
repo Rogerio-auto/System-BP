@@ -17,6 +17,7 @@ import { env } from './config/env.js';
 import { accountRoutes } from './modules/account/routes.js';
 import { adminDlqRoutes } from './modules/admin/dlq.routes.js';
 import { agentsRoutes } from './modules/agents/routes.js';
+import { decisionsRoutes } from './modules/ai-console/decisions/index.js';
 import { promptsRoutes } from './modules/ai-console/prompts/index.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
@@ -182,6 +183,8 @@ export async function buildApp() {
   await app.register(dashboardRoutes);
   // Console de IA — gestão de prompt_versions (F9-S01)
   await app.register(promptsRoutes, { prefix: '/api/ai-console/prompts' });
+  // Console de IA — viewer de decisões ai_decision_logs (F9-S02)
+  await app.register(decisionsRoutes, { prefix: '/api/ai-console/decisions' });
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.
