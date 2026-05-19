@@ -3,12 +3,12 @@ id: F3-S37
 title: Schema chatwoot_handoffs + persistência no endpoint de handoff
 phase: F3
 task_ref: T3.8
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: backend-engineer
 claimed_at: 2026-05-19T01:15:14Z
-completed_at:
+completed_at: 2026-05-19T01:24:51Z
 pr_url:
 depends_on: [F3-S01, F3-S07]
 blocks: [F3-S17]
@@ -19,7 +19,6 @@ source_docs:
   - docs/07-integracoes-whatsapp-chatwoot.md
   - docs/17-lgpd-protecao-dados.md
 ---
-
 # F3-S37 — Tabela chatwoot_handoffs + persistência
 
 ## Contexto
