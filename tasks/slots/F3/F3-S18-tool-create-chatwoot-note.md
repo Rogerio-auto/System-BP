@@ -3,11 +3,11 @@ id: F3-S18
 title: Tool create_chatwoot_note (Python)
 phase: F3
 task_ref: T3.9
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: python-engineer
-claimed_at:
+claimed_at: 2026-05-19T02:17:45Z
 completed_at:
 pr_url:
 depends_on: [F3-S08, F3-S17]
