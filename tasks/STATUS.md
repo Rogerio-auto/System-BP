@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 38    | 24  | 0   | 0   | 0   | 5   | 9   |
+| F3   | 38    | 24  | 0   | 0   | 0   | 0   | 14  |
 | F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
@@ -95,11 +95,11 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S05 | Endpoint POST /internal/cities/identify (fuzzy match)                       | ✅ done      | high       | F3-S04                                                         |
 | F3-S06 | Endpoint GET /internal/credit-products                                      | ✅ done      | high       | F3-S04                                                         |
 | F3-S07 | Endpoint POST /internal/handoffs (request_handoff)                          | ✅ done      | high       | F3-S04                                                         |
-| F3-S08 | Endpoint POST /internal/chatwoot/notes (create_chatwoot_note)               | 🟣 review    | medium     | F3-S04                                                         |
-| F3-S09 | Endpoint POST /internal/ai/decisions (log_ai_decision)                      | 🟣 review    | high       | F3-S01, F3-S04                                                 |
-| F3-S10 | Endpoint GET /internal/customers/:id/context (get_customer_context)         | 🟣 review    | medium     | F3-S04                                                         |
+| F3-S08 | Endpoint POST /internal/chatwoot/notes (create_chatwoot_note)               | ✅ done      | medium     | F3-S04                                                         |
+| F3-S09 | Endpoint POST /internal/ai/decisions (log_ai_decision)                      | ✅ done      | high       | F3-S01, F3-S04                                                 |
+| F3-S10 | Endpoint GET /internal/customers/:id/context (get_customer_context)         | ✅ done      | medium     | F3-S04                                                         |
 | F3-S11 | Endpoint POST /internal/simulations/:id/sent (mark_simulation_sent)         | ✅ done      | medium     | —                                                              |
-| F3-S12 | Endpoint PATCH /internal/leads/:id (update_lead_profile)                    | 🟣 review    | medium     | F3-S04                                                         |
+| F3-S12 | Endpoint PATCH /internal/leads/:id (update_lead_profile)                    | ✅ done      | medium     | F3-S04                                                         |
 | F3-S13 | Tool get_or_create_lead (Python)                                            | 🟢 available | high       | F3-S04                                                         |
 | F3-S14 | Tool identify_city (Python)                                                 | 🟢 available | high       | F3-S05                                                         |
 | F3-S15 | Tool list_credit_products (Python)                                          | 🟢 available | high       | F3-S06                                                         |
@@ -124,7 +124,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S34 | Fallback de handoff em falha do LangGraph                                   | 🟢 available | high       | F3-S07, F3-S33                                                 |
 | F3-S35 | 5 fixtures conversacionais                                                  | 🟢 available | high       | F3-S31                                                         |
 | F3-S36 | Testes de prompt injection                                                  | 🟢 available | high       | F3-S31                                                         |
-| F3-S37 | Schema chatwoot_handoffs + persistência no endpoint de handoff              | 🟣 review    | high       | F3-S01, F3-S07                                                 |
+| F3-S37 | Schema chatwoot_handoffs + persistência no endpoint de handoff              | ✅ done      | high       | F3-S01, F3-S07                                                 |
 
 ## Fase 8 —
 

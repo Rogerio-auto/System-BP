@@ -3,13 +3,13 @@ id: F3-S12
 title: Endpoint PATCH /internal/leads/:id (update_lead_profile)
 phase: F3
 task_ref: T3.4
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-19T01:16:16Z
 completed_at: 2026-05-19T01:29:41Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/86
 depends_on: [F3-S04]
 blocks: [F3-S22]
 labels: [lgpd-impact]

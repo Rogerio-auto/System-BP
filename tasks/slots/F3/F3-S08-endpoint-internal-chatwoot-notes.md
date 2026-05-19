@@ -3,13 +3,13 @@ id: F3-S08
 title: Endpoint POST /internal/chatwoot/notes (create_chatwoot_note)
 phase: F3
 task_ref: T3.9
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-19T01:14:55Z
 completed_at: 2026-05-19T01:20:45Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/83
 depends_on: [F3-S04]
 blocks: [F3-S18]
 labels: []
@@ -17,6 +17,7 @@ source_docs:
   - docs/06-langgraph-agentes.md
   - docs/07-integracoes-whatsapp-chatwoot.md
 ---
+
 # F3-S08 — Endpoint interno create_chatwoot_note
 
 ## Objetivo
