@@ -3,11 +3,11 @@ id: F3-S30
 title: Nós send_response + persist_state + log_decision
 phase: F3
 task_ref: T3.16
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: python-engineer
-claimed_at:
+claimed_at: 2026-05-19T03:21:16Z
 completed_at:
 pr_url:
 depends_on: [F3-S00, F3-S02, F3-S03, F3-S19]
