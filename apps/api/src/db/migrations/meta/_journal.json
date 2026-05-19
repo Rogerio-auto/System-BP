@@ -169,6 +169,13 @@
       "when": 1749340800000,
       "tag": "0025_totp_2fa",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1779148800000,
+      "tag": "0026_model_pricing",
+      "breakpoints": true
     }
   ]
 }
