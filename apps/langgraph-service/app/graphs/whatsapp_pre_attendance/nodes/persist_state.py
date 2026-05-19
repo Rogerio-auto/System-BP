@@ -115,7 +115,9 @@ async def persist_state(state: ConversationState) -> dict[str, Any]:
             "node": "persist_state",
             "error": "BACKEND_ERROR",
             "status_code": exc.response.status_code,
-            "message": str(exc),
+            # LGPD/segurança: errors[] é persistido no estado (jsonb). str(exc) de
+            # httpx expõe a URL interna — usar só o status code (já capturado acima).
+            "message": f"Backend HTTP error {exc.response.status_code}",
             "latency_ms": latency_ms,
         }
         errors = list(state.get("errors") or [])
@@ -137,7 +139,8 @@ async def persist_state(state: ConversationState) -> dict[str, Any]:
         error_entry = {
             "node": "persist_state",
             "error": "TIMEOUT",
-            "message": f"Timeout ao persistir estado: {exc}",
+            # LGPD/segurança: sem str(exc) em campo persistido no estado.
+            "message": "Timeout ao persistir estado",
             "latency_ms": latency_ms,
         }
         errors = list(state.get("errors") or [])
