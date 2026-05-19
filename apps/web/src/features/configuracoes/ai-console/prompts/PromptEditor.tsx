@@ -48,8 +48,11 @@ const MODELS = [
 function MarkdownPreview({ source }: { source: string }): React.JSX.Element {
   const html = React.useMemo(() => {
     if (!source.trim()) return '';
-    // marked.parse retorna string (sync quando sem options async)
-    const rawHtml = marked.parse(source) as string;
+    // marked.parse retorna string (sync) — cast justificado: async:false garante string,
+    // mas a tipagem genérica do marked v18 retorna string|Promise<string>.
+    // html:false é default no marked v18 mas explicitado aqui para prevenir surpresa
+    // em upgrade futuro que reverta o default.
+    const rawHtml = marked.parse(source, { async: false }) as string;
     return DOMPurify.sanitize(rawHtml, {
       ALLOWED_TAGS: [
         'h1',
@@ -78,6 +81,9 @@ function MarkdownPreview({ source }: { source: string }): React.JSX.Element {
         'td',
       ],
       ALLOWED_ATTR: ['href', 'title', 'class'],
+      // ALLOWED_URI_REGEXP: DOMPurify v3 já bloqueia javascript:/data: por default,
+      // mas restrição explícita é defense-in-depth contra regressão em upgrade da lib.
+      ALLOWED_URI_REGEXP: /^https?:/i,
     });
   }, [source]);
 
