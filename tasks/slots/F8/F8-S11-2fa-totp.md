@@ -3,13 +3,13 @@ id: F8-S11
 title: 2FA / TOTP — enrolment, verificação, recovery codes e enforcement no login
 phase: F8
 task_ref: F8.11
-status: review
+status: done
 priority: medium
 estimated_size: L
 agent_id: backend-engineer
 claimed_at: 2026-05-19T20:35:17Z
 completed_at: 2026-05-19T21:00:21Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/112
 depends_on: [F8-S09]
 blocks: []
 labels: []
