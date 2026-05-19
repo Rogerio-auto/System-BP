@@ -1,5 +1,5 @@
 // =============================================================================
-// internal/handoffs/__tests__/routes.test.ts — Testes de integração F3-S07.
+// internal/handoffs/__tests__/routes.test.ts — Testes de integração F3-S07 + F3-S37.
 //
 // Estratégia: sobe Fastify com internalHandoffsRoutes (default export via autoload),
 // mocka db e requestHandoff para controlar respostas sem conectar em banco real.
@@ -27,6 +27,8 @@
 //   13. POST /internal/handoffs → resposta contém handoff_id, status, chatwoot_conversation_id
 //   14. POST /internal/handoffs → simulationId opcional aceito
 //   15. POST /internal/handoffs → ai_unavailable aceito como reason (F3-S34)
+//   16. POST /internal/handoffs → handoff_id retornado é UUID (linha persistida em chatwoot_handoffs)
+//   17. POST /internal/handoffs → idempotência: segundo reenvio retorna mesmo handoff_id persistido
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -491,5 +493,76 @@ describe('POST /internal/handoffs', () => {
       FIXTURE_IDEMPOTENCY_KEY,
       expect.anything(),
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // 16. handoff_id retornado é UUID (id da linha persistida em chatwoot_handoffs)
+  //
+  // F3-S37: O handoff_id passa a ser o id real da linha em chatwoot_handoffs,
+  // não mais um UUID gerado ad-hoc antes da transação. O service faz INSERT e
+  // retorna o id gerado pelo Postgres (gen_random_uuid()).
+  //
+  // Este teste garante que a rota retransmite corretamente o handoff_id
+  // proveniente do service (que agora vem do id persistido na tabela).
+  // -------------------------------------------------------------------------
+  it('retorna handoff_id UUID proveniente da linha persistida em chatwoot_handoffs', async () => {
+    // FIXTURE_HANDOFF_ID simula o id retornado pelo INSERT ... RETURNING id
+    // na tabela chatwoot_handoffs (F3-S37).
+    const persistedHandoffId = FIXTURE_HANDOFF_ID;
+    mockRequestHandoff.mockResolvedValueOnce(makeHandoffResult({ handoff_id: persistedHandoffId }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/internal/handoffs',
+      headers: {
+        'x-internal-token': VALID_TOKEN,
+        'idempotency-key': FIXTURE_IDEMPOTENCY_KEY,
+      },
+      payload: VALID_BODY,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    // handoff_id deve ser o UUID retornado pelo INSERT na tabela chatwoot_handoffs
+    expect(body.handoff_id).toBe(persistedHandoffId);
+    // Validar que é um UUID v4 (formato: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+    expect(body.handoff_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // 17. Idempotência: reenvio retorna o mesmo handoff_id persistido
+  //
+  // F3-S37: A idempotência agora é verificada diretamente na tabela
+  // chatwoot_handoffs pelo campo idempotency_key (UNIQUE parcial por org).
+  // O service retorna o handoff_id real da linha existente sem reprocessar.
+  // -------------------------------------------------------------------------
+  it('idempotência preservada: reenvio retorna mesmo handoff_id persistido em chatwoot_handoffs', async () => {
+    const persistedHandoffId = FIXTURE_HANDOFF_ID;
+    // Simula que ambas as chamadas retornam o mesmo handoff_id
+    // (na primeira: INSERT retorna id; na segunda: lookup retorna id existente)
+    mockRequestHandoff.mockResolvedValue(makeHandoffResult({ handoff_id: persistedHandoffId }));
+
+    const makeRequest = () =>
+      app.inject({
+        method: 'POST',
+        url: '/internal/handoffs',
+        headers: {
+          'x-internal-token': VALID_TOKEN,
+          'idempotency-key': FIXTURE_IDEMPOTENCY_KEY,
+        },
+        payload: VALID_BODY,
+      });
+
+    const first = await makeRequest();
+    const second = await makeRequest();
+
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(200);
+    // Ambas as respostas devem retornar o mesmo handoff_id persistido
+    expect(first.json().handoff_id).toBe(persistedHandoffId);
+    expect(second.json().handoff_id).toBe(persistedHandoffId);
+    expect(first.json().handoff_id).toBe(second.json().handoff_id);
   });
 });

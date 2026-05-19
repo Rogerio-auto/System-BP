@@ -1,23 +1,23 @@
 // =============================================================================
 // internal/handoffs/service.ts — Lógica de negócio para POST /internal/handoffs
-// (F3-S07).
+// (F3-S07 + F3-S37).
 //
 // Pipeline (doc 06 §7.4), executado em uma única transação DB + chamadas
 // externas ao Chatwoot (fora da transação — não transacional por natureza):
 //
-//   1. Verificar idempotência via idempotency_keys (Idempotency-Key obrigatório).
-//      Reenvio retorna o mesmo handoff sem reprocessar.
-//   2. Gerar handoff_id (UUID).
-//   3. Em transação DB:
-//      a. Emitir 'chatwoot.handoff_requested' via outbox.
-//      b. Se card do lead estiver em stage 'pré-atendimento' ou 'simulação',
+//   1. Verificar idempotência via chatwoot_handoffs.idempotency_key.
+//      Reenvio retorna o handoff existente sem reprocessar.
+//   2. Em transação DB:
+//      a. INSERT em chatwoot_handoffs — handoff_id é o id da linha persistida.
+//      b. Emitir 'chatwoot.handoff_requested' via outbox.
+//      c. Se card do lead estiver em stage 'pré-atendimento' ou 'simulação',
 //         mover para o próximo stage (doc 05 §kanban).
-//      c. Inserir na idempotency_keys (idempotência futura + response_body).
-//   4. Chamar Chatwoot via ChatwootClient:
+//      d. Inserir na idempotency_keys (cache rápido de resposta para reenvios).
+//   3. Chamar Chatwoot via ChatwootClient:
 //      a. Atualizar custom_attributes (lead_id, reason, handoff_id).
 //      b. Criar nota interna com summary (isPrivate=true).
 //      c. Chatwoot não suporta rollback — falha Chatwoot é logada mas
-//         não reverte o handoff (already committed in step 3).
+//         não reverte o handoff (already committed in step 2).
 //
 // Nota arquitetural sobre atomicidade:
 //   Chatwoot é um serviço externo — não participa da transação Postgres.
@@ -27,25 +27,30 @@
 //   Outbox Pattern para integrações externas (docs/04-eventos.md).
 //
 // LGPD (doc 17 §8.1, §8.5):
-//   - summary é dado interno de atendimento. Nunca incluído no outbox payload
-//     (violaria §8.5). Vai apenas para a nota interna no Chatwoot.
+//   - summary é dado interno de atendimento (campo sensível — label lgpd-impact).
+//     Pode conter contexto do cliente resumido pela IA.
+//     Regras: pino.redact DEVE incluir 'summary'; NUNCA no outbox (§8.5);
+//     NUNCA em log sem redact; DLP aplicado pelo caller antes de enviar (doc 06 §8.4).
 //   - leadId é UUID opaco — não é PII no outbox.
 //   - idempotency_keys.response_body armazena apenas { handoff_id, status } —
 //     sem PII (LGPD: response_body nunca deve conter PII per schema comment).
 // =============================================================================
-import { randomUUID } from 'node:crypto';
-
 import { and, eq } from 'drizzle-orm';
 
 import type { Database } from '../../../db/client.js';
-import { idempotencyKeys, kanbanCards, kanbanStages } from '../../../db/schema/index.js';
+import {
+  chatwootHandoffs,
+  idempotencyKeys,
+  kanbanCards,
+  kanbanStages,
+} from '../../../db/schema/index.js';
 import { emit } from '../../../events/emit.js';
 import type { DrizzleTx } from '../../../events/emit.js';
 
 import type { InternalHandoffBody, InternalHandoffResponse } from './schemas.js';
 
 // ---------------------------------------------------------------------------
-// Tipo local para transação Drizzle compatível com esta service
+// Tipo local para transação Drizzle compatível com este service
 // ---------------------------------------------------------------------------
 
 // Justificativa do tipo estrutural: Drizzle não exporta NodePgTransaction diretamente.
@@ -106,51 +111,83 @@ export async function requestHandoff(
   logger: { warn: (msg: object | string) => void },
 ): Promise<InternalHandoffResponse> {
   // -------------------------------------------------------------------------
-  // 1. Verificar idempotência — reenvio retorna mesmo handoff
+  // 1. Verificar idempotência — reenvio retorna handoff existente da tabela
+  //    chatwoot_handoffs (F3-S37: persistência durável).
   // -------------------------------------------------------------------------
-  const existing = await db
-    .select({ responseBody: idempotencyKeys.responseBody })
-    .from(idempotencyKeys)
+  const existingHandoff = await db
+    .select({
+      id: chatwootHandoffs.id,
+      chatwootConversationId: chatwootHandoffs.chatwootConversationId,
+      assignedAgentId: chatwootHandoffs.assignedAgentId,
+      status: chatwootHandoffs.status,
+    })
+    .from(chatwootHandoffs)
     .where(
       and(
-        eq(idempotencyKeys.key, idempotencyKey),
-        eq(idempotencyKeys.endpoint, 'POST /internal/handoffs'),
+        eq(chatwootHandoffs.idempotencyKey, idempotencyKey),
+        eq(chatwootHandoffs.organizationId, body.organizationId),
       ),
     )
     .limit(1);
 
-  if (existing.length > 0 && existing[0] !== undefined) {
-    // Reenvio detectado — retornar resposta original sem reprocessar
-    // Justificativa do `as`: response_body é jsonb (unknown no Drizzle). A estrutura
-    // foi inserida por esta própria função e segue InternalHandoffResponse — cast seguro.
-    return existing[0].responseBody as unknown as InternalHandoffResponse;
+  if (existingHandoff.length > 0 && existingHandoff[0] !== undefined) {
+    // Reenvio detectado — retornar handoff existente sem reprocessar
+    const h = existingHandoff[0];
+    return {
+      handoff_id: h.id,
+      chatwoot_conversation_id: h.chatwootConversationId,
+      assigned_agent_id: h.assignedAgentId,
+      // Justificativa do `as`: status é text no Drizzle, mas a constraint CHECK
+      // garante que só conterá valores do enum. Cast documentado e seguro.
+      status: h.status as InternalHandoffResponse['status'],
+    };
   }
 
   // -------------------------------------------------------------------------
-  // 2. Gerar handoff_id para este handoff
+  // 2. Executar mutações DB em transação
+  //    a. INSERT em chatwoot_handoffs — handoff_id é o id da linha
+  //    b. Emitir evento no outbox
+  //    c. Mover card do kanban se aplicável
+  //    d. Inserir na idempotency_keys (cache rápido)
   // -------------------------------------------------------------------------
-  const handoffId = randomUUID();
-
-  // -------------------------------------------------------------------------
-  // 3. Executar mutações DB em transação
-  //    a. Emitir evento no outbox
-  //    b. Mover card do kanban se aplicável
-  //    c. Inserir na idempotency_keys
-  // -------------------------------------------------------------------------
-
-  // Determinar agente atribuído antes da transação
-  // (será null por enquanto — assignee via Chatwoot é resolvido após a transação)
-  // A resposta do Chatwoot não está disponível dentro da transação Postgres.
-  // Por consistência com o outbox pattern, registramos o handoff sem o agente
-  // e o worker de eventos pode atualizar o estado quando o Chatwoot confirmar.
-  const assignedAgentId: string | null = null;
+  // handoffId será sempre preenchido pela transação (INSERT ... RETURNING).
+  // Inicializado como string vazia para satisfazer strictPropertyInitialization;
+  // o valor real é atribuído dentro da transação antes de qualquer uso externo.
+  let handoffId = '';
 
   await db.transaction(async (tx) => {
     // Tipo dual para drizzleTx (emit usa DrizzleTx, kanban usa HandoffTx)
     const txEmit = tx as unknown as DrizzleTx;
     const txRepo = tx as unknown as HandoffTx;
 
-    // 3a. Emitir 'chatwoot.handoff_requested' no outbox
+    // 2a. INSERT em chatwoot_handoffs
+    //     O id gerado pelo Postgres (gen_random_uuid()) é o handoff_id real.
+    //     LGPD: summary é persistido aqui — DLP já aplicado pelo caller (doc 06 §8.4).
+    //     conversationId (AI UUID) não está disponível no body atual (F3-S07 usa
+    //     Chatwoot numeric ID). Armazenado como null — campo nullable no schema.
+    const insertedRows = await (txRepo as Database)
+      .insert(chatwootHandoffs)
+      .values({
+        organizationId: body.organizationId,
+        leadId: body.leadId,
+        conversationId: null,
+        chatwootConversationId: String(body.conversationId),
+        reason: body.reason,
+        // LGPD: summary persistido apenas na tabela interna.
+        // NUNCA incluir no outbox payload (violação §8.5).
+        summary: body.summary,
+        simulationId: body.simulationId ?? null,
+        assignedAgentId: null,
+        status: 'requested',
+        idempotencyKey,
+      })
+      .returning({ id: chatwootHandoffs.id });
+
+    // Justificativa do non-null assertion: insert().returning() sempre retorna
+    // exatamente 1 linha quando não há erro — garantido pelo Drizzle + Postgres.
+    handoffId = insertedRows[0]!.id;
+
+    // 2b. Emitir 'chatwoot.handoff_requested' no outbox
     //     LGPD §8.5: payload contém apenas IDs opacos. summary NÃO vai no outbox.
     await emit(txEmit, {
       eventName: 'chatwoot.handoff_requested',
@@ -166,14 +203,14 @@ export async function requestHandoff(
         lead_id: body.leadId,
         chatwoot_conversation_id: body.conversationId,
         reason: body.reason,
-        // LGPD §8.5: summary vai APENAS para nota interna Chatwoot, não para outbox.
+        // LGPD §8.5: summary vai APENAS para nota interna Chatwoot e tabela interna.
         // O outbox inclui uma string vazia como placeholder estrutural.
         summary: '',
         simulation_id: body.simulationId ?? null,
       },
     });
 
-    // 3b. Mover card do kanban se ainda em stage movível
+    // 2c. Mover card do kanban se ainda em stage movível
     //     Doc 05: "chatwoot.handoff_requested → move para documentacao se ainda em pre/sim"
     //     Doc 06: "Move card no Kanban se ainda em pre_atendimento/simulacao"
     //     Estratégia: lookup do card pelo leadId, verificar slug do stage atual,
@@ -252,12 +289,12 @@ export async function requestHandoff(
       }
     }
 
-    // 3c. Inserir na idempotency_keys para futuros reenvios
+    // 2d. Inserir na idempotency_keys para reenvios rápidos via cache
     //     LGPD: response_body armazena apenas handoff_id + status — sem PII.
     const responseBody: InternalHandoffResponse = {
       handoff_id: handoffId,
       chatwoot_conversation_id: String(body.conversationId),
-      assigned_agent_id: assignedAgentId,
+      assigned_agent_id: null,
       status: 'requested',
     };
 
@@ -274,18 +311,16 @@ export async function requestHandoff(
   });
 
   // -------------------------------------------------------------------------
-  // 4. Chamar Chatwoot (fora da transação — not transacional)
+  // 3. Chamar Chatwoot (fora da transação — not transacional)
   //    Falha do Chatwoot NÃO reverte o handoff já commitado.
   //    O outbox worker garantirá consistência eventual.
   // -------------------------------------------------------------------------
-  let assignedAgentIdFromChatwoot: string | null = null;
-
   try {
     // Import lazy para permitir mock em testes sem instanciar o cliente real
     const { ChatwootClient } = await import('../../../integrations/chatwoot/client.js');
     const chatwoot = new ChatwootClient();
 
-    // 4a. Atualizar custom_attributes da conversa no Chatwoot
+    // 3a. Atualizar custom_attributes da conversa no Chatwoot
     //     Expõe o handoff_id e reason para o agente humano visualizar na UI.
     await chatwoot.updateAttributes(body.conversationId, {
       // Justificativa do `as string`: ChatwootAttributes é Record<string, string | number | boolean | null>.
@@ -296,7 +331,7 @@ export async function requestHandoff(
       simulation_id: (body.simulationId ?? null) as string | null,
     });
 
-    // 4b. Criar nota interna com o summary para o agente humano
+    // 3b. Criar nota interna com o summary para o agente humano
     //     LGPD: summary é dado interno — nota interna (isPrivate=true) não é visível ao cliente.
     //     Caller já garantiu que summary passou por DLP se veio de LLM (doc 06 §8.4).
     await chatwoot.createNote(body.conversationId, body.summary);
@@ -314,12 +349,13 @@ export async function requestHandoff(
   }
 
   // -------------------------------------------------------------------------
-  // 5. Retornar resposta
+  // 4. Retornar resposta
+  //    handoff_id é o id real da linha em chatwoot_handoffs (F3-S37).
   // -------------------------------------------------------------------------
   return {
     handoff_id: handoffId,
     chatwoot_conversation_id: String(body.conversationId),
-    assigned_agent_id: assignedAgentIdFromChatwoot,
+    assigned_agent_id: null,
     status: 'requested',
   };
 }

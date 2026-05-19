@@ -61,3 +61,6 @@ export * from './creditSimulations.js';
 export * from './aiConversationStates.js';
 export * from './aiDecisionLogs.js';
 export * from './promptVersions.js';
+
+// Chatwoot handoffs — persistência de handoffs de conversa (F3-S37)
+export * from './chatwootHandoffs.js';
