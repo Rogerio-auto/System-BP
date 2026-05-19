@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 38    | 15  | 0   | 0   | 0   | 1   | 22  |
+| F3   | 38    | 14  | 0   | 0   | 0   | 2   | 22  |
 | F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
@@ -109,7 +109,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S19 | Tool log_ai_decision (Python)                                               | ✅ done      | high       | F3-S09                                                         |
 | F3-S20 | Tool get_customer_context (Python)                                          | ✅ done      | medium     | F3-S10, F3-S13                                                 |
 | F3-S21 | Tool mark_simulation_sent (Python)                                          | 🟣 review    | medium     | F3-S11, F3-S15                                                 |
-| F3-S22 | Tool update_lead_profile (Python)                                           | 🟢 available | medium     | F3-S12, F3-S13                                                 |
+| F3-S22 | Tool update_lead_profile (Python)                                           | 🟣 review    | medium     | F3-S12, F3-S13                                                 |
 | F3-S23 | Nó receive_message + load_conversation_state                                | 🟢 available | high       | F3-S02, F3-S03                                                 |
 | F3-S24 | Nó classify_intent (prompt versionado)                                      | 🟢 available | high       | F3-S00, F3-S03                                                 |
 | F3-S25 | Nó identify_or_create_lead + collect_missing_profile_data                   | 🟢 available | high       | F3-S03, F3-S13                                                 |

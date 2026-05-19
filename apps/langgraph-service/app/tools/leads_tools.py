@@ -1,4 +1,4 @@
-"""Tools LangGraph: get_or_create_lead + get_customer_context.
+"""Tools LangGraph: get_or_create_lead + get_customer_context + update_lead_profile.
 
 Wrappers finos sobre endpoints internos do backend Node.
 Nunca acessa Postgres diretamente — toda I/O passa por InternalApiClient.
@@ -6,6 +6,7 @@ Nunca acessa Postgres diretamente — toda I/O passa por InternalApiClient.
 Docs de referência:
   - get_or_create_lead  → docs/06-langgraph-agentes.md §7.1
   - get_customer_context → docs/06-langgraph-agentes.md §7.6
+  - update_lead_profile → docs/06-langgraph-agentes.md §7.1 (PATCH /internal/leads/:id)
 
 LGPD (doc 06 §7.6 + doc 17 §3.4):
   - get_customer_context retorna ficha resumida sem PII sensível.
@@ -477,5 +478,210 @@ async def get_customer_context(
         customer_id=result.customer_id,
         lead_status=result.lead_status,
         messages_last_30_days=result.messages_last_30_days,
+    )
+    return result
+
+
+# ===========================================================================
+# Tool: update_lead_profile (doc 06 §7.1 — PATCH /internal/leads/:id, F3-S12)
+# ===========================================================================
+
+_UPDATE_ENDPOINT_TPL = "/internal/leads/{lead_id}"
+
+# ---------------------------------------------------------------------------
+# Schema de entrada
+# ---------------------------------------------------------------------------
+
+
+class UpdateLeadProfileInput(BaseModel):
+    """Input validado para a tool update_lead_profile.
+
+    Todos os campos de atualização são opcionais — a tool realiza patch parcial.
+    Ao menos um campo de atualização deve ser fornecido além de ``lead_id``.
+    """
+
+    lead_id: str = Field(
+        description="UUID do lead a ser atualizado.",
+    )
+    name: str | None = Field(
+        default=None,
+        description="Nome completo atualizado do lead.",
+    )
+    city_id: str | None = Field(
+        default=None,
+        description="UUID da cidade do lead.",
+    )
+    requested_amount: str | None = Field(
+        default=None,
+        description=(
+            "Valor solicitado de crédito como string numérica — ex.: '5000.00'."
+        ),
+    )
+    requested_term_months: int | None = Field(
+        default=None,
+        description="Prazo solicitado em meses — ex.: 12.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Schemas de saída
+# ---------------------------------------------------------------------------
+
+
+class UpdateLeadProfileSuccess(BaseModel):
+    """Resposta bem-sucedida do backend para atualização de lead."""
+
+    ok: Literal[True] = True
+    lead_id: str
+    current_stage: str | None
+    city_id: str | None
+    name: str | None
+
+
+class UpdateLeadProfileError(BaseModel):
+    """Resposta de erro mapeada para update_lead_profile."""
+
+    ok: Literal[False] = False
+    error_code: str
+    message: str
+
+
+UpdateLeadProfileResult = UpdateLeadProfileSuccess | UpdateLeadProfileError
+
+# Códigos de erro canônicos
+_ERR_UPDATE_NOT_FOUND = "LEAD_NOT_FOUND"
+_ERR_UPDATE_INVALID_INPUT = "INVALID_INPUT"
+_ERR_UPDATE_BACKEND_UNAVAILABLE = "BACKEND_UNAVAILABLE"
+
+# ---------------------------------------------------------------------------
+# Implementação da tool
+# ---------------------------------------------------------------------------
+
+
+@tool(args_schema=UpdateLeadProfileInput)
+async def update_lead_profile(
+    lead_id: str,
+    name: str | None = None,
+    city_id: str | None = None,
+    requested_amount: str | None = None,
+    requested_term_months: int | None = None,
+) -> UpdateLeadProfileResult:
+    """Atualiza o perfil de um lead via PATCH /internal/leads/:id.
+
+    Realiza patch parcial — apenas campos não-nulos são enviados no payload.
+    Retorna UpdateLeadProfileSuccess com os dados atualizados do lead,
+    ou UpdateLeadProfileError com código tipado em caso de falha.
+
+    Erros mapeados:
+      - LEAD_NOT_FOUND: backend retornou 404.
+      - INVALID_INPUT: nenhum campo de atualização fornecido.
+      - BACKEND_UNAVAILABLE: timeout ou erro 5xx.
+
+    LGPD: ``name`` é dado operacional; não é logado em claro (doc 17 §3.4).
+    """
+    import httpx
+
+    # Validar que ao menos um campo de atualização foi fornecido
+    update_fields: dict[str, object] = {}
+    if name is not None:
+        update_fields["name"] = name
+    if city_id is not None:
+        update_fields["city_id"] = city_id
+    if requested_amount is not None:
+        update_fields["requested_amount"] = requested_amount
+    if requested_term_months is not None:
+        update_fields["requested_term_months"] = requested_term_months
+
+    if not update_fields:
+        return UpdateLeadProfileError(
+            error_code=_ERR_UPDATE_INVALID_INPUT,
+            message=(
+                "Forneça ao menos um campo para atualizar: "
+                "name, city_id, requested_amount ou requested_term_months."
+            ),
+        )
+
+    path = _UPDATE_ENDPOINT_TPL.format(lead_id=lead_id)
+    idempotency_key = f"update_lead_profile_{lead_id}"
+    client = InternalApiClient()
+
+    try:
+        # _request is the shared retry/auth layer; PATCH is not exposed as a
+        # named method on InternalApiClient but the transport is method-agnostic.
+        data = await client._request(  # private but intentional: shared auth/retry layer
+            "PATCH",
+            path,
+            json=update_fields,
+            extra_headers={"Idempotency-Key": idempotency_key},
+        )
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+
+        if status == 404:
+            log.warning(
+                "update_lead_profile_not_found",
+                lead_id=lead_id,
+                http_status=status,
+            )
+            return UpdateLeadProfileError(
+                error_code=_ERR_UPDATE_NOT_FOUND,
+                message=f"Lead não encontrado: {lead_id}.",
+            )
+
+        if status in (400, 422):
+            try:
+                body: dict[str, object] = exc.response.json()
+            except Exception:
+                body = {}
+            message = str(body.get("message", exc.response.text))
+            log.warning(
+                "update_lead_profile_validation_error",
+                lead_id=lead_id,
+                http_status=status,
+            )
+            return UpdateLeadProfileError(
+                error_code=_ERR_UPDATE_INVALID_INPUT,
+                message=message,
+            )
+
+        # 5xx ou outros — BACKEND_UNAVAILABLE
+        log.error(
+            "update_lead_profile_backend_error",
+            lead_id=lead_id,
+            http_status=status,
+        )
+        return UpdateLeadProfileError(
+            error_code=_ERR_UPDATE_BACKEND_UNAVAILABLE,
+            message=f"Backend respondeu com status {status}.",
+        )
+
+    except httpx.TimeoutException:
+        log.error("update_lead_profile_timeout", lead_id=lead_id)
+        return UpdateLeadProfileError(
+            error_code=_ERR_UPDATE_BACKEND_UNAVAILABLE,
+            message="Timeout ao contactar o backend.",
+        )
+
+    # Deserializar resposta de sucesso
+    try:
+        result = UpdateLeadProfileSuccess(
+            lead_id=str(data["lead_id"]),
+            current_stage=str(data["current_stage"]) if data.get("current_stage") else None,
+            city_id=str(data["city_id"]) if data.get("city_id") else None,
+            name=str(data["name"]) if data.get("name") else None,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        log.error("update_lead_profile_parse_error", lead_id=lead_id, error=str(exc))
+        return UpdateLeadProfileError(
+            error_code=_ERR_UPDATE_BACKEND_UNAVAILABLE,
+            message=f"Resposta inesperada do backend: {exc}",
+        )
+
+    # LGPD: não logar name em claro (doc 17 §3.4)
+    log.info(
+        "update_lead_profile_ok",
+        lead_id=result.lead_id,
+        city_id=result.city_id,
+        current_stage=result.current_stage,
     )
     return result

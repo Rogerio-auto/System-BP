@@ -1,4 +1,4 @@
-"""Testes unitários para leads_tools: get_or_create_lead + get_customer_context.
+"""Testes unitários para leads_tools.
 
 Cobre get_or_create_lead:
 - Sucesso: lead criado (created=True)
@@ -19,6 +19,16 @@ Cobre get_customer_context:
 - Erro: BACKEND_UNAVAILABLE (timeout)
 - Ausência de PII sensível no output (CPF, phone, email)
 - Header X-Internal-Token presente
+
+Cobre update_lead_profile:
+- Sucesso: atualização parcial (apenas city_id)
+- Sucesso: atualização com múltiplos campos
+- Erro: 404 → LEAD_NOT_FOUND
+- Erro: INVALID_INPUT (nenhum campo fornecido)
+- Erro: BACKEND_UNAVAILABLE (5xx)
+- Erro: BACKEND_UNAVAILABLE (timeout)
+- Header X-Internal-Token presente
+- Header Idempotency-Key baseado em lead_id
 """
 from __future__ import annotations
 
@@ -33,8 +43,11 @@ from app.tools.leads_tools import (
     GetOrCreateLeadError,
     GetOrCreateLeadSuccess,
     LeadErrorCode,
+    UpdateLeadProfileError,
+    UpdateLeadProfileSuccess,
     get_customer_context,
     get_or_create_lead,
+    update_lead_profile,
 )
 
 
@@ -577,3 +590,207 @@ async def test_context_sends_internal_token() -> None:
 
     token = route.calls.last.request.headers.get("x-internal-token")
     assert token == settings.internal_token.get_secret_value()
+
+
+# ===========================================================================
+# Tests: update_lead_profile (F3-S22)
+# ===========================================================================
+
+_UPDATE_LEAD_ID = "eeeeeeee-0000-0000-0000-000000000004"
+
+
+def _update_url(lead_id: str) -> str:
+    raw = str(settings.backend_internal_url)
+    base = raw if raw.endswith("/") else f"{raw}/"
+    return f"{base}internal/leads/{lead_id}"
+
+
+_UPDATE_SUCCESS_BODY: dict[str, object] = {
+    "lead_id": _UPDATE_LEAD_ID,
+    "current_stage": "qualificacao",
+    "city_id": "city-0099",
+    "name": "Carlos Andrade",
+}
+
+
+# ---------------------------------------------------------------------------
+# Sucesso — atualização parcial (apenas city_id)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_update_success_partial_city_id() -> None:
+    """Tool deve retornar UpdateLeadProfileSuccess ao atualizar apenas city_id."""
+    with respx.mock:
+        route = respx.patch(_update_url(_UPDATE_LEAD_ID)).mock(
+            return_value=httpx.Response(200, json=_UPDATE_SUCCESS_BODY)
+        )
+        result = await update_lead_profile.ainvoke(
+            {"lead_id": _UPDATE_LEAD_ID, "city_id": "city-0099"}
+        )
+
+    assert route.called
+    assert isinstance(result, UpdateLeadProfileSuccess)
+    assert result.ok is True
+    assert result.lead_id == _UPDATE_LEAD_ID
+    assert result.city_id == "city-0099"
+    assert result.current_stage == "qualificacao"
+
+
+# ---------------------------------------------------------------------------
+# Sucesso — atualização com múltiplos campos
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_update_success_multiple_fields() -> None:
+    """Tool deve enviar apenas os campos não-nulos no payload."""
+    import json as _json
+
+    body = {
+        **_UPDATE_SUCCESS_BODY,
+        "city_id": "city-0001",
+        "current_stage": "pre_atendimento",
+    }
+    with respx.mock:
+        route = respx.patch(_update_url(_UPDATE_LEAD_ID)).mock(
+            return_value=httpx.Response(200, json=body)
+        )
+        result = await update_lead_profile.ainvoke(
+            {
+                "lead_id": _UPDATE_LEAD_ID,
+                "city_id": "city-0001",
+                "requested_amount": "8000.00",
+                "requested_term_months": 24,
+            }
+        )
+
+    assert isinstance(result, UpdateLeadProfileSuccess)
+    assert result.city_id == "city-0001"
+
+    # Verifica que o payload enviado contém os campos corretos
+    sent = _json.loads(route.calls.last.request.content)
+    assert sent.get("city_id") == "city-0001"
+    assert sent.get("requested_amount") == "8000.00"
+    assert sent.get("requested_term_months") == 24
+    assert "name" not in sent  # não fornecido → não deve aparecer
+
+
+# ---------------------------------------------------------------------------
+# Erro: INVALID_INPUT — nenhum campo de atualização fornecido
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_update_error_no_fields_provided() -> None:
+    """Tool deve retornar INVALID_INPUT quando apenas lead_id fornecido."""
+    result = await update_lead_profile.ainvoke({"lead_id": _UPDATE_LEAD_ID})
+
+    assert isinstance(result, UpdateLeadProfileError)
+    assert result.ok is False
+    assert result.error_code == "INVALID_INPUT"
+    assert "ao menos um campo" in result.message.lower() or "name" in result.message
+
+
+# ---------------------------------------------------------------------------
+# Erro: 404 → LEAD_NOT_FOUND
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_update_error_404_lead_not_found() -> None:
+    """Tool deve retornar LEAD_NOT_FOUND quando backend retorna 404."""
+    with respx.mock:
+        respx.patch(_update_url(_UPDATE_LEAD_ID)).mock(
+            return_value=httpx.Response(404, json={"message": "Lead não encontrado"})
+        )
+        result = await update_lead_profile.ainvoke(
+            {"lead_id": _UPDATE_LEAD_ID, "city_id": "city-0001"}
+        )
+
+    assert isinstance(result, UpdateLeadProfileError)
+    assert result.error_code == "LEAD_NOT_FOUND"
+    assert _UPDATE_LEAD_ID in result.message
+
+
+# ---------------------------------------------------------------------------
+# Erro: BACKEND_UNAVAILABLE — 5xx
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_update_error_5xx() -> None:
+    """Tool deve retornar BACKEND_UNAVAILABLE quando backend retorna 5xx."""
+    with respx.mock:
+        respx.patch(_update_url(_UPDATE_LEAD_ID)).mock(
+            return_value=httpx.Response(503, json={"error": "service unavailable"})
+        )
+        result = await update_lead_profile.ainvoke(
+            {"lead_id": _UPDATE_LEAD_ID, "city_id": "city-0001"}
+        )
+
+    assert isinstance(result, UpdateLeadProfileError)
+    assert result.error_code == "BACKEND_UNAVAILABLE"
+    assert "503" in result.message
+
+
+# ---------------------------------------------------------------------------
+# Erro: BACKEND_UNAVAILABLE — timeout
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_update_error_timeout() -> None:
+    """Tool deve retornar BACKEND_UNAVAILABLE quando backend ultrapassa timeout."""
+    with respx.mock:
+        respx.patch(_update_url(_UPDATE_LEAD_ID)).mock(
+            side_effect=httpx.ReadTimeout("timed out", request=None)  # type: ignore[arg-type]
+        )
+        result = await update_lead_profile.ainvoke(
+            {"lead_id": _UPDATE_LEAD_ID, "requested_amount": "3000.00"}
+        )
+
+    assert isinstance(result, UpdateLeadProfileError)
+    assert result.error_code == "BACKEND_UNAVAILABLE"
+    assert "Timeout" in result.message
+
+
+# ---------------------------------------------------------------------------
+# Headers obrigatórios: X-Internal-Token
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_update_sends_internal_token() -> None:
+    """X-Internal-Token deve estar presente em toda chamada de atualização."""
+    with respx.mock:
+        route = respx.patch(_update_url(_UPDATE_LEAD_ID)).mock(
+            return_value=httpx.Response(200, json=_UPDATE_SUCCESS_BODY)
+        )
+        await update_lead_profile.ainvoke(
+            {"lead_id": _UPDATE_LEAD_ID, "city_id": "city-0001"}
+        )
+
+    token = route.calls.last.request.headers.get("x-internal-token")
+    assert token == settings.internal_token.get_secret_value()
+
+
+# ---------------------------------------------------------------------------
+# Headers obrigatórios: Idempotency-Key baseado em lead_id
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_update_sends_idempotency_key_based_on_lead_id() -> None:
+    """Idempotency-Key deve conter o lead_id para garantir idempotência do PATCH."""
+    with respx.mock:
+        route = respx.patch(_update_url(_UPDATE_LEAD_ID)).mock(
+            return_value=httpx.Response(200, json=_UPDATE_SUCCESS_BODY)
+        )
+        await update_lead_profile.ainvoke(
+            {"lead_id": _UPDATE_LEAD_ID, "city_id": "city-0001"}
+        )
+
+    key = route.calls.last.request.headers.get("idempotency-key")
+    assert key is not None
+    assert _UPDATE_LEAD_ID in key
