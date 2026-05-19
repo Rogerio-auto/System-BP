@@ -3,11 +3,11 @@ id: F3-S31
 title: Edges + montagem do grafo whatsapp_pre_attendance
 phase: F3
 task_ref: T3.16
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: python-engineer
-claimed_at:
+claimed_at: 2026-05-19T13:44:24Z
 completed_at:
 pr_url:
 depends_on: [F3-S23, F3-S24, F3-S25, F3-S26, F3-S27, F3-S28, F3-S29, F3-S30]
