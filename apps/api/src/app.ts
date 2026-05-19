@@ -26,6 +26,10 @@ import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { importsRoutes } from './modules/imports/routes.js';
 import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/routes.js';
+// Plugin agregador /internal/* (F3-S04): auto-registra rotas internas via @fastify/autoload.
+// Slots futuros (F3-S02, S05–S12) só criam modules/internal/<domínio>/routes.ts —
+// não editam app.ts, eliminando colisão de merge em desenvolvimento paralelo.
+import internalPlugin from './modules/internal/index.js';
 import { kanbanRoutes } from './modules/kanban/routes.js';
 import { leadsRoutes } from './modules/leads/routes.js';
 import { rolesRoutes } from './modules/roles/routes.js';
@@ -127,6 +131,10 @@ export async function buildApp() {
   // Lista publica de cidades para popular selects (qualquer user autenticado)
   await app.register(citiesPublicRoutes);
   await app.register(internalFeatureFlagsRoutes);
+  // Plugin agregador /internal/* (F3-S04): rotas F3 internas via autoload.
+  // prefix '/internal' + dirNameRoutePrefix do autoload = /internal/<domínio>/<endpoint>.
+  // Mantém internalFeatureFlagsRoutes acima pois usa named export (não captado pelo autoload).
+  await app.register(internalPlugin, { prefix: '/internal' });
   await app.register(kanbanRoutes);
   await app.register(leadsRoutes);
   await app.register(whatsappRoutes);

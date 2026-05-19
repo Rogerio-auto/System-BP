@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 37    | 34  | 0   | 0   | 0   | 2   | 1   |
+| F3   | 37    | 33  | 0   | 0   | 0   | 3   | 1   |
 | F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
@@ -91,7 +91,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3-S01 | Schema ai_conversation_states + ai_decision_logs + prompt_versions          | 🟣 review    | critical   | —                                                              |
 | F3-S02 | Endpoints /internal/conversations/:id/state (load/save)                     | 🟢 available | critical   | F3-S01, F3-S04                                                 |
 | F3-S03 | Estado tipado ConversationState (Python)                                    | 🟣 review    | critical   | —                                                              |
-| F3-S04 | Endpoint POST /internal/leads/get-or-create + plugin agregador /internal/\* | 🟢 available | critical   | —                                                              |
+| F3-S04 | Endpoint POST /internal/leads/get-or-create + plugin agregador /internal/\* | 🟣 review    | critical   | —                                                              |
 | F3-S05 | Endpoint POST /internal/cities/identify (fuzzy match)                       | 🟢 available | high       | F3-S04                                                         |
 | F3-S06 | Endpoint GET /internal/credit-products                                      | 🟢 available | high       | F3-S04                                                         |
 | F3-S07 | Endpoint POST /internal/handoffs (request_handoff)                          | 🟢 available | high       | F3-S04                                                         |
