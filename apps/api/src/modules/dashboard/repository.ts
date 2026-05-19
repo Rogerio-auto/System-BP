@@ -270,7 +270,9 @@ export async function countLeadsByCity(
     .orderBy(sql`count(*) DESC`);
 
   return rows.map((r) => ({
-    cityId: r.cityId,
+    // `as` justificado: INNER JOIN em cities garante cityId não-nulo no resultado.
+    // city_id é nullable no schema (F3-S01) mas o INNER JOIN filtra leads sem cidade.
+    cityId: r.cityId as string,
     cityName: r.cityName,
     count: r.count,
   }));

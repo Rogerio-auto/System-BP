@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 37    | 36  | 0   | 0   | 0   | 0   | 1   |
+| F3   | 37    | 35  | 0   | 0   | 0   | 1   | 1   |
 | F8   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
@@ -88,7 +88,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ID     | Título                                                                      | Status       | Prioridade | Depende de                                                     |
 | ------ | --------------------------------------------------------------------------- | ------------ | ---------- | -------------------------------------------------------------- |
 | F3-S00 | LLM Gateway — abstração OpenRouter + fallback Anthropic/OpenAI              | ✅ done      | critical   | F0-S06                                                         |
-| F3-S01 | Schema ai_conversation_states + ai_decision_logs + prompt_versions          | 🟢 available | critical   | —                                                              |
+| F3-S01 | Schema ai_conversation_states + ai_decision_logs + prompt_versions          | 🟣 review    | critical   | —                                                              |
 | F3-S02 | Endpoints /internal/conversations/:id/state (load/save)                     | 🟢 available | critical   | F3-S01, F3-S04                                                 |
 | F3-S03 | Estado tipado ConversationState (Python)                                    | 🟢 available | critical   | —                                                              |
 | F3-S04 | Endpoint POST /internal/leads/get-or-create + plugin agregador /internal/\* | 🟢 available | critical   | —                                                              |

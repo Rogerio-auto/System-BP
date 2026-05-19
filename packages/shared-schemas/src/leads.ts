@@ -127,7 +127,11 @@ export type LeadUpdate = z.infer<typeof LeadUpdateSchema>;
 export const LeadResponseSchema = z.object({
   id: z.string().uuid(),
   organization_id: z.string().uuid(),
-  city_id: z.string().uuid(),
+  /**
+   * Nullable desde F3-S01: o agente IA cria leads antes de identificar a cidade.
+   * O nó identify_city preenche posteriormente via PATCH /internal/leads/:id.
+   */
+  city_id: z.string().uuid().nullable(),
   agent_id: z.string().uuid().nullable(),
   name: z.string(),
   /** LGPD: PII — sempre presente para uso do frontend. Coberto por pino.redact. */

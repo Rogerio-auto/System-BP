@@ -147,6 +147,15 @@ export const creditSimulations = pgTable(
      */
     createdByUserId: uuid('created_by_user_id'),
 
+    /**
+     * Momento em que a simulação foi enviada ao cliente (via WhatsApp pelo agente IA).
+     * null = ainda não enviada (criada mas não compartilhada com o lead).
+     * Preenchido pelo endpoint POST /internal/simulations/:id/sent (F3-S11).
+     * Usado para controle de funil: saber se o lead recebeu a proposta.
+     * ON DELETE logic: imutável após set — nunca deve ser revertido para null.
+     */
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     // Sem updatedAt — simulações são imutáveis após criação.
   },

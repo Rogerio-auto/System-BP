@@ -54,7 +54,8 @@ export interface KanbanCardRow {
   priority: number;
   notes: string | null;
   updatedAt: Date;
-  cityId: string;
+  /** city_id nullable no schema (F3-S01): lead pode não ter cidade ainda (agente IA). */
+  cityId: string | null;
 }
 
 // ---------------------------------------------------------------------------

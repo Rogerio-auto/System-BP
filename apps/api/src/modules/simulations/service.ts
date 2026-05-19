@@ -171,6 +171,11 @@ export async function createSimulation(
   // ---------------------------------------------------------------------------
   // 3. Resolver regra ativa para a cidade do lead
   // ---------------------------------------------------------------------------
+  // cityId nullable (F3-S01): lead criado pelo agente IA pode não ter cidade ainda.
+  // Simulação requer cidade identificada — regra de negócio: não pode simular sem cidade.
+  if (!lead.cityId) {
+    throw new NoActiveRuleForCityError('unknown');
+  }
   const rule = await findActiveRuleForCity(db, product.id, lead.cityId);
   if (!rule) {
     throw new NoActiveRuleForCityError(lead.cityId);

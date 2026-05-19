@@ -109,7 +109,8 @@ function toLeadResponse(lead: Lead): LeadResponse {
   return {
     id: lead.id,
     organization_id: lead.organizationId,
-    city_id: lead.cityId,
+    // cityId nullable (F3-S01): agente IA cria lead antes de identificar a cidade
+    city_id: lead.cityId ?? null,
     agent_id: lead.agentId ?? null,
     name: lead.name,
     phone_e164: lead.phoneE164,
