@@ -147,7 +147,6 @@ const internalCitiesRoutes: FastifyPluginAsyncZod = async (app) => {
               aggregateId: best.id,
               organizationId: organization_id,
               actor: { kind: 'ai', id: null, ip: null },
-              correlationId: undefined,
               idempotencyKey: `cities.identified:${best.id}:${lead_id}:${randomUUID()}`,
               data: {
                 lead_id,

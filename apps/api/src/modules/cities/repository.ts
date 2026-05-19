@@ -382,7 +382,9 @@ export async function findCitiesByFuzzyMatch(
 
   // `as` justificado: db.execute retorna Record<string, unknown>[] — precisamos
   // tipar as linhas para acessar os campos de forma segura sem usar `any`.
-  return (result.rows as RawRow[]).map((row) => ({
+  // Double-cast via `unknown`: Record<string, unknown> e RawRow não têm overlap
+  // estrutural suficiente para o cast direto (TS2352).
+  return (result.rows as unknown as RawRow[]).map((row) => ({
     id: row.id,
     name: row.name,
     // similarity pode vir como string do driver pg (numeric → string)
