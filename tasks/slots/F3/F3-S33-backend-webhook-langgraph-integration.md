@@ -3,11 +3,11 @@ id: F3-S33
 title: Backend integra webhook WhatsApp → LangGraph → resposta
 phase: F3
 task_ref: T3.18
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-19T15:38:04Z
 completed_at:
 pr_url:
 depends_on: [F3-S32]
