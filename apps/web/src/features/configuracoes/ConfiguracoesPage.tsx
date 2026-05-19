@@ -116,6 +116,24 @@ function IconFeatureFlags(): React.JSX.Element {
   );
 }
 
+function IconAgenteIA(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M7 5V3M12 5V3M17 5V3" strokeLinecap="round" />
+      <path d="M9 12h.01M15 12h.01" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Tab = 'conta' | 'administracao';
@@ -242,6 +260,18 @@ function AdminSection(): React.JSX.Element {
             description: 'Agentes de crédito, vínculos com cidades e perfis de acesso.',
             icon: <IconAgentes />,
             href: '/admin/agents',
+          },
+        ]
+      : []),
+    // Agente de IA: gated por ai_prompts:read (admin + gestor_geral)
+    ...(hasPermission('ai_prompts:read')
+      ? [
+          {
+            title: 'Agente de IA — Prompts',
+            description:
+              'Gerencie os prompts do agente de IA e controle versões ativas em produção.',
+            icon: <IconAgenteIA />,
+            href: '/configuracoes/ia/prompts',
           },
         ]
       : []),
