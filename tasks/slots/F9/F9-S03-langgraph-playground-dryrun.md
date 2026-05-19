@@ -3,11 +3,11 @@ id: F9-S03
 title: LangGraph — endpoint dry-run (POST /process/whatsapp/playground)
 phase: F9
 task_ref: T9.3
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: python-engineer
-claimed_at:
+claimed_at: 2026-05-19T22:10:10Z
 completed_at:
 pr_url:
 depends_on: [F3-S31, F3-S32]
