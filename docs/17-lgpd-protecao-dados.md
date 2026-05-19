@@ -231,6 +231,15 @@ A regra mais crítica e a mais fácil de violar.
 - Teste obrigatório: `tests/llm/test_dlp.py` cobre 100% dos padrões da regex + casos de borda (CPF sem máscara, com pontos, fragmentado, em meio a texto).
 - **Suboperador (OpenRouter + LLM)** vê apenas a versão mascarada.
 
+**Playground do Console de IA (Fase 9 — F9-S03/S04/S07):** a mensagem que o **operador** digita no playground passa pelo **mesmo `redact_pii`** antes de chegar ao gateway. Sem exceção, mesmo o operador sendo `admin`. Justificativa: (a) o operador pode colar uma mensagem real recebida do cidadão para reproduzir um caso, (b) o gateway é um suboperador internacional, (c) não há benefício analítico em deixar PII bruta passar. O endpoint `POST /process/whatsapp/playground` é **dry-run estrito**: substitui o `InternalApiClient` por um sink in-memory para `persist_state` e `log_decision` (sem gravação no banco), e não chama o Chatwoot. Validado em teste por mock-count (`assert chatwoot_mock.call_count == 0`). O `audit_log` da execução do playground registra `operator_id`, `tokens_consumidos` e `prompt_versions_usadas` — **não** registra a mensagem do operador.
+
+### 8.4.1 Viewer de decisões da IA (`ai_decision_logs`, Fase 9 — F9-S02/S06)
+
+- A coluna `decision` jsonb de `ai_decision_logs` **já é proibida de carregar PII bruta** (F3 — doc 03 §14, comentário do schema). O viewer aplica **masking defensivo** mesmo assim: regex de telefone/CPF/email na resposta da API antes de chegar ao frontend.
+- `ai_decisions:read` é concedida com escopo: `gestor_regional` vê apenas decisões cujo `lead.city_id` está em `user_city_scopes` (filtro aplicado no repository, não no controller); decisões pré-identificação (`lead_id IS NULL`) são visíveis apenas a `admin` e `gestor_geral`.
+- O leitor não pode editar nem apagar logs (tabela append-only, sem rota de mutação no F9).
+- Acesso ao viewer **não** é auditado individualmente (alto volume — geraria ruído sem ganho de segurança); o acesso ao listar resumo de uma conversa é coberto pelo audit existente sobre `customers:read`/`leads:read` se a UI usar esses dados em paralelo.
+
 ### 8.5 Outbox sem PII bruta
 
 Payload de evento em `event_outbox` carrega **referências** (`customer_id`, `lead_id`), não cópias de PII. Consumidor hidrata sob escopo. Migração que viole isso é rejeitada.

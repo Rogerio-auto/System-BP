@@ -1,19 +1,23 @@
 # 11 — Roadmap Executável
 
-> Roadmap em 8 fases (0 a 7). Cada fase tem objetivo claro, entregáveis, dependências, ordem sugerida, riscos e critérios de aceite. As tasks granulares estão em [12-tasks-tecnicas.md](12-tasks-tecnicas.md).
+> Roadmap em 10 fases (0 a 9). Cada fase tem objetivo claro, entregáveis, dependências, ordem sugerida, riscos e critérios de aceite. As tasks granulares estão em [12-tasks-tecnicas.md](12-tasks-tecnicas.md).
+>
+> Fases 8 (Admin & Gestão) e 9 (Console do Agente de IA) foram adicionadas após o esboço original (F0–F7), à medida que o uso real revelou gaps de UI administrativa. Mantida a numeração para não invalidar referências históricas em PRs/commits.
 
 ## Sumário das fases
 
-| Fase | Foco                            | Resultado                                           |
-| ---- | ------------------------------- | --------------------------------------------------- |
-| 0    | Preparação                      | Monorepo + ambientes + DB + CI                      |
-| 1    | Base operacional                | Auth, RBAC, CRM, Kanban, Flags, Chatwoot inicial    |
-| 2    | Crédito e simulação             | Produtos, regras, simulador, tool da IA             |
-| 3    | LangGraph e agente externo      | Grafo pré-atendimento + tools + handoff estruturado |
-| 4    | Análise de crédito              | Manual + importação + versionamento                 |
-| 5    | Automações                      | Follow-up + cobrança (gated)                        |
-| 6    | Assistente interno + dashboards | Grafo interno + métricas                            |
-| 7    | Migração + go-live              | Cutover, monitoramento, hardening                   |
+| Fase | Foco                            | Resultado                                               |
+| ---- | ------------------------------- | ------------------------------------------------------- |
+| 0    | Preparação                      | Monorepo + ambientes + DB + CI                          |
+| 1    | Base operacional                | Auth, RBAC, CRM, Kanban, Flags, Chatwoot inicial        |
+| 2    | Crédito e simulação             | Produtos, regras, simulador, tool da IA                 |
+| 3    | LangGraph e agente externo      | Grafo pré-atendimento + tools + handoff estruturado     |
+| 4    | Análise de crédito              | Manual + importação + versionamento                     |
+| 5    | Automações                      | Follow-up + cobrança (gated)                            |
+| 6    | Assistente interno + dashboards | Grafo interno + métricas                                |
+| 7    | Migração + go-live              | Cutover, monitoramento, hardening                       |
+| 8    | Admin & Gestão                  | Telas admin (usuários, agentes, dashboards, 2FA, conta) |
+| 9    | Console do Agente de IA         | Gestão de prompts, viewer de decisões, playground       |
 
 ---
 
@@ -360,17 +364,107 @@ Migrar dados de Notion/Trello/MVP atual e cutover para o novo sistema com risco 
 
 ---
 
+## Fase 8 — Admin & Gestão
+
+> Fase introduzida após F1–F7 esboçadas, conforme o uso operacional revelou telas administrativas faltantes. Detalhes em `tasks/slots/F8/README.md`.
+
+### Objetivo
+
+Fechar o conjunto de telas administrativas e endpoints de agregação que ficaram fora do recorte original: gestão de usuários, gestão de agentes humanos, hub unificado de Configurações (Stripe/Linear), dashboards reais com KPIs, RBAC com coluna `scope`, autoatendimento da própria conta (perfil, senha) e 2FA TOTP.
+
+### Entregáveis
+
+- Backend CRUD de `agents` + `agent_cities` + endpoint de KPIs do dashboard.
+- Frontend `/admin/users`, `/admin/agents`, dashboard com KPIs reais.
+- Hub `/configuracoes` substitui o placeholder, com duas camadas (Conta + Administração).
+- Aba Conta funcional (perfil, troca de senha, aparência).
+- 2FA TOTP ponta a ponta (enrolment + recovery codes + enforcement no login). QR gerado client-side.
+- Reconciliação RBAC: convenção `:manage`, sem `users:admin`/`agents:admin`.
+
+### Dependências
+
+Fase 1 (auth, users, cidades, agentes).
+
+### Critérios de aceite
+
+- Admin cria usuário/agente pela UI sem SQL.
+- Manager substitui Notion para gestão administrativa.
+- 2FA ativável via app autenticador; sem chamada externa renderizando QR.
+- Hub é o único ponto de entrada para configurações; sidebar limpa.
+
+### Riscos
+
+- Dashboard inflando audit log se logar todo acesso a listas → mitigado por log resumido (paginado).
+- Recovery codes vazarem em logs → coberto por `pino.redact` canônico.
+
+---
+
+## Fase 9 — Console do Agente de IA
+
+> Fase introduzida em 2026-05-19 após F3 (Agentes IA) ser fechada 100% backend, sem UI para gerir o que foi construído. Detalhes em `tasks/slots/F9/README.md`.
+
+### Objetivo
+
+Dar ao operador (admin e, com escopo, manager) controle sobre o agente de IA do WhatsApp sem precisar de SQL: gerir prompts versionados, auditar decisões do grafo conversa por conversa, e validar mudanças de prompt em playground antes de promover.
+
+### Entregáveis
+
+- API de `prompt_versions` (CRUD + ativação transacional) — admin escreve, manager lê.
+- API de leitura de `ai_decision_logs` (lista filtrável + timeline por conversa) com escopo de cidade via lead.
+- Endpoint de **dry-run** no LangGraph (`POST /process/whatsapp/playground`) que executa o grafo sem persistir `ai_conversation_states` nem `ai_decision_logs` e devolve o trace completo.
+- Backend proxy `/api/ai-console/playground` com DLP na entrada do operador.
+- Frontend: três seções dentro do **Hub de Configurações** (F8-S08) — Prompts (editor com preview de markdown), Decisões (lista + timeline), Playground.
+- Permissões novas: `ai_prompts:read`, `ai_prompts:write`, `ai_prompts:activate`, `ai_decisions:read`, `ai_playground:run` (detalhe em [10-seguranca-permissoes.md §3](10-seguranca-permissoes.md)).
+
+### Dependências
+
+Fase 3 (schema `prompt_versions` + `ai_decision_logs` em F3-S01; grafo em F3-S31; endpoint base em F3-S32). Fase 8 (hub de configurações em F8-S08; auth/RBAC reconciliado em F8-S10).
+
+### Ordem sugerida
+
+Três batches (`isolation: "worktree"` viável):
+
+1. **B1 (paralelo, arquivos disjuntos):** API de prompts (T9.1) + API de decisões (T9.2) + dry-run no LangGraph (T9.3).
+2. **B2 (paralelo):** proxy do playground (T9.4) + UI de prompts (T9.5) + UI de decisões (T9.6).
+3. **B3:** UI do playground (T9.7).
+
+### Regras
+
+- **Schema é reaproveitado.** F3-S01 já criou `prompt_versions` (com `active` + índice parcial em `(key) WHERE active`) e `ai_decision_logs` (append-only, indexado por conversa e org). Nenhum slot novo de schema.
+- **RBAC mandatório.** Admin tem console completo; manager (gestor_geral/gestor_regional) tem leitura de prompts e de decisões, este último city-scoped.
+- **Dry-run nunca persiste.** O endpoint de playground roda o grafo num sink in-memory, marca `dry_run: true` em todo log emitido, e descarta antes de retornar.
+- **DLP no operador.** A mensagem digitada no playground passa pelo mesmo DLP da entrada real antes de chegar ao gateway LLM (doc 17 §8.4).
+- **Masking no viewer.** A resposta dos endpoints de decisão masca qualquer PII residual em `decision` jsonb (telefone, CPF, nome) — mesmo que F3 já tenha proibido PII bruta nesse campo, defesa em profundidade.
+
+### Critérios de aceite
+
+- Admin cria nova versão de prompt, faz diff vs anterior, ativa numa transação atômica (versão antiga deativa no mesmo commit).
+- Manager visualiza prompts e decisões mas não consegue editar (HTTP 403 testado).
+- Gestor regional vê apenas decisões de leads de cidades no seu `user_city_scopes` (HTTP 404 fora do escopo).
+- Playground roda mensagem contra o grafo, retorna trace (nós percorridos, prompt versions usadas, intents, resposta) sem deixar nenhum registro em `ai_conversation_states`/`ai_decision_logs`.
+- Nenhum registro do playground vaza para o WhatsApp do usuário-alvo (dry-run não chama Chatwoot).
+
+### Riscos
+
+- **Trace do dry-run vazar PII em response HTTP.** Mitigação: o trace serializa apenas IDs opacos e intents; mensagens do operador passam por DLP antes de qualquer log.
+- **Confusão entre prompt "publicado" e "ativo".** Mitigação: imutabilidade por (key, version) é existente; ativação é flag separada, transacional.
+- **Editor de prompt aceitar template inválido (placeholders quebrados).** Mitigação: validação client-side do template + preview live; backend recalcula `content_hash` e rejeita se o body não bater.
+
+---
+
 ## Estimativa de prazo (calibração)
 
-| Fase | Esforço relativo | Observação                    |
-| ---- | ---------------- | ----------------------------- |
-| 0    | 5%               | crítico, paralelizável        |
-| 1    | 25%              | maior bloco; base de tudo     |
-| 2    | 10%              | dependente de 1               |
-| 3    | 20%              | LangGraph é a maior incerteza |
-| 4    | 10%              | depende de 2                  |
-| 5    | 10%              | feita "pronta-mas-desligada"  |
-| 6    | 10%              | depende de 1–5                |
-| 7    | 10%              | janela final, sensível        |
+| Fase | Esforço relativo | Observação                         |
+| ---- | ---------------- | ---------------------------------- |
+| 0    | 5%               | crítico, paralelizável             |
+| 1    | 25%              | maior bloco; base de tudo          |
+| 2    | 10%              | dependente de 1                    |
+| 3    | 20%              | LangGraph é a maior incerteza      |
+| 4    | 10%              | depende de 2                       |
+| 5    | 10%              | feita "pronta-mas-desligada"       |
+| 6    | 10%              | depende de 1–5                     |
+| 7    | 10%              | janela final, sensível             |
+| 8    | 8%               | telas admin, adicionada após F1–F7 |
+| 9    | 6%               | UI do agente, depende de F3+F8     |
 
 Para entrega em 45 dias com qualidade real: **Fases 0–4 + Fase 5 com flags desligadas + Fase 7 inicial.** Fase 6 (assistente interno e dashboards completos) entra em onda 2 pós go-live. Justificativa em [16-revisao-critica.md](16-revisao-critica.md).

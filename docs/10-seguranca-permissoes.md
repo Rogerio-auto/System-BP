@@ -61,9 +61,18 @@ Catálogo (`permissions.key`) — espelho do seed base (`scripts/seed.ts`) e das
 - `followup:manage`, `collection:manage`
 - `credit_products:read`, `credit_products:write` (migration `0017` — atribuídas a `admin`)
 - `dlq:manage` (rotas admin DLQ — atribuída a `admin` via seed manual)
+- `ai_prompts:read`, `ai_prompts:write`, `ai_prompts:activate` (Fase 9 — Console do Agente de IA)
+- `ai_decisions:read` (Fase 9 — viewer de `ai_decision_logs`, city-scoped via lead)
+- `ai_playground:run` (Fase 9 — execução de dry-run do grafo)
 
 > Convenção canônica: toda permissão de gestão usa sufixo `:manage`.
 > Não há `users:admin` nem `agents:admin` — essas chaves foram removidas em F8-S10.
+>
+> **Console do Agente de IA (F9) — particularidades de RBAC:**
+>
+> - `ai_prompts:write` e `ai_prompts:activate` são **exclusivas de `admin`**. Manager (gestor_geral) tem só `:read`.
+> - `ai_decisions:read` é concedida a `admin`, `gestor_geral` e `gestor_regional`. Para `gestor_regional` o escopo de cidade é aplicado via JOIN com `leads.city_id` (decisão pré-identificação de lead — `lead_id IS NULL` — é visível apenas a admin e gestor_geral).
+> - `ai_playground:run` é **exclusiva de `admin`** porque o dry-run consome tokens de LLM em nome do projeto (custo) e porque o operador pode digitar mensagens-teste que precisam de DLP — mantemos a superfície restrita.
 
 ### 3.3 Mapeamento role → permissions
 

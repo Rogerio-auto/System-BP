@@ -508,3 +508,94 @@ Resumo:
 ## 11. Agente externo de pré-atendimento (LangGraph)
 
 Detalhe completo em [06-langgraph-agentes.md](06-langgraph-agentes.md).
+
+---
+
+## 12. Console do Agente de IA
+
+### Objetivo
+
+Dar ao time operacional (admin e, com escopo limitado, manager) controle direto sobre o agente externo de pré-atendimento sem precisar de SQL: gerir prompts versionados, auditar decisões conversa a conversa, e validar mudanças de prompt em playground antes de promovê-las.
+
+### Contexto
+
+F3 entregou o agente IA 100% backend — `prompt_versions` e `ai_decision_logs` existem no banco desde F3-S01, mas não há tela para mexer ou observar. Operacionalmente isso significa que (a) alterar um prompt exige migration manual, (b) entender por que a IA tomou uma decisão exige consultar tabela direto no Postgres, (c) não há forma segura de testar uma alteração antes de promover. Este módulo fecha esses três gaps.
+
+### Fluxos
+
+- **Gestão de prompts.** Admin abre o console, lista prompts por `key`, abre uma key e vê o histórico de versões. Pode comparar duas versões (diff), criar nova versão a partir da ativa (editor com edição em texto + preview de markdown ao vivo), e ativar uma versão. A ativação é transacional: a versão ativa anterior é desativada no mesmo commit.
+- **Visualização de decisões.** Usuário com permissão abre a lista de `ai_decision_logs` filtrada (data, conversa, lead, intent, node, model). Abrir uma conversa abre a timeline: cada nó executado, com intent classificado, prompt version usada, model, tokens, latência, erro (se houver).
+- **Playground.** Admin digita uma mensagem-teste, opcionalmente seleciona um lead/cidade reais (leitura), clica Rodar. Backend faz DLP, chama o LangGraph em modo **dry-run** (`POST /process/whatsapp/playground`), recebe o trace + resposta, devolve à UI. **Nada é persistido. Nada é enviado ao cliente.**
+
+### Regras
+
+- **Schema é reaproveitado.** Sem migration nova. F3-S01 já criou as tabelas com versionamento (`active` + índice parcial em `(key) WHERE active`) e timeline (`(conversation_id, created_at)`).
+- **Imutabilidade dos prompts.** `(key, version)` é único e imutável após criação. Para mudar: nova versão. O `content_hash` (SHA-256 do `body`) é checksum.
+- **Ativação atômica.** Apenas 1 versão ativa por `key`. Transação: desativa atual, ativa nova. Falha = rollback.
+- **Dry-run nunca toca produção.** O endpoint `playground` no LangGraph substitui o `InternalApiClient` por um sink in-memory; `persist_state` e `log_decision` não chamam o backend; Chatwoot não recebe nenhuma chamada. Validado em teste.
+- **DLP obrigatório.** A mensagem que o operador digita no playground passa pelo mesmo DLP da entrada real antes de chegar ao gateway LLM. Sem exceção.
+- **Masking defensivo.** As respostas dos endpoints de decisão mascaram qualquer PII residual no `decision` jsonb. Mesmo F3 proibindo PII bruta nesse campo, defesa em profundidade.
+
+### Dados
+
+`prompt_versions` (criado em F3-S01), `ai_decision_logs` (criado em F3-S01). Nenhuma tabela nova.
+
+### Eventos
+
+- `ai_prompts.version_created` (key, version, created_by) — auditável.
+- `ai_prompts.version_activated` (key, version, previous_version, activated_by) — auditável.
+- `ai_playground.run_executed` (operator_id, contexto, trace_id) — auditável; **não** carrega a mensagem do operador (que pode ter sido mascarada por DLP).
+
+### Telas
+
+Tudo dentro do **Hub de Configurações** (entregue em F8-S08), na nova seção "Agente de IA":
+
+- Lista e detalhe de prompts (editor + diff + ativar).
+- Lista e timeline de decisões.
+- Playground.
+
+Sem rotas soltas — a navegação cai no hub.
+
+### APIs
+
+- `GET /api/ai-console/prompts` — lista de keys com versão ativa.
+- `GET /api/ai-console/prompts/:key/versions` — histórico de versões.
+- `GET /api/ai-console/prompts/:key/versions/:version` — detalhe.
+- `POST /api/ai-console/prompts/:key/versions` — cria nova versão.
+- `POST /api/ai-console/prompts/:key/versions/:version/activate` — ativa.
+- `GET /api/ai-console/decisions` — lista filtrável de decisões.
+- `GET /api/ai-console/decisions/conversations/:conversationId` — timeline.
+- `POST /api/ai-console/playground` — proxy do playground (DLP + dry-run no LangGraph).
+- `POST /process/whatsapp/playground` (LangGraph) — endpoint dry-run.
+
+### Permissões
+
+| Permissão             | Quem                                               | O quê                                  |
+| --------------------- | -------------------------------------------------- | -------------------------------------- |
+| `ai_prompts:read`     | admin, gestor_geral                                | Listar prompts e versões; ver conteúdo |
+| `ai_prompts:write`    | admin                                              | Criar nova versão                      |
+| `ai_prompts:activate` | admin                                              | Promover versão a ativa                |
+| `ai_decisions:read`   | admin, gestor_geral, gestor_regional (city-scoped) | Listar e abrir decisões                |
+| `ai_playground:run`   | admin                                              | Executar playground                    |
+
+Detalhe em [10-seguranca-permissoes.md §3.2](10-seguranca-permissoes.md).
+
+### Feature flag
+
+Console inteiro pode ser gated por `ai_console.enabled` (default `enabled` para admin; flag existe principalmente para desligar emergencialmente em incidente).
+
+### Critérios de aceite
+
+- Admin cria nova versão de prompt e ativa numa transação; versão anterior fica desativada no mesmo commit.
+- Manager visualiza prompts e decisões mas não consegue criar/ativar (HTTP 403 testado).
+- Gestor regional vê apenas decisões de leads das suas cidades (HTTP 404 fora do escopo, testado).
+- Playground roda contra o grafo, retorna trace + reply, **não cria registros** em `ai_conversation_states`/`ai_decision_logs`, **não chama** Chatwoot (validado por mock count).
+- Mensagem do operador no playground passa por DLP antes do gateway (validado por inspeção do `gw_mock.complete.call_args_list`).
+
+### Dependências
+
+- F3 (schemas + agente IA funcionando).
+- F8-S08 (hub de Configurações).
+- F8-S10 (RBAC reconciliado — convenção `:manage`/`:activate`).
+
+---

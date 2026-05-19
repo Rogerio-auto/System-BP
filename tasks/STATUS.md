@@ -13,6 +13,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
+| F9   | 7     | 7   | 0   | 0   | 0   | 0   | 0   |
 
 ## Fase 0 — Preparação
 
@@ -141,3 +142,15 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F8-S09 | Conta — self-service de perfil, senha e aparência (backend + frontend)     | ✅ done | medium     | F8-S08                         |
 | F8-S10 | Reconciliação RBAC — padronizar permissões em :manage                      | ✅ done | medium     | —                              |
 | F8-S11 | 2FA / TOTP — enrolment, verificação, recovery codes e enforcement no login | ✅ done | medium     | F8-S09                         |
+
+## Fase 9 —
+
+| ID     | Título                                                                      | Status       | Prioridade | Depende de             |
+| ------ | --------------------------------------------------------------------------- | ------------ | ---------- | ---------------------- |
+| F9-S01 | Backend — API de prompt_versions (CRUD + ativação transacional)             | 🟢 available | high       | F3-S01, F1-S04, F1-S16 |
+| F9-S02 | Backend — API read de ai_decision_logs (lista + timeline, city-scoped)      | 🟢 available | high       | F3-S01, F1-S04         |
+| F9-S03 | LangGraph — endpoint dry-run (POST /process/whatsapp/playground)            | 🟢 available | high       | F3-S31, F3-S32         |
+| F9-S04 | Backend — proxy /api/ai-console/playground + DLP na entrada do operador     | 🟢 available | high       | F9-S03, F3-S33         |
+| F9-S05 | Frontend — gestão de prompts (editor + preview markdown + diff + ativação)  | 🟢 available | high       | F9-S01, F8-S08, F1-S08 |
+| F9-S06 | Frontend — visualizador de ai_decision_logs (lista + timeline por conversa) | 🟢 available | high       | F9-S02, F8-S08, F1-S08 |
+| F9-S07 | Frontend — playground (com contexto real opcional + DRY-RUN banner)         | 🟢 available | high       | F9-S04, F8-S08, F1-S08 |

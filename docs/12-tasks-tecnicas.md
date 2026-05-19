@@ -477,6 +477,53 @@
   - Idempotência onde aplicável.
 - Audit log obrigatório em mutações sensíveis listadas em [10-seguranca-permissoes.md](10-seguranca-permissoes.md).
 
+---
+
+## Fase 9 — Console do Agente de IA
+
+> Fase nova (2026-05-19). UI de configuração e observabilidade do agente entregue em F3. Schemas `prompt_versions` e `ai_decision_logs` já existem (F3-S01) — **nenhuma migration nova**. Detalhes em [11-roadmap-executavel.md](11-roadmap-executavel.md#fase-9--console-do-agente-de-ia) e em [05-modulos-funcionais.md §12](05-modulos-funcionais.md). Pré-requisito de permissões em [10-seguranca-permissoes.md §3](10-seguranca-permissoes.md).
+
+### T9.1 — Backend: API de `prompt_versions` (CRUD + ativação transacional)
+
+**Arquivos:** `apps/api/src/modules/ai-console/prompts/**`, `apps/api/src/app.ts`.
+**Rotas:** `GET /api/ai-console/prompts` (lista por key com versão ativa), `GET /api/ai-console/prompts/:key/versions`, `GET /api/ai-console/prompts/:key/versions/:version`, `POST /api/ai-console/prompts/:key/versions` (cria — calcula `content_hash`, `version = max + 1`, imutável), `POST /api/ai-console/prompts/:key/versions/:version/activate` (numa transação: `UPDATE ... SET active = false WHERE key = $1 AND active = true` seguido de `UPDATE ... SET active = true WHERE id = $2`).
+**Aceite:** RBAC `ai_prompts:read` em leitura, `ai_prompts:write` em criação, `ai_prompts:activate` em ativação; ativação atômica (rollback se algo falhar); audit em criação/ativação; idempotência via `Idempotency-Key` na criação; testes positivos e negativos para os 3 papéis.
+
+### T9.2 — Backend: API read de `ai_decision_logs` (lista + timeline)
+
+**Arquivos:** `apps/api/src/modules/ai-console/decisions/**`.
+**Rotas:** `GET /api/ai-console/decisions` (lista com filtros `conversation_id?`, `lead_id?`, `intent?`, `node?`, `from?`, `to?`, paginada), `GET /api/ai-console/decisions/conversations/:conversationId` (timeline cronológica).
+**Aceite:** RBAC `ai_decisions:read`; **escopo de cidade** via JOIN com `leads.city_id` (ou denormalização — registrar decisão na descrição do PR); masking de qualquer PII residual em `decision` jsonb antes de retornar (telefone, CPF, nome); read-only; teste com gestor regional confirma 404 fora do escopo; label `lgpd-impact`.
+
+### T9.3 — LangGraph: endpoint dry-run (`POST /process/whatsapp/playground`)
+
+**Arquivos:** `apps/langgraph-service/app/api/playground.py`, `apps/langgraph-service/app/main.py`, `apps/langgraph-service/tests/api/test_playground.py`.
+**Contrato:** mesmo schema de request de `/process/whatsapp/message` mais um campo `dry_run: true` obrigatório no body. Response inclui `trace` com a sequência de nós executados, `prompt_versions` usadas, intents classificados, e a `reply` que seria enviada.
+**Aceite:** exige `X-Internal-Token`; **não persiste nada** em `ai_conversation_states` nem `ai_decision_logs` (substituir o `InternalApiClient` por um sink in-memory para os nós `persist_state` e `log_decision`); **não chama Chatwoot**; rate-limit próprio (mais permissivo que produção); teste verifica que o DB e o Chatwoot não recebem chamadas durante um dry-run.
+
+### T9.4 — Backend: proxy `/api/ai-console/playground` + DLP na entrada
+
+**Arquivos:** `apps/api/src/modules/ai-console/playground/**`, `apps/api/src/integrations/langgraph/playground-client.ts`.
+**Rota:** `POST /api/ai-console/playground` (body: mensagem do operador + contexto opcional `lead_id` / `city_id`).
+**Aceite:** RBAC `ai_playground:run`; **DLP** aplicado à mensagem do operador antes de proxyar ao LangGraph (doc 17 §8.4); tokens enviados ao LangGraph carregam `X-Internal-Token`; resposta passa por masking idêntico ao do T9.2; audit registra cada execução; label `lgpd-impact`.
+
+### T9.5 — Frontend: gestão de prompts (editor + diff + ativação)
+
+**Arquivos:** `apps/web/src/features/configuracoes/ai-console/prompts/**`, `apps/web/src/hooks/ai-console/usePrompts.ts`, integração com hub F8-S08.
+**Aceite:** lista de keys com versão ativa em destaque; histórico de versões com timeline; **editor com edição em texto e preview de markdown side-by-side** ao vivo (placeholders `{lead_name}`, `{city_name}` etc. renderizados como chips); diff entre duas versões; botão Ativar com modal de confirmação (mostra impacto: "esta ação substitui imediatamente a versão ativa em produção"); UI consome T9.1 e respeita `ai_prompts:read/write/activate` (botões desabilitados sem permissão); manager vê tudo em read-only.
+
+### T9.6 — Frontend: visualizador de decisões
+
+**Arquivos:** `apps/web/src/features/configuracoes/ai-console/decisions/**`, `apps/web/src/hooks/ai-console/useDecisions.ts`.
+**Aceite:** lista filtrável (data, conversa, lead, intent, node, model); abrir uma conversa mostra timeline cronológica das decisões com card por nó (intent, prompt version, model, tokens in/out, latência, custo estimado — opcional, ver §riscos do roadmap, erro se houver); link para a conversa Chatwoot quando disponível; manager-regional vê só conversas das suas cidades.
+
+### T9.7 — Frontend: playground (com contexto real opcional)
+
+**Arquivos:** `apps/web/src/features/configuracoes/ai-console/playground/**`, `apps/web/src/hooks/ai-console/usePlayground.ts`.
+**Aceite:** form com `mensagem` (textarea) + selector opcional de `lead` e `city` (autocomplete usando endpoints já existentes); toggle "Usar contexto real (read-only)" — quando ligado, passa `lead_id`/`city_id` reais ao backend, que carrega contexto via endpoints `/internal/*` existentes em modo somente leitura; toggle "Sintético" preenche com fixture; botão Rodar; painel direito mostra trace do grafo (nós, intents, prompt versions, tokens, latência) + `reply` final + avisos de DLP (se a mensagem do operador foi mascarada). Banner permanente "DRY-RUN — nada é persistido e nada é enviado ao cliente".
+
+---
+
 ## Definition of Done padrão
 
 ```md
