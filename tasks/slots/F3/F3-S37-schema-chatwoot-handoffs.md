@@ -3,11 +3,11 @@ id: F3-S37
 title: Schema chatwoot_handoffs + persistência no endpoint de handoff
 phase: F3
 task_ref: T3.8
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-19T01:15:14Z
 completed_at:
 pr_url:
 depends_on: [F3-S01, F3-S07]
