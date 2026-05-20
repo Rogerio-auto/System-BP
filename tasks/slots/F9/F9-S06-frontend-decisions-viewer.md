@@ -3,11 +3,11 @@ id: F9-S06
 title: Frontend — visualizador de ai_decision_logs (lista + timeline por conversa)
 phase: F9
 task_ref: T9.6
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: frontend-engineer
-claimed_at:
+claimed_at: 2026-05-20T00:02:54Z
 completed_at:
 pr_url:
 depends_on: [F9-S02, F8-S08, F1-S08]
