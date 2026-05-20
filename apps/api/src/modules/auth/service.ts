@@ -47,6 +47,7 @@ import {
 import { passwordVerify } from '../../shared/password.js';
 import { listAvailableRecoveryCodes, markRecoveryCodeUsedAtomic } from '../account/repository.js';
 
+import { queryUserPermissions } from './middlewares/user-context.repository.js';
 import {
   createSession,
   createTotpChallenge,
@@ -99,6 +100,8 @@ export interface LoginResultOk {
     email: string;
     fullName: string;
     organizationId: string;
+    /** Permissões RBAC consolidadas — usadas pelo frontend para gating de UI. */
+    permissions: string[];
   };
 }
 
@@ -116,6 +119,8 @@ export interface RefreshResult {
     email: string;
     fullName: string;
     organizationId: string;
+    /** Permissões RBAC ressincronizadas — reflete mudanças de role pós-login original. */
+    permissions: string[];
   };
 }
 
@@ -260,6 +265,10 @@ async function _issueSession(
 
   await updateUserLastLogin(db, user.id);
 
+  // Carrega permissões RBAC consolidadas para o frontend popular o store de auth
+  // e fazer gating de UI sem precisar de um endpoint /me dedicado.
+  const userPermissions = await queryUserPermissions(db, user.id);
+
   log.info(
     {
       event: 'auth.login.success',
@@ -283,6 +292,7 @@ async function _issueSession(
       email: user.email,
       fullName: user.fullName,
       organizationId: user.organizationId,
+      permissions: userPermissions,
     },
   };
 }
@@ -503,6 +513,10 @@ export async function refresh(
     expiresAt: newExpiresAt,
   });
 
+  // Ressincroniza permissões RBAC — mudanças de role aplicadas após o login
+  // original passam a valer no próximo refresh (sem exigir logout/login do user).
+  const userPermissions = await queryUserPermissions(db, user.id);
+
   log.info(
     {
       event: 'auth.refresh.success',
@@ -525,6 +539,7 @@ export async function refresh(
       email: user.email,
       fullName: user.fullName,
       organizationId: user.organizationId,
+      permissions: userPermissions,
     },
   };
 }

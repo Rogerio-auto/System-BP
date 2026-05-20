@@ -29,6 +29,14 @@ export const loginResponseSchema = z.object({
     email: z.string().email(),
     full_name: z.string(),
     organization_id: z.string().uuid(),
+    /**
+     * Permissões RBAC do usuário consolidadas no momento da resposta.
+     * Carregadas via JOIN entre `user_roles`, `role_permissions` e `permissions`.
+     * O frontend usa para gating de UI (ex.: hub de Configurações).
+     * O backend usa `request.user.permissions` carregado pelo middleware `authenticate()`
+     * em cada request — a lista aqui é snapshot, não fonte de verdade.
+     */
+    permissions: z.array(z.string()),
   }),
 });
 
@@ -53,6 +61,9 @@ export const refreshResponseSchema = z.object({
     email: z.string().email(),
     full_name: z.string(),
     organization_id: z.string().uuid(),
+    // Permissões RBAC ressincronizadas no refresh — garante que mudanças de role
+    // aplicadas após o login original sejam refletidas ao recarregar o SPA.
+    permissions: z.array(z.string()),
   }),
 });
 

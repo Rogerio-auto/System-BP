@@ -105,6 +105,7 @@ export async function loginController(
       email: result.user.email,
       full_name: result.user.fullName,
       organization_id: result.user.organizationId,
+      permissions: result.user.permissions,
     },
   });
 }
@@ -153,6 +154,7 @@ export async function verify2faController(
       email: result.user.email,
       full_name: result.user.fullName,
       organization_id: result.user.organizationId,
+      permissions: result.user.permissions,
     },
   });
 }
@@ -202,6 +204,7 @@ export async function refreshController(
       email: result.user.email,
       full_name: result.user.fullName,
       organization_id: result.user.organizationId,
+      permissions: result.user.permissions,
     },
   });
 }
