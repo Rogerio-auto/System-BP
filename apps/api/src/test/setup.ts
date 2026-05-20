@@ -39,4 +39,9 @@ export function setup(): void {
   process.env['LGPD_DATA_KEY'] = 'P5Uc4j/vdAisFljJ0kdz08PLWmPvMC/NX5VIy99Bv+E=';
   // LGPD_DEDUPE_PEPPER: string de ≥32 chars (validado pelo .min(32) do schema).
   process.env['LGPD_DEDUPE_PEPPER'] = 'xgRqlH8Ag8bV/DI9gza3qIFx0w4RF3f9ZF/RSilyV2s=';
+
+  // Conversão de FX BRL/USD (F9-S00 hardening: agora obrigatório no envSchema com refine(v > 0)
+  // para evitar boot silencioso em produção sem o valor configurado).
+  // Valor de teste qualquer > 0 — o módulo de pricing usa para calcular cost_brl em ai_decision_logs.
+  process.env['FX_BRL_PER_USD'] = '5.75';
 }

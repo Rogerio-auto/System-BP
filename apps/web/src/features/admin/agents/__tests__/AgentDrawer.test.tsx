@@ -43,10 +43,7 @@ interface AgentCitiesValue {
 
 function validateCities(value: AgentCitiesValue): string | null {
   if (value.cityIds.length === 0) return 'Ao menos uma cidade é obrigatória';
-  if (
-    value.primaryCityId !== null &&
-    !value.cityIds.includes(value.primaryCityId)
-  ) {
+  if (value.primaryCityId !== null && !value.cityIds.includes(value.primaryCityId)) {
     return 'Cidade primária deve estar nas cidades selecionadas';
   }
   return null;
@@ -62,8 +59,7 @@ function addCity(value: AgentCitiesValue, cityId: string): AgentCitiesValue {
 // Lógica de remoção de cidade (mesma do AgentCitiesSelect)
 function removeCity(value: AgentCitiesValue, cityId: string): AgentCitiesValue {
   const newCityIds = value.cityIds.filter((id) => id !== cityId);
-  const newPrimary =
-    value.primaryCityId === cityId ? (newCityIds[0] ?? null) : value.primaryCityId;
+  const newPrimary = value.primaryCityId === cityId ? (newCityIds[0] ?? null) : value.primaryCityId;
   return { cityIds: newCityIds, primaryCityId: newPrimary };
 }
 
@@ -136,7 +132,10 @@ describe('AgentFormSchema', () => {
   it('phone rejeita mais de 30 caracteres', () => {
     const result = AgentFormSchema.safeParse({
       displayName: 'Maria Santos',
-      phone: '+55 69 9 9999-9999 ext. 999999',
+      // 31 chars — limite do schema é 30; valor acima força o cenário "rejeita mais de 30".
+      // Bug histórico: o valor anterior tinha exatamente 30 chars e passava no .max(30),
+      // tornando a assertion vazia. Corrigido em chore/fix-tests-fx-and-agent-phone.
+      phone: '+55 69 9 9999-9999 ext. 9999999',
     });
     expect(result.success).toBe(false);
   });
