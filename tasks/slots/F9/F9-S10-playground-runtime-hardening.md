@@ -3,13 +3,13 @@ id: F9-S10
 title: Hardening do runtime do agente — DLP gateway + dry_run_sink + mensagens de erro
 phase: F9
 task_ref: T9.10
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: python-engineer
 claimed_at: 2026-05-20T15:43:31Z
 completed_at: 2026-05-20T16:06:45Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/128
 depends_on: [F3-S24, F9-S03]
 blocks: []
 labels: [lgpd-impact]

@@ -13,7 +13,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F9   | 11    | 1   | 0   | 0   | 0   | 1   | 9   |
+| F9   | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 
 ## Fase 0 — Preparação
 
@@ -157,4 +157,4 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F9-S07 | Frontend — playground (com contexto real opcional + DRY-RUN banner)             | ✅ done      | high       | F9-S04, F8-S08, F1-S08 |
 | F9-S08 | Parametrização de modelo no editor de prompts — temperature, max_tokens, top_p  | ✅ done      | medium     | F9-S01, F9-S05, F3-S00 |
 | F9-S09 | LangGraph lê prompts de prompt_versions (DB) em vez de arquivos .md             | 🟢 available | high       | F9-S01, F9-S08         |
-| F9-S10 | Hardening do runtime do agente — DLP gateway + dry_run_sink + mensagens de erro | 🟣 review    | critical   | F3-S24, F9-S03         |
+| F9-S10 | Hardening do runtime do agente — DLP gateway + dry_run_sink + mensagens de erro | ✅ done      | critical   | F3-S24, F9-S03         |
