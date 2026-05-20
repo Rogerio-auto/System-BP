@@ -3,13 +3,13 @@ id: F9-S09
 title: LangGraph lê prompts de prompt_versions (DB) em vez de arquivos .md
 phase: F9
 task_ref: T9.9
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: python-engineer
 claimed_at: 2026-05-20T18:25:42Z
 completed_at: 2026-05-20T19:17:55Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/129
 depends_on: [F9-S01, F9-S08]
 blocks: []
 labels: []
