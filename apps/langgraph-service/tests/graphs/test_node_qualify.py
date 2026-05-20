@@ -321,7 +321,8 @@ class TestQualifyComplete:
 
         last_tool = result["tool_results"][-1]
         assert last_tool["prompt_key"] == "pre_attendance_qualify"
-        assert last_tool["prompt_version"] == "1"
+        # F9-S09: prompt_version é agora a string composta "key@vN" do ActivePrompt.
+        assert last_tool["prompt_version"] == "pre_attendance_qualify@v1"
 
 
 # ---------------------------------------------------------------------------
@@ -684,7 +685,17 @@ class TestQualifyHandoff:
 
     @pytest.mark.asyncio
     async def test_prompt_not_found_triggers_handoff(self) -> None:
-        """Se o prompt não existir, handoff genérico é acionado."""
+        """Se o prompt não existir (404 no DB), handoff é acionado com motivo legível.
+
+        F9-S09: load_active_prompt levanta PromptNotFoundError em 404.
+        O nó converte em handoff_required=True. O handoff_reason contém a key
+        do prompt não encontrado (str(PromptNotFoundError)), NÃO o motivo genérico.
+        Erros genéricos (Exception) → _HANDOFF_REASON_GENERIC.
+        """
+        from unittest.mock import AsyncMock
+
+        from app.prompts.loader import PromptNotFoundError
+
         state = _make_state("Quero simular")
         gw = MagicMock()
 
@@ -694,14 +705,15 @@ class TestQualifyHandoff:
                 return_value=gw,
             ),
             patch(
-                "app.graphs.whatsapp_pre_attendance.nodes.qualify_credit_interest._load_prompt",
-                side_effect=RuntimeError("Prompt não encontrado"),
+                "app.graphs.whatsapp_pre_attendance.nodes.qualify_credit_interest.load_active_prompt",
+                new=AsyncMock(side_effect=PromptNotFoundError("pre_attendance_qualify")),
             ),
         ):
             result = await qualify_credit_interest(state)
 
         assert result["handoff_required"] is True
-        assert result["handoff_reason"] == _HANDOFF_REASON_GENERIC
+        # PromptNotFoundError retorna str(exc) como handoff_reason (key visível no motivo)
+        assert "pre_attendance_qualify" in result.get("handoff_reason", "")
 
     @pytest.mark.asyncio
     async def test_invalid_json_response_produces_empty_result(self) -> None:

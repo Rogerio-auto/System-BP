@@ -4,15 +4,17 @@ Fluxo (doc 06 §5.2):
     receive_message → load_conversation_state → classify_intent → ...
 
 Responsabilidades:
-- Ler o prompt versionado de ``app/prompts/pre_attendance_classify.md``.
+- Carregar o prompt ativo de prompt_versions (DB) via load_active_prompt() (F9-S09).
 - Aplicar DLP no texto do cliente antes de enviar ao gateway (LGPD §8.4).
 - Chamar o LLM via ``get_gateway()`` com ``for_role("classifier")`` (modelo barato).
 - Validar a saída contra o ``IntentLiteral`` canônico; valor fora do enum → fallback
   ``"nao_entendi"``.
 - Registrar ``prompt_key`` e ``prompt_version`` no estado para uso posterior pelo
   nó ``log_decision``.
-- F9-S08: aplica temperature/max_tokens/top_p do frontmatter do prompt quando
-  presentes (campos opcionais — null/ausente → usar hardcoded defaults do nó).
+- F9-S08: aplica temperature/max_tokens/top_p do DB quando presentes
+  (campos opcionais — None → usar hardcoded defaults do nó).
+- F9-S09: fonte canônica dos prompts é prompt_versions (DB), não arquivos .md.
+  Fallback: prompt não encontrado (404) ou timeout → handoff_required=True.
 
 Restrições (doc 06 §5.6):
 - O nó não aprova crédito, não vaza dados internos, não chama Postgres diretamente.
@@ -22,7 +24,6 @@ from __future__ import annotations
 
 import re
 import time
-from pathlib import Path
 from typing import Any, get_args
 
 import structlog
@@ -30,6 +31,7 @@ import structlog
 from app.graphs.whatsapp_pre_attendance.state import ConversationState, IntentLiteral
 from app.llm.dlp import redact_pii
 from app.llm.factory import for_role, get_gateway
+from app.prompts.loader import PromptNotFoundError, load_active_prompt
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -37,7 +39,8 @@ log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 # Constantes do prompt
 # ---------------------------------------------------------------------------
 
-_PROMPT_PATH = Path(__file__).parent.parent.parent.parent / "prompts" / "pre_attendance_classify.md"
+# Chave canônica do prompt neste nó — fonte de verdade: prompt_versions (DB)
+_PROMPT_KEY = "pre_attendance_classify"
 
 # Intenções válidas extraídas do Literal canônico (doc 06 §5.1)
 _VALID_INTENTS: frozenset[str] = frozenset(get_args(IntentLiteral))
@@ -47,76 +50,6 @@ _FALLBACK_INTENT = "nao_entendi"
 # Defaults hardcoded para classify_intent (usados quando o prompt não define os campos)
 _DEFAULT_TEMPERATURE = 0.0   # classificação deve ser determinística
 _DEFAULT_MAX_TOKENS = 32      # intenção é curta; economiza tokens
-
-# ---------------------------------------------------------------------------
-# Carregamento e parse do prompt versionado
-# ---------------------------------------------------------------------------
-
-
-def _load_prompt() -> tuple[str, str, str, float | None, int | None, float | None]:
-    """Carrega o prompt versionado e extrai metadados do header YAML.
-
-    Returns:
-        Tupla (prompt_key, prompt_version, prompt_body, temperature, max_tokens, top_p).
-        Os três últimos campos são None quando ausentes do frontmatter (F9-S08).
-        O chamador é responsável por aplicar os defaults quando None.
-
-    Raises:
-        RuntimeError: Se o arquivo não existir ou o header YAML estiver mal formado.
-    """
-    if not _PROMPT_PATH.exists():
-        raise RuntimeError(f"Prompt não encontrado: {_PROMPT_PATH}")
-
-    raw = _PROMPT_PATH.read_text(encoding="utf-8")
-
-    # Extrai frontmatter YAML: delimitado por --- no início e fim
-    fm_match = re.match(r"^---\n(.*?)\n---\n", raw, re.DOTALL)
-    if not fm_match:
-        raise RuntimeError(f"Prompt sem header YAML válido: {_PROMPT_PATH}")
-
-    frontmatter = fm_match.group(1)
-    body = raw[fm_match.end():]
-
-    def _extract(field: str) -> str:
-        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
-        if not m:
-            raise RuntimeError(f"Campo '{field}' ausente no header YAML do prompt.")
-        return m.group(1).strip()
-
-    def _extract_optional_float(field: str) -> float | None:
-        """Extrai campo numérico float opcional do frontmatter (F9-S08)."""
-        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
-        if not m:
-            return None
-        raw_val = m.group(1).strip()
-        # Suporte a valores null/~ do YAML
-        if raw_val.lower() in ("null", "~", ""):
-            return None
-        try:
-            return float(raw_val)
-        except ValueError:
-            return None
-
-    def _extract_optional_int(field: str) -> int | None:
-        """Extrai campo numérico inteiro opcional do frontmatter (F9-S08)."""
-        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
-        if not m:
-            return None
-        raw_val = m.group(1).strip()
-        if raw_val.lower() in ("null", "~", ""):
-            return None
-        try:
-            return int(raw_val)
-        except ValueError:
-            return None
-
-    key = _extract("key")
-    version = _extract("version")
-    temperature = _extract_optional_float("temperature")
-    max_tokens = _extract_optional_int("max_tokens")
-    top_p = _extract_optional_float("top_p")
-
-    return key, version, body, temperature, max_tokens, top_p
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +85,7 @@ def _validate_intent(raw: str) -> str:
 async def classify_intent(state: ConversationState) -> dict[str, Any]:
     """Nó LangGraph: classifica a intenção da mensagem mais recente do cliente.
 
+    Carrega o prompt ativo do DB via load_active_prompt() (F9-S09).
     Aplica DLP no texto antes do envio ao LLM (LGPD §8.4).
     Em caso de falha irrecuperável, define ``handoff_required=True``.
 
@@ -184,18 +118,25 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
     lead_id: str | None = state.get("lead_id")
 
     try:
-        # --- Carrega prompt versionado (F9-S08: retorna params LLM do frontmatter)
-        prompt_key, prompt_version, prompt_body, fm_temperature, fm_max_tokens, fm_top_p = (
-            _load_prompt()
-        )
+        # --- Carrega prompt ativo do DB (F9-S09)
+        # Levanta PromptNotFoundError (404) ou httpx.TimeoutException → handoff
+        active_prompt = await load_active_prompt(_PROMPT_KEY)
 
-        # F9-S08: usa parâmetros do frontmatter quando presentes, defaults caso contrário.
-        # null no frontmatter = usar default hardcoded (não force nenhum valor ao gateway).
+        prompt_key = active_prompt.key
+        prompt_version = active_prompt.prompt_version
+        prompt_body = active_prompt.body
+
+        # F9-S08/F9-S09: usa parâmetros do DB quando presentes, defaults caso contrário.
+        # None no DB = usar default hardcoded (não force nenhum valor ao gateway).
         effective_temperature = (
-            fm_temperature if fm_temperature is not None else _DEFAULT_TEMPERATURE
+            active_prompt.temperature
+            if active_prompt.temperature is not None
+            else _DEFAULT_TEMPERATURE
         )
         effective_max_tokens = (
-            fm_max_tokens if fm_max_tokens is not None else _DEFAULT_MAX_TOKENS
+            active_prompt.max_tokens
+            if active_prompt.max_tokens is not None
+            else _DEFAULT_MAX_TOKENS
         )
 
         # --- DLP: remove PII antes de enviar ao gateway (LGPD §8.4)
@@ -217,8 +158,8 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
         ]
 
         # --- Chama o LLM via gateway (modelo barato para classificação)
-        # F9-S08: temperature e max_tokens vêm do frontmatter do prompt (ou defaults).
-        # top_p é omitido quando null para não forçar valor ao gateway.
+        # F9-S08/F9-S09: temperature e max_tokens vêm do DB (ou defaults).
+        # top_p é omitido quando None para não forçar valor ao gateway.
         gateway = get_gateway()
         complete_kwargs: dict[str, Any] = {
             "model": for_role("classifier"),
@@ -242,8 +183,8 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
         }
         # top_p: inclui no payload apenas quando explicitamente definido no prompt.
         # Omitir é diferente de passar None — evita sobrescrever o default do gateway.
-        if fm_top_p is not None:
-            complete_kwargs["top_p"] = fm_top_p
+        if active_prompt.top_p is not None:
+            complete_kwargs["top_p"] = active_prompt.top_p
 
         response = await gateway.complete(**complete_kwargs)
 
@@ -280,6 +221,30 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
             ],
         }
 
+    except PromptNotFoundError as exc:
+        latency_ms = (time.monotonic() - start) * 1000
+        log.error(
+            "classify_intent_prompt_not_found",
+            conversation_id=conversation_id,
+            lead_id=lead_id,
+            key=exc.key,
+            latency_ms=round(latency_ms, 1),
+        )
+        errors: list[dict[str, Any]] = list(state.get("errors", []))
+        errors.append(
+            {
+                "node": "classify_intent",
+                "error": str(exc),
+                "latency_ms": round(latency_ms, 1),
+            }
+        )
+        return {
+            "current_intent": _FALLBACK_INTENT,
+            "handoff_required": True,
+            "handoff_reason": str(exc),
+            "errors": errors,
+        }
+
     except Exception as exc:
         latency_ms = (time.monotonic() - start) * 1000
         log.error(
@@ -289,7 +254,7 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
             error=str(exc),
             latency_ms=round(latency_ms, 1),
         )
-        errors: list[dict[str, Any]] = list(state.get("errors", []))
+        errors = list(state.get("errors", []))
         errors.append(
             {
                 "node": "classify_intent",

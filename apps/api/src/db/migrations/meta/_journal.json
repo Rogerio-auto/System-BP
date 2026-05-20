@@ -204,6 +204,13 @@
       "when": 1779494400000,
       "tag": "0030_prompt_versions_llm_params",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1779580800000,
+      "tag": "0031_seed_initial_prompts",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ Fluxo (doc 06 §5.2 / §5.3):
     qualify_credit_interest → generate_simulation → save_simulation → decide_next_step
 
 Responsabilidades:
+- Carregar o prompt ativo de prompt_versions (DB) via load_active_prompt() (F9-S09).
 - Chamar ``list_credit_products`` (F3-S15) para obter produtos ativos da cidade.
 - Selecionar o produto compatível com o valor/prazo solicitados pelo cliente.
 - Chamar ``generate_credit_simulation`` (F3-S16) com o produto selecionado.
@@ -12,8 +13,10 @@ Responsabilidades:
 - Em erros de range (``AMOUNT_OUT_OF_RANGE``, ``TERM_OUT_OF_RANGE``, etc.) →
   mensagem clara ao cliente sem inventar taxa ou prazo (doc 06 §5.6).
 - Em falha de tool ou gateway → handoff humano seguro.
-- F9-S08: aplica temperature/max_tokens/top_p do frontmatter do prompt quando
-  presentes (campos opcionais — null/ausente → usar hardcoded defaults do nó).
+- F9-S08: aplica temperature/max_tokens/top_p do DB quando presentes
+  (campos opcionais — None → usar hardcoded defaults do nó).
+- F9-S09: fonte canônica dos prompts é prompt_versions (DB), não arquivos .md.
+  Fallback: prompt não encontrado (404) ou timeout → handoff_required=True.
 
 Restrições (doc 06 §5.6):
 - Não aprova/recusa crédito.
@@ -23,9 +26,7 @@ Restrições (doc 06 §5.6):
 from __future__ import annotations
 
 import json
-import re
 import time
-from pathlib import Path
 from typing import Any
 
 import structlog
@@ -33,6 +34,7 @@ import structlog
 from app.graphs.whatsapp_pre_attendance.state import ConversationState
 from app.llm.dlp import redact_pii
 from app.llm.factory import for_role, get_gateway
+from app.prompts.loader import PromptNotFoundError, load_active_prompt
 from app.tools.simulation_tools import (
     GenerateCreditSimulationInput,
     GenerateCreditSimulationOutput,
@@ -48,79 +50,12 @@ log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 # Constantes do prompt
 # ---------------------------------------------------------------------------
 
-_PROMPT_PATH = (
-    Path(__file__).parent.parent.parent.parent / "prompts" / "simulation.md"
-)
+# Chave canônica do prompt neste nó — fonte de verdade: prompt_versions (DB)
+_PROMPT_KEY = "simulation"
 
 # Defaults hardcoded para generate_simulation (usados quando o prompt não define)
 _DEFAULT_TEMPERATURE = 0.3
 _DEFAULT_MAX_TOKENS = 512
-
-# ---------------------------------------------------------------------------
-# Carregamento do prompt versionado
-# ---------------------------------------------------------------------------
-
-
-def _load_prompt() -> tuple[str, str, str, float | None, int | None, float | None]:
-    """Carrega o prompt versionado e extrai metadados do header YAML.
-
-    Returns:
-        Tupla (prompt_key, prompt_version, prompt_body, temperature, max_tokens, top_p).
-        Os três últimos campos são None quando ausentes do frontmatter (F9-S08).
-
-    Raises:
-        RuntimeError: Se o arquivo não existir ou o header YAML estiver mal formado.
-    """
-    if not _PROMPT_PATH.exists():
-        raise RuntimeError(f"Prompt não encontrado: {_PROMPT_PATH}")
-
-    raw = _PROMPT_PATH.read_text(encoding="utf-8")
-    fm_match = re.match(r"^---\n(.*?)\n---\n", raw, re.DOTALL)
-    if not fm_match:
-        raise RuntimeError(f"Prompt sem header YAML válido: {_PROMPT_PATH}")
-
-    frontmatter = fm_match.group(1)
-    body = raw[fm_match.end():]
-
-    def _extract(field: str) -> str:
-        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
-        if not m:
-            raise RuntimeError(f"Campo '{field}' ausente no header YAML do prompt.")
-        return m.group(1).strip()
-
-    def _extract_optional_float(field: str) -> float | None:
-        """Extrai campo numérico float opcional do frontmatter (F9-S08)."""
-        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
-        if not m:
-            return None
-        raw_val = m.group(1).strip()
-        if raw_val.lower() in ("null", "~", ""):
-            return None
-        try:
-            return float(raw_val)
-        except ValueError:
-            return None
-
-    def _extract_optional_int(field: str) -> int | None:
-        """Extrai campo numérico inteiro opcional do frontmatter (F9-S08)."""
-        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
-        if not m:
-            return None
-        raw_val = m.group(1).strip()
-        if raw_val.lower() in ("null", "~", ""):
-            return None
-        try:
-            return int(raw_val)
-        except ValueError:
-            return None
-
-    key = _extract("key")
-    version = _extract("version")
-    temperature = _extract_optional_float("temperature")
-    max_tokens = _extract_optional_int("max_tokens")
-    top_p = _extract_optional_float("top_p")
-
-    return key, version, body, temperature, max_tokens, top_p
 
 
 # ---------------------------------------------------------------------------
@@ -219,7 +154,7 @@ async def _compose_reply(
     prompt_key: str,
     prompt_version: str,
     prompt_body: str,
-    # F9-S08: parâmetros LLM opcionais do frontmatter do prompt
+    # F9-S08/F9-S09: parâmetros LLM do DB (None = usar default do nó)
     fm_temperature: float | None = None,
     fm_max_tokens: int | None = None,
     fm_top_p: float | None = None,
@@ -279,7 +214,7 @@ async def _compose_reply(
     ]
 
     try:
-        # F9-S08: usa parâmetros do frontmatter quando presentes, defaults caso contrário.
+        # F9-S08/F9-S09: usa parâmetros do DB quando presentes, defaults caso contrário.
         effective_temperature = (
             fm_temperature if fm_temperature is not None else _DEFAULT_TEMPERATURE
         )
@@ -339,16 +274,19 @@ async def _compose_reply(
 async def generate_simulation(state: ConversationState) -> dict[str, Any]:
     """Nó LangGraph: lista produtos, gera simulação e compõe resposta ao cliente.
 
+    Carrega o prompt ativo do DB via load_active_prompt() (F9-S09).
+
     Fluxo:
     1. Obtém ``requested_amount`` e ``requested_term_months`` do estado.
-    2. Chama ``list_credit_products`` filtrando por cidade.
-    3. Seleciona produto compatível com valor e prazo.
-    4. Chama ``generate_credit_simulation`` com o produto selecionado.
-    5. Grava ``last_simulation_id`` e ``selected_product_id`` no estado.
-    6. Usa LLM reasoner para compor a resposta.
+    2. Carrega o prompt ativo do DB.
+    3. Chama ``list_credit_products`` filtrando por cidade.
+    4. Seleciona produto compatível com valor e prazo.
+    5. Chama ``generate_credit_simulation`` com o produto selecionado.
+    6. Grava ``last_simulation_id`` e ``selected_product_id`` no estado.
+    7. Usa LLM reasoner para compor a resposta.
 
     Em erros de range/produto/regra → mensagem clara, sem inventar taxa (§5.6).
-    Em falha de tool/gateway → handoff humano.
+    Em falha de tool/gateway/prompt → handoff humano.
 
     Args:
         state: Estado atual do grafo. Deve conter ``requested_amount``,
@@ -423,10 +361,13 @@ async def generate_simulation(state: ConversationState) -> dict[str, Any]:
         }
 
     try:
-        # --- Carrega prompt versionado (F9-S08: retorna params LLM do frontmatter) ---
-        prompt_key, prompt_version, prompt_body, fm_temperature, fm_max_tokens, fm_top_p = (
-            _load_prompt()
-        )
+        # --- Carrega prompt ativo do DB (F9-S09) ---
+        # Levanta PromptNotFoundError (404) ou httpx.TimeoutException → capturado abaixo
+        active_prompt = await load_active_prompt(_PROMPT_KEY)
+
+        prompt_key = active_prompt.key
+        prompt_version = active_prompt.prompt_version
+        prompt_body = active_prompt.body
 
         # --- Passo 1: lista produtos compatíveis ---
         products_input = ListCreditProductsInput(city_id=city_id)
@@ -540,7 +481,7 @@ async def generate_simulation(state: ConversationState) -> dict[str, Any]:
             }
 
         # --- Passo 4: simulação bem-sucedida → compõe resposta via LLM ---
-        # F9-S08: passa parâmetros LLM do frontmatter para _compose_reply.
+        # F9-S08/F9-S09: passa parâmetros LLM do DB para _compose_reply.
         reply = await _compose_reply(
             simulation=sim_result,
             product_name=product_name,
@@ -552,9 +493,9 @@ async def generate_simulation(state: ConversationState) -> dict[str, Any]:
             prompt_key=prompt_key,
             prompt_version=prompt_version,
             prompt_body=prompt_body,
-            fm_temperature=fm_temperature,
-            fm_max_tokens=fm_max_tokens,
-            fm_top_p=fm_top_p,
+            fm_temperature=active_prompt.temperature,
+            fm_max_tokens=active_prompt.max_tokens,
+            fm_top_p=active_prompt.top_p,
         )
 
         latency_ms = round((time.monotonic() - t0) * 1000, 1)
@@ -597,6 +538,29 @@ async def generate_simulation(state: ConversationState) -> dict[str, Any]:
                     "simulation_id": sim_result.simulation_id,
                     "product_id": product_id,
                     "lead_id": lead_id,
+                },
+            ],
+        }
+
+    except PromptNotFoundError as exc:
+        latency_ms = round((time.monotonic() - t0) * 1000, 1)
+        log.error(
+            "generate_simulation_prompt_not_found",
+            conversation_id=conversation_id,
+            lead_id=lead_id,
+            key=exc.key,
+            latency_ms=latency_ms,
+        )
+        return {
+            **state,
+            "handoff_required": True,
+            "handoff_reason": str(exc),
+            "errors": [
+                *list(state.get("errors") or []),
+                {
+                    "node": "generate_simulation",
+                    "error": str(exc),
+                    "latency_ms": latency_ms,
                 },
             ],
         }
