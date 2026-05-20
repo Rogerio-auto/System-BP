@@ -3,13 +3,13 @@ id: F9-S06
 title: Frontend — visualizador de ai_decision_logs (lista + timeline por conversa)
 phase: F9
 task_ref: T9.6
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: frontend-engineer
 claimed_at: 2026-05-20T00:02:54Z
 completed_at: 2026-05-20T00:14:11Z
-pr_url:
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/119
 depends_on: [F9-S02, F8-S08, F1-S08]
 blocks: []
 labels: [lgpd-impact]
