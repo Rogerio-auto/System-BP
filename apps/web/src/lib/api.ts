@@ -245,6 +245,29 @@ export async function apiLogout(): Promise<void> {
   });
 }
 
+// ─── AI Console — Decisions ───────────────────────────────────────────────────
+
+/**
+ * Namespace para endpoints de decisões do agente de IA (F9-S02).
+ * LGPD: respostas chegam mascaradas pelo backend — nunca logar decision/context.
+ */
+export const aiConsole = {
+  decisions: {
+    /**
+     * Lista de decisões com filtros cursor-based.
+     * GET /api/ai-console/decisions?cursor=&limit=&date_from=...
+     */
+    list: <T>(queryString: string) => apiFetch<T>(`/api/ai-console/decisions${queryString}`),
+
+    /**
+     * Timeline cronológica de decisões de uma conversa.
+     * GET /api/ai-console/decisions/conversations/:conversationId
+     */
+    timeline: <T>(conversationId: string) =>
+      apiFetch<T>(`/api/ai-console/decisions/conversations/${encodeURIComponent(conversationId)}`),
+  },
+} as const;
+
 // ─── Genérico ─────────────────────────────────────────────────────────────────
 
 export const api = {
