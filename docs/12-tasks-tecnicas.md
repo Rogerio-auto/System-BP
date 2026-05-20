@@ -532,6 +532,16 @@
 **Arquivos:** `apps/api/src/db/migrations/0030_prompt_versions_llm_params.sql`, `apps/api/src/db/schema/promptVersions.ts`, `apps/api/src/modules/ai-console/prompts/**`, `apps/langgraph-service/app/graphs/whatsapp_pre_attendance/nodes/{classify_intent,qualify_credit_interest,generate_simulation}.py`, `apps/web/src/features/configuracoes/ai-console/prompts/PromptEditor.tsx`.
 **Aceite:** colunas `temperature numeric(3,2)`, `max_tokens int`, `top_p numeric(3,2)` em `prompt_versions` (nullable; `null` = default do gateway); constraints CHECK (temperature 0-2, top_p 0-1, max_tokens 1-32000); editor expõe os 3 campos com tooltip de aviso e fallback "auto"; nós do LangGraph propagam valores não-null ao `gateway.complete()`; nova versão com valores específicos é criada como imutável (sem PATCH); diff entre versões compara os 3 campos.
 
+### T9.9 — LangGraph lê prompts de prompt_versions (DB) em vez de arquivos .md
+
+**Arquivos:** `apps/api/src/modules/internal/prompts/**`, `apps/api/src/db/migrations/0031_seed_initial_prompts.sql`, `apps/langgraph-service/app/prompts/loader.py` (novo), `apps/langgraph-service/app/graphs/whatsapp_pre_attendance/nodes/{classify_intent,qualify_credit_interest,generate_simulation}.py`.
+**Aceite:** endpoint `GET /api/internal/prompts/active/:key` responde com payload completo (body + model + temperature/max_tokens/top_p) gated por `X-Internal-Token`; `load_active_prompt()` no LangGraph cacheia 60s e os 3 nós passam a usar; migration 0031 seeda as 3 keys atuais a partir do conteúdo dos `.md`; `.md` files marcados como obsoletos mas mantidos como histórico; 404 ou timeout → handoff com motivo claro; após criar nova versão pela UI e ativar, em até 60s o LangGraph passa a usar (E2E manual).
+
+### T9.10 — Hardening do runtime do agente (DLP gateway + dry_run_sink + mensagens)
+
+**Arquivos:** `apps/langgraph-service/app/graphs/whatsapp_pre_attendance/nodes/{classify_intent,request_handoff,qualify_credit_interest,generate_simulation}.py`, `apps/langgraph-service/app/graphs/whatsapp_pre_attendance/dry_run.py`, `apps/langgraph-service/app/api/playground.py`.
+**Aceite:** **CRÍTICO** corrigido — remoção de `"dlp": False` em todos os callers de `gateway.complete()` (passar texto já mascarado é idempotente via `redact_pii`); novo teste de integração com `respx` que falha antes do fix prova a regressão; `dry_run_sink` tem mapa `_PATH_TO_STUB_FACTORY` cobrindo 8 paths com payloads compatíveis com schemas Pydantic dos tools (ChatwootNoteOutput, HandoffOutput, LeadOutput, SimulationOutput, etc.); `request_handoff` usa mensagem contextual quando `state["dry_run"] = True`; playground passa essa flag ao state inicial.
+
 ---
 
 ## Definition of Done padrão
