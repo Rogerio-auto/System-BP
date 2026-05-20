@@ -1,7 +1,11 @@
+# OBSOLETO desde F9-S09 — fonte canônica em prompt_versions (DB). Mantido para histórico.
+
 ---
+
 key: simulation
 version: 1
 model: anthropic/claude-sonnet-4
+
 ---
 
 # Papel

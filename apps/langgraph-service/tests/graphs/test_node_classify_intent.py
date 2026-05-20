@@ -1,4 +1,4 @@
-"""Testes do nó classify_intent (F3-S24).
+"""Testes do nó classify_intent (F3-S24, atualizado para F9-S09).
 
 Cobre:
 - Classificação correta de ≥5 intenções do catálogo.
@@ -7,6 +7,7 @@ Cobre:
 - DLP é aplicado antes do envio (texto com CPF chega mascarado ao LLM).
 - Campos ``tool_results`` contêm ``prompt_key`` e ``prompt_version``.
 - Mensagem vazia não quebra o nó (retorna ``nao_entendi``).
+- F9-S09: prompt carregado do DB via load_active_prompt (mockado).
 
 O gateway LLM é sempre mockado — sem chamadas reais à API.
 """
@@ -24,6 +25,7 @@ from app.graphs.whatsapp_pre_attendance.nodes.classify_intent import (
     classify_intent,
 )
 from app.graphs.whatsapp_pre_attendance.state import ConversationState
+from app.prompts.loader import ActivePrompt
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -62,6 +64,31 @@ def _mock_gateway(llm_response_content: str) -> MagicMock:
         )
     )
     return gw
+
+
+def _make_active_prompt(
+    key: str = "pre_attendance_classify",
+    version: int = 1,
+    body: str = "Classify the user intent.",
+) -> ActivePrompt:
+    """Cria ActivePrompt sintético para testes."""
+    return ActivePrompt(
+        key=key,
+        version=version,
+        body=body,
+        content_hash="test_hash_abc123",
+        model_recommended=None,
+        temperature=None,
+        max_tokens=None,
+        top_p=None,
+        prompt_version=f"{key}@v{version}",
+    )
+
+
+# Patch canônico para load_active_prompt em todos os testes
+_LOAD_PROMPT_PATCH = (
+    "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.load_active_prompt"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -123,10 +150,14 @@ class TestClassifyIntentHappyPath:
         """Cada intenção do catálogo é classificada corretamente."""
         state = _make_state(user_message=user_msg)
         gw = _mock_gateway(expected_intent)
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
@@ -138,10 +169,14 @@ class TestClassifyIntentHappyPath:
         """``tool_results`` contém ``prompt_key`` e ``prompt_version``."""
         state = _make_state("Quero crédito")
         gw = _mock_gateway("quer_credito")
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
@@ -158,17 +193,21 @@ class TestClassifyIntentHappyPath:
         """``prompt_key`` no tool_result deve ser ``pre_attendance_classify``."""
         state = _make_state("Boa tarde")
         gw = _mock_gateway("saudacao")
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
         tool_results: list[dict[str, Any]] = result["tool_results"]
         last = tool_results[-1]
         assert last["prompt_key"] == "pre_attendance_classify"
-        assert last["prompt_version"] == "1"
+        assert last["prompt_version"] == "pre_attendance_classify@v1"
 
     @pytest.mark.asyncio
     async def test_existing_tool_results_preserved(self) -> None:
@@ -176,10 +215,14 @@ class TestClassifyIntentHappyPath:
         prior_result = {"node": "load_state", "data": "ok"}
         state = _make_state("Quero simular", tool_results=[prior_result])
         gw = _mock_gateway("quer_simular")
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
@@ -191,10 +234,14 @@ class TestClassifyIntentHappyPath:
         """Mensagem vazia não quebra o nó — retorna ``nao_entendi``."""
         state = _make_state(user_message="")
         gw = _mock_gateway("nao_entendi")
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
@@ -216,10 +263,14 @@ class TestClassifyIntentHappyPath:
             "actions_emitted": [],
         }
         gw = _mock_gateway("nao_entendi")
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
@@ -238,10 +289,14 @@ class TestClassifyIntentInvalidResponse:
         """Resposta fora do enum → ``nao_entendi``."""
         state = _make_state("Quero algo")
         gw = _mock_gateway("quero_coisa_estranha")
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
@@ -253,10 +308,14 @@ class TestClassifyIntentInvalidResponse:
         """LLM que explica em vez de só retornar o identificador → fallback."""
         state = _make_state("Oi")
         gw = _mock_gateway("A intenção é uma saudação, portanto: saudacao")
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
@@ -276,10 +335,14 @@ class TestClassifyIntentGatewayError:
         state = _make_state("Quero crédito")
         gw = MagicMock()
         gw.complete = AsyncMock(side_effect=RuntimeError("timeout"))
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
@@ -294,10 +357,14 @@ class TestClassifyIntentGatewayError:
         state = _make_state("Ola")
         gw = MagicMock()
         gw.complete = AsyncMock(side_effect=ValueError("LLM indisponível"))
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
@@ -313,16 +380,37 @@ class TestClassifyIntentGatewayError:
         state = _make_state("Ola", errors=[prior_error])
         gw = MagicMock()
         gw.complete = AsyncMock(side_effect=ConnectionError("net"))
+        active_prompt = _make_active_prompt()
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 
         errors: list[dict[str, Any]] = result["errors"]
         assert errors[0] == prior_error
         assert len(errors) == 2
+
+    @pytest.mark.asyncio
+    async def test_prompt_not_found_triggers_handoff(self) -> None:
+        """PromptNotFoundError → handoff_required=True, motivo contém a key."""
+        from app.prompts.loader import PromptNotFoundError
+
+        state = _make_state("Quero crédito")
+
+        with patch(
+            _LOAD_PROMPT_PATCH,
+            new=AsyncMock(side_effect=PromptNotFoundError("pre_attendance_classify")),
+        ):
+            result = await classify_intent(state)
+
+        assert result["current_intent"] == _FALLBACK_INTENT
+        assert result["handoff_required"] is True
+        assert "pre_attendance_classify" in result.get("handoff_reason", "")
 
 
 # ---------------------------------------------------------------------------
@@ -336,6 +424,7 @@ class TestClassifyIntentDLP:
         """CPF na mensagem NÃO deve aparecer no payload enviado ao LLM."""
         cpf_message = "Meu CPF é 529.982.247-25 e quero crédito"
         state = _make_state(user_message=cpf_message)
+        active_prompt = _make_active_prompt()
 
         captured_messages: list[list[dict[str, Any]]] = []
 
@@ -358,9 +447,12 @@ class TestClassifyIntentDLP:
         gw = MagicMock()
         gw.complete = _capture_complete  # type: ignore[method-assign]
 
-        with patch(
-            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
-            return_value=gw,
+        with (
+            patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=active_prompt)),
+            patch(
+                "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.get_gateway",
+                return_value=gw,
+            ),
         ):
             result = await classify_intent(state)
 

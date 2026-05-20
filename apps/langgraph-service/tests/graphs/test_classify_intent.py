@@ -1,122 +1,59 @@
-"""Testes de unidade para classify_intent — F9-S08: parametrização de LLM.
+"""Testes de unidade para classify_intent — F9-S09: prompts lidos do DB.
 
 Cobre:
-    1. _load_prompt extrai temperature quando presente no frontmatter
-    2. _load_prompt retorna None quando temperature ausente do frontmatter
-    3. _load_prompt extrai max_tokens quando presente
-    4. _load_prompt extrai top_p quando presente
-    5. Valores null/~ no frontmatter retornam None
-    6. classify_intent passa temperature ao gateway quando prompt define o valor
-    7. classify_intent usa default (_DEFAULT_TEMPERATURE) quando frontmatter não define
-    8. classify_intent inclui top_p no complete_kwargs quando frontmatter define
-    9. classify_intent omite top_p quando frontmatter não define
+    1. classify_intent passa temperature ao gateway quando prompt define o valor
+    2. classify_intent usa default (_DEFAULT_TEMPERATURE) quando DB retorna None
+    3. classify_intent inclui top_p no complete_kwargs quando prompt define
+    4. classify_intent omite top_p quando prompt não define (None)
+    5. classify_intent usa max_tokens do DB quando definido
+    6. classify_intent retorna handoff quando load_active_prompt levanta PromptNotFoundError
+    7. classify_intent retorna handoff quando load_active_prompt levanta TimeoutException
 """
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
+from app.prompts.loader import (
+    ActivePrompt,
+    PromptNotFoundError,
+)
+
 # ---------------------------------------------------------------------------
-# Helpers para construir conteúdo de prompt .md sintético
+# Helpers para construir ActivePrompt sintético
 # ---------------------------------------------------------------------------
 
 
-def _make_prompt_md(
-    key: str = "test_classifier",
-    version: str = "1",
+def _make_active_prompt(
+    key: str = "pre_attendance_classify",
+    version: int = 1,
     *,
-    temperature: str | None = None,
-    max_tokens: str | None = None,
-    top_p: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    top_p: float | None = None,
     body: str = "Classify the user intent.",
-) -> str:
-    """Cria conteúdo de arquivo .md de prompt para testes."""
-    fm_lines = [f"key: {key}", f"version: {version}"]
-    if temperature is not None:
-        fm_lines.append(f"temperature: {temperature}")
-    if max_tokens is not None:
-        fm_lines.append(f"max_tokens: {max_tokens}")
-    if top_p is not None:
-        fm_lines.append(f"top_p: {top_p}")
-    frontmatter = "\n".join(fm_lines)
-    return f"---\n{frontmatter}\n---\n{body}\n"
+    model_recommended: str | None = None,
+) -> ActivePrompt:
+    """Cria ActivePrompt sintético para testes."""
+    return ActivePrompt(
+        key=key,
+        version=version,
+        body=body,
+        content_hash="test_hash",
+        model_recommended=model_recommended,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        top_p=top_p,
+        prompt_version=f"{key}@v{version}",
+    )
 
 
 # ---------------------------------------------------------------------------
-# Testes de _load_prompt (parser de frontmatter F9-S08)
-# ---------------------------------------------------------------------------
-
-
-class TestLoadPrompt:
-    """Testa extração de parâmetros LLM do frontmatter pelo _load_prompt."""
-
-    def _call(self, content: str):
-        """Chama _load_prompt com o arquivo mockado."""
-        from app.graphs.whatsapp_pre_attendance.nodes import classify_intent as ci
-
-        with patch.object(ci, "_PROMPT_PATH") as mock_path:
-            mock_path.exists.return_value = True
-            mock_path.read_text.return_value = content
-            return ci._load_prompt()
-
-    def test_extrai_temperature_quando_presente(self):
-        content = _make_prompt_md(temperature="0.7")
-        # RUF059: variáveis não usadas prefixadas com _
-        _key, _version, _body, temperature, max_tokens, top_p = self._call(content)
-        assert temperature == pytest.approx(0.7)
-        assert max_tokens is None
-        assert top_p is None
-
-    def test_retorna_none_quando_temperature_ausente(self):
-        content = _make_prompt_md()
-        _, _, _, temperature, _max_tokens, _top_p = self._call(content)
-        assert temperature is None
-
-    def test_extrai_max_tokens_quando_presente(self):
-        content = _make_prompt_md(max_tokens="128")
-        _, _, _, temperature, max_tokens, _top_p = self._call(content)
-        assert max_tokens == 128
-        assert temperature is None
-
-    def test_extrai_top_p_quando_presente(self):
-        content = _make_prompt_md(top_p="0.95")
-        _, _, _, _temperature, _max_tokens, top_p = self._call(content)
-        assert top_p == pytest.approx(0.95)
-
-    def test_null_yaml_retorna_none(self):
-        content = _make_prompt_md(temperature="null", max_tokens="null", top_p="null")
-        _, _, _, temperature, max_tokens, top_p = self._call(content)
-        assert temperature is None
-        assert max_tokens is None
-        assert top_p is None
-
-    def test_tilde_yaml_retorna_none(self):
-        content = _make_prompt_md(temperature="~", max_tokens="~", top_p="~")
-        _, _, _, temperature, max_tokens, top_p = self._call(content)
-        assert temperature is None
-        assert max_tokens is None
-        assert top_p is None
-
-    def test_extrai_todos_os_tres_campos(self):
-        content = _make_prompt_md(temperature="0.2", max_tokens="64", top_p="0.85")
-        _, _, _, temperature, max_tokens, top_p = self._call(content)
-        assert temperature == pytest.approx(0.2)
-        assert max_tokens == 64
-        assert top_p == pytest.approx(0.85)
-
-    def test_key_e_version_extraidos_corretamente(self):
-        content = _make_prompt_md(key="intent_classifier", version="3", temperature="0.5")
-        key, version, _body, *_ = self._call(content)
-        assert key == "intent_classifier"
-        assert version == "3"
-
-
-# ---------------------------------------------------------------------------
-# Testes de classify_intent — passa parâmetros ao gateway.complete (F9-S08)
-# ---------------------------------------------------------------------------
-
 # Estado mínimo para o nó
+# ---------------------------------------------------------------------------
+
 _BASE_STATE = {
     "conversation_id": "conv-001",
     "lead_id": "lead-001",
@@ -137,23 +74,21 @@ def _make_mock_response(content: str = "simulacao") -> MagicMock:
 
 @pytest.mark.asyncio
 class TestClassifyIntentLlmParams:
-    """Testa que classify_intent passa os params LLM corretos ao gateway."""
+    """Testa que classify_intent passa os params LLM corretos ao gateway (F9-S09)."""
 
-    async def test_usa_temperature_do_frontmatter_quando_definida(self):
-        """Quando o prompt define temperature=0.5, gateway.complete recebe temperature=0.5."""
-        prompt_content = _make_prompt_md(temperature="0.5", max_tokens="32")
+    async def test_usa_temperature_do_db_quando_definida(self) -> None:
+        """Quando o prompt no DB define temperature=0.5, gateway.complete recebe 0.5."""
+        active_prompt = _make_active_prompt(temperature=0.5, max_tokens=32)
         mock_response = _make_mock_response()
 
         from app.graphs.whatsapp_pre_attendance.nodes import classify_intent as ci
 
         with (
-            patch.object(ci, "_PROMPT_PATH") as mock_path,
+            patch("app.graphs.whatsapp_pre_attendance.nodes.classify_intent.load_active_prompt",
+                  new=AsyncMock(return_value=active_prompt)),
             patch.object(ci, "get_gateway") as mock_get_gateway,
             patch.object(ci, "redact_pii") as mock_dlp,
         ):
-            mock_path.exists.return_value = True
-            mock_path.read_text.return_value = prompt_content
-
             mock_dlp.return_value = MagicMock(text="Quero simular", counts={})
 
             mock_gateway = MagicMock()
@@ -164,24 +99,22 @@ class TestClassifyIntentLlmParams:
 
         call_kwargs = mock_gateway.complete.call_args
         assert call_kwargs is not None
-        # Verifica keyword arguments
         kwargs = call_kwargs.kwargs if call_kwargs.kwargs else call_kwargs[1]
         assert kwargs.get("temperature") == pytest.approx(0.5)
 
-    async def test_usa_default_temperature_quando_frontmatter_nao_define(self):
-        """Quando o prompt NÃO define temperature, gateway recebe _DEFAULT_TEMPERATURE (0.0)."""
-        prompt_content = _make_prompt_md()  # sem temperature
+    async def test_usa_default_temperature_quando_db_retorna_none(self) -> None:
+        """Quando o DB retorna temperature=None, gateway recebe _DEFAULT_TEMPERATURE (0.0)."""
+        active_prompt = _make_active_prompt()  # temperature=None
         mock_response = _make_mock_response()
 
         from app.graphs.whatsapp_pre_attendance.nodes import classify_intent as ci
 
         with (
-            patch.object(ci, "_PROMPT_PATH") as mock_path,
+            patch("app.graphs.whatsapp_pre_attendance.nodes.classify_intent.load_active_prompt",
+                  new=AsyncMock(return_value=active_prompt)),
             patch.object(ci, "get_gateway") as mock_get_gateway,
             patch.object(ci, "redact_pii") as mock_dlp,
         ):
-            mock_path.exists.return_value = True
-            mock_path.read_text.return_value = prompt_content
             mock_dlp.return_value = MagicMock(text="Quero simular", counts={})
 
             mock_gateway = MagicMock()
@@ -195,20 +128,19 @@ class TestClassifyIntentLlmParams:
         kwargs = call_kwargs.kwargs if call_kwargs.kwargs else call_kwargs[1]
         assert kwargs.get("temperature") == pytest.approx(ci._DEFAULT_TEMPERATURE)
 
-    async def test_inclui_top_p_quando_frontmatter_define(self):
-        """Quando o prompt define top_p=0.9, gateway.complete recebe top_p=0.9."""
-        prompt_content = _make_prompt_md(top_p="0.9")
+    async def test_inclui_top_p_quando_db_define(self) -> None:
+        """Quando o DB define top_p=0.9, gateway.complete recebe top_p=0.9."""
+        active_prompt = _make_active_prompt(top_p=0.9)
         mock_response = _make_mock_response()
 
         from app.graphs.whatsapp_pre_attendance.nodes import classify_intent as ci
 
         with (
-            patch.object(ci, "_PROMPT_PATH") as mock_path,
+            patch("app.graphs.whatsapp_pre_attendance.nodes.classify_intent.load_active_prompt",
+                  new=AsyncMock(return_value=active_prompt)),
             patch.object(ci, "get_gateway") as mock_get_gateway,
             patch.object(ci, "redact_pii") as mock_dlp,
         ):
-            mock_path.exists.return_value = True
-            mock_path.read_text.return_value = prompt_content
             mock_dlp.return_value = MagicMock(text="Quero simular", counts={})
 
             mock_gateway = MagicMock()
@@ -223,20 +155,19 @@ class TestClassifyIntentLlmParams:
         assert "top_p" in kwargs
         assert kwargs["top_p"] == pytest.approx(0.9)
 
-    async def test_omite_top_p_quando_frontmatter_nao_define(self):
-        """Quando o prompt NÃO define top_p, top_p não é passado ao gateway."""
-        prompt_content = _make_prompt_md()  # sem top_p
+    async def test_omite_top_p_quando_db_retorna_none(self) -> None:
+        """Quando o DB retorna top_p=None, top_p NÃO é passado ao gateway."""
+        active_prompt = _make_active_prompt()  # top_p=None
         mock_response = _make_mock_response()
 
         from app.graphs.whatsapp_pre_attendance.nodes import classify_intent as ci
 
         with (
-            patch.object(ci, "_PROMPT_PATH") as mock_path,
+            patch("app.graphs.whatsapp_pre_attendance.nodes.classify_intent.load_active_prompt",
+                  new=AsyncMock(return_value=active_prompt)),
             patch.object(ci, "get_gateway") as mock_get_gateway,
             patch.object(ci, "redact_pii") as mock_dlp,
         ):
-            mock_path.exists.return_value = True
-            mock_path.read_text.return_value = prompt_content
             mock_dlp.return_value = MagicMock(text="Quero simular", counts={})
 
             mock_gateway = MagicMock()
@@ -248,23 +179,21 @@ class TestClassifyIntentLlmParams:
         call_kwargs = mock_gateway.complete.call_args
         assert call_kwargs is not None
         kwargs = call_kwargs.kwargs if call_kwargs.kwargs else call_kwargs[1]
-        # top_p NÃO deve estar no kwargs quando não definido no frontmatter
         assert "top_p" not in kwargs
 
-    async def test_usa_max_tokens_do_frontmatter(self):
-        """Quando o prompt define max_tokens=64, gateway.complete recebe max_tokens=64."""
-        prompt_content = _make_prompt_md(max_tokens="64")
+    async def test_usa_max_tokens_do_db(self) -> None:
+        """Quando o DB define max_tokens=64, gateway.complete recebe max_tokens=64."""
+        active_prompt = _make_active_prompt(max_tokens=64)
         mock_response = _make_mock_response()
 
         from app.graphs.whatsapp_pre_attendance.nodes import classify_intent as ci
 
         with (
-            patch.object(ci, "_PROMPT_PATH") as mock_path,
+            patch("app.graphs.whatsapp_pre_attendance.nodes.classify_intent.load_active_prompt",
+                  new=AsyncMock(return_value=active_prompt)),
             patch.object(ci, "get_gateway") as mock_get_gateway,
             patch.object(ci, "redact_pii") as mock_dlp,
         ):
-            mock_path.exists.return_value = True
-            mock_path.read_text.return_value = prompt_content
             mock_dlp.return_value = MagicMock(text="Quero simular", counts={})
 
             mock_gateway = MagicMock()
@@ -278,13 +207,28 @@ class TestClassifyIntentLlmParams:
         kwargs = call_kwargs.kwargs if call_kwargs.kwargs else call_kwargs[1]
         assert kwargs.get("max_tokens") == 64
 
-    async def test_retorna_handoff_quando_prompt_nao_encontrado(self):
-        """Quando o prompt .md não existe, classify_intent retorna handoff_required=True."""
+    async def test_retorna_handoff_quando_prompt_not_found(self) -> None:
+        """PromptNotFoundError → handoff_required=True com motivo legível."""
         from app.graphs.whatsapp_pre_attendance.nodes import classify_intent as ci
 
-        with patch.object(ci, "_PROMPT_PATH") as mock_path:
-            mock_path.exists.return_value = False
+        with patch(
+            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.load_active_prompt",
+            new=AsyncMock(side_effect=PromptNotFoundError("pre_attendance_classify")),
+        ):
+            result = await ci.classify_intent(_BASE_STATE)
 
+        assert result.get("handoff_required") is True
+        assert result.get("current_intent") == ci._FALLBACK_INTENT
+        assert "pre_attendance_classify" in result.get("handoff_reason", "")
+
+    async def test_retorna_handoff_quando_timeout(self) -> None:
+        """httpx.TimeoutException → handoff_required=True."""
+        from app.graphs.whatsapp_pre_attendance.nodes import classify_intent as ci
+
+        with patch(
+            "app.graphs.whatsapp_pre_attendance.nodes.classify_intent.load_active_prompt",
+            new=AsyncMock(side_effect=httpx.TimeoutException("timeout")),
+        ):
             result = await ci.classify_intent(_BASE_STATE)
 
         assert result.get("handoff_required") is True
