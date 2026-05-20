@@ -398,7 +398,6 @@ class TestDryRunIntegrationRealGraph:
             completamente → o sink captura ≥1 chamada POST → o teste PASSA.
         """
         import app.tools._base as _base_mod
-
         from app.graphs.whatsapp_pre_attendance.graph import build_graph
 
         mock_gateway = _make_mock_gateway("falar_atendente")
@@ -408,8 +407,6 @@ class TestDryRunIntegrationRealGraph:
         # se algum binding não patchado instanciar o cliente real, _execute
         # tentará TCP — aqui capturamos isso com um erro descritivo.
         real_backend_calls: list[str] = []
-
-        original_execute = _base_mod.InternalApiClient._execute
 
         async def _leak_detector(
             self_obj: Any,
@@ -502,14 +499,14 @@ class TestDryRunIntegrationRealGraph:
             for name, mod_path in module_targets
         }
         original_classes = {
-            name: getattr(mod, "InternalApiClient")
+            name: getattr(mod, "InternalApiClient")  # noqa: B009
             for name, mod in modules.items()
         }
 
         async with dry_run_context(allow_real_reads=False):
             # Durante o contexto, todos os bindings locais devem ser substituídos
             for mod_name, mod in modules.items():
-                patched_class = getattr(mod, "InternalApiClient")
+                patched_class = getattr(mod, "InternalApiClient")  # noqa: B009
                 assert patched_class is not original_classes[mod_name], (
                     f"Módulo '{mod_name}' não teve InternalApiClient patchado durante "
                     f"dry_run_context. Adicione ao patch_targets em dry_run.py."
@@ -517,8 +514,158 @@ class TestDryRunIntegrationRealGraph:
 
         # Após o contexto, todos os bindings devem ser restaurados
         for mod_name, mod in modules.items():
-            restored_class = getattr(mod, "InternalApiClient")
+            restored_class = getattr(mod, "InternalApiClient")  # noqa: B009
             assert restored_class is original_classes[mod_name], (
                 f"Módulo '{mod_name}' não teve InternalApiClient restaurado após "
                 f"dry_run_context. Verifique se p.stop() está sendo chamado no finally."
             )
+
+
+# ---------------------------------------------------------------------------
+# F9-S10 CRÍTICO-2: Testes da factory centralizada _PATH_TO_STUB_FACTORY
+# ---------------------------------------------------------------------------
+
+
+class TestDryRunStubFactory:
+    """Testa que _PATH_TO_STUB_FACTORY retorna payloads compatíveis com os
+    schemas Pydantic esperados por cada caller.
+
+    CRÍTICO-2 do F9-S10: o stub genérico retornava payload incompatível com
+    ChatwootNoteOutput (exige note_id) e HandoffOutput (exige handoff_id,
+    chatwoot_conversation_id, status). Isso causava ValidationError nos nós.
+
+    Estes testes garantem que cada factory retorna um payload que passa
+    model_validate() do schema Pydantic correspondente.
+    """
+
+    @pytest.mark.asyncio
+    async def test_chatwoot_notes_stub_compatible_with_pydantic(self) -> None:
+        """POST /internal/chatwoot/notes retorna payload válido para ChatwootNoteOutput."""
+        from app.tools.chatwoot_tools import ChatwootNoteOutput
+
+        _sink, stub = _make_stub()
+        result = await stub.post(
+            "/internal/chatwoot/notes",
+            json={"chatwoot_conversation_id": "cw-42", "body": "nota de teste"},
+        )
+        # Deve ser compatível com ChatwootNoteOutput (note_id obrigatório)
+        output = ChatwootNoteOutput.model_validate(result)
+        assert output.note_id
+        assert result.get("dry_run") is True
+
+    @pytest.mark.asyncio
+    async def test_handoffs_stub_compatible_with_pydantic(self) -> None:
+        """POST /internal/handoffs retorna payload válido para HandoffOutput."""
+        from app.tools.chatwoot_tools import HandoffOutput
+
+        _sink, stub = _make_stub()
+        result = await stub.post(
+            "/internal/handoffs",
+            json={"lead_id": "lead-001", "conversation_id": "conv-001", "reason": "test"},
+        )
+        output = HandoffOutput.model_validate(result)
+        assert output.handoff_id
+        assert output.status in ("requested", "assigned", "queued")
+        assert result.get("dry_run") is True
+
+    @pytest.mark.asyncio
+    async def test_leads_get_or_create_stub_compatible_with_pydantic(self) -> None:
+        """POST /internal/leads/get-or-create retorna payload válido para GetOrCreateLeadSuccess."""
+        from app.tools.leads_tools import GetOrCreateLeadSuccess
+
+        _sink, stub = _make_stub()
+        result = await stub.post(
+            "/internal/leads/get-or-create",
+            json={"phone": "+5569999990000", "source": "whatsapp"},
+        )
+        output = GetOrCreateLeadSuccess.model_validate(result)
+        assert output.lead_id
+        assert output.ok is True
+        assert result.get("dry_run") is True
+
+    @pytest.mark.asyncio
+    async def test_leads_patch_stub_compatible_with_pydantic(self) -> None:
+        """PATCH /internal/leads/:id retorna payload válido para UpdateLeadProfileSuccess."""
+        from app.tools.leads_tools import UpdateLeadProfileSuccess
+
+        _sink, stub = _make_stub()
+        result = await stub._request(
+            "PATCH",
+            "/internal/leads/lead-uuid-123/profile",
+            json={"city_id": "city-rondonia"},
+        )
+        output = UpdateLeadProfileSuccess.model_validate(result)
+        assert output.ok is True
+        assert result.get("dry_run") is True
+
+    @pytest.mark.asyncio
+    async def test_simulations_stub_returns_ok_true(self) -> None:
+        """POST /internal/simulations retorna payload com simulation_id."""
+        _sink, stub = _make_stub()
+        result = await stub.post(
+            "/internal/simulations",
+            json={"lead_id": "lead-001", "amount": 5000.0, "term_months": 12},
+        )
+        assert result.get("ok") is True
+        assert result.get("simulation_id")
+        assert result.get("installment")
+        assert result.get("dry_run") is True
+
+    @pytest.mark.asyncio
+    async def test_ai_decisions_stub_compatible_with_pydantic(self) -> None:
+        """POST /internal/ai/decisions retorna payload válido para LogAiDecisionOutput."""
+        from app.tools.audit_tools import LogAiDecisionOutput
+
+        _sink, stub = _make_stub()
+        result = await stub.post(
+            "/internal/ai/decisions",
+            json={"node": "classify_intent", "conversation_id": "conv-001"},
+        )
+        output = LogAiDecisionOutput.model_validate(result)
+        assert output.decision_log_id
+        assert result.get("dry_run") is True
+
+    @pytest.mark.asyncio
+    async def test_conversation_state_put_stub_returns_ok(self) -> None:
+        """PUT /internal/conversations/:id/state retorna payload com ok=True."""
+        _sink, stub = _make_stub()
+        result = await stub._request(
+            "PUT",
+            "/internal/conversations/conv-uuid-001/state",
+            json={"state": {"conversation_id": "conv-uuid-001"}},
+        )
+        assert result.get("ok") is True
+        assert result.get("dry_run") is True
+
+    @pytest.mark.asyncio
+    async def test_conversation_state_post_stub_returns_ok(self) -> None:
+        """POST /internal/conversations/:id/state retorna payload com ok=True."""
+        _sink, stub = _make_stub()
+        result = await stub.post(
+            "/internal/conversations/conv-uuid-001/state",
+            json={"state": {}},
+        )
+        assert result.get("ok") is True
+        assert result.get("dry_run") is True
+
+    @pytest.mark.asyncio
+    async def test_unknown_path_falls_back_to_generic(self) -> None:
+        """Path não mapeado na factory retorna fallback genérico com dry_run=True."""
+        _sink, stub = _make_stub()
+        result = await stub.post(
+            "/internal/algum/caminho/desconhecido",
+            json={"data": "qualquer"},
+        )
+        assert result.get("dry_run") is True
+        # Fallback genérico deve ter pelo menos um ID
+        assert result.get("id") or result.get("decision_log_id")
+
+    @pytest.mark.asyncio
+    async def test_factory_generates_unique_ids_per_call(self) -> None:
+        """Cada chamada à factory gera IDs únicos (uuid4 por chamada)."""
+        _sink, stub = _make_stub()
+        r1 = await stub.post("/internal/handoffs", json={"conversation_id": "c1"})
+        r2 = await stub.post("/internal/handoffs", json={"conversation_id": "c2"})
+        assert r1["handoff_id"] != r2["handoff_id"], (
+            "Factory deve gerar UUIDs únicos por chamada — não reutilizar IDs."
+        )
