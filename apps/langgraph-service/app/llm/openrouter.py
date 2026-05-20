@@ -92,6 +92,7 @@ class OpenRouterGateway:
         tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.2,
         max_tokens: int = 1024,
+        top_p: float | None = None,
         metadata: dict[str, Any] | None = None,
         conversation_id: str = "",
         dlp: bool = True,
@@ -99,6 +100,9 @@ class OpenRouterGateway:
         """Envia requisição de completion ao OpenRouter com retry e DLP.
 
         Args:
+            top_p: Nucleus sampling (0 < top_p <= 1). None = omitido do payload
+                   (o OpenRouter usa o default do modelo). Nunca enviar None como
+                   null — alguns providers interpretam null como "desativar".
             dlp: Se True (default), aplica DLP antes de enviar ao OpenRouter.
                  Se False, exige permissão ``assistant:bypass_dlp``.
         """
@@ -137,6 +141,7 @@ class OpenRouterGateway:
             tools=tools,
             temperature=temperature,
             max_tokens=max_tokens,
+            top_p=top_p,
         )
         response.latency_ms = measure_latency(start)
 
@@ -185,6 +190,7 @@ class OpenRouterGateway:
         tools: list[dict[str, Any]] | None,
         temperature: float,
         max_tokens: int,
+        top_p: float | None,
     ) -> LLMResponse:
         """Executa uma chamada HTTP ao endpoint de chat/completions do OpenRouter."""
         payload: dict[str, Any] = {
@@ -193,6 +199,10 @@ class OpenRouterGateway:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        # top_p: incluir no payload apenas quando explicitamente fornecido.
+        # Enviar null/None quebra alguns providers — omitir é o comportamento correto.
+        if top_p is not None:
+            payload["top_p"] = top_p
         if tools:
             payload["tools"] = tools
 

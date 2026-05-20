@@ -20,16 +20,24 @@ ALTER TABLE prompt_versions
 
 -- ---------------------------------------------------------------------------
 -- Constraints CHECK (somente quando não-null — NULLs são válidos)
+-- Blocos DO idempotentes: reruns manuais não falham em "constraint already exists".
+-- top_p: range > 0 (spec), pois top_p = 0 raramente é intencional.
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE prompt_versions
-  ADD CONSTRAINT chk_prompt_versions_temperature
-    CHECK (temperature IS NULL OR (temperature >= 0 AND temperature <= 2));
+DO $$ BEGIN
+  ALTER TABLE prompt_versions
+    ADD CONSTRAINT chk_prompt_versions_temperature
+      CHECK (temperature IS NULL OR (temperature >= 0 AND temperature <= 2));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-ALTER TABLE prompt_versions
-  ADD CONSTRAINT chk_prompt_versions_max_tokens
-    CHECK (max_tokens IS NULL OR (max_tokens >= 1 AND max_tokens <= 32000));
+DO $$ BEGIN
+  ALTER TABLE prompt_versions
+    ADD CONSTRAINT chk_prompt_versions_max_tokens
+      CHECK (max_tokens IS NULL OR (max_tokens >= 1 AND max_tokens <= 32000));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-ALTER TABLE prompt_versions
-  ADD CONSTRAINT chk_prompt_versions_top_p
-    CHECK (top_p IS NULL OR (top_p >= 0 AND top_p <= 1));
+DO $$ BEGIN
+  ALTER TABLE prompt_versions
+    ADD CONSTRAINT chk_prompt_versions_top_p
+      CHECK (top_p IS NULL OR (top_p > 0 AND top_p <= 1));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

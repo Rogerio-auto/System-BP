@@ -50,7 +50,7 @@ export const promptVersionResponseSchema = z.object({
    */
   temperature: z.number().min(0).max(2).nullable(),
   max_tokens: z.number().int().min(1).max(32_000).nullable(),
-  top_p: z.number().min(0).max(1).nullable(),
+  top_p: z.number().gt(0).max(1).nullable(),
 });
 
 export type PromptVersionResponse = z.infer<typeof promptVersionResponseSchema>;
@@ -86,11 +86,12 @@ export const createPromptVersionBodySchema = z.object({
    */
   max_tokens: z.number().int().min(1).max(32_000).nullable().optional(),
   /**
-   * Nucleus sampling top-p [0, 1]. null = usar default do gateway.
+   * Nucleus sampling top-p (0, 1]. null = usar default do gateway.
    * Valores não-default afetam consistência e custo. Teste no Playground antes de ativar.
    * F9-S08: imutável após criação da versão (append-only).
+   * Spec: top_p > 0 (exclusivo) — top_p = 0 raramente é intencional e confunde operadores.
    */
-  top_p: z.number().min(0).max(1).nullable().optional(),
+  top_p: z.number().gt(0).max(1).nullable().optional(),
 });
 
 export type CreatePromptVersionBody = z.infer<typeof createPromptVersionBodySchema>;

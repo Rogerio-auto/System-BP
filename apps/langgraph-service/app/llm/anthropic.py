@@ -111,6 +111,7 @@ class AnthropicGateway:
         tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.2,
         max_tokens: int = 1024,
+        top_p: float | None = None,
         metadata: dict[str, Any] | None = None,
         conversation_id: str = "",
         dlp: bool = True,
@@ -148,6 +149,7 @@ class AnthropicGateway:
             tools=tools,
             temperature=temperature,
             max_tokens=max_tokens,
+            top_p=top_p,
         )
         response.latency_ms = measure_latency(start)
 
@@ -192,6 +194,7 @@ class AnthropicGateway:
         tools: list[dict[str, Any]] | None,
         temperature: float,
         max_tokens: int,
+        top_p: float | None,
     ) -> LLMResponse:
         """Executa a chamada ao LangChain ChatAnthropic."""
         lc_messages = _to_langchain_messages(messages)
@@ -202,14 +205,19 @@ class AnthropicGateway:
         # model_name / max_tokens_to_sample: nomes usados pelos stubs mypy do langchain-anthropic.
         # O runtime aceita também "model" e "max_tokens" — mas usamos os nomes dos stubs
         # para garantir que `mypy --strict` passe sem type: ignore.
-        llm = ChatAnthropic(
-            model_name=anthropic_model,
-            api_key=self._api_key,
-            temperature=temperature,
-            max_tokens_to_sample=max_tokens,
-            timeout=_TIMEOUT_S,
-            stop=None,
-        )
+        # top_p: passado somente quando não-None — Anthropic API omite o campo se None
+        # (comportamento idêntico ao OpenRouter: não enviar null).
+        llm_kwargs: dict[str, Any] = {
+            "model_name": anthropic_model,
+            "api_key": self._api_key,
+            "temperature": temperature,
+            "max_tokens_to_sample": max_tokens,
+            "timeout": _TIMEOUT_S,
+            "stop": None,
+        }
+        if top_p is not None:
+            llm_kwargs["top_p"] = top_p
+        llm = ChatAnthropic(**llm_kwargs)
 
         try:
             result = await llm.ainvoke(lc_messages)

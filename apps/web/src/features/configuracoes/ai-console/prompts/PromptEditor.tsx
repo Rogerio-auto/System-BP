@@ -452,14 +452,14 @@ export function PromptEditor({
             <Label htmlFor="top_p">
               Top-p
               <span className="ml-1 font-mono text-ink-4" style={{ fontSize: '0.65rem' }}>
-                [0–1]
+                (0–1]
               </span>
             </Label>
             <input
               id="top_p"
               type="number"
               step="0.01"
-              min={0}
+              min={0.01}
               max={1}
               placeholder="auto"
               aria-describedby={errors.top_p ? 'top-p-error' : undefined}
@@ -468,7 +468,8 @@ export function PromptEditor({
                   if (v === '' || v === undefined) return true;
                   const n = parseFloat(v);
                   if (isNaN(n)) return 'Número inválido';
-                  if (n < 0 || n > 1) return 'Deve estar entre 0 e 1';
+                  // top_p > 0 (exclusivo) — spec alinhado com backend e DB CHECK
+                  if (n <= 0 || n > 1) return 'Deve estar entre 0 (exclusivo) e 1';
                   return true;
                 },
               })}

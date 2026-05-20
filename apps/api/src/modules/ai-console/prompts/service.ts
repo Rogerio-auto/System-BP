@@ -171,15 +171,20 @@ function hashBody(body: string): string {
   return createHash('sha256').update(body, 'utf8').digest('hex');
 }
 
+/** Converte valor numérico vindo do Drizzle (numeric → string) para number ou null.
+ *
+ * Drizzle representa colunas NUMERIC como string para preservar precisão arbitrária.
+ * parseFloat pode retornar NaN para strings corrompidas — Number.isFinite garante
+ * que NaN/Infinity nunca chegam ao DTO (retorna null como fallback seguro).
+ */
+function parseNumericColumn(raw: string | null | undefined): number | null {
+  if (raw === null || raw === undefined) return null;
+  const parsed = parseFloat(String(raw));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 /** Mapeia PromptVersion do banco para o DTO de resposta. */
 function toVersionResponse(row: typeof promptVersions.$inferSelect): PromptVersionResponse {
-  // Drizzle retorna numeric() como string — parseFloat para o DTO numérico.
-  // Justificativa: drizzle-orm representa colunas numeric/decimal como string para
-  // preservar precisão arbitrária. O DTO usa number (float64), o que é suficiente
-  // para temperature (0–2, 2 decimais) e top_p (0–1, 3 decimais).
-  const temperatureRaw = row.temperature;
-  const topPRaw = row.topP;
-
   return {
     id: row.id,
     key: row.key,
@@ -191,12 +196,9 @@ function toVersionResponse(row: typeof promptVersions.$inferSelect): PromptVersi
     notes: row.notes ?? null,
     created_by: row.createdBy ?? null,
     created_at: row.createdAt.toISOString(),
-    temperature:
-      temperatureRaw !== null && temperatureRaw !== undefined
-        ? parseFloat(String(temperatureRaw))
-        : null,
+    temperature: parseNumericColumn(row.temperature),
     max_tokens: row.maxTokens ?? null,
-    top_p: topPRaw !== null && topPRaw !== undefined ? parseFloat(String(topPRaw)) : null,
+    top_p: parseNumericColumn(row.topP),
   };
 }
 
