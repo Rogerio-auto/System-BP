@@ -22,6 +22,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import {
   ConversationTimelinePage,
   DecisionsListPage,
+  PlaygroundPage,
   PromptDetailPage,
   PromptsListPage,
 } from './features/configuracoes/ai-console';
@@ -110,6 +111,7 @@ function AppRoutes(): React.JSX.Element {
           path="/configuracoes/ia/decisoes/conversa/:conversationId"
           element={<ConversationTimelinePage />}
         />
+        <Route path="/configuracoes/ia/playground" element={<PlaygroundPage />} />
         <Route path="/admin/cities" element={<CitiesPage />} />
         <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
         <Route path="/admin/products" element={<ProductsPage />} />
