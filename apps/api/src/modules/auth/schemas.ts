@@ -32,6 +32,9 @@ export const loginResponseSchema = z.object({
     email: z.string().email(),
     full_name: z.string(),
     organization_id: z.string().uuid(),
+    // Permissões RBAC carregadas pelo service via queryUserPermissions().
+    // Usado pelo frontend para gating de UI (hub de Configurações, cards admin, etc.).
+    permissions: z.array(z.string()),
   }),
 });
 

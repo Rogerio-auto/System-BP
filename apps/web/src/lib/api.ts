@@ -110,7 +110,9 @@ export async function bootstrapSession(): Promise<boolean> {
         email: data.user.email,
         fullName: data.user.full_name,
         organizationId: data.user.organization_id,
-        permissions: [],
+        // Backend (refresh) retorna permissions consolidadas — usa para hidratar
+        // o store após reload do SPA sem exigir re-login.
+        permissions: data.user.permissions ?? [],
       },
       data.access_token,
     );

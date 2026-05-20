@@ -31,6 +31,8 @@ interface LoginResponseOk {
     email: string;
     full_name: string;
     organization_id: string;
+    /** Permissões RBAC consolidadas — espelha `loginResponseSchema` em shared-schemas. */
+    permissions: string[];
   };
 }
 
@@ -49,7 +51,9 @@ function mapResponseToUser(res: LoginResponseOk): AuthUser {
     email: res.user.email,
     fullName: res.user.full_name,
     organizationId: res.user.organization_id,
-    permissions: [],
+    // Backend (F1-S03 + fix de auth-permissions) retorna permissions consolidadas.
+    // Fallback `?? []` protege contra response antigo durante deploy progressivo.
+    permissions: res.user.permissions ?? [],
   };
 }
 

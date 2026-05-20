@@ -49,7 +49,7 @@ const GLOBAL_SCOPE_ROLES = new Set<string>(['admin', 'gestor_geral']);
 // Queries internas
 // ---------------------------------------------------------------------------
 
-async function queryUserPermissions(db: Database, userId: string): Promise<string[]> {
+export async function queryUserPermissions(db: Database, userId: string): Promise<string[]> {
   const rows = await db
     .select({ key: permissions.key })
     .from(userRoles)

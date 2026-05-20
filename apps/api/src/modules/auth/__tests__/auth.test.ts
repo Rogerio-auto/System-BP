@@ -93,6 +93,15 @@ vi.mock('../../account/repository.js', () => ({
   markRecoveryCodeUsedAtomic: (...args: unknown[]) => mockMarkRecoveryCodeUsedAtomic(...args),
 }));
 
+// Mock de queryUserPermissions — usado pelo service para popular user.permissions
+// no response do login/verify-2fa/refresh. Sem este mock o service tenta executar
+// uma query Drizzle real (db.select().from().innerJoin()...) contra o mockDb e
+// crasha em runtime → 500.
+const mockQueryUserPermissions = vi.fn().mockResolvedValue([] as string[]);
+vi.mock('../middlewares/user-context.repository.js', () => ({
+  queryUserPermissions: (...args: unknown[]) => mockQueryUserPermissions(...args),
+}));
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
