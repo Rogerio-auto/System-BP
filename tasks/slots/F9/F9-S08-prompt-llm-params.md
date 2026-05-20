@@ -3,12 +3,12 @@ id: F9-S08
 title: Parametrização de modelo no editor de prompts — temperature, max_tokens, top_p
 phase: F9
 task_ref: T9.8
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-20T13:07:40Z
+completed_at: 2026-05-20T13:27:17Z
 pr_url:
 depends_on: [F9-S01, F9-S05, F3-S00]
 blocks: []

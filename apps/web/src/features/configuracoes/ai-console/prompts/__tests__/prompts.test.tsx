@@ -14,9 +14,12 @@
 //   5. Ordenação de versões (mais recente primeiro na sidebar)
 //   6. Lógica de seleção de diff (máximo 2, substitui o mais antigo)
 //   7. Formatação de data
+//   8. F9-S08: exibição de parâmetros LLM ("auto" vs valor preenchido)
+//   9. F9-S08: schema Zod inclui temperature, max_tokens, top_p
 // =============================================================================
 
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { promptsQueryKeys } from '../../../../../hooks/ai-console/usePrompts';
 
@@ -260,5 +263,130 @@ describe('Formatação de data ISO para pt-BR', () => {
     const result = formatDate('2024-06-15T10:30:00.000Z');
     expect(result.length).toBeGreaterThan(0);
     expect(result).not.toBe('—');
+  });
+});
+
+// ─── 8. F9-S08: exibição de parâmetros LLM ───────────────────────────────────
+
+describe('F9-S08 — exibição de parâmetros LLM no detalhe de versão', () => {
+  /**
+   * Replica a lógica de exibição do VersionDetailPanel:
+   * null → "auto", valor → string do número.
+   */
+  function displayLlmParam(value: number | null): string {
+    return value !== null ? String(value) : 'auto';
+  }
+
+  it('temperature null exibe "auto"', () => {
+    expect(displayLlmParam(null)).toBe('auto');
+  });
+
+  it('temperature 0.7 exibe "0.7"', () => {
+    expect(displayLlmParam(0.7)).toBe('0.7');
+  });
+
+  it('max_tokens null exibe "auto"', () => {
+    expect(displayLlmParam(null)).toBe('auto');
+  });
+
+  it('max_tokens 512 exibe "512"', () => {
+    expect(displayLlmParam(512)).toBe('512');
+  });
+
+  it('top_p null exibe "auto"', () => {
+    expect(displayLlmParam(null)).toBe('auto');
+  });
+
+  it('top_p 0.9 exibe "0.9"', () => {
+    expect(displayLlmParam(0.9)).toBe('0.9');
+  });
+
+  it('temperature 0 (mínimo) exibe "0"', () => {
+    // 0 não é null — deve exibir "0" e não "auto"
+    expect(displayLlmParam(0)).toBe('0');
+  });
+});
+
+// ─── 9. F9-S08: schema Zod aceita e valida os 3 novos campos ─────────────────
+
+describe('F9-S08 — validação de parâmetros LLM no schema Zod (usePrompts)', () => {
+  // Schema inline que replica a lógica do hook (usePrompts.ts)
+  const PromptVersionResponseSchema = z.object({
+    id: z.string().uuid(),
+    key: z.string(),
+    version: z.number().int().positive(),
+    model_recommended: z.string().nullable(),
+    content_hash: z.string(),
+    active: z.boolean(),
+    body: z.string(),
+    notes: z.string().nullable(),
+    created_by: z.string().uuid().nullable(),
+    created_at: z.string().datetime(),
+    temperature: z.number().min(0).max(2).nullable(),
+    max_tokens: z.number().int().min(1).max(32_000).nullable(),
+    top_p: z.number().min(0).max(1).nullable(),
+  });
+
+  const BASE = {
+    id: '11111111-0000-0000-0000-000000000001',
+    key: 'test_key',
+    version: 1,
+    model_recommended: null,
+    content_hash: 'abc123',
+    active: false,
+    body: 'Test body',
+    notes: null,
+    created_by: null,
+    created_at: new Date().toISOString(),
+  };
+
+  it('aceita null em todos os 3 campos LLM', () => {
+    const result = PromptVersionResponseSchema.safeParse({
+      ...BASE,
+      temperature: null,
+      max_tokens: null,
+      top_p: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita valores válidos em todos os 3 campos', () => {
+    const result = PromptVersionResponseSchema.safeParse({
+      ...BASE,
+      temperature: 0.7,
+      max_tokens: 512,
+      top_p: 0.9,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita temperature > 2', () => {
+    const result = PromptVersionResponseSchema.safeParse({
+      ...BASE,
+      temperature: 3.0,
+      max_tokens: null,
+      top_p: null,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita top_p > 1', () => {
+    const result = PromptVersionResponseSchema.safeParse({
+      ...BASE,
+      temperature: null,
+      max_tokens: null,
+      top_p: 1.5,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita max_tokens = 0 (abaixo do mínimo)', () => {
+    const result = PromptVersionResponseSchema.safeParse({
+      ...BASE,
+      temperature: null,
+      max_tokens: 0,
+      top_p: null,
+    });
+    expect(result.success).toBe(false);
   });
 });

@@ -14,6 +14,8 @@ Responsabilidades:
 - Compor a próxima pergunta ao cliente quando dados incompletos.
 - Em qualquer falha irrecuperável, acionar handoff humano (``handoff_reason``
   genérico — sem vazar exceção ou URL no estado persistido).
+- F9-S08: aplica temperature/max_tokens/top_p do frontmatter do prompt quando
+  presentes (campos opcionais — null/ausente → usar hardcoded defaults do nó).
 
 Restrições (doc 06 §5.6):
 - O nó não aprova crédito, não vaza dados internos, não chama Postgres diretamente.
@@ -49,17 +51,21 @@ _QUALIFY_FIELDS = ("requested_amount", "requested_term_months")
 # Mensagem de handoff genérica — sem vazar detalhes internos (LGPD / segurança)
 _HANDOFF_REASON_GENERIC = "qualify_credit_interest: falha ao coletar dados de crédito"
 
+# Defaults hardcoded para qualify_credit_interest (usados quando o prompt não define)
+_DEFAULT_TEMPERATURE = 0.1   # baixa temperatura para extração consistente
+_DEFAULT_MAX_TOKENS = 256    # JSON de qualificação é curto
+
 # ---------------------------------------------------------------------------
 # Carregamento e parse do prompt versionado
 # ---------------------------------------------------------------------------
 
 
-def _load_prompt() -> tuple[str, str, str]:
+def _load_prompt() -> tuple[str, str, str, float | None, int | None, float | None]:
     """Carrega o prompt versionado e extrai metadados do header YAML.
 
     Returns:
-        Tupla (prompt_key, prompt_version, prompt_body) onde ``prompt_body``
-        é o conteúdo sem o bloco frontmatter YAML.
+        Tupla (prompt_key, prompt_version, prompt_body, temperature, max_tokens, top_p).
+        Os três últimos campos são None quando ausentes do frontmatter (F9-S08).
 
     Raises:
         RuntimeError: Se o arquivo não existir ou o header YAML estiver mal formado.
@@ -82,7 +88,39 @@ def _load_prompt() -> tuple[str, str, str]:
             raise RuntimeError(f"Campo '{field}' ausente no header YAML do prompt.")
         return m.group(1).strip()
 
-    return _extract("key"), _extract("version"), body
+    def _extract_optional_float(field: str) -> float | None:
+        """Extrai campo numérico float opcional do frontmatter (F9-S08)."""
+        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
+        if not m:
+            return None
+        raw_val = m.group(1).strip()
+        if raw_val.lower() in ("null", "~", ""):
+            return None
+        try:
+            return float(raw_val)
+        except ValueError:
+            return None
+
+    def _extract_optional_int(field: str) -> int | None:
+        """Extrai campo numérico inteiro opcional do frontmatter (F9-S08)."""
+        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
+        if not m:
+            return None
+        raw_val = m.group(1).strip()
+        if raw_val.lower() in ("null", "~", ""):
+            return None
+        try:
+            return int(raw_val)
+        except ValueError:
+            return None
+
+    key = _extract("key")
+    version = _extract("version")
+    temperature = _extract_optional_float("temperature")
+    max_tokens = _extract_optional_int("max_tokens")
+    top_p = _extract_optional_float("top_p")
+
+    return key, version, body, temperature, max_tokens, top_p
 
 
 # ---------------------------------------------------------------------------
@@ -284,8 +322,16 @@ async def qualify_credit_interest(state: ConversationState) -> dict[str, Any]:
     messages: list[dict[str, Any]] = state.get("messages", [])
 
     try:
-        # --- Carrega prompt versionado
-        prompt_key, prompt_version, prompt_body = _load_prompt()
+        # --- Carrega prompt versionado (F9-S08: retorna params LLM do frontmatter)
+        prompt_key, prompt_version, prompt_body, fm_temperature, fm_max_tokens, fm_top_p = (
+            _load_prompt()
+        )
+
+        # F9-S08: usa parâmetros do frontmatter quando presentes, defaults do nó caso contrário.
+        effective_temperature = (
+            fm_temperature if fm_temperature is not None else _DEFAULT_TEMPERATURE
+        )
+        effective_max_tokens = fm_max_tokens if fm_max_tokens is not None else _DEFAULT_MAX_TOKENS
 
         # --- DLP: remove PII de todas as mensagens do histórico (LGPD §8.4)
         # Aplica DLP apenas no texto do usuário (role=user) para limpar PII
@@ -314,22 +360,28 @@ async def qualify_credit_interest(state: ConversationState) -> dict[str, Any]:
         ]
 
         # --- Chama o LLM via gateway (reasoner: modelo capaz de extrair entidades)
+        # F9-S08: temperature e max_tokens vêm do frontmatter do prompt (ou defaults).
         gateway = get_gateway()
-        response = await gateway.complete(
-            model=for_role("reasoner"),
-            messages=llm_messages,
-            temperature=0.1,   # baixa temperatura para extração consistente
-            max_tokens=256,    # JSON de qualificação é curto
-            metadata={
+        complete_kwargs: dict[str, Any] = {
+            "model": for_role("reasoner"),
+            "messages": llm_messages,
+            "temperature": effective_temperature,
+            "max_tokens": effective_max_tokens,
+            "metadata": {
                 "node": "qualify_credit_interest",
                 "lead_id": lead_id,
                 "prompt_key": prompt_key,
                 "prompt_version": prompt_version,
                 "conversation_id": conversation_id,
             },
-            conversation_id=conversation_id,
-            dlp=False,  # DLP já aplicado manualmente acima
-        )
+            "conversation_id": conversation_id,
+            "dlp": False,  # DLP já aplicado manualmente acima
+        }
+        # top_p: inclui no payload apenas quando explicitamente definido no prompt.
+        if fm_top_p is not None:
+            complete_kwargs["top_p"] = fm_top_p
+
+        response = await gateway.complete(**complete_kwargs)
 
         # --- Extrai e valida JSON da resposta
         extracted = _extract_json(response.content)

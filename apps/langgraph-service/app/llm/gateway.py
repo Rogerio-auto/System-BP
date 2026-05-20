@@ -176,6 +176,7 @@ class LLMGateway(Protocol):
         tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.2,
         max_tokens: int = 1024,
+        top_p: float | None = None,
         metadata: dict[str, Any] | None = None,
         conversation_id: str = "",
         dlp: bool = True,
@@ -188,6 +189,8 @@ class LLMGateway(Protocol):
             tools: Definições de ferramentas no schema OpenAI (opcional).
             temperature: Temperatura de amostragem (0.0-2.0). Default: 0.2.
             max_tokens: Limite de tokens na resposta. Default: 1024.
+            top_p: Nucleus sampling (0 < top_p <= 1). None = não enviar ao provider
+                   (usa o default do model). Quando fornecido, incluído no payload HTTP.
             metadata: Dados extras para logging/tracing (ex.: node, lead_id).
             conversation_id: ID da conversa para escopo do reverse_map DLP.
             dlp: Se True (default), aplica DLP antes de enviar ao LLM.

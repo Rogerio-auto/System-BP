@@ -1,7 +1,9 @@
 // =============================================================================
-// ai-console/prompts/schemas.ts — Schemas Zod do módulo prompt_versions (F9-S01).
+// ai-console/prompts/schemas.ts — Schemas Zod do módulo prompt_versions.
 //
 // Valida todas as bordas HTTP (requests + responses).
+// Atualizado em F9-S08: adiciona temperature, max_tokens, top_p às
+// versões de prompt (parâmetros LLM opcionais por versão).
 //
 // LGPD: body do prompt NUNCA deve conter PII — validado no service com regex.
 // Logs nunca expõem body completo — apenas key, version, content_hash.
@@ -42,6 +44,13 @@ export const promptVersionResponseSchema = z.object({
   notes: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: z.string().datetime(),
+  /**
+   * Parâmetros LLM por versão (F9-S08).
+   * null = usar default do gateway — sem custo adicional, sem surpresa.
+   */
+  temperature: z.number().min(0).max(2).nullable(),
+  max_tokens: z.number().int().min(1).max(32_000).nullable(),
+  top_p: z.number().gt(0).max(1).nullable(),
 });
 
 export type PromptVersionResponse = z.infer<typeof promptVersionResponseSchema>;
@@ -64,6 +73,25 @@ export const createPromptVersionBodySchema = z.object({
   model_recommended: z.string().max(120).nullable().optional(),
   /** Notas de changelog desta versão. Recomendado para rastreabilidade. */
   notes: z.string().max(2_000).nullable().optional(),
+  /**
+   * Temperatura do LLM [0, 2]. null = usar default do gateway.
+   * Valores não-default afetam consistência e custo. Teste no Playground antes de ativar.
+   * F9-S08: imutável após criação da versão (append-only).
+   */
+  temperature: z.number().min(0).max(2).nullable().optional(),
+  /**
+   * Limite de tokens na resposta [1, 32000]. null = usar default do gateway.
+   * Valores não-default afetam consistência e custo. Teste no Playground antes de ativar.
+   * F9-S08: imutável após criação da versão (append-only).
+   */
+  max_tokens: z.number().int().min(1).max(32_000).nullable().optional(),
+  /**
+   * Nucleus sampling top-p (0, 1]. null = usar default do gateway.
+   * Valores não-default afetam consistência e custo. Teste no Playground antes de ativar.
+   * F9-S08: imutável após criação da versão (append-only).
+   * Spec: top_p > 0 (exclusivo) — top_p = 0 raramente é intencional e confunde operadores.
+   */
+  top_p: z.number().gt(0).max(1).nullable().optional(),
 });
 
 export type CreatePromptVersionBody = z.infer<typeof createPromptVersionBodySchema>;

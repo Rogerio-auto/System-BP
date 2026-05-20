@@ -88,6 +88,10 @@ interface PromptVersionCreatedPayload {
     version: number;
     content_hash: string;
     model_recommended: string | null;
+    /** F9-S08: parâmetros LLM incluídos no evento para rastreabilidade. */
+    temperature: string | null;
+    max_tokens: number | null;
+    top_p: string | null;
   };
 }
 
@@ -167,6 +171,18 @@ function hashBody(body: string): string {
   return createHash('sha256').update(body, 'utf8').digest('hex');
 }
 
+/** Converte valor numérico vindo do Drizzle (numeric → string) para number ou null.
+ *
+ * Drizzle representa colunas NUMERIC como string para preservar precisão arbitrária.
+ * parseFloat pode retornar NaN para strings corrompidas — Number.isFinite garante
+ * que NaN/Infinity nunca chegam ao DTO (retorna null como fallback seguro).
+ */
+function parseNumericColumn(raw: string | null | undefined): number | null {
+  if (raw === null || raw === undefined) return null;
+  const parsed = parseFloat(String(raw));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 /** Mapeia PromptVersion do banco para o DTO de resposta. */
 function toVersionResponse(row: typeof promptVersions.$inferSelect): PromptVersionResponse {
   return {
@@ -180,6 +196,9 @@ function toVersionResponse(row: typeof promptVersions.$inferSelect): PromptVersi
     notes: row.notes ?? null,
     created_by: row.createdBy ?? null,
     created_at: row.createdAt.toISOString(),
+    temperature: parseNumericColumn(row.temperature),
+    max_tokens: row.maxTokens ?? null,
+    top_p: parseNumericColumn(row.topP),
   };
 }
 
@@ -284,6 +303,9 @@ export async function createVersionSvc(
     // 3c. Inserir nova versão
     // Justificativa do cast `as PromptServiceTx`: Drizzle não exporta tipo de tx.
     // A interface estrutural cobre exatamente insert(promptVersions).values().returning().
+    //
+    // temperature/top_p: armazenados como string no Drizzle (numeric() → string).
+    // Convertemos number → string ou null para satisfazer o tipo NewPromptVersion.
     const newRow = await insertPromptVersion(tx as unknown as PromptServiceTx, {
       key,
       version: nextVersion,
@@ -293,9 +315,17 @@ export async function createVersionSvc(
       notes: body.notes ?? null,
       active: false, // Nova versão inicia inativa. Ativar via endpoint dedicado.
       createdBy: ctx.actor?.userId ?? null,
+      // F9-S08: parâmetros LLM opcionais por versão.
+      // null = usar default do gateway (não força nenhum valor).
+      temperature:
+        body.temperature !== null && body.temperature !== undefined
+          ? String(body.temperature)
+          : null,
+      maxTokens: body.max_tokens ?? null,
+      topP: body.top_p !== null && body.top_p !== undefined ? String(body.top_p) : null,
     });
 
-    // 3d. Audit log — sem body (LGPD: apenas key, version, content_hash)
+    // 3d. Audit log — sem body (LGPD: apenas key, version, content_hash + params)
     await auditLog(tx, {
       organizationId: ctx.organizationId,
       actor: ctx.actor,
@@ -307,6 +337,10 @@ export async function createVersionSvc(
         content_hash: newRow.contentHash,
         model_recommended: newRow.modelRecommended,
         active: newRow.active,
+        // F9-S08: inclui params LLM no audit trail (sem body — LGPD)
+        temperature: newRow.temperature ?? null,
+        max_tokens: newRow.maxTokens ?? null,
+        top_p: newRow.topP ?? null,
       },
     });
 
@@ -331,6 +365,10 @@ export async function createVersionSvc(
         version: newRow.version,
         content_hash: newRow.contentHash,
         model_recommended: newRow.modelRecommended,
+        // F9-S08: parâmetros LLM incluídos no evento (rastreabilidade, sem PII)
+        temperature: newRow.temperature ?? null,
+        max_tokens: newRow.maxTokens ?? null,
+        top_p: newRow.topP ?? null,
       },
     };
 

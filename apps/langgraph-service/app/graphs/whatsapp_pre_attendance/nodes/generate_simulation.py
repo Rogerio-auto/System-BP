@@ -12,6 +12,8 @@ Responsabilidades:
 - Em erros de range (``AMOUNT_OUT_OF_RANGE``, ``TERM_OUT_OF_RANGE``, etc.) →
   mensagem clara ao cliente sem inventar taxa ou prazo (doc 06 §5.6).
 - Em falha de tool ou gateway → handoff humano seguro.
+- F9-S08: aplica temperature/max_tokens/top_p do frontmatter do prompt quando
+  presentes (campos opcionais — null/ausente → usar hardcoded defaults do nó).
 
 Restrições (doc 06 §5.6):
 - Não aprova/recusa crédito.
@@ -50,16 +52,21 @@ _PROMPT_PATH = (
     Path(__file__).parent.parent.parent.parent / "prompts" / "simulation.md"
 )
 
+# Defaults hardcoded para generate_simulation (usados quando o prompt não define)
+_DEFAULT_TEMPERATURE = 0.3
+_DEFAULT_MAX_TOKENS = 512
+
 # ---------------------------------------------------------------------------
 # Carregamento do prompt versionado
 # ---------------------------------------------------------------------------
 
 
-def _load_prompt() -> tuple[str, str, str]:
+def _load_prompt() -> tuple[str, str, str, float | None, int | None, float | None]:
     """Carrega o prompt versionado e extrai metadados do header YAML.
 
     Returns:
-        Tupla (prompt_key, prompt_version, prompt_body).
+        Tupla (prompt_key, prompt_version, prompt_body, temperature, max_tokens, top_p).
+        Os três últimos campos são None quando ausentes do frontmatter (F9-S08).
 
     Raises:
         RuntimeError: Se o arquivo não existir ou o header YAML estiver mal formado.
@@ -81,7 +88,39 @@ def _load_prompt() -> tuple[str, str, str]:
             raise RuntimeError(f"Campo '{field}' ausente no header YAML do prompt.")
         return m.group(1).strip()
 
-    return _extract("key"), _extract("version"), body
+    def _extract_optional_float(field: str) -> float | None:
+        """Extrai campo numérico float opcional do frontmatter (F9-S08)."""
+        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
+        if not m:
+            return None
+        raw_val = m.group(1).strip()
+        if raw_val.lower() in ("null", "~", ""):
+            return None
+        try:
+            return float(raw_val)
+        except ValueError:
+            return None
+
+    def _extract_optional_int(field: str) -> int | None:
+        """Extrai campo numérico inteiro opcional do frontmatter (F9-S08)."""
+        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
+        if not m:
+            return None
+        raw_val = m.group(1).strip()
+        if raw_val.lower() in ("null", "~", ""):
+            return None
+        try:
+            return int(raw_val)
+        except ValueError:
+            return None
+
+    key = _extract("key")
+    version = _extract("version")
+    temperature = _extract_optional_float("temperature")
+    max_tokens = _extract_optional_int("max_tokens")
+    top_p = _extract_optional_float("top_p")
+
+    return key, version, body, temperature, max_tokens, top_p
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +219,10 @@ async def _compose_reply(
     prompt_key: str,
     prompt_version: str,
     prompt_body: str,
+    # F9-S08: parâmetros LLM opcionais do frontmatter do prompt
+    fm_temperature: float | None = None,
+    fm_max_tokens: int | None = None,
+    fm_top_p: float | None = None,
 ) -> str:
     """Chama o LLM reasoner para compor a resposta em linguagem natural.
 
@@ -236,22 +279,35 @@ async def _compose_reply(
     ]
 
     try:
+        # F9-S08: usa parâmetros do frontmatter quando presentes, defaults caso contrário.
+        effective_temperature = (
+            fm_temperature if fm_temperature is not None else _DEFAULT_TEMPERATURE
+        )
+        effective_max_tokens = (
+            fm_max_tokens if fm_max_tokens is not None else _DEFAULT_MAX_TOKENS
+        )
+
         gateway = get_gateway()
-        response = await gateway.complete(
-            model=for_role("reasoner"),
-            messages=llm_messages,
-            temperature=0.3,
-            max_tokens=512,
-            metadata={
+        complete_kwargs: dict[str, Any] = {
+            "model": for_role("reasoner"),
+            "messages": llm_messages,
+            "temperature": effective_temperature,
+            "max_tokens": effective_max_tokens,
+            "metadata": {
                 "node": "generate_simulation",
                 "lead_id": lead_id,
                 "prompt_key": prompt_key,
                 "prompt_version": prompt_version,
                 "conversation_id": conversation_id,
             },
-            conversation_id=conversation_id,
-            dlp=False,  # DLP já aplicado manualmente acima
-        )
+            "conversation_id": conversation_id,
+            "dlp": False,  # DLP já aplicado manualmente acima
+        }
+        # top_p: inclui no payload apenas quando explicitamente definido no prompt.
+        if fm_top_p is not None:
+            complete_kwargs["top_p"] = fm_top_p
+
+        response = await gateway.complete(**complete_kwargs)
         return response.content.strip()
     except Exception:
         log.exception(
@@ -362,8 +418,10 @@ async def generate_simulation(state: ConversationState) -> dict[str, Any]:
         }
 
     try:
-        # --- Carrega prompt versionado ---
-        prompt_key, prompt_version, prompt_body = _load_prompt()
+        # --- Carrega prompt versionado (F9-S08: retorna params LLM do frontmatter) ---
+        prompt_key, prompt_version, prompt_body, fm_temperature, fm_max_tokens, fm_top_p = (
+            _load_prompt()
+        )
 
         # --- Passo 1: lista produtos compatíveis ---
         products_input = ListCreditProductsInput(city_id=city_id)
@@ -477,6 +535,7 @@ async def generate_simulation(state: ConversationState) -> dict[str, Any]:
             }
 
         # --- Passo 4: simulação bem-sucedida → compõe resposta via LLM ---
+        # F9-S08: passa parâmetros LLM do frontmatter para _compose_reply.
         reply = await _compose_reply(
             simulation=sim_result,
             product_name=product_name,
@@ -488,6 +547,9 @@ async def generate_simulation(state: ConversationState) -> dict[str, Any]:
             prompt_key=prompt_key,
             prompt_version=prompt_version,
             prompt_body=prompt_body,
+            fm_temperature=fm_temperature,
+            fm_max_tokens=fm_max_tokens,
+            fm_top_p=fm_top_p,
         )
 
         latency_ms = round((time.monotonic() - t0) * 1000, 1)
