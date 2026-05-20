@@ -230,10 +230,15 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
                 "lead_id": lead_id,
                 "prompt_key": prompt_key,
                 "prompt_version": prompt_version,
-                "conversation_id": conversation_id,
+                # conversation_id omitido do metadata: já passado como kwarg dedicado
+                # ao gateway (evita TypeError "multiple values" no log structlog).
             },
             "conversation_id": conversation_id,
-            "dlp": False,  # DLP já aplicado manualmente acima
+            # F9-S10 CRÍTICO-1 fix: dlp=False removido.
+            # redact_pii() é idempotente sobre tokens já mascarados (<CPF_1> etc.)
+            # — aplicar DLP duas vezes é no-op. O gateway aplica dlp=True (default)
+            # como defesa em profundidade, garantindo que nenhum PII bruto
+            # chegue ao suboperador internacional (LGPD §8.4).
         }
         # top_p: inclui no payload apenas quando explicitamente definido no prompt.
         # Omitir é diferente de passar None — evita sobrescrever o default do gateway.

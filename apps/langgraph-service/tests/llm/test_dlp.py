@@ -393,6 +393,67 @@ class TestRedactMessages:
 
 
 # ---------------------------------------------------------------------------
+# F9-S10: Idempotência explícita — redact_pii(redact_pii(text)) == redact_pii(text)
+# ---------------------------------------------------------------------------
+
+
+class TestRedactPiiIdempotencia:
+    """Testa a propriedade fundamental: redact_pii é idempotente.
+
+    redact_pii(redact_pii(text)) == redact_pii(text)
+
+    Isso garante que aplicar DLP duas vezes (nó + gateway) é no-op — justificativa
+    para o fix do CRÍTICO-1 de F9-S10: remover ``dlp=False`` dos nós é seguro
+    porque o gateway aplicar DLP sobre texto já redactado não muda o resultado.
+    """
+
+    def test_idempotencia_cpf(self) -> None:
+        """redact_pii aplicado duas vezes em CPF produz o mesmo resultado."""
+        text = "CPF: 529.982.247-25 solicitando crédito"
+        once = redact_pii(text)
+        twice = redact_pii(once.text)
+        assert twice.text == once.text, (
+            "redact_pii não é idempotente sobre CPF — "
+            "segunda aplicação alterou o texto já redactado."
+        )
+
+    def test_idempotencia_email(self) -> None:
+        """redact_pii aplicado duas vezes em email produz o mesmo resultado."""
+        text = "contato: usuario@example.com.br"
+        once = redact_pii(text)
+        twice = redact_pii(once.text)
+        assert twice.text == once.text
+
+    def test_idempotencia_misto(self) -> None:
+        """redact_pii aplicado duas vezes em texto misto produz o mesmo resultado."""
+        text = "CPF 529.982.247-25, email teste@banco.ro.gov.br, tel (69) 99999-0000"
+        once = redact_pii(text)
+        twice = redact_pii(once.text)
+        assert twice.text == once.text, (
+            "redact_pii não é idempotente sobre texto misto — "
+            "segunda aplicação alterou os tokens já mascarados."
+        )
+
+    def test_segunda_aplicacao_nao_cria_novos_pii_counts(self) -> None:
+        """Segunda aplicação de redact_pii sobre texto redactado tem counts={}."""
+        text = "CPF: 529.982.247-25"
+        once = redact_pii(text)
+        twice = redact_pii(once.text)
+        assert twice.counts == {}, (
+            "Segunda aplicação de redact_pii detectou PII residual — "
+            "tokens <CPF_1> não deveriam casar com a regex de CPF."
+        )
+
+    def test_formula_canonica(self) -> None:
+        """Verifica a fórmula canônica: redact_pii(redact_pii(text)) == redact_pii(text)."""
+        text = "Nome: Ana Silva, CPF 529.982.247-25, email ana@gmail.com"
+        assert redact_pii(redact_pii(text).text).text == redact_pii(text).text, (
+            "CRÍTICO-1 pré-condição: redact_pii deve ser idempotente. "
+            "Se falhar, aplicar DLP duas vezes (nó + gateway) alteraria o contexto."
+        )
+
+
+# ---------------------------------------------------------------------------
 # is_pii_free — utilitário
 # ---------------------------------------------------------------------------
 

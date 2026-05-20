@@ -22,6 +22,21 @@ Política de interceptação por método HTTP
              chamada no sink in-memory e retorna resposta sintética válida.
              Inclui ``dry_run: true`` na resposta sintética.
 
+F9-S10 CRÍTICO-2 fix — Stubs centralizados em _PATH_TO_STUB_FACTORY
+---------------------------------------------------------------------
+O stub anterior retornava um payload genérico para todo POST/PATCH/PUT.
+Isso causava ``ValidationError`` nos callers que esperavam campos específicos:
+
+- ``request_handoff`` → valida ``HandoffOutput`` (campos: handoff_id,
+  chatwoot_conversation_id, assigned_agent_id, status).
+- ``create_chatwoot_note`` → valida ``ChatwootNoteOutput`` (campo: note_id).
+- ``get_or_create_lead`` → valida ``GetOrCreateLeadSuccess`` (campos: lead_id,
+  customer_id, created, current_stage, city_id, assigned_agent_id).
+- demais paths: format mínimo compatível com o consumidor.
+
+A factory centralizada ``_PATH_TO_STUB_FACTORY`` mapeia cada path interno
+ao payload correto. Paths não mapeados caem no fallback genérico existente.
+
 LGPD / Segurança
 -----------------
 - Logs emitidos pelo stub carregam ``dry_run=True`` para rastreabilidade.
@@ -32,8 +47,10 @@ LGPD / Segurança
 """
 from __future__ import annotations
 
+import re
 import time
 import uuid
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from typing import Any
 from unittest.mock import patch
@@ -43,6 +60,122 @@ import structlog
 from app.tools._base import InternalApiClient
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# F9-S10 CRÍTICO-2: Factory centralizada de stubs por path
+# ---------------------------------------------------------------------------
+# Cada factory recebe o request body (dict) e retorna um payload compatível
+# com o schema Pydantic que o caller irá validar via model_validate().
+#
+# Convenção de matching:
+#   - Paths exatos têm prioridade sobre padrões de regex.
+#   - IDs de recursos (UUIDs, slugs) são normalizados para comparação.
+#
+# Por que Callable[[dict], dict] em vez de dict estático:
+#   Algumas respostas precisam de IDs opacos únicos por chamada (uuid4).
+#   A factory é chamada a cada POST — garante IDs distintos se o grafo
+#   fizer a mesma chamada múltiplas vezes durante o dry-run.
+# ---------------------------------------------------------------------------
+
+
+def _stub_chatwoot_notes(body: dict[str, Any]) -> dict[str, Any]:
+    """Stub para POST /internal/chatwoot/notes → ChatwootNoteOutput."""
+    return {
+        "note_id": str(uuid.uuid4()),
+        "dry_run": True,
+    }
+
+
+def _stub_handoffs(body: dict[str, Any]) -> dict[str, Any]:
+    """Stub para POST /internal/handoffs → HandoffOutput."""
+    return {
+        "handoff_id": str(uuid.uuid4()),
+        "chatwoot_conversation_id": body.get("conversation_id", str(uuid.uuid4())),
+        "assigned_agent_id": None,
+        "status": "queued",
+        "dry_run": True,
+    }
+
+
+def _stub_leads_get_or_create(body: dict[str, Any]) -> dict[str, Any]:
+    """Stub para POST /internal/leads/get-or-create → GetOrCreateLeadSuccess."""
+    return {
+        "ok": True,
+        "lead_id": str(uuid.uuid4()),
+        "customer_id": None,
+        "created": True,
+        "current_stage": "pre_attendance",
+        "city_id": None,
+        "assigned_agent_id": None,
+        "dry_run": True,
+    }
+
+
+def _stub_leads_patch(body: dict[str, Any]) -> dict[str, Any]:
+    """Stub para PATCH /internal/leads/:id/profile → UpdateLeadProfileSuccess."""
+    return {
+        "ok": True,
+        "lead_id": body.get("lead_id", str(uuid.uuid4())),
+        "current_stage": None,
+        "city_id": body.get("city_id"),
+        "name": None,
+        "dry_run": True,
+    }
+
+
+def _stub_simulations(body: dict[str, Any]) -> dict[str, Any]:
+    """Stub para POST /internal/simulations → GenerateCreditSimulationOutput (ok=True)."""
+    return {
+        "ok": True,
+        "simulation_id": str(uuid.uuid4()),
+        "installment": "462.50",
+        "total": "5550.00",
+        "interest": "550.00",
+        "rate": "0.025000",
+        "rule_version": "dry-run-v1",
+        "dry_run": True,
+    }
+
+
+def _stub_ai_decisions(body: dict[str, Any]) -> dict[str, Any]:
+    """Stub para POST /internal/ai/decisions → LogAiDecisionOutput."""
+    return {
+        "decision_log_id": str(uuid.uuid4()),
+        "dry_run": True,
+    }
+
+
+def _stub_conversation_state(body: dict[str, Any]) -> dict[str, Any]:
+    """Stub para POST/PUT /internal/conversations/:id/state → idempotente."""
+    return {
+        "ok": True,
+        "dry_run": True,
+    }
+
+
+def _stub_simulations_sent(body: dict[str, Any]) -> dict[str, Any]:
+    """Stub para POST /internal/simulations/:id/sent → MarkSimulationSentOutput."""
+    return {
+        "ok": True,
+        "dry_run": True,
+    }
+
+
+# Mapa canônico de path → factory de stub.
+# Patterns são compilados uma vez; matching é feito por re.search().
+# Ordem importa: padrões mais específicos devem vir antes dos mais genéricos.
+_PATH_TO_STUB_FACTORY: dict[re.Pattern[str], Callable[[dict[str, Any]], dict[str, Any]]] = {
+    re.compile(r"^/internal/chatwoot/notes$"): _stub_chatwoot_notes,
+    re.compile(r"^/internal/handoffs$"): _stub_handoffs,
+    re.compile(r"^/internal/leads/get-or-create$"): _stub_leads_get_or_create,
+    re.compile(r"^/internal/leads/[^/]+/profile$"): _stub_leads_patch,
+    re.compile(r"^/internal/leads/[^/]+$"): _stub_leads_patch,
+    re.compile(r"^/internal/simulations/[^/]+/sent$"): _stub_simulations_sent,
+    re.compile(r"^/internal/simulations$"): _stub_simulations,
+    re.compile(r"^/internal/ai/decisions$"): _stub_ai_decisions,
+    re.compile(r"^/internal/conversations/[^/]+/state$"): _stub_conversation_state,
+}
 
 # ---------------------------------------------------------------------------
 # Entrada do sink de chamadas interceptadas (para compor o trace)
@@ -146,7 +279,7 @@ class DryRunInternalApiClient(InternalApiClient):
             idempotency_key=idempotency_key,
             dry_run=True,
         )
-        return self._synthetic_write_response(path)
+        return self._synthetic_write_response(path, json)
 
     async def _request(
         self,
@@ -181,7 +314,7 @@ class DryRunInternalApiClient(InternalApiClient):
         if method_upper == "GET":
             return self._synthetic_get_response(path)
 
-        return self._synthetic_write_response(path)
+        return self._synthetic_write_response(path, json or {})
 
     # ------------------------------------------------------------------
     # Helpers internos
@@ -198,13 +331,25 @@ class DryRunInternalApiClient(InternalApiClient):
         # Retornar estado vazio equivale a "conversa nova" no dry-run.
         return {"state": {}, "dry_run": True}
 
-    @staticmethod
-    def _synthetic_write_response(path: str) -> dict[str, Any]:
-        """Resposta sintética para POST/PUT/PATCH — IDs opacos gerados localmente."""
-        # log_decision espera {"decision_log_id": str}
-        # persist_state não usa o corpo da resposta (apenas verifica sucesso via status)
-        # Outros nós (save_simulation, request_handoff, etc.) esperam campos variados.
-        # Usamos um formato suficientemente genérico:
+    def _synthetic_write_response(
+        self, path: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Resposta sintética para POST/PUT/PATCH — usa factory por path (F9-S10).
+
+        Procura o path no ``_PATH_TO_STUB_FACTORY`` canônico. Se encontrado,
+        delega à factory correspondente que retorna um payload compatível com
+        o schema Pydantic esperado pelo caller.
+
+        Para paths não mapeados, retorna um payload genérico suficientemente
+        compatível com a maioria dos consumidores (fallback de segurança).
+        """
+        body = body or {}
+        for pattern, factory in _PATH_TO_STUB_FACTORY.items():
+            if pattern.search(path):
+                return factory(body)
+
+        # Fallback genérico: nenhum path mapeado na factory.
+        # Mantém compatibilidade com nós que não validam o corpo da resposta.
         synthetic_id = str(uuid.uuid4())
         return {
             "id": synthetic_id,

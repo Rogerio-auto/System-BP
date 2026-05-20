@@ -271,6 +271,10 @@ async def run_playground(
     initial_state: ConversationState = {}
     payload_dict = payload.to_inbound_payload_dict()
     initial_state = receive_message(initial_state, payload=payload_dict)
+    # F9-S10 MEDIUM: sinaliza ao grafo que está em modo sintético (playground).
+    # Permite que nós usem mensagens contextuais em vez de mensagens de produção.
+    # Exemplo: request_handoff usa msg orientativa quando lead_id ausente em dry-run.
+    initial_state["dry_run"] = True  # type: ignore[typeddict-unknown-key]
 
     # ------------------------------------------------------------------
     # Executa o grafo em dry_run_context (timeout 15 s)

@@ -775,3 +775,152 @@ class TestResponseStructure:
             )
         assert resp.status_code == 200
         assert resp.json()["handoff_required"] is False
+
+
+# ---------------------------------------------------------------------------
+# F9-S10 MEDIUM: dry_run flag passado ao estado inicial do grafo
+# ---------------------------------------------------------------------------
+
+
+class TestPlaygroundDryRunFlag:
+    """Testa que playground.py seta state['dry_run'] = True no estado inicial.
+
+    F9-S10 MEDIUM: o endpoint deve propagar o flag dry_run para o estado do grafo
+    para que nós como request_handoff possam usar mensagens contextuais em vez
+    de mensagens de produção.
+    """
+
+    def test_dry_run_flag_passed_to_graph_state(self, client: TestClient) -> None:
+        """state['dry_run'] = True deve estar presente no estado passado ao grafo.
+
+        Intercepta ainvoke() para capturar o estado inicial e confirma que
+        o flag 'dry_run' foi setado antes da invocação do grafo.
+        """
+        final_state = _make_final_state()
+        captured_states: list[dict[str, Any]] = []
+
+        class _CapturingCompiledGraph:
+            async def ainvoke(self, state: Any, **kw: Any) -> dict[str, Any]:
+                captured_states.append(dict(state) if isinstance(state, dict) else {})
+                return final_state
+
+        class _CapturingGraph:
+            def compile(self) -> _CapturingCompiledGraph:
+                return _CapturingCompiledGraph()
+
+        with patch("app.api.playground.build_graph", return_value=_CapturingGraph()):
+            resp = client.post(
+                "/process/whatsapp/playground",
+                json=_valid_payload(),
+                headers=_AUTH_HEADERS,
+            )
+
+        assert resp.status_code == 200
+        assert len(captured_states) == 1, "Grafo deve ser invocado exatamente 1 vez"
+        state_passed = captured_states[0]
+        assert state_passed.get("dry_run") is True, (
+            "F9-S10 MEDIUM: playground.py deve setar state['dry_run'] = True "
+            "antes de invocar o grafo. Sem esse flag, request_handoff não pode "
+            "distinguir modo sintético de produção para usar mensagem contextual."
+        )
+
+    @pytest.mark.asyncio
+    async def test_dry_run_flag_enables_contextual_handoff_message(self) -> None:
+        """request_handoff usa mensagem contextual quando state['dry_run'] == True.
+
+        Testa diretamente o nó request_handoff com state['dry_run'] = True e
+        lead_id = None (cenário playground sem lead real).
+
+        Verifica que a mensagem de erro é orientativa (modo sintético) e não
+        a mensagem genérica de produção.
+        """
+        from app.graphs.whatsapp_pre_attendance.nodes.request_handoff import (
+            request_handoff as _request_handoff_node,
+        )
+
+        state: dict[str, Any] = {
+            "conversation_id": "dry-run-test-conv",
+            "chatwoot_conversation_id": "cw-dry-42",
+            "phone": "+5569988880001",
+            "handoff_required": False,
+            "handoff_reason": "falar_atendente",
+            "missing_fields": [],
+            "messages": [{"role": "user", "content": "falar com atendente"}],
+            "tool_results": [],
+            "errors": [],
+            "actions_emitted": [],
+            "lead_id": None,  # playground sem lead real
+            "customer_id": None,
+            "customer_name": None,
+            "city_id": None,
+            "city_name": None,
+            "current_intent": "falar_atendente",
+            "current_stage": None,
+            "requested_amount": None,
+            "requested_term_months": None,
+            "last_simulation_id": None,
+            "dry_run": True,  # flag do playground — F9-S10 MEDIUM
+        }
+
+        result = await _request_handoff_node(state)  # type: ignore[arg-type]
+
+        # Deve ter entrado em handoff (lead_id ausente)
+        assert result.get("handoff_required") is True
+
+        # Mensagem de erro deve ser contextual (playground sintético)
+        errors = result.get("errors", [])
+        assert errors, "Deve ter registrado erro de lead_id ausente"
+
+        error_messages = " ".join(str(e.get("error", "")) for e in errors)
+        assert "sintético" in error_messages or "playground" in error_messages.lower(), (
+            "F9-S10 MEDIUM: mensagem de erro deve ser contextual em modo dry-run. "
+            f"Obtido: {error_messages}"
+        )
+        # Não deve conter a mensagem genérica de produção
+        assert "handoff requer lead identificado" not in error_messages, (
+            "Mensagem de produção genérica não deve aparecer em dry_run=True"
+        )
+
+    @pytest.mark.asyncio
+    async def test_production_path_uses_generic_message(self) -> None:
+        """Sem dry_run=True, request_handoff usa mensagem genérica de produção."""
+        from app.graphs.whatsapp_pre_attendance.nodes.request_handoff import (
+            request_handoff as _request_handoff_node,
+        )
+
+        state: dict[str, Any] = {
+            "conversation_id": "prod-test-conv",
+            "chatwoot_conversation_id": "cw-prod-42",
+            "phone": "+5569988880001",
+            "handoff_required": False,
+            "handoff_reason": "ai_decision",
+            "missing_fields": [],
+            "messages": [],
+            "tool_results": [],
+            "errors": [],
+            "actions_emitted": [],
+            "lead_id": None,  # ausente — erro de produção
+            "customer_id": None,
+            "customer_name": None,
+            "city_id": None,
+            "city_name": None,
+            "current_intent": None,
+            "current_stage": None,
+            "requested_amount": None,
+            "requested_term_months": None,
+            "last_simulation_id": None,
+            # dry_run NÃO setado — caminho de produção
+        }
+
+        result = await _request_handoff_node(state)  # type: ignore[arg-type]
+
+        assert result.get("handoff_required") is True
+
+        errors = result.get("errors", [])
+        error_messages = " ".join(str(e.get("error", "")) for e in errors)
+
+        # Deve conter a mensagem genérica de produção (não a contextual)
+        assert "handoff requer lead identificado" in error_messages, (
+            "Caminho de produção (dry_run=False) deve usar mensagem genérica. "
+            f"Obtido: {error_messages}"
+        )

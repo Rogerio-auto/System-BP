@@ -167,6 +167,16 @@ async def request_handoff(
     # ------------------------------------------------------------------
     try:
         if not lead_id:
+            # F9-S10 MEDIUM: mensagem contextual em modo dry-run (playground sintético).
+            # No caminho de produção, lead_id SEMPRE existe porque o nó identify_lead
+            # foi executado antes. No playground sem lead_id, a mensagem genérica
+            # é confusa — substituímos por uma mensagem orientativa para o operador.
+            if state.get("dry_run") is True:
+                raise ValueError(
+                    "Modo sintético sem lead identificado — em produção o lead seria "
+                    "criado antes do handoff. Para testar handoff completo, selecione "
+                    "um lead real no playground."
+                )
             raise ValueError("lead_id ausente — handoff requer lead identificado")
 
         handoff_input = HandoffInput(
