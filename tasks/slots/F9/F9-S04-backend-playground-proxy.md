@@ -3,11 +3,11 @@ id: F9-S04
 title: Backend — proxy /api/ai-console/playground + DLP na entrada do operador
 phase: F9
 task_ref: T9.4
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: backend-engineer
-claimed_at:
+claimed_at: 2026-05-20T00:02:34Z
 completed_at:
 pr_url:
 depends_on: [F9-S03, F3-S33]
