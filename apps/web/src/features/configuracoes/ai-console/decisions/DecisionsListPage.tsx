@@ -211,10 +211,8 @@ export function DecisionsListPage(): React.JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const [cursor, setCursor] = React.useState<string | undefined>(undefined);
 
-  // RBAC: sem ai_decisions:read → 404
-  if (!hasPermission('ai_decisions:read')) {
-    return <Navigate to="/404" replace />;
-  }
+  // Derivar permissão antes dos hooks de dados (mas nunca antes dos hooks do React)
+  const hasReadPermission = hasPermission('ai_decisions:read');
 
   // Ler filtros da URL
   const filterValues: FilterValues = {
@@ -242,7 +240,16 @@ export function DecisionsListPage(): React.JSX.Element {
     limit: PAGE_SIZE,
   };
 
-  const { data, isLoading, isError } = useDecisionsList(queryFilters);
+  // Hook de dados sempre chamado — enabled:false evita fetch quando sem permissão.
+  // O guard early-return vem APÓS todos os hooks (Rules of Hooks).
+  const { data, isLoading, isError } = useDecisionsList(queryFilters, {
+    enabled: hasReadPermission,
+  });
+
+  // RBAC: sem ai_decisions:read → 404 (após todos os hooks)
+  if (!hasReadPermission) {
+    return <Navigate to="/404" replace />;
+  }
 
   // Atualizar filtro na URL
   function handleFilterChange(key: keyof FilterValues, value: string) {

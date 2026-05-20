@@ -277,12 +277,14 @@ export function ConversationTimelinePage(): React.JSX.Element {
   const { conversationId = '' } = useParams<{ conversationId: string }>();
   const { hasPermission } = useAuth();
 
-  // RBAC: sem ai_decisions:read → 404
-  if (!hasPermission('ai_decisions:read')) {
-    return <Navigate to="/404" replace />;
-  }
+  // Derivar permissão antes dos hooks de dados (mas nunca antes dos hooks do React)
+  const hasReadPermission = hasPermission('ai_decisions:read');
 
-  const { decisions, isLoading, isError } = useConversationTimeline(conversationId);
+  // Hook de dados sempre chamado — enabled:false evita fetch quando sem permissão.
+  // O guard early-return vem APÓS todos os hooks (Rules of Hooks).
+  const { decisions, isLoading, isError } = useConversationTimeline(conversationId, {
+    enabled: hasReadPermission,
+  });
 
   // Computar resumo agregado (só quando carregado)
   const summary = React.useMemo(() => {
@@ -326,6 +328,11 @@ export function ConversationTimelinePage(): React.JSX.Element {
       ),
     [decisions],
   );
+
+  // RBAC: sem ai_decisions:read → 404 (após todos os hooks)
+  if (!hasReadPermission) {
+    return <Navigate to="/404" replace />;
+  }
 
   // Timestamp da primeira decisão (para o subtítulo)
   const firstTimestamp = sorted[0]?.created_at ?? null;

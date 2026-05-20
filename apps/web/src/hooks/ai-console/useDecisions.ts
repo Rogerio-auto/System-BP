@@ -115,8 +115,14 @@ async function fetchConversationTimeline(conversationId: string): Promise<Decisi
 /**
  * Lista de decisões com filtros e paginação cursor-based.
  * LGPD: dados chegam mascarados do backend — não logar decision/context.
+ *
+ * @param options.enabled - Quando false, a query não é disparada (útil para
+ *   aguardar verificação de permissão antes de fazer fetch).
  */
-export function useDecisionsList(filters: DecisionFilters): {
+export function useDecisionsList(
+  filters: DecisionFilters,
+  options?: { enabled?: boolean },
+): {
   data: DecisionsListResponse | undefined;
   isLoading: boolean;
   isError: boolean;
@@ -126,6 +132,7 @@ export function useDecisionsList(filters: DecisionFilters): {
     queryKey: decisionsQueryKeys.list(filters),
     queryFn: () => fetchDecisionsList(filters),
     staleTime: 15_000,
+    enabled: options?.enabled !== false,
   });
 
   return { data, isLoading, isError, error };
@@ -134,8 +141,14 @@ export function useDecisionsList(filters: DecisionFilters): {
 /**
  * Timeline cronológica de decisões de uma conversa específica.
  * Habilitado apenas quando conversationId não for vazio.
+ *
+ * @param options.enabled - Quando false, a query não é disparada (útil para
+ *   aguardar verificação de permissão antes de fazer fetch).
  */
-export function useConversationTimeline(conversationId: string): {
+export function useConversationTimeline(
+  conversationId: string,
+  options?: { enabled?: boolean },
+): {
   decisions: DecisionItem[];
   isLoading: boolean;
   isError: boolean;
@@ -143,7 +156,7 @@ export function useConversationTimeline(conversationId: string): {
   const { data, isLoading, isError } = useQuery({
     queryKey: decisionsQueryKeys.timeline(conversationId),
     queryFn: () => fetchConversationTimeline(conversationId),
-    enabled: conversationId.length > 0,
+    enabled: options?.enabled !== false && conversationId.length > 0,
     staleTime: 15_000,
   });
 
