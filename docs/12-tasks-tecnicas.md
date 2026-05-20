@@ -527,6 +527,11 @@
 **Arquivos:** `apps/web/src/features/configuracoes/ai-console/playground/**`, `apps/web/src/hooks/ai-console/usePlayground.ts`.
 **Aceite:** form com `mensagem` (textarea) + selector opcional de `lead` e `city` (autocomplete usando endpoints já existentes); toggle "Usar contexto real (read-only)" — quando ligado, passa `lead_id`/`city_id` reais ao backend, que carrega contexto via endpoints `/internal/*` existentes em modo somente leitura; toggle "Sintético" preenche com fixture; botão Rodar; painel direito mostra trace do grafo (nós, intents, prompt versions, tokens, latência) + `reply` final + avisos de DLP (se a mensagem do operador foi mascarada). Banner permanente "DRY-RUN — nada é persistido e nada é enviado ao cliente".
 
+### T9.8 — Parametrização de modelo no editor de prompts (temperature, max_tokens, top_p)
+
+**Arquivos:** `apps/api/src/db/migrations/0030_prompt_versions_llm_params.sql`, `apps/api/src/db/schema/promptVersions.ts`, `apps/api/src/modules/ai-console/prompts/**`, `apps/langgraph-service/app/graphs/whatsapp_pre_attendance/nodes/{classify_intent,qualify_credit_interest,generate_simulation}.py`, `apps/web/src/features/configuracoes/ai-console/prompts/PromptEditor.tsx`.
+**Aceite:** colunas `temperature numeric(3,2)`, `max_tokens int`, `top_p numeric(3,2)` em `prompt_versions` (nullable; `null` = default do gateway); constraints CHECK (temperature 0-2, top_p 0-1, max_tokens 1-32000); editor expõe os 3 campos com tooltip de aviso e fallback "auto"; nós do LangGraph propagam valores não-null ao `gateway.complete()`; nova versão com valores específicos é criada como imutável (sem PATCH); diff entre versões compara os 3 campos.
+
 ---
 
 ## Definition of Done padrão
