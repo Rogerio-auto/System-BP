@@ -237,13 +237,14 @@ export class LangGraphPlaygroundClient {
       clearTimeout(timeoutId);
       if (err instanceof Error && err.name === 'AbortError') {
         throw new ExternalServiceError(`LangGraph playground timeout após ${this.timeoutMs}ms`, {
-          url,
+          // url omitida — não vazar topologia interna ao cliente HTTP
           correlationId,
         });
       }
       throw new ExternalServiceError(
         `LangGraph playground request falhou: ${err instanceof Error ? err.message : String(err)}`,
-        { url, correlationId },
+        // url omitida — não vazar topologia interna ao cliente HTTP
+        { correlationId },
       );
     } finally {
       clearTimeout(timeoutId);

@@ -149,7 +149,7 @@ export async function runPlaygroundSvc(
     if (body.lead_id !== null && body.lead_id !== undefined) {
       leadCtx = await loadLeadContext(db, userCtx.organizationId, body.lead_id);
       if (!leadCtx) {
-        throw new NotFoundError(`Lead '${body.lead_id}' não encontrado`);
+        throw new NotFoundError('Lead não encontrado');
       }
       // Se o lead tem cidade e não foi passado city_id explicitamente, usar a do lead
       if (leadCtx.cityId !== null && (body.city_id === null || body.city_id === undefined)) {
