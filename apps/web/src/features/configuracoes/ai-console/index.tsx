@@ -9,9 +9,11 @@
 //   /configuracoes/ia/prompts/:key                   → PromptDetailPage
 //   /configuracoes/ia/decisoes                       → DecisionsListPage
 //   /configuracoes/ia/decisoes/conversa/:id          → ConversationTimelinePage
+//   /configuracoes/ia/playground                     → PlaygroundPage (F9-S07)
 // =============================================================================
 
 export { PromptsListPage } from './prompts/PromptsListPage';
 export { PromptDetailPage } from './prompts/PromptDetailPage';
 export { DecisionsListPage } from './decisions/DecisionsListPage';
 export { ConversationTimelinePage } from './decisions/ConversationTimelinePage';
+export { PlaygroundPage } from './playground/PlaygroundPage';

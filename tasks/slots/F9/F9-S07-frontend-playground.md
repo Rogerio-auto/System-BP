@@ -3,12 +3,12 @@ id: F9-S07
 title: Frontend — playground (com contexto real opcional + DRY-RUN banner)
 phase: F9
 task_ref: T9.7
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: frontend-engineer
-claimed_at:
-completed_at:
+claimed_at: 2026-05-20T00:40:07Z
+completed_at: 2026-05-20T00:49:57Z
 pr_url:
 depends_on: [F9-S04, F8-S08, F1-S08]
 blocks: []

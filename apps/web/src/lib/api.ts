@@ -266,6 +266,25 @@ export const aiConsole = {
     timeline: <T>(conversationId: string) =>
       apiFetch<T>(`/api/ai-console/decisions/conversations/${encodeURIComponent(conversationId)}`),
   },
+
+  playground: {
+    /**
+     * Executa o playground do agente de IA em modo DRY-RUN (F9-S04).
+     * POST /api/ai-console/playground
+     * LGPD: payload.message pode conter PII — nunca logar.
+     * Permissão exigida: ai_playground:run (admin-only).
+     */
+    run: <T>(body: {
+      message: string;
+      lead_id?: string | null;
+      city_id?: string | null;
+      use_real_context: boolean;
+    }) =>
+      apiFetch<T>('/api/ai-console/playground', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+  },
 } as const;
 
 // ─── Genérico ─────────────────────────────────────────────────────────────────
