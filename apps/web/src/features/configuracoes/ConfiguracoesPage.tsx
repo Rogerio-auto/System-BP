@@ -263,7 +263,7 @@ function AdminSection(): React.JSX.Element {
           },
         ]
       : []),
-    // Agente de IA: gated por ai_prompts:read (admin + gestor_geral)
+    // Agente de IA — Prompts: gated por ai_prompts:read (admin + gestor_geral)
     ...(hasPermission('ai_prompts:read')
       ? [
           {
@@ -272,6 +272,30 @@ function AdminSection(): React.JSX.Element {
               'Gerencie os prompts do agente de IA e controle versões ativas em produção.',
             icon: <IconAgenteIA />,
             href: '/configuracoes/ia/prompts',
+          },
+        ]
+      : []),
+    // Agente de IA — Decisões: gated por ai_decisions:read (admin + gestor_geral + gestor_regional)
+    ...(hasPermission('ai_decisions:read')
+      ? [
+          {
+            title: 'Agente de IA — Decisões',
+            description:
+              'Visualize decisões do agente conversa a conversa: intent, prompt, modelo, tokens e custo.',
+            icon: <IconAgenteIA />,
+            href: '/configuracoes/ia/decisoes',
+          },
+        ]
+      : []),
+    // Agente de IA — Playground: gated por ai_playground:run (admin)
+    ...(hasPermission('ai_playground:run')
+      ? [
+          {
+            title: 'Agente de IA — Playground',
+            description:
+              'Teste o grafo do agente em modo dry-run sem persistir nem enviar ao cliente.',
+            icon: <IconAgenteIA />,
+            href: '/configuracoes/ia/playground',
           },
         ]
       : []),
