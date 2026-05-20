@@ -105,7 +105,11 @@ export type CityResponse = z.infer<typeof CityResponseSchema>;
 
 export const CityListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+  // max(500): autocompletes que precisam de "todas cidades ativas" (AgentCitiesSelect,
+  // AgentList) pedem limit=300 — Rondônia tem 52 municípios hoje mas o limite cobre
+  // expansão pra outros estados sem precisar paginar. Para listas paginadas reais
+  // (UI admin) o consumer mantém limit baixo.
+  limit: z.coerce.number().int().min(1).max(500).default(20),
   search: z.string().max(100).optional(),
   state_uf: z.string().length(2).toUpperCase().optional(),
   is_active: z
