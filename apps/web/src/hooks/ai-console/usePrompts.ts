@@ -1,12 +1,15 @@
 // =============================================================================
 // hooks/ai-console/usePrompts.ts — TanStack Query hooks para gestão de prompts.
 //
-// Consome API F9-S01:
+// Consome API F9-S01/F9-S08:
 //   GET  /api/ai-console/prompts                    — lista keys
 //   GET  /api/ai-console/prompts/:key/versions      — histórico
 //   GET  /api/ai-console/prompts/:key/versions/:v   — detalhe
 //   POST /api/ai-console/prompts/:key/versions      — cria versão
 //   POST /api/ai-console/prompts/:key/versions/:v/activate — ativa
+//
+// F9-S08: PromptVersionResponseSchema e CreateVersionPayload incluem
+//         temperature, max_tokens, top_p (todos nullable).
 //
 // LGPD: o body do prompt NUNCA é logado em console/telemetria.
 // =============================================================================
@@ -38,6 +41,10 @@ const PromptVersionResponseSchema = z.object({
   notes: z.string().nullable(),
   created_by: z.string().uuid().nullable(),
   created_at: z.string().datetime(),
+  /** F9-S08: parâmetros LLM opcionais por versão. null = usar default do gateway. */
+  temperature: z.number().min(0).max(2).nullable(),
+  max_tokens: z.number().int().min(1).max(32_000).nullable(),
+  top_p: z.number().min(0).max(1).nullable(),
 });
 
 const ActivateResponseSchema = z.object({
@@ -58,6 +65,10 @@ export interface CreateVersionPayload {
   body: string;
   model_recommended?: string | null;
   notes?: string | null;
+  /** F9-S08: parâmetros LLM opcionais. null = usar default do gateway. */
+  temperature?: number | null;
+  max_tokens?: number | null;
+  top_p?: number | null;
 }
 
 // ─── Query keys ──────────────────────────────────────────────────────────────

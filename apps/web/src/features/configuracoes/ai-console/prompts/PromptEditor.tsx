@@ -8,6 +8,7 @@
 //   - Chips visuais para placeholders detectados ({lead_name}, {city_name} etc.)
 //   - Campo notes (changelog) obrigatório
 //   - Campo model_recommended (select hardcoded — extendível via endpoint)
+//   - F9-S08: campos temperature, max_tokens, top_p (parâmetros LLM opcionais)
 //   - Botão "Salvar versão" → POST F9-S01
 //
 // Justificativa de deps:
@@ -158,12 +159,21 @@ function PlaceholderChips({ body }: { body: string }): React.JSX.Element | null 
   );
 }
 
+// ─── Tooltip de aviso sobre parâmetros LLM (F9-S08) ─────────────────────────
+
+const LLM_PARAM_TOOLTIP =
+  'Valores não-default afetam consistência e custo das respostas. Teste no Playground antes de ativar.';
+
 // ─── Formulário ───────────────────────────────────────────────────────────────
 
 interface FormValues {
   body: string;
   notes: string;
   model_recommended: string;
+  /** F9-S08: parâmetros LLM opcionais. Vazio = usar default do gateway. */
+  temperature: string;
+  max_tokens: string;
+  top_p: string;
 }
 
 interface PromptEditorProps {
@@ -189,17 +199,35 @@ export function PromptEditor({
     watch,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: { body: '', notes: '', model_recommended: '' },
+    defaultValues: {
+      body: '',
+      notes: '',
+      model_recommended: '',
+      // F9-S08: vazios = null (usar default do gateway)
+      temperature: '',
+      max_tokens: '',
+      top_p: '',
+    },
   });
 
   // Observa body em tempo real para preview e placeholders
   const bodyValue = watch('body');
 
   const onSubmit = handleSubmit((values) => {
+    // F9-S08: converte strings vazias → null; strings não-vazias → número.
+    // parseFloat/parseInt retornam NaN para strings inválidas — o Zod no backend
+    // rejeita NaN, mas a validação do RHF já impede submit com valores inválidos.
+    const temperatureRaw = values.temperature.trim();
+    const maxTokensRaw = values.max_tokens.trim();
+    const topPRaw = values.top_p.trim();
+
     const payload: CreateVersionPayload = {
       body: values.body,
       notes: values.notes || null,
       model_recommended: values.model_recommended || null,
+      temperature: temperatureRaw !== '' ? parseFloat(temperatureRaw) : null,
+      max_tokens: maxTokensRaw !== '' ? parseInt(maxTokensRaw, 10) : null,
+      top_p: topPRaw !== '' ? parseFloat(topPRaw) : null,
     };
     createVersion(payload, { onSuccess });
   });
@@ -280,6 +308,189 @@ export function PromptEditor({
               maxLength: { value: 2000, message: 'Máximo 2000 caracteres' },
             })}
           />
+        </div>
+
+        {/* ── F9-S08: Parâmetros LLM (temperature, max_tokens, top_p) ──── */}
+        {/* Separador visual */}
+        <div className="w-full border-t border-border my-1" />
+        <div className="w-full flex flex-wrap gap-4 items-start">
+          <div className="flex items-center gap-1.5 w-full mb-0.5">
+            <span
+              className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-3"
+              style={{ fontSize: '0.65rem' }}
+            >
+              Parâmetros do modelo
+            </span>
+            {/* Tooltip de aviso */}
+            <div className="relative group">
+              <button
+                type="button"
+                className="flex items-center justify-center w-4 h-4 rounded-full text-ink-4 hover:text-ink-2 transition-colors duration-fast"
+                aria-label="Sobre parâmetros do modelo"
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  className="w-3.5 h-3.5"
+                  aria-hidden="true"
+                >
+                  <circle cx="8" cy="8" r="6.5" />
+                  <path d="M8 7v4M8 5.5v.5" strokeLinecap="round" />
+                </svg>
+              </button>
+              <div
+                className="absolute left-5 top-0 z-50 hidden group-hover:block w-72 p-2.5 rounded-md border border-border text-xs font-sans leading-relaxed shadow-lg"
+                style={{
+                  background: 'var(--bg-elev-3)',
+                  color: 'var(--ink-2)',
+                  boxShadow: 'var(--elev-4)',
+                }}
+                role="tooltip"
+              >
+                {LLM_PARAM_TOOLTIP}
+              </div>
+            </div>
+            <span className="font-sans text-xs text-ink-4" style={{ fontSize: '0.65rem' }}>
+              Vazio = padrão do gateway
+            </span>
+          </div>
+
+          {/* temperature */}
+          <div className="flex flex-col gap-1 min-w-[130px]">
+            <Label htmlFor="temperature">
+              Temperature
+              <span className="ml-1 font-mono text-ink-4" style={{ fontSize: '0.65rem' }}>
+                [0–2]
+              </span>
+            </Label>
+            <input
+              id="temperature"
+              type="number"
+              step="0.01"
+              min={0}
+              max={2}
+              placeholder="auto"
+              aria-describedby={errors.temperature ? 'temperature-error' : undefined}
+              {...register('temperature', {
+                validate: (v) => {
+                  if (v === '' || v === undefined) return true;
+                  const n = parseFloat(v);
+                  if (isNaN(n)) return 'Número inválido';
+                  if (n < 0 || n > 2) return 'Deve estar entre 0 e 2';
+                  return true;
+                },
+              })}
+              className={cn(
+                'font-mono text-sm text-ink rounded-sm px-3 py-2',
+                'border border-border-strong bg-surface-1',
+                'shadow-[inset_0_1px_2px_var(--border-inner-dark)]',
+                'focus:outline-none focus:border-azul',
+                'focus:shadow-[0_0_0_3px_rgba(27,58,140,0.15),inset_0_1px_2px_var(--border-inner-dark)]',
+                'transition-[border-color,box-shadow] duration-fast ease w-full',
+                errors.temperature && 'ring-2 ring-danger/30',
+              )}
+            />
+            {errors.temperature && (
+              <p id="temperature-error" className="text-xs text-danger">
+                {errors.temperature.message}
+              </p>
+            )}
+            <p className="font-sans text-ink-4" style={{ fontSize: '0.65rem' }}>
+              Aleatoriedade. 0 = determinístico
+            </p>
+          </div>
+
+          {/* max_tokens */}
+          <div className="flex flex-col gap-1 min-w-[130px]">
+            <Label htmlFor="max_tokens">
+              Max tokens
+              <span className="ml-1 font-mono text-ink-4" style={{ fontSize: '0.65rem' }}>
+                [1–32000]
+              </span>
+            </Label>
+            <input
+              id="max_tokens"
+              type="number"
+              step="1"
+              min={1}
+              max={32000}
+              placeholder="auto"
+              aria-describedby={errors.max_tokens ? 'max-tokens-error' : undefined}
+              {...register('max_tokens', {
+                validate: (v) => {
+                  if (v === '' || v === undefined) return true;
+                  const n = parseInt(v, 10);
+                  if (isNaN(n)) return 'Número inválido';
+                  if (n < 1 || n > 32000) return 'Deve estar entre 1 e 32000';
+                  return true;
+                },
+              })}
+              className={cn(
+                'font-mono text-sm text-ink rounded-sm px-3 py-2',
+                'border border-border-strong bg-surface-1',
+                'shadow-[inset_0_1px_2px_var(--border-inner-dark)]',
+                'focus:outline-none focus:border-azul',
+                'focus:shadow-[0_0_0_3px_rgba(27,58,140,0.15),inset_0_1px_2px_var(--border-inner-dark)]',
+                'transition-[border-color,box-shadow] duration-fast ease w-full',
+                errors.max_tokens && 'ring-2 ring-danger/30',
+              )}
+            />
+            {errors.max_tokens && (
+              <p id="max-tokens-error" className="text-xs text-danger">
+                {errors.max_tokens.message}
+              </p>
+            )}
+            <p className="font-sans text-ink-4" style={{ fontSize: '0.65rem' }}>
+              Limite de tokens na resposta
+            </p>
+          </div>
+
+          {/* top_p */}
+          <div className="flex flex-col gap-1 min-w-[130px]">
+            <Label htmlFor="top_p">
+              Top-p
+              <span className="ml-1 font-mono text-ink-4" style={{ fontSize: '0.65rem' }}>
+                [0–1]
+              </span>
+            </Label>
+            <input
+              id="top_p"
+              type="number"
+              step="0.01"
+              min={0}
+              max={1}
+              placeholder="auto"
+              aria-describedby={errors.top_p ? 'top-p-error' : undefined}
+              {...register('top_p', {
+                validate: (v) => {
+                  if (v === '' || v === undefined) return true;
+                  const n = parseFloat(v);
+                  if (isNaN(n)) return 'Número inválido';
+                  if (n < 0 || n > 1) return 'Deve estar entre 0 e 1';
+                  return true;
+                },
+              })}
+              className={cn(
+                'font-mono text-sm text-ink rounded-sm px-3 py-2',
+                'border border-border-strong bg-surface-1',
+                'shadow-[inset_0_1px_2px_var(--border-inner-dark)]',
+                'focus:outline-none focus:border-azul',
+                'focus:shadow-[0_0_0_3px_rgba(27,58,140,0.15),inset_0_1px_2px_var(--border-inner-dark)]',
+                'transition-[border-color,box-shadow] duration-fast ease w-full',
+                errors.top_p && 'ring-2 ring-danger/30',
+              )}
+            />
+            {errors.top_p && (
+              <p id="top-p-error" className="text-xs text-danger">
+                {errors.top_p.message}
+              </p>
+            )}
+            <p className="font-sans text-ink-4" style={{ fontSize: '0.65rem' }}>
+              Nucleus sampling (diversidade)
+            </p>
+          </div>
         </div>
       </div>
 

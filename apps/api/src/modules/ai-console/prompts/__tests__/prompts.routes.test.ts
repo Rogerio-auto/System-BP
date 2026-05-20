@@ -1,5 +1,5 @@
 // =============================================================================
-// ai-console/prompts/__tests__/prompts.routes.test.ts — Testes de integração (F9-S01).
+// ai-console/prompts/__tests__/prompts.routes.test.ts — Testes de integração.
 //
 // Estratégia: sobe Fastify com promptsRoutes, mocka authenticate/authorize
 // e service para controlar contexto e dados sem tocar no banco real.
@@ -18,6 +18,12 @@
 //   11. RBAC: agente não pode ler (403)
 //   12. RBAC: sem autenticação → 403
 //   13. Ativação atômica: rollback simulado → service lança, resposta 500
+// F9-S08 additions:
+//   14. POST com temperature, max_tokens, top_p → 201 com campos preenchidos
+//   15. POST com temperature inválida (3.0) → 400
+//   16. POST com top_p inválido (> 1) → 400
+//   17. POST com max_tokens inválido (0) → 400
+//   18. POST sem os 3 campos → 201 com null em temperature, max_tokens, top_p
 // =============================================================================
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
@@ -114,6 +120,10 @@ function makeVersionResponse(overrides: Record<string, unknown> = {}) {
     notes: null,
     created_by: FIXTURE_USER_ID,
     created_at: new Date().toISOString(),
+    // F9-S08: parâmetros LLM
+    temperature: null,
+    max_tokens: null,
+    top_p: null,
     ...overrides,
   };
 }
@@ -537,6 +547,115 @@ describe('RBAC — ai-console/prompts', () => {
 
     expect(res.statusCode).toBe(200);
     await adminApp.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F9-S08 — Parâmetros LLM por versão (temperature, max_tokens, top_p)
+// ---------------------------------------------------------------------------
+
+describe('F9-S08 — parâmetros LLM por versão', () => {
+  it('retorna 201 com temperature, max_tokens e top_p preenchidos', async () => {
+    mockCreateVersionSvc.mockResolvedValue(
+      makeVersionResponse({
+        temperature: 0.7,
+        max_tokens: 512,
+        top_p: 0.9,
+      }),
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/ai-console/prompts/${FIXTURE_KEY}/versions`,
+      payload: {
+        body: 'Prompt de teste sem PII.',
+        temperature: 0.7,
+        max_tokens: 512,
+        top_p: 0.9,
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json<Record<string, unknown>>();
+    expect(body['temperature']).toBe(0.7);
+    expect(body['max_tokens']).toBe(512);
+    expect(body['top_p']).toBe(0.9);
+  });
+
+  it('retorna 201 com null em temperature, max_tokens e top_p quando ausentes', async () => {
+    mockCreateVersionSvc.mockResolvedValue(makeVersionResponse());
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/ai-console/prompts/${FIXTURE_KEY}/versions`,
+      payload: { body: 'Prompt sem parâmetros LLM.' },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json<Record<string, unknown>>();
+    expect(body['temperature']).toBeNull();
+    expect(body['max_tokens']).toBeNull();
+    expect(body['top_p']).toBeNull();
+  });
+
+  it('retorna 400 quando temperature > 2 (fora do range)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/ai-console/prompts/${FIXTURE_KEY}/versions`,
+      payload: { body: 'Prompt de teste.', temperature: 3.0 },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('retorna 400 quando top_p > 1 (fora do range)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/ai-console/prompts/${FIXTURE_KEY}/versions`,
+      payload: { body: 'Prompt de teste.', top_p: 1.5 },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('retorna 400 quando max_tokens = 0 (abaixo do mínimo)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/ai-console/prompts/${FIXTURE_KEY}/versions`,
+      payload: { body: 'Prompt de teste.', max_tokens: 0 },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('service é chamado com os 3 campos quando fornecidos', async () => {
+    mockCreateVersionSvc.mockResolvedValue(
+      makeVersionResponse({ temperature: 0.2, max_tokens: 256, top_p: 0.95 }),
+    );
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/ai-console/prompts/${FIXTURE_KEY}/versions`,
+      payload: {
+        body: 'Prompt de teste sem PII.',
+        temperature: 0.2,
+        max_tokens: 256,
+        top_p: 0.95,
+      },
+    });
+
+    expect(mockCreateVersionSvc).toHaveBeenCalledWith(
+      expect.anything(), // db
+      FIXTURE_KEY,
+      expect.objectContaining({
+        body: 'Prompt de teste sem PII.',
+        temperature: 0.2,
+        max_tokens: 256,
+        top_p: 0.95,
+      }),
+      expect.anything(), // context
+      null, // no idempotency key
+    );
   });
 });
 

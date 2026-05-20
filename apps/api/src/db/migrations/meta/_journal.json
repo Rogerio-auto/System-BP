@@ -197,6 +197,13 @@
       "when": 1779408000000,
       "tag": "0029_seed_ai_playground_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1779494400000,
+      "tag": "0030_prompt_versions_llm_params",
+      "breakpoints": true
     }
   ]
 }

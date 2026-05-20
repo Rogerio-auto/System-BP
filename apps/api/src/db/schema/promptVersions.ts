@@ -26,6 +26,9 @@
 //                       com placeholders (ex: {lead_name}, {city_name}).
 //   - notes:            changelog/motivação da versão (para auditoria interna).
 //   - created_by:       usuário que publicou esta versão.
+//   - temperature:      [0,2] ou null (usar default do gateway). F9-S08.
+//   - max_tokens:       [1,32000] ou null. F9-S08.
+//   - top_p:            [0,1] ou null. F9-S08.
 //
 // LGPD: não há PII nesta tabela.
 //   - body pode conter exemplos de mensagens, mas não dados reais de clientes.
@@ -38,9 +41,11 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   foreignKey,
   index,
   integer,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -121,6 +126,30 @@ export const promptVersions = pgTable(
      * Timestamp de criação do registro.
      * Para prompts versionados, equivale à data de publicação.
      */
+    /**
+     * Temperatura do LLM (aleatoriedade). Valores: [0, 2].
+     * null = usar default do gateway. NUNCA defina default não-null aqui.
+     * CHECK: (temperature IS NULL OR temperature BETWEEN 0 AND 2).
+     * Definido apenas na criação da versão — imutável após insert (F9-S08).
+     */
+    temperature: numeric('temperature', { precision: 4, scale: 2 }),
+
+    /**
+     * Limite de tokens na resposta. Valores: [1, 32000].
+     * null = usar default do gateway. NUNCA defina default não-null aqui.
+     * CHECK: (max_tokens IS NULL OR max_tokens BETWEEN 1 AND 32000).
+     * Definido apenas na criação da versão — imutável após insert (F9-S08).
+     */
+    maxTokens: integer('max_tokens'),
+
+    /**
+     * Nucleus sampling (top-p). Valores: [0, 1].
+     * null = usar default do gateway. NUNCA defina default não-null aqui.
+     * CHECK: (top_p IS NULL OR top_p BETWEEN 0 AND 1).
+     * Definido apenas na criação da versão — imutável após insert (F9-S08).
+     */
+    topP: numeric('top_p', { precision: 4, scale: 3 }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     // Sem updatedAt — prompt_versions é imutável após criação.
     // Para alterar: criar nova versão com version + 1.
@@ -159,6 +188,39 @@ export const promptVersions = pgTable(
     idxActiveByKey: index('idx_prompt_versions_active_key')
       .on(table.key)
       .where(sql`${table.active} = true`),
+
+    // -------------------------------------------------------------------------
+    // Check Constraints (F9-S08 — LLM params)
+    // Valem apenas quando o valor é não-null.
+    // Espelham os CHECKs da migration 0030.
+    // -------------------------------------------------------------------------
+
+    /**
+     * temperature: [0, 2] quando não-null.
+     * Escala usual dos modelos OpenRouter/Anthropic/OpenAI.
+     */
+    chkTemperature: check(
+      'chk_prompt_versions_temperature',
+      sql`${table.temperature} IS NULL OR (${table.temperature} >= 0 AND ${table.temperature} <= 2)`,
+    ),
+
+    /**
+     * max_tokens: [1, 32000] quando não-null.
+     * Limite conservador que cobre todos os modelos atuais do OpenRouter.
+     */
+    chkMaxTokens: check(
+      'chk_prompt_versions_max_tokens',
+      sql`${table.maxTokens} IS NULL OR (${table.maxTokens} >= 1 AND ${table.maxTokens} <= 32000)`,
+    ),
+
+    /**
+     * top_p: [0, 1] quando não-null.
+     * Probabilidade de nucleus sampling — sempre dentro de [0,1].
+     */
+    chkTopP: check(
+      'chk_prompt_versions_top_p',
+      sql`${table.topP} IS NULL OR (${table.topP} >= 0 AND ${table.topP} <= 1)`,
+    ),
   }),
 );
 

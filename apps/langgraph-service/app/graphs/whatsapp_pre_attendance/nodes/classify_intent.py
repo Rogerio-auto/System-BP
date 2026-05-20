@@ -11,6 +11,8 @@ Responsabilidades:
   ``"nao_entendi"``.
 - Registrar ``prompt_key`` e ``prompt_version`` no estado para uso posterior pelo
   nó ``log_decision``.
+- F9-S08: aplica temperature/max_tokens/top_p do frontmatter do prompt quando
+  presentes (campos opcionais — null/ausente → usar hardcoded defaults do nó).
 
 Restrições (doc 06 §5.6):
 - O nó não aprova crédito, não vaza dados internos, não chama Postgres diretamente.
@@ -42,17 +44,22 @@ _VALID_INTENTS: frozenset[str] = frozenset(get_args(IntentLiteral))
 
 _FALLBACK_INTENT = "nao_entendi"
 
+# Defaults hardcoded para classify_intent (usados quando o prompt não define os campos)
+_DEFAULT_TEMPERATURE = 0.0   # classificação deve ser determinística
+_DEFAULT_MAX_TOKENS = 32      # intenção é curta; economiza tokens
+
 # ---------------------------------------------------------------------------
 # Carregamento e parse do prompt versionado
 # ---------------------------------------------------------------------------
 
 
-def _load_prompt() -> tuple[str, str, str]:
+def _load_prompt() -> tuple[str, str, str, float | None, int | None, float | None]:
     """Carrega o prompt versionado e extrai metadados do header YAML.
 
     Returns:
-        Tupla (prompt_key, prompt_version, prompt_body) onde ``prompt_body``
-        é o conteúdo sem o bloco frontmatter YAML.
+        Tupla (prompt_key, prompt_version, prompt_body, temperature, max_tokens, top_p).
+        Os três últimos campos são None quando ausentes do frontmatter (F9-S08).
+        O chamador é responsável por aplicar os defaults quando None.
 
     Raises:
         RuntimeError: Se o arquivo não existir ou o header YAML estiver mal formado.
@@ -76,7 +83,40 @@ def _load_prompt() -> tuple[str, str, str]:
             raise RuntimeError(f"Campo '{field}' ausente no header YAML do prompt.")
         return m.group(1).strip()
 
-    return _extract("key"), _extract("version"), body
+    def _extract_optional_float(field: str) -> float | None:
+        """Extrai campo numérico float opcional do frontmatter (F9-S08)."""
+        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
+        if not m:
+            return None
+        raw_val = m.group(1).strip()
+        # Suporte a valores null/~ do YAML
+        if raw_val.lower() in ("null", "~", ""):
+            return None
+        try:
+            return float(raw_val)
+        except ValueError:
+            return None
+
+    def _extract_optional_int(field: str) -> int | None:
+        """Extrai campo numérico inteiro opcional do frontmatter (F9-S08)."""
+        m = re.search(rf"^{field}:\s*(.+)$", frontmatter, re.MULTILINE)
+        if not m:
+            return None
+        raw_val = m.group(1).strip()
+        if raw_val.lower() in ("null", "~", ""):
+            return None
+        try:
+            return int(raw_val)
+        except ValueError:
+            return None
+
+    key = _extract("key")
+    version = _extract("version")
+    temperature = _extract_optional_float("temperature")
+    max_tokens = _extract_optional_int("max_tokens")
+    top_p = _extract_optional_float("top_p")
+
+    return key, version, body, temperature, max_tokens, top_p
 
 
 # ---------------------------------------------------------------------------
@@ -144,8 +184,19 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
     lead_id: str | None = state.get("lead_id")
 
     try:
-        # --- Carrega prompt versionado
-        prompt_key, prompt_version, prompt_body = _load_prompt()
+        # --- Carrega prompt versionado (F9-S08: retorna params LLM do frontmatter)
+        prompt_key, prompt_version, prompt_body, fm_temperature, fm_max_tokens, fm_top_p = (
+            _load_prompt()
+        )
+
+        # F9-S08: usa parâmetros do frontmatter quando presentes, defaults caso contrário.
+        # null no frontmatter = usar default hardcoded (não force nenhum valor ao gateway).
+        effective_temperature = (
+            fm_temperature if fm_temperature is not None else _DEFAULT_TEMPERATURE
+        )
+        effective_max_tokens = (
+            fm_max_tokens if fm_max_tokens is not None else _DEFAULT_MAX_TOKENS
+        )
 
         # --- DLP: remove PII antes de enviar ao gateway (LGPD §8.4)
         dlp_result = redact_pii(user_text)
@@ -166,22 +217,30 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
         ]
 
         # --- Chama o LLM via gateway (modelo barato para classificação)
+        # F9-S08: temperature e max_tokens vêm do frontmatter do prompt (ou defaults).
+        # top_p é omitido quando null para não forçar valor ao gateway.
         gateway = get_gateway()
-        response = await gateway.complete(
-            model=for_role("classifier"),
-            messages=llm_messages,
-            temperature=0.0,      # classificação deve ser determinística
-            max_tokens=32,        # intenção é curta; economiza tokens
-            metadata={
+        complete_kwargs: dict[str, Any] = {
+            "model": for_role("classifier"),
+            "messages": llm_messages,
+            "temperature": effective_temperature,
+            "max_tokens": effective_max_tokens,
+            "metadata": {
                 "node": "classify_intent",
                 "lead_id": lead_id,
                 "prompt_key": prompt_key,
                 "prompt_version": prompt_version,
                 "conversation_id": conversation_id,
             },
-            conversation_id=conversation_id,
-            dlp=False,            # DLP já aplicado manualmente acima
-        )
+            "conversation_id": conversation_id,
+            "dlp": False,  # DLP já aplicado manualmente acima
+        }
+        # top_p: inclui no payload apenas quando explicitamente definido no prompt.
+        # Omitir é diferente de passar None — evita sobrescrever o default do gateway.
+        if fm_top_p is not None:
+            complete_kwargs["top_p"] = fm_top_p
+
+        response = await gateway.complete(**complete_kwargs)
 
         # --- Valida saída contra o enum canônico
         intent = _validate_intent(response.content)

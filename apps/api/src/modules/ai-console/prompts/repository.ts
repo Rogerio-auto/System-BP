@@ -263,6 +263,10 @@ function mapRawRowToPromptVersion(row: Record<string, unknown>): PromptVersion {
     notes: (row['notes'] as string | null) ?? null,
     createdBy: (row['created_by'] as string | null) ?? null,
     createdAt: new Date(row['created_at'] as string),
+    // F9-S08: parâmetros LLM — numeric() retorna string do Postgres via sql raw
+    temperature: (row['temperature'] as string | null) ?? null,
+    maxTokens: (row['max_tokens'] as number | null) ?? null,
+    topP: (row['top_p'] as string | null) ?? null,
   } satisfies PromptVersion;
 }
 

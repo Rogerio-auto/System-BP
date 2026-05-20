@@ -201,6 +201,46 @@ function VersionDetailPanel({
         </div>
       </div>
 
+      {/* F9-S08: Parâmetros LLM — grid de 3 campos */}
+      <div
+        className="grid grid-cols-3 gap-3 p-4 rounded-md border border-border"
+        style={{ background: 'var(--bg-elev-2)', boxShadow: 'var(--elev-1)' }}
+      >
+        <div className="flex flex-col gap-0.5">
+          <span
+            className="font-sans text-xs uppercase tracking-widest text-ink-3"
+            style={{ fontSize: '0.65rem' }}
+          >
+            Temperature
+          </span>
+          <span className="font-mono text-xs text-ink-2">
+            {version.temperature !== null ? String(version.temperature) : 'auto'}
+          </span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span
+            className="font-sans text-xs uppercase tracking-widest text-ink-3"
+            style={{ fontSize: '0.65rem' }}
+          >
+            Max tokens
+          </span>
+          <span className="font-mono text-xs text-ink-2">
+            {version.max_tokens !== null ? String(version.max_tokens) : 'auto'}
+          </span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span
+            className="font-sans text-xs uppercase tracking-widest text-ink-3"
+            style={{ fontSize: '0.65rem' }}
+          >
+            Top-p
+          </span>
+          <span className="font-mono text-xs text-ink-2">
+            {version.top_p !== null ? String(version.top_p) : 'auto'}
+          </span>
+        </div>
+      </div>
+
       {/* Notes */}
       {version.notes && (
         <div
