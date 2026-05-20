@@ -168,6 +168,11 @@ const PERMISSIONS = [
     key: 'ai_decisions:read',
     description: 'Leitura de logs de decisão do agente LangGraph (ai_decision_logs)',
   },
+  // ai-console/playground — F9-S04 (migration 0029_seed_ai_playground_permission)
+  {
+    key: 'ai_playground:run',
+    description: 'Execução do playground dry-run do agente LangGraph (somente admin)',
+  },
 ] as const;
 
 /**
@@ -211,6 +216,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'ai_prompts:activate',
     // ai-console/decisions — F9-S02
     'ai_decisions:read',
+    // ai-console/playground — F9-S04 (admin-only)
+    'ai_playground:run',
   ],
   gestor_geral: [
     'leads:read',

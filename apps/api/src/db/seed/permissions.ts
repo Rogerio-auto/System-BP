@@ -1,5 +1,6 @@
 // =============================================================================
-// db/seed/permissions.ts — Seed de permissões RBAC para módulo ai-console (F9-S01/F9-S02).
+// db/seed/permissions.ts — Seed de permissões RBAC para módulo ai-console
+//                         (F9-S01 / F9-S02 / F9-S04).
 //
 // Permissões criadas:
 //   ai-console/prompts (F9-S01):
@@ -10,13 +11,18 @@
 //   ai-console/decisions (F9-S02):
 //   - ai_decisions:read   — leitura de ai_decision_logs (admin + gestor_geral + gestor_regional)
 //
+//   ai-console/playground (F9-S04):
+//   - ai_playground:run   — execução do playground dry-run (admin only)
+//
 // Atribuições (doc 10 §3.2 + §74):
-//   - admin:           ai_prompts:read + ai_prompts:write + ai_prompts:activate + ai_decisions:read
+//   - admin:           ai_prompts:read + ai_prompts:write + ai_prompts:activate
+//                      + ai_decisions:read + ai_playground:run
 //   - gestor_geral:    ai_prompts:read + ai_decisions:read
 //   - gestor_regional: ai_decisions:read (city-scoped via leads.city_id no código)
 //
 // Uso: este arquivo documenta o SQL de seed correspondente às migrations
-// 0027_seed_ai_prompts_permissions.sql e 0028_seed_ai_decisions_permission.sql.
+// 0027_seed_ai_prompts_permissions.sql, 0028_seed_ai_decisions_permission.sql e
+// 0029_seed_ai_playground_permission.sql.
 // O seed pode ser executado diretamente em ambiente de desenvolvimento ou via
 // script de inicialização do banco.
 //
@@ -65,3 +71,21 @@ export const AI_DECISIONS_PERMISSIONS = [
 ] as const;
 
 export type AiDecisionsPermissionKey = (typeof AI_DECISIONS_PERMISSIONS)[number]['key'];
+
+/**
+ * Definição das permissões do módulo ai-console/playground.
+ * Corresponde ao SQL da migration 0029_seed_ai_playground_permission.sql.
+ *
+ * Nota: ai_playground:run é admin-only — acesso privilegiado ao dry-run do grafo
+ * LangGraph. O middleware `authorize({ permissions: ['ai_playground:run'] })` é a
+ * única barreira de RBAC (sem role-name check no service).
+ */
+export const AI_PLAYGROUND_PERMISSIONS = [
+  {
+    key: 'ai_playground:run',
+    description: 'Execução do playground dry-run do agente LangGraph (somente admin)',
+    roles: ['admin'],
+  },
+] as const;
+
+export type AiPlaygroundPermissionKey = (typeof AI_PLAYGROUND_PERMISSIONS)[number]['key'];

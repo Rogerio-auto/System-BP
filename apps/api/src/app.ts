@@ -18,6 +18,7 @@ import { accountRoutes } from './modules/account/routes.js';
 import { adminDlqRoutes } from './modules/admin/dlq.routes.js';
 import { agentsRoutes } from './modules/agents/routes.js';
 import { decisionsRoutes } from './modules/ai-console/decisions/index.js';
+import { playgroundRoutes } from './modules/ai-console/playground/index.js';
 import { promptsRoutes } from './modules/ai-console/prompts/index.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
@@ -117,6 +118,12 @@ export async function buildApp() {
           // Chatwoot PII (F1-S20) — LGPD §8.3
           // *.content pode conter texto livre do cidadão (mensagens, notas internas)
           '*.content',
+          // Playground (F9-S04) — LGPD §8.4
+          // *.message pode conter mensagem do operador (PII potencial antes de DLP)
+          '*.message',
+          'req.body.message',
+          // dlp_tokens: lista de placeholders — não é PII mas pode dar contexto sobre o tipo
+          '*.dlp_tokens',
         ],
         censor: '[REDACTED]',
       },
@@ -185,6 +192,8 @@ export async function buildApp() {
   await app.register(promptsRoutes, { prefix: '/api/ai-console/prompts' });
   // Console de IA — viewer de decisões ai_decision_logs (F9-S02)
   await app.register(decisionsRoutes, { prefix: '/api/ai-console/decisions' });
+  // Console de IA — playground dry-run (F9-S04) + DLP na entrada do operador
+  await app.register(playgroundRoutes, { prefix: '/api/ai-console/playground' });
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.
