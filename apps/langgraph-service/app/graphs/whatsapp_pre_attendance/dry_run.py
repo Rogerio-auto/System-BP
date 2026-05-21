@@ -154,6 +154,31 @@ def _stub_conversation_state(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _stub_cities_identify(body: dict[str, Any]) -> dict[str, Any]:
+    """Stub para POST /internal/cities/identify.
+
+    Tool consumidor: ``identify_city`` em ``app/tools/city_tools.py`` faz
+    ``IdentifyCityResult.model_validate(raw)`` — exige ``matched: bool`` e
+    ``confidence: float``. Sem isso vira 2 ValidationErrors → 422 no playground.
+
+    Estratégia no dry-run sintético: o operador apenas digita texto livre, sem
+    contexto pra saber se é nome de cidade. Retornamos ``matched=False`` +
+    ``alternatives=[]`` — o grafo cai em fluxo de pedir confirmação ou
+    out-of-service, o que é mais informativo que erro silencioso para quem
+    está testando.
+    """
+    _ = body  # body de input não influencia a resposta sintética
+    return {
+        "city_id": None,
+        "city_name": None,
+        "matched": False,
+        "confidence": 0.0,
+        "out_of_service": False,
+        "alternatives": [],
+        "dry_run": True,
+    }
+
+
 def _stub_simulations_sent(body: dict[str, Any]) -> dict[str, Any]:
     """Stub para POST /internal/simulations/:id/sent → MarkSimulationSentOutput."""
     return {
@@ -171,6 +196,7 @@ _PATH_TO_STUB_FACTORY: dict[re.Pattern[str], Callable[[dict[str, Any]], dict[str
     re.compile(r"^/internal/leads/get-or-create$"): _stub_leads_get_or_create,
     re.compile(r"^/internal/leads/[^/]+/profile$"): _stub_leads_patch,
     re.compile(r"^/internal/leads/[^/]+$"): _stub_leads_patch,
+    re.compile(r"^/internal/cities/identify$"): _stub_cities_identify,
     re.compile(r"^/internal/simulations/[^/]+/sent$"): _stub_simulations_sent,
     re.compile(r"^/internal/simulations$"): _stub_simulations,
     re.compile(r"^/internal/ai/decisions$"): _stub_ai_decisions,
