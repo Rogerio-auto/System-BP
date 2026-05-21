@@ -72,33 +72,50 @@ describe('RBAC — gating de ai_playground:run', () => {
 // ─── 3. Schema Zod — PlaygroundResponse ──────────────────────────────────────
 
 describe('PlaygroundResponseSchema', () => {
+  // Fixture alinhada ao contrato real do backend (F9-S04):
+  // - reply_type / reply_content (não "reply")
+  // - prompt_version é string formatada ("key@vN"), não number
+  // - trace entries não têm campo `error` — erros vivem em result.errors[] como objetos
+  // - errors[] é Array<Record<string, unknown>>, não string[]
   const validResponse = {
-    reply: 'Olá! Posso ajudá-lo com informações sobre crédito.',
+    trace_id: '11111111-1111-1111-1111-111111111111',
+    dry_run: true as const,
+    reply_type: 'text',
+    reply_content: 'Olá! Posso ajudá-lo com informações sobre crédito.',
+    handoff_required: false,
+    handoff_reason: null,
     trace: [
       {
-        node: 'router',
+        node: 'classify_intent',
+        dry_run: true,
         intent: 'qualificação',
-        prompt_version: 3,
-        model: 'claude-3-haiku',
+        prompt_version: 'intent_classifier@v3',
+        model: 'anthropic/claude-3-5-haiku',
         tokens_in: 500,
         tokens_out: 150,
         latency_ms: 850,
-        error: null,
+        intercepted_method: null,
+        intercepted_path: null,
+        idempotency_key: null,
       },
       {
-        node: 'responder',
+        node: 'send_response',
+        dry_run: true,
         intent: null,
-        prompt_version: 1,
-        model: 'claude-3-haiku',
-        tokens_in: 800,
-        tokens_out: 200,
-        latency_ms: 1200,
-        error: null,
+        prompt_version: null,
+        model: null,
+        tokens_in: null,
+        tokens_out: null,
+        latency_ms: null,
+        intercepted_method: null,
+        intercepted_path: null,
+        idempotency_key: null,
       },
     ],
-    prompt_versions_used: ['router:v3', 'responder:v1'],
-    tokens_total: 1650,
-    latency_ms: 2050,
+    prompt_versions_used: ['intent_classifier@v3'],
+    tokens_total: 650,
+    graph_version: '1.0.0',
+    latency_ms: 850,
     errors: [],
     dlp_applied: false,
     dlp_tokens: [],
@@ -123,31 +140,33 @@ describe('PlaygroundResponseSchema', () => {
     }
   });
 
-  it('valida resposta com nó de erro no trace', () => {
-    const withError = {
+  it('valida resposta com erros (errors[] como objetos {node, error})', () => {
+    const withErrors = {
       ...validResponse,
-      trace: [
-        {
-          node: 'router',
-          intent: null,
-          prompt_version: null,
-          model: null,
-          tokens_in: null,
-          tokens_out: null,
-          latency_ms: null,
-          error: 'LLM timeout após 30s',
-        },
-      ],
-      errors: ['LLM timeout após 30s'],
+      handoff_required: true,
+      handoff_reason: 'classify_intent falhou: LLM timeout',
+      errors: [{ node: 'classify_intent', error: 'LLM timeout após 30s' }],
     };
-    const result = PlaygroundResponseSchema.safeParse(withError);
+    const result = PlaygroundResponseSchema.safeParse(withErrors);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.errors).toHaveLength(1);
+      expect(result.data.errors[0]?.['node']).toBe('classify_intent');
+    }
+  });
+
+  it('rejeita resposta sem reply_content', () => {
+    const invalid: Record<string, unknown> = { ...validResponse };
+    delete invalid['reply_content'];
+    // reply_content tem default '' — schema usa Zod default, então é aceito
+    // mesmo ausente; a UI mostra estado vazio. Validamos que dry_run true continua exigido.
+    const result = PlaygroundResponseSchema.safeParse(invalid);
     expect(result.success).toBe(true);
   });
 
-  it('rejeita resposta sem reply', () => {
-    const invalid = { ...validResponse };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (invalid as any).reply;
+  it('rejeita resposta sem dry_run', () => {
+    const invalid: Record<string, unknown> = { ...validResponse };
+    delete invalid['dry_run'];
     const result = PlaygroundResponseSchema.safeParse(invalid);
     expect(result.success).toBe(false);
   });

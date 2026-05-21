@@ -116,10 +116,16 @@ function fmtTokens(
 interface TraceNodeCardProps {
   node: PlaygroundTraceNode;
   index: number;
+  /**
+   * Mensagem de erro associada a este nó, derivada do array `errors[]` da
+   * response (cruzando pelo nome do node). O contrato do backend não carrega
+   * `error` por entry de trace — erros vivem em `result.errors[]` (objetos).
+   */
+  nodeError?: string | null;
 }
 
-function TraceNodeCard({ node, index }: TraceNodeCardProps): React.JSX.Element {
-  const hasError = Boolean(node.error);
+function TraceNodeCard({ node, index, nodeError }: TraceNodeCardProps): React.JSX.Element {
+  const hasError = Boolean(nodeError);
 
   return (
     <article
@@ -187,9 +193,8 @@ function TraceNodeCard({ node, index }: TraceNodeCardProps): React.JSX.Element {
           <MetaItem label="Intent">{node.intent ?? '—'}</MetaItem>
           <MetaItem label="Modelo">{node.model ?? '—'}</MetaItem>
           <MetaItem label="Prompt">
-            {node.prompt_version !== null && node.prompt_version !== undefined
-              ? `v${node.prompt_version}`
-              : '—'}
+            {/* prompt_version já vem formatado pelo backend como "<key>@v<N>" */}
+            {node.prompt_version ?? '—'}
           </MetaItem>
           <MetaItem label="Latência">{fmtLatency(node.latency_ms)}</MetaItem>
         </div>
@@ -197,7 +202,7 @@ function TraceNodeCard({ node, index }: TraceNodeCardProps): React.JSX.Element {
         <MetaItem label="Tokens (in → out)">{fmtTokens(node.tokens_in, node.tokens_out)}</MetaItem>
 
         {/* Erro (se houver) — sem stacktrace */}
-        {hasError && node.error && (
+        {hasError && nodeError && (
           <div
             className="p-3 rounded-md border border-danger/30"
             style={{ background: 'var(--danger-bg)' }}
@@ -209,7 +214,7 @@ function TraceNodeCard({ node, index }: TraceNodeCardProps): React.JSX.Element {
             >
               Erro do nó
             </p>
-            <p className="font-mono text-xs text-ink break-all leading-relaxed">{node.error}</p>
+            <p className="font-mono text-xs text-ink break-all leading-relaxed">{nodeError}</p>
           </div>
         )}
       </div>
@@ -443,112 +448,180 @@ export function PlaygroundTrace({
       {!isPending && !isError && result === null && <EmptyResult />}
 
       {/* Resultado */}
-      {!isPending && !isError && result !== null && (
-        <div className="flex flex-col gap-4">
-          {/* Aviso DLP */}
-          {result.dlp_applied && <DlpNotice dlpTokens={result.dlp_tokens} />}
+      {!isPending &&
+        !isError &&
+        result !== null &&
+        (() => {
+          // ────────────────────────────────────────────────────────────────
+          // Derivar erro por entry de trace cruzando com result.errors[].
+          // Backend não envia `error` por entry; envia objetos `{node, error}`
+          // no nível raiz. Construímos um índice por nome de node aqui.
+          // Se múltiplos errors apontarem para o mesmo node, mostramos o último.
+          // ────────────────────────────────────────────────────────────────
+          const errorByNode = new Map<string, string>();
+          for (const err of result.errors) {
+            const node = typeof err['node'] === 'string' ? err['node'] : null;
+            const msg = typeof err['error'] === 'string' ? err['error'] : null;
+            if (node && msg) errorByNode.set(node, msg);
+          }
+          const replyContent = result.reply_content.trim();
+          const hasReply = replyContent.length > 0 && result.reply_type !== 'none';
 
-          {/* Resposta da IA */}
-          <section aria-label="Resposta do agente de IA">
-            <div
-              className="rounded-lg border border-border overflow-hidden"
-              style={{ boxShadow: 'var(--elev-2)', background: 'var(--bg-elev-1)' }}
-            >
-              {/* Header da seção */}
-              <div
-                className="flex items-center gap-2 px-4 py-3 border-b border-border"
-                style={{ background: 'var(--bg-elev-2)' }}
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                  className="w-4 h-4 shrink-0"
-                  style={{ color: 'var(--brand-azul)' }}
-                  aria-hidden="true"
-                >
-                  <rect x="2" y="3" width="12" height="10" rx="2" />
-                  <path d="M5 7h6M5 10h4" strokeLinecap="round" />
-                </svg>
-                <h3
-                  className="font-sans font-semibold text-ink"
-                  style={{ fontSize: 'var(--text-sm)', letterSpacing: '-0.01em' }}
-                >
-                  Resposta que seria enviada
-                </h3>
-              </div>
-              {/* Conteúdo */}
-              <div className="p-4">
-                <p className="font-sans text-sm text-ink leading-relaxed whitespace-pre-wrap">
-                  {result.reply}
-                </p>
-              </div>
-            </div>
-          </section>
+          return (
+            <div className="flex flex-col gap-4">
+              {/* Aviso DLP */}
+              {result.dlp_applied && <DlpNotice dlpTokens={result.dlp_tokens} />}
 
-          {/* Trace do grafo */}
-          {result.trace.length > 0 && (
-            <section aria-label="Trace do grafo de execução">
-              <h3
-                className="font-sans font-semibold text-ink-2 mb-3 uppercase tracking-widest"
-                style={{ fontSize: '0.65rem' }}
-              >
-                Trace do grafo
-              </h3>
-              <div className="flex flex-col" role="feed" aria-label="Nós executados">
-                {result.trace.map((node, index) => (
-                  <React.Fragment key={`${node.node}-${index}`}>
-                    <TraceNodeCard node={node} index={index + 1} />
-                    {index < result.trace.length - 1 && (
-                      <TraceConnector hasError={Boolean(node.error)} />
+              {/* Aviso de handoff (se o grafo solicitou) */}
+              {result.handoff_required && (
+                <div
+                  className="rounded-md border border-warning/30 p-3"
+                  style={{ background: 'var(--warning-bg)' }}
+                  role="alert"
+                >
+                  <p
+                    className="font-sans font-semibold text-xs uppercase tracking-widest mb-1"
+                    style={{ color: 'var(--warning)', fontSize: '0.6rem' }}
+                  >
+                    Handoff solicitado pelo agente
+                  </p>
+                  {result.handoff_reason && (
+                    <p className="font-sans text-sm text-ink leading-relaxed">
+                      {result.handoff_reason}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Resposta da IA */}
+              <section aria-label="Resposta do agente de IA">
+                <div
+                  className="rounded-lg border border-border overflow-hidden"
+                  style={{ boxShadow: 'var(--elev-2)', background: 'var(--bg-elev-1)' }}
+                >
+                  {/* Header da seção */}
+                  <div
+                    className="flex items-center gap-2 px-4 py-3 border-b border-border"
+                    style={{ background: 'var(--bg-elev-2)' }}
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      className="w-4 h-4 shrink-0"
+                      style={{ color: 'var(--brand-azul)' }}
+                      aria-hidden="true"
+                    >
+                      <rect x="2" y="3" width="12" height="10" rx="2" />
+                      <path d="M5 7h6M5 10h4" strokeLinecap="round" />
+                    </svg>
+                    <h3
+                      className="font-sans font-semibold text-ink"
+                      style={{ fontSize: 'var(--text-sm)', letterSpacing: '-0.01em' }}
+                    >
+                      Resposta que seria enviada
+                    </h3>
+                  </div>
+                  {/* Conteúdo */}
+                  <div className="p-4">
+                    {hasReply ? (
+                      <p className="font-sans text-sm text-ink leading-relaxed whitespace-pre-wrap">
+                        {replyContent}
+                      </p>
+                    ) : (
+                      <p
+                        className="font-sans text-sm text-ink-3 italic leading-relaxed"
+                        aria-label="Sem resposta a enviar"
+                      >
+                        {result.reply_type === 'none'
+                          ? 'Nenhuma resposta gerada (grafo não produziu reply neste turno).'
+                          : 'Resposta vazia.'}
+                      </p>
                     )}
-                  </React.Fragment>
-                ))}
-              </div>
-            </section>
-          )}
+                  </div>
+                </div>
+              </section>
 
-          {/* Métricas globais */}
-          <section aria-label="Métricas globais">
-            <h3
-              className="font-sans font-semibold text-ink-2 mb-3 uppercase tracking-widest"
-              style={{ fontSize: '0.65rem' }}
-            >
-              Métricas globais
-            </h3>
-            <GlobalMetrics
-              tokensTotal={result.tokens_total}
-              latencyMs={result.latency_ms}
-              promptVersionsUsed={result.prompt_versions_used}
-            />
-          </section>
+              {/* Trace do grafo */}
+              {result.trace.length > 0 && (
+                <section aria-label="Trace do grafo de execução">
+                  <h3
+                    className="font-sans font-semibold text-ink-2 mb-3 uppercase tracking-widest"
+                    style={{ fontSize: '0.65rem' }}
+                  >
+                    Trace do grafo
+                  </h3>
+                  <div className="flex flex-col" role="feed" aria-label="Nós executados">
+                    {result.trace.map((node, index) => {
+                      const nodeError = errorByNode.get(node.node) ?? null;
+                      return (
+                        <React.Fragment key={`${node.node}-${index}`}>
+                          <TraceNodeCard node={node} index={index + 1} nodeError={nodeError} />
+                          {index < result.trace.length - 1 && (
+                            <TraceConnector hasError={Boolean(nodeError)} />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
 
-          {/* Erros globais (caso o backend retorne errors[]) */}
-          {result.errors.length > 0 && (
-            <div
-              className="rounded-md border border-danger/30 p-3"
-              style={{ background: 'var(--danger-bg)' }}
-              role="alert"
-              aria-label="Erros durante execução"
-            >
-              <p
-                className="font-sans font-semibold text-xs uppercase tracking-widest mb-2"
-                style={{ color: 'var(--danger)', fontSize: '0.6rem' }}
-              >
-                Erros durante execução ({result.errors.length})
-              </p>
-              <ul className="flex flex-col gap-1">
-                {result.errors.map((err, i) => (
-                  <li key={i} className="font-mono text-xs text-ink break-all">
-                    {err}
-                  </li>
-                ))}
-              </ul>
+              {/* Métricas globais */}
+              <section aria-label="Métricas globais">
+                <h3
+                  className="font-sans font-semibold text-ink-2 mb-3 uppercase tracking-widest"
+                  style={{ fontSize: '0.65rem' }}
+                >
+                  Métricas globais
+                </h3>
+                <GlobalMetrics
+                  tokensTotal={result.tokens_total}
+                  latencyMs={result.latency_ms}
+                  promptVersionsUsed={result.prompt_versions_used}
+                />
+              </section>
+
+              {/* Erros globais — objetos {node, error, ...} */}
+              {result.errors.length > 0 && (
+                <div
+                  className="rounded-md border border-danger/30 p-3"
+                  style={{ background: 'var(--danger-bg)' }}
+                  role="alert"
+                  aria-label="Erros durante execução"
+                >
+                  <p
+                    className="font-sans font-semibold text-xs uppercase tracking-widest mb-2"
+                    style={{ color: 'var(--danger)', fontSize: '0.6rem' }}
+                  >
+                    Erros durante execução ({result.errors.length})
+                  </p>
+                  <ul className="flex flex-col gap-2">
+                    {result.errors.map((err, i) => {
+                      const node = typeof err['node'] === 'string' ? err['node'] : null;
+                      const msg =
+                        typeof err['error'] === 'string' ? err['error'] : JSON.stringify(err);
+                      return (
+                        <li
+                          key={i}
+                          className="font-mono text-xs text-ink break-all leading-relaxed"
+                        >
+                          {node && (
+                            <span className="font-semibold" style={{ color: 'var(--danger)' }}>
+                              {node}:{' '}
+                            </span>
+                          )}
+                          {msg}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          );
+        })()}
     </div>
   );
 }
