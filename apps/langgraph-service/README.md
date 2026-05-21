@@ -30,11 +30,24 @@ python -m venv .venv
 Subir o serviço (a cada vez):
 
 ```powershell
-# Do root do repo:
+# Da pasta apps/langgraph-service/:
+.\dev.ps1
+# Ou do root do repo (Windows PowerShell 5.1, que vem com Windows):
+powershell -ExecutionPolicy Bypass -File apps/langgraph-service/dev.ps1
+# PowerShell 7+ (se tiver instalado):
 pwsh apps/langgraph-service/dev.ps1
-# Se a porta 8000 estiver presa de uma sessão anterior:
-pwsh apps/langgraph-service/dev.ps1 -Force
+
+# Se a porta 8000 estiver presa de uma sessão anterior, acrescente -Force:
+.\dev.ps1 -Force
 ```
+
+> **Execution policy:** se o `.\dev.ps1` falhar com "cannot be loaded because running scripts is disabled on this system", rode uma vez (como admin):
+>
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+> ```
+>
+> ou use `powershell -ExecutionPolicy Bypass -File .\dev.ps1` toda vez.
 
 O script `dev.ps1`:
 
