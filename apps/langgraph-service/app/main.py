@@ -10,6 +10,7 @@ import logging
 import structlog
 from fastapi import FastAPI
 
+from app.api.graph_viz import router as graph_viz_router
 from app.api.health import router as health_router
 from app.api.playground import router as playground_router
 from app.api.process import router as process_router
@@ -43,6 +44,9 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(process_router)
     app.include_router(playground_router)
+    # Dev-only: visualizador do grafo em /graph (sem auth — localhost only).
+    if settings.environment != "production":
+        app.include_router(graph_viz_router)
     return app
 
 
