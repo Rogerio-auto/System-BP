@@ -162,18 +162,18 @@ async def node_identify_city(state: ConversationState) -> ConversationState:
     # ------------------------------------------------------------------
     if result.out_of_service:
         city_label = result.city_name or city_text
-        messages.append(
-            {
-                "role": "assistant",
-                "content": _MSG_OUT_OF_SERVICE.format(city=city_label),
-            }
-        )
+        out_of_service_msg = _MSG_OUT_OF_SERVICE.format(city=city_label)
+        messages.append({"role": "assistant", "content": out_of_service_msg})
         log.info("node_identify_city_out_of_service", lead_id=lead_id, city=city_label)
         return dict(  # type: ignore[return-value]
             state,
             messages=messages,
             tool_results=tool_results,
             errors=errors,
+            # Seta `reply` para que `send_response` consolide no payload final.
+            # Sem isso, a mensagem só vai pro histórico (`messages`) e o cliente
+            # nunca recebe a resposta de "cidade fora do escopo".
+            reply=out_of_service_msg,
         )
 
     # ------------------------------------------------------------------
@@ -228,6 +228,10 @@ async def node_identify_city(state: ConversationState) -> ConversationState:
         messages=messages,
         tool_results=tool_results,
         errors=errors,
+        # Seta `reply` para que `send_response` consolide no payload final.
+        # Sem isso, a mensagem de pedir confirmação só vai pro histórico e
+        # o cliente nunca recebe a pergunta — bug observado no playground 2026-05-21.
+        reply=confirmation_msg,
     )
 
 

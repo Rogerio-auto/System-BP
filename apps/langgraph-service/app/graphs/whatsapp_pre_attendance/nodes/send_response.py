@@ -94,9 +94,19 @@ def send_response(state: ConversationState) -> dict[str, Any]:
     lead_id: str | None = state.get("lead_id")
     current_intent: str | None = state.get("current_intent")
     handoff_required: bool = state.get("handoff_required", False)
+    # `state["reply"]` é setado por nós produtores (collect_missing_profile_data,
+    # identify_city low_confidence/out_of_service, qualify_credit_interest etc.)
+    # com a string de texto que deve virar reply ao cliente. Tipo é `str` quando
+    # presente; ausente/empty significa "esses nós não setaram".
+    pending_reply: Any = state.get("reply")
 
     # ------------------------------------------------------------------
     # Determina reply com base no estado
+    # Ordem de precedência:
+    #   1. handoff_required → none (backend assume o texto via fallback de handoff)
+    #   2. current_intent canônico com mensagem padrão (nao_entendi, fora_de_escopo)
+    #   3. state["reply"] setado por nó produtor → text com esse conteúdo
+    #   4. Fallback → none (delegated — nó produtor esqueceu de setar reply)
     # ------------------------------------------------------------------
     if handoff_required:
         # Handoff ativo — backend decide o texto; agente não emite reply
@@ -121,15 +131,27 @@ def send_response(state: ConversationState) -> dict[str, Any]:
             conversation_id=conversation_id,
             lead_id=lead_id,
         )
-    else:
-        # Outros nós (qualify_credit_interest, generate_simulation, etc.) são
-        # responsáveis pelo conteúdo; send_response emite none aqui.
-        reply = _build_reply(reply_type="none", content="")
+    elif isinstance(pending_reply, str) and pending_reply.strip():
+        # Nó produtor (ex.: collect_missing_profile_data, identify_city low_confidence)
+        # setou state["reply"] com a mensagem. Consolida em reply_type=text.
+        reply = _build_reply(reply_type="text", content=pending_reply)
         log.info(
+            "send_response_from_state_reply",
+            conversation_id=conversation_id,
+            lead_id=lead_id,
+            intent=current_intent,
+            content_length=len(pending_reply),
+        )
+    else:
+        # Bug latente: nó deveria ter setado state["reply"] mas não setou.
+        # Log explícito para facilitar diagnóstico — antes virava só "none" silencioso.
+        reply = _build_reply(reply_type="none", content="")
+        log.warning(
             "send_response_none_delegated",
             conversation_id=conversation_id,
             lead_id=lead_id,
             intent=current_intent,
+            note="nenhum nó setou state['reply'] e o intent não tem fallback canônico",
         )
 
     # ------------------------------------------------------------------
