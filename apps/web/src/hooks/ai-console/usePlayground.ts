@@ -24,27 +24,62 @@ import { api } from '../../lib/api';
 
 // ─── Schemas Zod ─────────────────────────────────────────────────────────────
 
-/** Um nó do trace do grafo retornado pelo playground. */
+/**
+ * Um nó do trace do grafo retornado pelo playground.
+ *
+ * Schema **espelha** `traceEntrySchema` em `apps/api/src/modules/ai-console/playground/schemas.ts`
+ * — qualquer mudança aqui exige mudança no backend (e vice-versa).
+ *
+ * Notas:
+ * - `prompt_version` é STRING no formato `"<key>@v<N>"` (ex.: `"intent_classifier@v3"`)
+ *   — não é número. A UI exibe direto, sem prefixo "v".
+ * - O trace NÃO tem campo `error` por entry. Erros vão em `errors[]` no nível raiz
+ *   da response (objetos `{node, error}`); a UI cruza pelo nome do node se quiser
+ *   marcar entries com falha.
+ * - `intercepted_method`/`intercepted_path` aparecem em entries `dry_run_sink` —
+ *   indicam chamadas POST/PATCH/PUT que seriam reais em produção.
+ */
 export const PlaygroundTraceNodeSchema = z.object({
   node: z.string(),
-  intent: z.string().nullable(),
-  prompt_version: z.number().int().positive().nullable(),
-  model: z.string().nullable(),
-  tokens_in: z.number().int().nonnegative().nullable(),
-  tokens_out: z.number().int().nonnegative().nullable(),
-  latency_ms: z.number().int().nonnegative().nullable(),
-  error: z.string().nullable(),
+  dry_run: z.boolean().default(true),
+  intent: z.string().nullable().default(null),
+  prompt_version: z.string().nullable().default(null),
+  model: z.string().nullable().default(null),
+  tokens_in: z.number().int().nonnegative().nullable().default(null),
+  tokens_out: z.number().int().nonnegative().nullable().default(null),
+  latency_ms: z.number().nonnegative().nullable().default(null),
+  intercepted_method: z.string().nullable().default(null),
+  intercepted_path: z.string().nullable().default(null),
+  idempotency_key: z.string().nullable().default(null),
 });
 
+/**
+ * Response do `POST /api/ai-console/playground`.
+ *
+ * Schema **espelha** `playgroundResponseSchema` no backend (F9-S04). Mantenha em
+ * sincronia — drift quebra o `PlaygroundResponseSchema.parse(raw)` na UI com
+ * `invalid_type` em runtime (sem tipagem em tempo de build).
+ */
 export const PlaygroundResponseSchema = z.object({
-  reply: z.string(),
-  trace: z.array(PlaygroundTraceNodeSchema),
-  prompt_versions_used: z.array(z.string()),
-  tokens_total: z.number().int().nonnegative(),
+  trace_id: z.string().uuid(),
+  dry_run: z.literal(true),
+  // Resposta da IA — `reply_type` indica se há reply ("text"/"none"); `reply_content`
+  // tem o texto que seria enviado ao cliente em produção.
+  reply_type: z.string(),
+  reply_content: z.string().default(''),
+  handoff_required: z.boolean(),
+  handoff_reason: z.string().nullable().default(null),
+  // Trace + métricas
+  trace: z.array(PlaygroundTraceNodeSchema).default([]),
+  prompt_versions_used: z.array(z.string()).default([]),
+  tokens_total: z.number().int().nonnegative().default(0),
+  graph_version: z.string(),
   latency_ms: z.number().int().nonnegative(),
-  errors: z.array(z.string()),
+  // Erros são objetos opacos `{node, error, ...}` — UI renderiza chave a chave.
+  errors: z.array(z.record(z.string(), z.unknown())).default([]),
+  // DLP
   dlp_applied: z.boolean(),
-  dlp_tokens: z.array(z.string()),
+  dlp_tokens: z.array(z.string()).default([]),
 });
 
 // ─── Tipos exportados ─────────────────────────────────────────────────────────
