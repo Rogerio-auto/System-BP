@@ -352,7 +352,7 @@ Não inclua nenhum outro texto, pontuação ou explicação.$$,
   NULL,
   now()
 )
-ON CONFLICT ON CONSTRAINT uq_prompt_versions_key_version DO NOTHING;
+ON CONFLICT (key, version) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 2. pre_attendance_qualify — Qualificador de crédito
@@ -689,7 +689,7 @@ Responda **somente** com o JSON. Não inclua markdown, explicações ou texto fo
   NULL,
   now()
 )
-ON CONFLICT ON CONSTRAINT uq_prompt_versions_key_version DO NOTHING;
+ON CONFLICT (key, version) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 3. simulation — Compositor de resposta de simulação
@@ -808,4 +808,4 @@ Texto corrido (não JSON). Sem markdown avançado — apenas asteriscos para neg
   NULL,
   now()
 )
-ON CONFLICT ON CONSTRAINT uq_prompt_versions_key_version DO NOTHING;
+ON CONFLICT (key, version) DO NOTHING;
