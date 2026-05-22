@@ -103,3 +103,4 @@ Sempre delegar via subagente especialista. Orquestrador **não** escreve código
 - Eventos: `docs/04-eventos.md`.
 - LGPD / proteção de dados: `docs/17-lgpd-protecao-dados.md`.
 - UI / design / tokens / componentes: `docs/18-design-system.md` + `docs/design-system/index.html`.
+- Go-live / cutover / observabilidade pré-prod: `docs/19-runbook-go-live.md`.

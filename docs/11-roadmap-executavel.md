@@ -4,6 +4,35 @@
 >
 > Fases 8 (Admin & Gestão) e 9 (Console do Agente de IA) foram adicionadas após o esboço original (F0–F7), à medida que o uso real revelou gaps de UI administrativa. Mantida a numeração para não invalidar referências históricas em PRs/commits.
 
+## Revisão de produção (2026-05-22)
+
+Auditoria pré-launch (ver [`tasks/slots/F7/`](../tasks/slots/F7/)) identificou que F4 (Análise de crédito), F5 (Automações) e F7 (Go-live) estavam descritos no roadmap mas sem slots materializados. Os slots foram criados em 2026-05-22 priorizando:
+
+1. **Bloqueadores absolutos de go-live** (devem fechar antes de qualquer deploy em produção):
+
+   - [`F7-S01`](../tasks/slots/F7/F7-S01-kimi-k2-default-model.md) — Kimi K2 como modelo default do reasoner LangGraph (requisito explícito do cliente)
+   - [`F4-S01`](../tasks/slots/F4/F4-S01-schema-credit-analyses.md) + [`F4-S02`](../tasks/slots/F4/F4-S02-backend-credit-analyses-api.md) — Persistência de análise de crédito (Art. 20 §1º LGPD)
+   - [`F7-S02`](../tasks/slots/F7/F7-S02-ci-e2e-smoke.md) — Smoke E2E no CI (sem isso, regressões só aparecem em staging)
+   - [`F7-S03`](../tasks/slots/F7/F7-S03-hardening-f3-pre-prod.md) — Hardening F3 consolidado (timing-safe token, multi-tenant scope, log sanitization)
+
+2. **Pré-cutover** (necessário para o D0):
+
+   - [`F4-S03`](../tasks/slots/F4/F4-S03-frontend-credit-analyses.md), [`F4-S04`](../tasks/slots/F4/F4-S04-tool-get-credit-analysis-history.md), [`F4-S05`](../tasks/slots/F4/F4-S05-worker-kanban-on-analysis.md), [`F4-S06`](../tasks/slots/F4/F4-S06-import-analyses-adapter.md) — Análise completa ponta a ponta
+   - [`F7-S04`](../tasks/slots/F7/F7-S04-import-notion-adapter.md) — Migração de Notion (importação Trello descartada do escopo em 2026-05-22)
+   - [`F7-S06`](../tasks/slots/F7/F7-S06-runbook-go-live.md) — Runbook + observabilidade pré-prod ([`docs/19-runbook-go-live.md`](19-runbook-go-live.md))
+   - [`F7-S07`](../tasks/slots/F7/F7-S07-staging-paralelo.md) — Importação + conferência em staging
+   - [`F7-S08`](../tasks/slots/F7/F7-S08-treinamento.md) — Treinamento dos agentes
+
+3. **Pós-launch com feature flags OFF** (entram em onda 2 após sign-off da semana 1):
+
+   - F5 inteiro (followup + cobrança) — schemas e workers prontos, flags em `disabled`
+   - Habilitação progressiva: primeiro `followup.enabled`, depois `billing.enabled`, com janelas de observação ≥ 7 dias entre cada
+
+4. **Cutover** (única forma de chegar em produção):
+   - [`F7-S09`](../tasks/slots/F7/F7-S09-cutover-e-monitoramento.md) — Executa cutover + monitoramento 168h + sign-off
+
+**Caminho crítico para go-live:** F7-S01 → F4-S01 → F4-S02 → F7-S03 → F7-S02 → F7-S06 → F7-S07 → F7-S08 → F7-S09. Estimativa: 3-4 semanas com 1 dev sênior em foco total.
+
 ## Sumário das fases
 
 | Fase | Foco                            | Resultado                                               |
@@ -203,8 +232,8 @@ Fase 1 + Fase 2 (precisa de produtos para simular).
 
 ### Riscos
 
-- Latência alta do LLM. **Mitigação:** modelo otimizado (Sonnet/Haiku) + cache de prompt + token limits + warmup.
-- Custo descontrolado. **Mitigação:** monitoramento por conversa + alerta + limite por dia.
+- Latência alta do LLM. **Mitigação:** Kimi K2 para reasoner + Haiku para classificador + cache de prompt + token limits + warmup. Fallback automático para Claude Sonnet em 5xx do Kimi.
+- Custo descontrolado. **Mitigação:** monitoramento por conversa via `ai_decision_logs` × `model_pricing` (F9-S00) + alerta + limite diário (`LLM_DAILY_BUDGET_USD`).
 - IA "alucinar" simulação. **Mitigação:** simulação sempre via tool → backend → cálculo determinístico.
 
 ---
@@ -326,13 +355,15 @@ Fase 1 a 5.
 
 ## Fase 7 — Migração e go-live
 
+> **Atualização 2026-05-22:** importação de Trello foi descartada do escopo. A migração se restringe a Notion + planilhas. Mantida a redação histórica abaixo para contexto; a fonte verdadeira do plano é a lista de slots em [`tasks/slots/F7/`](../tasks/slots/F7/) e o [runbook 19](19-runbook-go-live.md).
+
 ### Objetivo
 
-Migrar dados de Notion/Trello/MVP atual e cutover para o novo sistema com risco controlado.
+Migrar dados de Notion/MVP atual e cutover para o novo sistema com risco controlado.
 
 ### Entregáveis
 
-- Scripts de export (Notion API, Trello API).
+- Scripts de export (Notion API).
 - Importação em homologação.
 - Conferência manual com usuários-chave.
 - Treinamento (sessões + materiais).
@@ -345,20 +376,19 @@ Migrar dados de Notion/Trello/MVP atual e cutover para o novo sistema com risco 
 
 1. Inventário de dados.
 2. Export Notion → CSV → import em staging.
-3. Export Trello → JSON → import em staging.
-4. Conferência com gestor.
-5. Ajustes finais de mapping.
-6. Treinamento dos agentes.
-7. Cutover: desligar gravação no Notion/Trello (mantém leitura).
-8. WhatsApp aponta 100% para Manager.
-9. Operação paralela 7 dias (Notion/Trello somente leitura).
-10. Decommissioning de Notion/Trello no fluxo.
-11. Pós go-live: revisão de feature flags, plano de habilitar follow-up.
+3. Conferência com gestor.
+4. Ajustes finais de mapping.
+5. Treinamento dos agentes.
+6. Cutover: desligar gravação no Notion (mantém leitura).
+7. WhatsApp aponta 100% para Elemento.
+8. Operação paralela 7 dias (Notion somente leitura).
+9. Decommissioning de Notion no fluxo.
+10. Pós go-live: revisão de feature flags, plano de habilitar follow-up.
 
 ### Critérios de aceite
 
-- 100% dos leads ativos do Notion presentes no Manager.
-- 100% dos cards do Trello refletidos no Kanban.
+- 100% dos leads ativos do Notion presentes no Elemento.
+- Kanban interno populado a partir do Notion + criação manual (Trello fora do escopo).
 - Operação rodando 7 dias sem incidente bloqueante.
 - Rollback testado em staging.
 

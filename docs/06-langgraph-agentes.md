@@ -21,7 +21,17 @@
 - httpx (cliente das tools).
 - structlog (logs).
 - pytest + pytest-asyncio.
-- Provedor de LLM: configurável via env (Anthropic Claude para produção, GPT-4o ou Gemini como alternativos). Modelo registrado em cada `ai_decision_logs`.
+- Provedor de LLM: **OpenRouter (default)** — abstrai o fornecedor real. Anthropic direto disponível como secundário. Sem chamadas diretas a OpenAI/Google em código novo. Modelo registrado em cada `ai_decision_logs` para auditoria de custo (F9-S00).
+
+### Modelos por role (defaults pós-revisão de produção 2026-05-22)
+
+| Role         | Modelo default               | Por quê                                                                                                                                                        |
+| ------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `classifier` | `anthropic/claude-3.5-haiku` | Hot path — latência crítica, custo baixíssimo, boa precisão em classificação de intenção PT-BR                                                                 |
+| `reasoner`   | `moonshot/kimi-k2`           | Custo competitivo + throughput + janela ampla; requisito explícito do cliente para os fluxos de raciocínio (qualificação, simulação, decisão de próximo passo) |
+| `fallback`   | `anthropic/claude-sonnet-4`  | Plano B do reasoner caso Kimi K2 esteja indisponível (rate-limit, 5xx). Trocado automaticamente pelo gateway (F3-S00)                                          |
+
+Ver `apps/langgraph-service/app/config.py` (campos `model_classifier`, `model_reasoner`, `model_fallback`) e o slot F7-S01 para a história da decisão.
 
 ## 3. Estrutura de pastas
 
@@ -262,17 +272,31 @@ Ver tabela em [01-prd-produto.md](01-prd-produto.md). Cada intenção mapeia exe
 
 ### 5.5 Prompts
 
-- Versionados em `prompts/*.md`.
+- A partir de F9-S09 prompts vivem em `prompt_versions` (DB), não mais em arquivos `.md`. O LangGraph lê a versão `active=true` pela `key`. Arquivos antigos em `prompts/*.md` ficam como referência inicial / seed.
 - Cada prompt declara: papel, escopo, restrições, exemplos.
-- Header com metadata:
+- Header com metadata (campo `metadata` jsonb em `prompt_versions`):
   ```yaml
-  ---
   key: pre_attendance
   version: 3
-  model: claude-sonnet-4.5
-  ---
+  model_recommended: moonshot/kimi-k2
+  temperature: 0.2
+  max_tokens: 1024
   ```
-- Quando alterado, sobe versão. Backend registra `prompt_version` em `ai_decision_logs`.
+- Quando alterado, sobe versão via UI (F9-S05). Backend registra `prompt_version` em `ai_decision_logs`.
+
+### 5.5.1 Modelo por nó
+
+Cada nó decide qual role pedir ao gateway via `for_role()`:
+
+| Nó                                | Role         | Modelo (default)             |
+| --------------------------------- | ------------ | ---------------------------- |
+| `classify_intent`                 | `classifier` | `anthropic/claude-3.5-haiku` |
+| `qualify_credit_interest`         | `reasoner`   | `moonshot/kimi-k2`           |
+| `generate_simulation`             | `reasoner`   | `moonshot/kimi-k2`           |
+| `request_handoff` (compõe resumo) | `reasoner`   | `moonshot/kimi-k2`           |
+| `send_response`                   | `reasoner`   | `moonshot/kimi-k2`           |
+
+Em rate-limit ou 5xx do reasoner, o gateway cai automaticamente para `fallback` (`anthropic/claude-sonnet-4`) com `ai_decision_logs.error_recovery=true`.
 
 ### 5.6 Restrições do agente externo
 
