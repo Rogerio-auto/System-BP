@@ -158,8 +158,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID     | Título                                                                               | Status         | Prioridade | Depende de                                     |
 | ------ | ------------------------------------------------------------------------------------ | -------------- | ---------- | ---------------------------------------------- |
-| F7-S01 | Configurar Kimi K2 como modelo default do reasoner LangGraph                         | 🔵 in-progress | critical   | F3-S00, F9-S00                                 |
-| F7-S02 | CI — E2E smoke test (docker-compose + fluxo crítico)                                 | 🟢 available   | critical   | F3-S33, F3-S34                                 |
+| F7-S01 | Configurar Kimi K2 como modelo default do reasoner LangGraph                         | 🟢 available   | critical   | F3-S00, F9-S00                                 |
+| F7-S02 | CI — E2E smoke test (docker-compose + fluxo crítico)                                 | 🔵 in-progress | critical   | F3-S33, F3-S34                                 |
 | F7-S03 | Hardening F3 pré-produção (timing-safe token, multi-tenant scope, idempotency, logs) | 🟢 available   | critical   | F3-S33, F3-S34, F9-S10                         |
 | F7-S04 | Adapter de importação Notion → leads + lead_history                                  | 🟢 available   | high       | F1-S17, F1-S18, F1-S24                         |
 | F7-S06 | Runbook de go-live + observabilidade pré-prod                                        | 🟢 available   | high       | F7-S01, F7-S02, F7-S03                         |

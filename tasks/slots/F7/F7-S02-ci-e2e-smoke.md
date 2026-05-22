@@ -3,11 +3,11 @@ id: F7-S02
 title: CI — E2E smoke test (docker-compose + fluxo crítico)
 phase: F7
 task_ref: T7.2
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: qa-tester
-claimed_at: null
+claimed_at: 2026-05-22T17:13:26Z
 completed_at: null
 pr_url: null
 depends_on: [F3-S33, F3-S34]
