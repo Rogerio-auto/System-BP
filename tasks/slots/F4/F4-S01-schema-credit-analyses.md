@@ -3,11 +3,11 @@ id: F4-S01
 title: Schema credit_analyses + credit_analysis_versions + migration
 phase: F4
 task_ref: T4.1
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: db-schema-engineer
-claimed_at: null
+claimed_at: 2026-05-22T17:11:15Z
 completed_at: null
 pr_url: null
 depends_on: [F2-S01, F1-S09, F1-S13, F1-S15, F1-S24]
