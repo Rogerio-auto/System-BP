@@ -3,12 +3,12 @@ id: F7-S01
 title: Configurar Kimi K2 como modelo default do reasoner LangGraph
 phase: F7
 task_ref: T7.1
-status: in-progress
+status: review
 priority: critical
 estimated_size: S
 agent_id: python-engineer
 claimed_at: 2026-05-22T17:11:06Z
-completed_at: null
+completed_at: 2026-05-22T17:19:16Z
 pr_url: null
 depends_on: [F3-S00, F9-S00]
 blocks: [F7-S09]
@@ -17,7 +17,6 @@ source_docs:
   - docs/06-langgraph-agentes.md
   - docs/02-arquitetura-sistema.md
 ---
-
 # F7-S01 — Configurar Kimi K2 como modelo default do reasoner
 
 ## Objetivo
