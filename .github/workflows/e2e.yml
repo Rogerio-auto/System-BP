@@ -1,0 +1,139 @@
+name: E2E Smoke Tests
+
+on:
+  pull_request:
+    branches: [main]
+
+# Cancelar runs anteriores do mesmo PR ao fazer push novo
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 20.11.0
+  PNPM_VERSION: 9.12.0
+
+jobs:
+  e2e-smoke:
+    name: E2E Smoke — stack completa + fluxo crítico
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout
+      # -----------------------------------------------------------------------
+      - uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Setup Node + pnpm (para rodar testes Vitest)
+      # -----------------------------------------------------------------------
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      # -----------------------------------------------------------------------
+      # 3. Subir stack CI com docker compose
+      #    Build das imagens API + LangGraph antes de subir (para falhar rápido)
+      # -----------------------------------------------------------------------
+      - name: Build docker images
+        run: docker compose -f docker-compose.ci.yml build --parallel
+
+      - name: Start stack (postgres + api + langgraph)
+        run: docker compose -f docker-compose.ci.yml up -d
+
+      # -----------------------------------------------------------------------
+      # 4. Aguardar healthchecks
+      #    Usa loop com timeout 90s. Falha explícita se algum serviço não subir.
+      # -----------------------------------------------------------------------
+      - name: Wait for postgres healthcheck
+        run: |
+          echo "Waiting for postgres..."
+          timeout 90 bash -c 'until docker compose -f docker-compose.ci.yml exec -T postgres pg_isready -U elemento -d elemento_e2e; do sleep 2; done'
+
+      - name: Wait for API healthcheck
+        run: |
+          echo "Waiting for API..."
+          timeout 90 bash -c 'until curl -sf http://localhost:3333/health; do sleep 3; done'
+          echo ""
+          echo "API is healthy."
+
+      - name: Wait for LangGraph healthcheck
+        run: |
+          echo "Waiting for LangGraph..."
+          timeout 90 bash -c 'until curl -sf http://localhost:8000/health; do sleep 3; done'
+          echo ""
+          echo "LangGraph is healthy."
+
+      # -----------------------------------------------------------------------
+      # 5. Aplicar migrations
+      #    DATABASE_URL aponta para o container postgres (porta interna mapeada)
+      # -----------------------------------------------------------------------
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgres://elemento:elemento_ci_secret@localhost:5433/elemento_e2e
+          # Env vars obrigatórias para importar env.ts durante migrate
+          JWT_ACCESS_SECRET: ci-access-secret-for-e2e-tests-only-rotate-this-xxxxxxxxxxxxxxxx
+          JWT_REFRESH_SECRET: ci-refresh-secret-for-e2e-tests-only-rotate-this-xxxxxxxxxxxxxxx
+          API_PUBLIC_URL: http://localhost:3333
+          CORS_ALLOWED_ORIGINS: http://localhost:5173
+          LANGGRAPH_INTERNAL_TOKEN: ci-internal-token-for-e2e-tests-only-32chars
+          LANGGRAPH_SERVICE_URL: http://localhost:8000
+          WHATSAPP_APP_SECRET: ci-whatsapp-app-secret-e2e-tests
+          WHATSAPP_VERIFY_TOKEN: ci-verify-token-e2e
+          CHATWOOT_WEBHOOK_HMAC_SECRET: ci-chatwoot-hmac-secret-e2e
+          LGPD_DATA_KEY: P5Uc4j/vdAisFljJ0kdz08PLWmPvMC/NX5VIy99Bv+E=
+          LGPD_DEDUPE_PEPPER: xgRqlH8Ag8bV/DI9gza3qIFx0w4RF3f9ZF/RSilyV2s=
+          FX_BRL_PER_USD: '5.75'
+        run: pnpm --filter @elemento/api db:migrate
+
+      # -----------------------------------------------------------------------
+      # 6. Executar suíte E2E
+      # -----------------------------------------------------------------------
+      - name: Run E2E smoke tests
+        env:
+          CI: 'true'
+          DATABASE_URL: postgres://elemento:elemento_ci_secret@localhost:5433/elemento_e2e
+          E2E_API_URL: http://localhost:3333
+          # Env vars para globalSetup (test/e2e/setup.ts)
+          JWT_ACCESS_SECRET: ci-access-secret-for-e2e-tests-only-rotate-this-xxxxxxxxxxxxxxxx
+          JWT_REFRESH_SECRET: ci-refresh-secret-for-e2e-tests-only-rotate-this-xxxxxxxxxxxxxxx
+          API_PUBLIC_URL: http://localhost:3333
+          CORS_ALLOWED_ORIGINS: http://localhost:5173
+          LANGGRAPH_INTERNAL_TOKEN: ci-internal-token-for-e2e-tests-only-32chars
+          LANGGRAPH_SERVICE_URL: http://localhost:8000
+          WHATSAPP_APP_SECRET: ci-whatsapp-app-secret-e2e-tests
+          WHATSAPP_VERIFY_TOKEN: ci-verify-token-e2e
+          CHATWOOT_WEBHOOK_HMAC_SECRET: ci-chatwoot-hmac-secret-e2e
+          LGPD_DATA_KEY: P5Uc4j/vdAisFljJ0kdz08PLWmPvMC/NX5VIy99Bv+E=
+          LGPD_DEDUPE_PEPPER: xgRqlH8Ag8bV/DI9gza3qIFx0w4RF3f9ZF/RSilyV2s=
+          FX_BRL_PER_USD: '5.75'
+        run: pnpm --filter @elemento/api e2e
+
+      # -----------------------------------------------------------------------
+      # 7. Logs de diagnóstico (sempre — mesmo em falha)
+      # -----------------------------------------------------------------------
+      - name: Show container logs (on failure)
+        if: failure()
+        run: |
+          echo "=== API logs ==="
+          docker compose -f docker-compose.ci.yml logs api --tail 100
+          echo "=== LangGraph logs ==="
+          docker compose -f docker-compose.ci.yml logs langgraph --tail 50
+          echo "=== Postgres logs ==="
+          docker compose -f docker-compose.ci.yml logs postgres --tail 30
+
+      # -----------------------------------------------------------------------
+      # 8. Teardown
+      # -----------------------------------------------------------------------
+      - name: Tear down stack
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down --volumes
