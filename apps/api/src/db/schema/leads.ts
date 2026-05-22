@@ -163,6 +163,16 @@ export const leads = pgTable(
     lastSimulationId: uuid('last_simulation_id'),
 
     /**
+     * ID da última análise de crédito associada ao lead.
+     * FK física declarada via ALTER TABLE em migration 0032_credit_analyses.sql,
+     * pois credit_analyses também referencia leads (dependência circular
+     * de migration que impede declaração inline no CREATE TABLE).
+     *   REFERENCES credit_analyses(id) ON DELETE SET NULL
+     * ON DELETE SET NULL: deletar análise não destrói o lead.
+     */
+    lastAnalysisId: uuid('last_analysis_id'),
+
+    /**
      * Email do lead (citext — comparação case-insensitive).
      * Opcional: nem todo lead fornece email no primeiro contato.
      * LGPD: PII — não logar sem redact.
