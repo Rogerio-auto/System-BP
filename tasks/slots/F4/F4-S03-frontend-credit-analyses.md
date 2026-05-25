@@ -3,13 +3,13 @@ id: F4-S03
 title: Frontend — lista, detalhe, form e nova versão de análise de crédito
 phase: F4
 task_ref: T4.3
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: frontend-engineer
 claimed_at: 2026-05-25T15:51:13Z
 completed_at: 2026-05-25T16:13:43Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/145
 depends_on: [F4-S02, F1-S08, F1-S12, F8-S08]
 blocks: []
 labels: []

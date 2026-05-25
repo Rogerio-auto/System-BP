@@ -3,13 +3,13 @@ id: F4-S04
 title: Tool LangGraph get_credit_analysis_history (read-only mascarado)
 phase: F4
 task_ref: T4.4
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: python-engineer
 claimed_at: 2026-05-25T15:51:31Z
 completed_at: 2026-05-25T16:08:38Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/146
 depends_on: [F4-S02, F3-S04, F1-S26]
 blocks: []
 labels: [lgpd-impact]
