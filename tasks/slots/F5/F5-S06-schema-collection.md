@@ -3,12 +3,12 @@ id: F5-S06
 title: Schema payment_dues + collection_rules + collection_jobs
 phase: F5
 task_ref: T5.6
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: db-schema-engineer
-claimed_at: null
-completed_at: null
+claimed_at: 2026-05-25T16:34:30Z
+completed_at: 2026-05-25T16:45:04Z
 pr_url: null
 depends_on: [F5-S01, F1-S09, F1-S15, F1-S23, F1-S24]
 blocks: [F5-S07, F5-S08]

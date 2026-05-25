@@ -234,6 +234,13 @@
       "breakpoints": true
     },
     {
+      "idx": 36,
+      "version": "7",
+      "when": 1748563300000,
+      "tag": "0036_collection",
+      "breakpoints": true
+    },
+    {
       "idx": 38,
       "version": "7",
       "when": 1779753600000,

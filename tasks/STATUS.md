@@ -13,7 +13,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 6     | 2   | 0   | 0   | 0   | 0   | 4   |
-| F5   | 8     | 7   | 0   | 0   | 0   | 0   | 1   |
+| F5   | 8     | 6   | 0   | 0   | 0   | 1   | 1   |
 | F7   | 8     | 3   | 0   | 0   | 0   | 0   | 5   |
 | F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F9   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
@@ -150,7 +150,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F5-S03 | Worker followup-sender + cliente Meta WhatsApp templates      | 🟢 available | high       | F5-S01, F5-S02, F1-S15, F1-S20                 |
 | F5-S04 | Cancelamento de followup por resposta do cliente              | 🟢 available | high       | F5-S01, F5-S03, F1-S19, F1-S15                 |
 | F5-S05 | Frontend — réguas de followup, jobs agendados e pausa manual  | 🟢 available | medium     | F5-S01, F5-S02, F5-S03, F1-S08, F1-S23, F8-S08 |
-| F5-S06 | Schema payment_dues + collection_rules + collection_jobs      | 🟢 available | medium     | F5-S01, F1-S09, F1-S15, F1-S23, F1-S24         |
+| F5-S06 | Schema payment_dues + collection_rules + collection_jobs      | 🟣 review    | medium     | F5-S01, F1-S09, F1-S15, F1-S23, F1-S24         |
 | F5-S07 | Workers collection-scheduler + collection-sender (gated)      | 🟢 available | medium     | F5-S06, F5-S03, F1-S15                         |
 | F5-S08 | Frontend cobrança + importação payment_dues + marcação manual | 🟢 available | medium     | F5-S06, F5-S07, F1-S08, F1-S17, F8-S08         |
 

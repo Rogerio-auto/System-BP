@@ -81,3 +81,8 @@ export * from './modelPricing.js';
 export * from './whatsappTemplates.js';
 export * from './followupRules.js';
 export * from './followupJobs.js';
+
+// Cobrança escalonada — parcelas + régua de cobrança + jobs agendados (F5-S06)
+export * from './paymentDues.js';
+export * from './collectionRules.js';
+export * from './collectionJobs.js';
