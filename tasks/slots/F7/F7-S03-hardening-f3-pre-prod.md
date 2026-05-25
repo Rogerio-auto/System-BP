@@ -3,11 +3,11 @@ id: F7-S03
 title: Hardening F3 pré-produção (timing-safe token, multi-tenant scope, idempotency, logs)
 phase: F7
 task_ref: T7.3
-status: available
+status: in-progress
 priority: critical
 estimated_size: L
 agent_id: backend-engineer
-claimed_at: null
+claimed_at: 2026-05-25T13:42:11Z
 completed_at: null
 pr_url: null
 depends_on: [F3-S33, F3-S34, F9-S10]
