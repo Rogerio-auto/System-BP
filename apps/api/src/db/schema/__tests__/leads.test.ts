@@ -422,6 +422,7 @@ describe('tipos Drizzle — compilação sem any', () => {
       source: 'whatsapp',
       status: 'new',
       lastSimulationId: null,
+      lastAnalysisId: null,
       email: null,
       cpfEncrypted: null,
       cpfHash: null,
@@ -549,6 +550,7 @@ describe('LGPD — cpf_* colunas reservadas para F1-S24', () => {
       source: 'manual',
       status: 'new',
       lastSimulationId: null,
+      lastAnalysisId: null,
       email: null,
       cpfEncrypted: null, // NULL até F1-S24
       cpfHash: null, // NULL até F1-S24

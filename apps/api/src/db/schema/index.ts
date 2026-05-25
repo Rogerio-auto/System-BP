@@ -57,6 +57,10 @@ export * from './creditProducts.js';
 export * from './creditProductRules.js';
 export * from './creditSimulations.js';
 
+// Crédito — análises e pareceres versionados (F4-S01)
+export * from './creditAnalyses.js';
+export * from './creditAnalysisVersions.js';
+
 // IA — agente LangGraph: estado de conversa, logs de decisão, prompts (F3-S01)
 export * from './aiConversationStates.js';
 export * from './aiDecisionLogs.js';
