@@ -1,0 +1,3 @@
+lead_id,status,parecer,valor_aprovado,prazo_meses,taxa_mensal
+eeeeeeee-0000-0000-0000-000000000001,aprovado,Aprovado para CPF 123.456.789-00 conforme análise.,R$ 3.000,00,12,2%
+eeeeeeee-0000-0000-0000-000000000002,recusado,Recusado: RG 1.234.567-8 com restrição no SERASA.,,,

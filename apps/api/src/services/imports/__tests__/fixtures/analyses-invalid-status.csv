@@ -1,0 +1,4 @@
+lead_id,status,parecer
+eeeeeeee-0000-0000-0000-000000000001,status_desconhecido,Análise com status inválido.
+eeeeeeee-0000-0000-0000-000000000002,xyz123,Outro status não reconhecido.
+eeeeeeee-0000-0000-0000-000000000003,,Análise sem status informado.

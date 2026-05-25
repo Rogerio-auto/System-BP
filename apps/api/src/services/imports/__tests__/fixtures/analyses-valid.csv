@@ -1,0 +1,4 @@
+lead_id,status,parecer,valor_aprovado,prazo_meses,taxa_mensal,analista,data_decisao
+eeeeeeee-0000-0000-0000-000000000001,aprovado,Análise concluída positivamente após verificação de renda e histórico.,R$ 5.000,00,12,2,5%,analista@banco.gov.br,2024-03-15
+eeeeeeee-0000-0000-0000-000000000002,em_analise,Documentação recebida aguardando análise de crédito.,,,,,
+eeeeeeee-0000-0000-0000-000000000003,recusado,Renda insuficiente para o valor solicitado. Lead orientado sobre microcrédito.,,,,analista@banco.gov.br,15/03/2024
