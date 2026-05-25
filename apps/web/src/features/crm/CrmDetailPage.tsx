@@ -37,6 +37,7 @@ import {
 import { useLead, useLeadInteractions } from '../../hooks/crm/useLead';
 import { useUpdateLead } from '../../hooks/crm/useUpdateLead';
 import { cn } from '../../lib/cn';
+import { LeadCreditAnalysisTab } from '../leads/components/LeadCreditAnalysisTab';
 
 import { SimulationHistory } from './components/SimulationHistory';
 
@@ -545,6 +546,9 @@ export function CrmDetailPage(): React.JSX.Element {
 
           {/* Histórico de simulações de crédito (F2-S08) */}
           <SimulationHistory leadId={leadId} />
+
+          {/* Tab de análise de crédito (F4-S03) */}
+          <LeadCreditAnalysisTab leadId={leadId} />
         </div>
 
         {/* ── Coluna direita: timeline ─────────────────────────────────────── */}
