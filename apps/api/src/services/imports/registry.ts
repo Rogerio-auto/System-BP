@@ -5,12 +5,14 @@
 // Novos tipos de entidade (customers, agents) registram aqui.
 // =============================================================================
 import type { AnyAdapter } from './adapter.js';
+import { analysesAdapter } from './adapters/analysesAdapter.js';
 import { leadsAdapter } from './adapters/leadsAdapter.js';
 import { notionLeadsAdapter } from './adapters/notionLeadsAdapter.js';
 
 const ADAPTERS = new Map<string, AnyAdapter>([
   ['leads', leadsAdapter],
   ['notion_leads', notionLeadsAdapter],
+  ['analyses', analysesAdapter],
 ]);
 
 /**

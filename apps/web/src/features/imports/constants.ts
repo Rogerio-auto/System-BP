@@ -22,6 +22,24 @@ export const IMPORT_SOURCE_TYPE_LABELS: Record<ImportSourceType, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Tipos de entidade importável (entity_type no registry do backend)
+// ---------------------------------------------------------------------------
+
+/**
+ * Kinds de entidade que o wizard suporta (espelha os adapters registrados no backend).
+ * Atualizar quando um novo adapter for registrado em registry.ts.
+ */
+export const IMPORT_ENTITY_KINDS = ['leads', 'notion_leads', 'analyses'] as const;
+export type ImportEntityKind = (typeof IMPORT_ENTITY_KINDS)[number];
+
+/** Labels de UI para cada kind de entidade. */
+export const IMPORT_ENTITY_KIND_LABELS: Record<ImportEntityKind, string> = {
+  leads: 'Leads (clientes potenciais)',
+  notion_leads: 'Leads via Notion',
+  analyses: 'Análises de crédito',
+};
+
+// ---------------------------------------------------------------------------
 // Campos internos suportados pelo mapeamento Notion
 // ---------------------------------------------------------------------------
 
