@@ -17,6 +17,10 @@ Padrões cobertos
   ATENÇÃO: Alta taxa de falso positivo. Todo mascaramento de RG gera ``warn``.
 - Data de nascimento: ``\\d{2}/\\d{2}/\\d{4}`` apenas quando dentro de 30
   caracteres de termos indicativos (nascimento, nasc, dob, birthday, etc.).
+- Campos de análise de crédito (F4-S04 — defesa em profundidade):
+  ``internal_score``, ``approved_amount``, ``parecer_text`` — detectados por
+  heurística de chave JSON. Failsafe: se algum log futuro tentar serializar
+  esses campos em texto passado ao LLM, o DLP mascara antes de enviar.
 
 Tokens
 ------
@@ -141,6 +145,38 @@ _BIRTH_TERMS = re.compile(
     re.IGNORECASE,
 )
 _BIRTH_CONTEXT_WINDOW = 30  # caracteres de raio
+
+# ---------------------------------------------------------------------------
+# F4-S04 — Defesa em profundidade: campos de análise de crédito.
+#
+# Failsafe: se algum log futuro ou bug serializar campos de análise em texto
+# enviado ao LLM, o DLP mascara antes do envio ao gateway OpenRouter.
+#
+# Heurística: detecta padrões de chave JSON como "internal_score": <valor>
+# ou texto livre "parecer:" seguido de conteúdo.
+#
+# AVISO: estes campos NÃO deveriam aparecer em prompts/messages jamais
+# (o endpoint é mascarado por design). Este regex é failsafe adicional.
+# ---------------------------------------------------------------------------
+
+# internal_score — pontuação de risco (jamais deve chegar ao LLM)
+_RE_INTERNAL_SCORE = re.compile(
+    r'"?internal_score"?\s*[:=]\s*[\d.]+',
+    re.IGNORECASE,
+)
+
+# approved_amount — valor aprovado (jamais deve chegar ao LLM sem RBAC)
+_RE_APPROVED_AMOUNT = re.compile(
+    r'"?approved_amount"?\s*[:=]\s*"?[\d.,]+"?',
+    re.IGNORECASE,
+)
+
+# parecer_text — texto interno do analista (jamais deve chegar ao LLM)
+# Detecta a chave JSON + conteúdo até o próximo delimitador JSON.
+_RE_PARECER_TEXT = re.compile(
+    r'"?parecer_text"?\s*[:=]\s*"[^"]{0,500}"',
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -275,6 +311,34 @@ def redact_pii(
 
     # Aplicar sobre o texto já mascarado para evitar conflito de posições
     result = _RE_DATE.sub(_sub_date, result)
+
+    # --- F4-S04: Campos de análise de crédito (defesa em profundidade / failsafe)
+    #
+    # Estes campos NÃO deveriam estar em prompts (endpoint mascarado por design).
+    # O DLP mascara como último recurso caso algum bug ou log futuro os inclua.
+    # Cada match gera log.warning para alertar sobre a violação de design.
+    def _sub_credit_field(m: re.Match[str], field_type: str) -> str:
+        token = _replace_match(m, field_type)
+        log.warning(
+            "dlp_credit_field_masked",
+            field_type=field_type,
+            token=token,
+            note=(
+                f"Campo {field_type} detectado em texto enviado ao LLM — "
+                "verifique se o endpoint mascarado está funcionando corretamente (F4-S04)."
+            ),
+        )
+        return token
+
+    result = _RE_INTERNAL_SCORE.sub(
+        lambda m: _sub_credit_field(m, "INTERNAL_SCORE"), result
+    )
+    result = _RE_APPROVED_AMOUNT.sub(
+        lambda m: _sub_credit_field(m, "APPROVED_AMOUNT"), result
+    )
+    result = _RE_PARECER_TEXT.sub(
+        lambda m: _sub_credit_field(m, "PARECER_TEXT"), result
+    )
 
     # Log de resumo — sem valores originais
     if counts:
