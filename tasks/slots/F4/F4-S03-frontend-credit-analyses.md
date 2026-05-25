@@ -3,11 +3,11 @@ id: F4-S03
 title: Frontend — lista, detalhe, form e nova versão de análise de crédito
 phase: F4
 task_ref: T4.3
-status: available
+status: in-progress
 priority: high
 estimated_size: L
 agent_id: frontend-engineer
-claimed_at: null
+claimed_at: 2026-05-25T15:51:13Z
 completed_at: null
 pr_url: null
 depends_on: [F4-S02, F1-S08, F1-S12, F8-S08]
