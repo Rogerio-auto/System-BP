@@ -3,11 +3,11 @@ id: F7-S06
 title: Runbook de go-live + observabilidade pré-prod
 phase: F7
 task_ref: T7.6
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: backend-engineer
-claimed_at: null
+claimed_at: 2026-05-25T15:52:21Z
 completed_at: null
 pr_url: null
 depends_on: [F7-S01, F7-S02, F7-S03]

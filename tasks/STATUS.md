@@ -14,7 +14,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 6     | 3   | 0   | 0   | 0   | 1   | 2   |
 | F5   | 8     | 8   | 0   | 0   | 0   | 0   | 0   |
-| F7   | 8     | 4   | 0   | 0   | 0   | 0   | 4   |
+| F7   | 8     | 3   | 0   | 0   | 1   | 0   | 4   |
 | F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F9   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 
@@ -156,16 +156,16 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 7 — Hardening final
 
-| ID     | Título                                                                               | Status       | Prioridade | Depende de                                     |
-| ------ | ------------------------------------------------------------------------------------ | ------------ | ---------- | ---------------------------------------------- |
-| F7-S01 | Configurar Kimi K2 como modelo default do reasoner LangGraph                         | ✅ done      | critical   | F3-S00, F9-S00                                 |
-| F7-S02 | CI — E2E smoke test (docker-compose + fluxo crítico)                                 | ✅ done      | critical   | F3-S33, F3-S34                                 |
-| F7-S03 | Hardening F3 pré-produção (timing-safe token, multi-tenant scope, idempotency, logs) | ✅ done      | critical   | F3-S33, F3-S34, F9-S10                         |
-| F7-S04 | Adapter de importação Notion → leads + lead_history                                  | ✅ done      | high       | F1-S17, F1-S18, F1-S24                         |
-| F7-S06 | Runbook de go-live + observabilidade pré-prod                                        | 🟢 available | high       | F7-S01, F7-S02, F7-S03                         |
-| F7-S07 | Importação em staging + conferência paralela com Notion                              | 🟢 available | high       | F4-S06, F7-S04, F7-S06                         |
-| F7-S08 | Treinamento dos agentes humanos + material de apoio                                  | 🟢 available | medium     | F7-S06                                         |
-| F7-S09 | Cutover, go-live e monitoramento das primeiras 168h                                  | 🟢 available | critical   | F7-S01, F7-S02, F7-S03, F7-S06, F7-S07, F7-S08 |
+| ID     | Título                                                                               | Status         | Prioridade | Depende de                                     |
+| ------ | ------------------------------------------------------------------------------------ | -------------- | ---------- | ---------------------------------------------- |
+| F7-S01 | Configurar Kimi K2 como modelo default do reasoner LangGraph                         | ✅ done        | critical   | F3-S00, F9-S00                                 |
+| F7-S02 | CI — E2E smoke test (docker-compose + fluxo crítico)                                 | ✅ done        | critical   | F3-S33, F3-S34                                 |
+| F7-S03 | Hardening F3 pré-produção (timing-safe token, multi-tenant scope, idempotency, logs) | ✅ done        | critical   | F3-S33, F3-S34, F9-S10                         |
+| F7-S04 | Adapter de importação Notion → leads + lead_history                                  | ✅ done        | high       | F1-S17, F1-S18, F1-S24                         |
+| F7-S06 | Runbook de go-live + observabilidade pré-prod                                        | 🔵 in-progress | high       | F7-S01, F7-S02, F7-S03                         |
+| F7-S07 | Importação em staging + conferência paralela com Notion                              | 🟢 available   | high       | F4-S06, F7-S04, F7-S06                         |
+| F7-S08 | Treinamento dos agentes humanos + material de apoio                                  | 🟢 available   | medium     | F7-S06                                         |
+| F7-S09 | Cutover, go-live e monitoramento das primeiras 168h                                  | 🟢 available   | critical   | F7-S01, F7-S02, F7-S03, F7-S06, F7-S07, F7-S08 |
 
 ## Fase 8 —
 
