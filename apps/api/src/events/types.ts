@@ -223,6 +223,51 @@ export interface CreditAnalysisStatusChangedData {
   lead_id: string;
   from_status: string;
   to_status: string;
+  /** UUID da versão que originou a transição de status. */
+  version_id: string;
+}
+
+// --- F4-S02: novos eventos de análise de crédito (LGPD §8.5 — sem PII bruta) ---
+
+/**
+ * Emitido ao criar uma nova análise de crédito (F4-S02).
+ * Payload: apenas IDs opacos + status + origem. Sem PII bruta.
+ */
+export interface CreditAnalysisCreatedData {
+  analysis_id: string;
+  /** UUID opaco do lead — não é PII direta, mas aponta para entidade com PII. */
+  lead_id: string;
+  organization_id: string;
+  /** Status inicial: "em_analise" | "pendente". */
+  status: string;
+  /** "manual" | "import" — nunca "ai" (Art. 20 LGPD). */
+  origin: string;
+}
+
+/**
+ * Emitido ao adicionar nova versão de parecer (F4-S02).
+ * Sem texto do parecer no payload — texto persiste em credit_analysis_versions.
+ */
+export interface CreditAnalysisVersionAddedData {
+  analysis_id: string;
+  /** Número sequencial da versão adicionada. */
+  version: number;
+  /** Status resultante desta versão. */
+  status: string;
+  /** UUID da nova versão em credit_analysis_versions. */
+  version_id: string;
+}
+
+/**
+ * Emitido ao solicitar revisão humana pelo titular (LGPD Art. 20 §5) (F4-S02).
+ * Permite ao Kanban worker (F4-S05) reagir e alertar analistas.
+ */
+export interface CreditAnalysisReviewRequestedData {
+  analysis_id: string;
+  /** UUID opaco do lead — aponta para entidade com PII, não logar diretamente. */
+  lead_id: string;
+  /** UUID do usuário que solicitou a revisão (titular ou representante). */
+  requested_by_user_id: string;
 }
 
 // --- Domínio: crédito (produto/regras) ---
@@ -581,6 +626,10 @@ export interface AppEventDataMap {
   'credit_analysis.added': CreditAnalysisAddedData;
   'credit_analysis.updated': CreditAnalysisUpdatedData;
   'credit_analysis.status_changed': CreditAnalysisStatusChangedData;
+  // F4-S02 — novos eventos de ciclo de vida da análise de crédito
+  'credit_analysis.created': CreditAnalysisCreatedData;
+  'credit_analysis.version_added': CreditAnalysisVersionAddedData;
+  'credit_analysis.review_requested': CreditAnalysisReviewRequestedData;
   'credit.product_created': CreditProductCreatedData;
   'credit.product_updated': CreditProductUpdatedData;
   'credit.rule_published': CreditRulePublishedData;

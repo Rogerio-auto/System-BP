@@ -23,6 +23,7 @@ import { promptsRoutes } from './modules/ai-console/prompts/index.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
 import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
+import { creditAnalysesRoutes } from './modules/credit-analyses/index.js';
 import { creditProductsRoutes } from './modules/credit-products/routes.js';
 import { dashboardRoutes } from './modules/dashboard/routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
@@ -124,6 +125,16 @@ export async function buildApp() {
           'req.body.message',
           // dlp_tokens: lista de placeholders — não é PII mas pode dar contexto sobre o tipo
           '*.dlp_tokens',
+          // Análise de crédito (F4-S02) — LGPD Art. 20 §1º
+          // parecer_text: texto livre do analista, pode conter dados quasi-identificadores
+          '*.parecer_text',
+          'req.body.parecer_text',
+          // attachments: metadados de anexos (storage_key pode conter org_id)
+          '*.attachments',
+          'req.body.attachments',
+          // internal_score: score interno de risco — nunca expor ao cliente
+          '*.internal_score',
+          'req.body.internal_score',
         ],
         censor: '[REDACTED]',
       },
@@ -178,6 +189,8 @@ export async function buildApp() {
   await app.register(creditProductsRoutes);
   // Simulações de crédito via UI (F2-S04)
   await app.register(simulationsRoutes);
+  // Análise de crédito CRUD + RBAC + Art. 20 LGPD (F4-S02)
+  await app.register(creditAnalysesRoutes);
   // Simulações de crédito via IA (F2-S05) — canal M2M, X-Internal-Token, idempotente
   await app.register(internalSimulationsRoutes);
   // Agentes de crédito + atribuições a cidades (F8-S01)
