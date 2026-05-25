@@ -3,11 +3,11 @@ id: F4-S05
 title: Worker kanban-on-analysis — promoção aprova/recusa move o card
 phase: F4
 task_ref: T4.5
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: backend-engineer
-claimed_at: null
+claimed_at: 2026-05-25T16:37:19Z
 completed_at: null
 pr_url: null
 depends_on: [F4-S02, F1-S13, F1-S15, F2-S09]
