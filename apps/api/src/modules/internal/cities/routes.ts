@@ -36,13 +36,13 @@
 //     de localização — não é PII conforme §8.5: não identifica pessoa, apenas lugar).
 //   - Resposta retorna apenas IDs e nomes de município (dados públicos).
 // =============================================================================
-import { randomUUID } from 'node:crypto';
 
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 import { env } from '../../../config/env.js';
 import { db } from '../../../db/client.js';
 import { emit } from '../../../events/emit.js';
+import { verifyInternalToken } from '../../../lib/auth/internal-token.js';
 import { UnauthorizedError } from '../../../shared/errors.js';
 import { findCitiesByFuzzyMatch } from '../../cities/repository.js';
 
@@ -92,9 +92,8 @@ const internalCitiesRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      // 1. Verificar X-Internal-Token
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      // 1. Verificar X-Internal-Token (timing-safe — previne timing oracle, doc 10 §2.3).
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new UnauthorizedError('Token interno inválido ou ausente');
       }
 
@@ -147,7 +146,9 @@ const internalCitiesRoutes: FastifyPluginAsyncZod = async (app) => {
               aggregateId: best.id,
               organizationId: organization_id,
               actor: { kind: 'ai', id: null, ip: null },
-              idempotencyKey: `cities.identified:${best.id}:${lead_id}:${randomUUID()}`,
+              // Chave determinística: mesma combinação lead+city → mesmo evento no outbox.
+              // Elimina duplicatas quando o LangGraph reemite identify_city em retry (F3-S05).
+              idempotencyKey: `city_identify_${lead_id}_${best.id}`,
               data: {
                 lead_id,
                 city_id: best.id,

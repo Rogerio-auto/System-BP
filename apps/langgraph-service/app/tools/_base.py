@@ -116,6 +116,66 @@ class InternalApiClient:
             extra_headers["Idempotency-Key"] = idempotency_key
         return await self._request("POST", path, json=json, extra_headers=extra_headers)
 
+    async def put(
+        self,
+        path: str,
+        json: dict[str, Any] | None = None,
+        *,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Executa PUT em ``path`` com corpo JSON opcional.
+
+        Semântica de PUT: substituição completa do recurso no caminho indicado.
+        Usado principalmente por ``persist_state`` (F3-S30) para salvar o
+        checkpoint de conversa via ``PUT /internal/conversations/:id/state``.
+
+        Args:
+            path: Caminho relativo (ex.: ``"/internal/conversations/abc/state"``).
+            json: Payload a serializar como JSON. None para PUT sem corpo.
+            idempotency_key: Valor para o header ``Idempotency-Key``.
+
+        Returns:
+            Corpo JSON desserializado como ``dict``.
+
+        Raises:
+            httpx.HTTPStatusError: Em resposta de erro após retries.
+            httpx.TimeoutException: Se o backend não responder em 8 s.
+        """
+        extra_headers: dict[str, str] = {}
+        if idempotency_key is not None:
+            extra_headers["Idempotency-Key"] = idempotency_key
+        return await self._request("PUT", path, json=json, extra_headers=extra_headers)
+
+    async def patch(
+        self,
+        path: str,
+        json: dict[str, Any] | None = None,
+        *,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Executa PATCH em ``path`` com corpo JSON opcional (atualização parcial).
+
+        Semântica de PATCH: atualização parcial do recurso. Usado principalmente
+        por ``update_lead_profile`` (F3-S22) via
+        ``PATCH /internal/leads/:id``.
+
+        Args:
+            path: Caminho relativo (ex.: ``"/internal/leads/abc"``).
+            json: Payload a serializar como JSON. None para PATCH sem corpo.
+            idempotency_key: Valor para o header ``Idempotency-Key``.
+
+        Returns:
+            Corpo JSON desserializado como ``dict``.
+
+        Raises:
+            httpx.HTTPStatusError: Em resposta de erro após retries.
+            httpx.TimeoutException: Se o backend não responder em 8 s.
+        """
+        extra_headers: dict[str, str] = {}
+        if idempotency_key is not None:
+            extra_headers["Idempotency-Key"] = idempotency_key
+        return await self._request("PATCH", path, json=json, extra_headers=extra_headers)
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

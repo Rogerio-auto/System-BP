@@ -69,9 +69,10 @@ export * from './promptVersions.js';
 // Chatwoot handoffs — persistência de handoffs de conversa (F3-S37)
 export * from './chatwootHandoffs.js';
 
-// 2FA / TOTP — recovery codes e desafios de login (F8-S11)
+// 2FA / TOTP — recovery codes, desafios de login e anti-replay (F8-S11)
 export * from './userRecoveryCodes.js';
 export * from './totpChallenges.js';
+export * from './usedTotpCodes.js';
 
 // Preços por modelo LLM — custeio de decisões IA (F9-S00)
 export * from './modelPricing.js';

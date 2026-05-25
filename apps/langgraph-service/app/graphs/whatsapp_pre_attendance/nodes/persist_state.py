@@ -134,7 +134,7 @@ async def persist_state(state: ConversationState) -> dict[str, Any]:
             "handoff_reason": f"persist_state: backend error {exc.response.status_code}",
         }
 
-    except httpx.TimeoutException as exc:
+    except httpx.TimeoutException:
         latency_ms = (time.monotonic_ns() - start_ns) // 1_000_000
         error_entry = {
             "node": "persist_state",

@@ -202,6 +202,8 @@ const FIXTURE_CUSTOMER_ID = 'bbbbbbbb-0000-0000-0000-000000000001';
 const FIXTURE_CITY_ID = 'cccccccc-0000-0000-0000-000000000001';
 const FIXTURE_AGENT_ID = 'dddddddd-0000-0000-0000-000000000001';
 const FIXTURE_SIMULATION_ID = 'eeeeeeee-0000-0000-0000-000000000001';
+// F7-S03 item 2: organization_id obrigatório em header X-Organization-Id (regra inviolável #3)
+const FIXTURE_ORG_ID = 'ffffffff-0000-0000-0000-000000000001';
 
 const NOW = new Date('2026-05-18T12:00:00.000Z');
 
@@ -435,7 +437,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_LEAD_ID}/context?type=lead`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(200);
@@ -471,7 +473,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_LEAD_ID}/context?type=lead`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(200);
@@ -503,7 +505,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_LEAD_ID}/context?type=lead`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(200);
@@ -528,7 +530,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_CUSTOMER_ID}/context?type=customer`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(200);
@@ -550,7 +552,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_LEAD_ID}/context`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(200);
@@ -566,7 +568,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_LEAD_ID}/context?type=lead`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(404);
@@ -582,7 +584,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_CUSTOMER_ID}/context?type=customer`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(404);
@@ -618,13 +620,30 @@ describe('GET /internal/customers/:id/context', () => {
   });
 
   // -------------------------------------------------------------------------
+  // F7-S03 item 2: 400 — X-Organization-Id ausente (regra inviolável #3)
+  // -------------------------------------------------------------------------
+  it('retorna 400 quando X-Organization-Id está ausente (multi-tenant scope)', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: `/internal/customers/${FIXTURE_LEAD_ID}/context?type=lead`,
+      // Intencionalmente SEM x-organization-id — deve retornar 400
+      headers: { 'x-internal-token': VALID_TOKEN },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error).toBe('VALIDATION_ERROR');
+    // Nenhuma query deve ter sido executada — o guard retorna antes do DB
+    expect(queryQueue).toHaveLength(0);
+  });
+
+  // -------------------------------------------------------------------------
   // 10. 400 — :id não é UUID válido
   // -------------------------------------------------------------------------
   it('retorna 400 quando :id não é UUID válido', async () => {
     const response = await app.inject({
       method: 'GET',
       url: '/internal/customers/not-a-uuid/context?type=lead',
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(400);
@@ -638,7 +657,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_LEAD_ID}/context?type=invalid`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(400);
@@ -661,7 +680,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_LEAD_ID}/context?type=lead`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(200);
@@ -690,7 +709,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_LEAD_ID}/context?type=lead`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(200);
@@ -709,7 +728,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_LEAD_ID}/context?type=lead`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(200);
@@ -726,7 +745,7 @@ describe('GET /internal/customers/:id/context', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/internal/customers/${FIXTURE_LEAD_ID}/context?type=lead`,
-      headers: { 'x-internal-token': VALID_TOKEN },
+      headers: { 'x-internal-token': VALID_TOKEN, 'x-organization-id': FIXTURE_ORG_ID },
     });
 
     expect(response.statusCode).toBe(404);

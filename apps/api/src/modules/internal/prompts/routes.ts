@@ -23,6 +23,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 import { env } from '../../../config/env.js';
+import { verifyInternalToken } from '../../../lib/auth/internal-token.js';
 import { NotFoundError, UnauthorizedError } from '../../../shared/errors.js';
 
 import { findActivePromptByKey } from './repository.js';
@@ -63,9 +64,8 @@ const internalPromptsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      // 1. Verificar X-Internal-Token
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      // 1. Verificar X-Internal-Token (timing-safe — previne timing oracle, doc 10 §2.3).
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new UnauthorizedError('Token interno inválido ou ausente');
       }
 

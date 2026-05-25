@@ -407,13 +407,16 @@ async def process_whatsapp_message(
         ) from None
 
     except Exception as exc:
+        # F7-S03 log sanitization: str(exc) pode vazar contexto interno ou PII acidental.
+        # Logar apenas o tipo em info; str(exc) vai para debug.
         latency_ms = (time.monotonic_ns() - start_ns) // 1_000_000
         log.error(
             "process_whatsapp_error",
             conversation_id=payload.conversation_id,
             latency_ms=latency_ms,
-            error=str(exc),
+            error_type=type(exc).__name__,
         )
+        log.debug("process_whatsapp_error_detail", error=str(exc))
         raise HTTPException(
             status_code=500,
             detail={

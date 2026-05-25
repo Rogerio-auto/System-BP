@@ -356,7 +356,10 @@ describe('triggerAiFallback', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 8. Idempotência: chave de idempotência do handoff inclui waMessageId
+  // 8. Idempotência: chave de idempotência do handoff inclui waMessageId.
+  //    F7-S03 (F3-S34): /internal/ai/decisions é append-only — não usa
+  //    Idempotency-Key (cada retry cria um registro de auditoria separado,
+  //    o que é o comportamento correto para logs de decisão de IA).
   // -------------------------------------------------------------------------
   it('usa waMessageId na chave de idempotência do handoff', async () => {
     nock(CHATWOOT_BASE_URL).post(chatwootMessagesPath()).reply(201, chatwootMessageResponse);
@@ -365,13 +368,15 @@ describe('triggerAiFallback', () => {
 
     await triggerAiFallback(defaultCtx, makeFallbackOptions({ fetchFn }));
 
+    // Handoff: deve ter Idempotency-Key com waMessageId (previne handoffs duplicados)
     const handoffReq = capturedRequests.find((r) => r.url.includes('/handoffs'));
     const handoffHeaders = handoffReq?.headers as Record<string, string>;
     expect(handoffHeaders['Idempotency-Key']).toContain(WA_MESSAGE_ID);
 
+    // Decisions: NÃO deve ter Idempotency-Key (append-only — F7-S03 F3-S34)
     const decisionReq = capturedRequests.find((r) => r.url.includes('/ai/decisions'));
     const decisionHeaders = decisionReq?.headers as Record<string, string>;
-    expect(decisionHeaders['Idempotency-Key']).toContain(WA_MESSAGE_ID);
+    expect(decisionHeaders['Idempotency-Key']).toBeUndefined();
   });
 
   // -------------------------------------------------------------------------

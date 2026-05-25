@@ -88,10 +88,18 @@ def _stub_chatwoot_notes(body: dict[str, Any]) -> dict[str, Any]:
 
 
 def _stub_handoffs(body: dict[str, Any]) -> dict[str, Any]:
-    """Stub para POST /internal/handoffs → HandoffOutput."""
+    """Stub para POST /internal/handoffs → HandoffOutput.
+
+    F7-S03 item 10: ``chatwoot_conversation_id`` usa uuid4() opaco em vez de
+    ``body.get("conversation_id")`` — o body pode conter PII (phone, lead_id)
+    e o campo ``conversation_id`` no body é o ID do LangGraph, não do Chatwoot.
+    Em produção o backend atribui um ID Chatwoot real; no dry-run usamos um UUID
+    sintético para satisfazer o schema ``HandoffOutput`` sem vazar dados do body.
+    """
+    _ = body  # body não é usado — resposta é sempre sintética
     return {
         "handoff_id": str(uuid.uuid4()),
-        "chatwoot_conversation_id": body.get("conversation_id", str(uuid.uuid4())),
+        "chatwoot_conversation_id": str(uuid.uuid4()),
         "assigned_agent_id": None,
         "status": "queued",
         "dry_run": True,
