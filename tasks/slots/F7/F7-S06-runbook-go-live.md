@@ -3,12 +3,12 @@ id: F7-S06
 title: Runbook de go-live + observabilidade pré-prod
 phase: F7
 task_ref: T7.6
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: backend-engineer
 claimed_at: 2026-05-25T15:52:21Z
-completed_at: null
+completed_at: 2026-05-25T16:01:06Z
 pr_url: null
 depends_on: [F7-S01, F7-S02, F7-S03]
 blocks: [F7-S09]
@@ -19,7 +19,6 @@ source_docs:
   - docs/13-criterios-aceite.md
   - docs/14-riscos-mitigacoes.md
 ---
-
 # F7-S06 — Runbook de go-live + observabilidade pré-prod
 
 ## Objetivo
