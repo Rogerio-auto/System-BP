@@ -3,12 +3,12 @@ id: F4-S06
 title: Adapter de importação de análises de crédito
 phase: F4
 task_ref: T4.6
-status: in-progress
+status: review
 priority: medium
 estimated_size: M
 agent_id: backend-engineer
 claimed_at: 2026-05-25T16:34:19Z
-completed_at: null
+completed_at: 2026-05-25T16:52:50Z
 pr_url: null
 depends_on: [F4-S02, F1-S17, F1-S18]
 blocks: []
