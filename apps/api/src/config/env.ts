@@ -97,6 +97,17 @@ const envSchema = z.object({
     .number()
     .min(0, 'FX_BRL_PER_USD deve ser >= 0 (use 0 para desabilitar conversão BRL)')
     .refine((v) => v > 0, { message: 'FX_BRL_PER_USD é obrigatório e deve ser > 0' }),
+
+  // ---- Workers periódicos (F5-S02) ----------------------------------------
+  // Intervalo do tick do worker followup-scheduler em milissegundos.
+  // Default: 60000 (60 segundos). Em produção pode ser ajustado para 300000 (5 min).
+  // Valores < 1000 são rejeitados para evitar sobrecarga acidental no banco.
+  FOLLOWUP_SCHEDULER_TICK_MS: z.coerce
+    .number()
+    .int()
+    .min(1000, 'FOLLOWUP_SCHEDULER_TICK_MS deve ser >= 1000ms')
+    .default(60_000)
+    .optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

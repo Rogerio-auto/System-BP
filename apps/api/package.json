@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "concurrently -n api,outbox,import -c blue,green,yellow --kill-others-on-fail \"pnpm dev:api\" \"pnpm worker:outbox\" \"pnpm worker:import\"",
+    "dev": "concurrently -n api,outbox,import,followup -c blue,green,yellow,cyan --kill-others-on-fail \"pnpm dev:api\" \"pnpm worker:outbox\" \"pnpm worker:import\" \"pnpm worker:followup\"",
     "dev:api": "tsx watch --env-file=../../.env src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
@@ -23,6 +23,7 @@
     "db:studio": "node --env-file=../../.env node_modules/drizzle-kit/bin.cjs studio",
     "worker:outbox": "tsx --env-file=../../.env src/workers/outbox-publisher.ts",
     "worker:import": "tsx --env-file=../../.env src/workers/import-processor.ts",
+    "worker:followup": "tsx --env-file=../../.env src/workers/followup-scheduler.ts",
     "db:check-migrations": "node scripts/check-migration-journal.mjs"
   },
   "dependencies": {
