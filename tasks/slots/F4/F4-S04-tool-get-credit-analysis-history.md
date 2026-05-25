@@ -3,11 +3,11 @@ id: F4-S04
 title: Tool LangGraph get_credit_analysis_history (read-only mascarado)
 phase: F4
 task_ref: T4.4
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: python-engineer
-claimed_at: null
+claimed_at: 2026-05-25T15:51:31Z
 completed_at: null
 pr_url: null
 depends_on: [F4-S02, F3-S04, F1-S26]
