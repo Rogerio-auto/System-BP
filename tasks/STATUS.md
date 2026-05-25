@@ -12,9 +12,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
-| F4   | 6     | 5   | 0   | 0   | 0   | 1   | 0   |
+| F4   | 6     | 5   | 0   | 0   | 0   | 0   | 1   |
 | F5   | 8     | 8   | 0   | 0   | 0   | 0   | 0   |
-| F7   | 8     | 7   | 0   | 0   | 0   | 1   | 0   |
+| F7   | 8     | 6   | 0   | 0   | 0   | 0   | 2   |
 | F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F9   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 
@@ -134,7 +134,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID     | Título                                                                 | Status       | Prioridade | Depende de                             |
 | ------ | ---------------------------------------------------------------------- | ------------ | ---------- | -------------------------------------- |
-| F4-S01 | Schema credit_analyses + credit_analysis_versions + migration          | 🟣 review    | critical   | F2-S01, F1-S09, F1-S13, F1-S15, F1-S24 |
+| F4-S01 | Schema credit_analyses + credit_analysis_versions + migration          | ✅ done      | critical   | F2-S01, F1-S09, F1-S13, F1-S15, F1-S24 |
 | F4-S02 | Backend — service + endpoints CRUD de credit_analyses (RBAC + Art. 20) | 🟢 available | critical   | F4-S01, F1-S04, F1-S15, F1-S16         |
 | F4-S03 | Frontend — lista, detalhe, form e nova versão de análise de crédito    | 🟢 available | high       | F4-S02, F1-S08, F1-S12, F8-S08         |
 | F4-S04 | Tool LangGraph get_credit_analysis_history (read-only mascarado)       | 🟢 available | high       | F4-S02, F3-S04, F1-S26                 |
@@ -158,8 +158,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID     | Título                                                                               | Status       | Prioridade | Depende de                                     |
 | ------ | ------------------------------------------------------------------------------------ | ------------ | ---------- | ---------------------------------------------- |
-| F7-S01 | Configurar Kimi K2 como modelo default do reasoner LangGraph                         | 🟢 available | critical   | F3-S00, F9-S00                                 |
-| F7-S02 | CI — E2E smoke test (docker-compose + fluxo crítico)                                 | 🟣 review    | critical   | F3-S33, F3-S34                                 |
+| F7-S01 | Configurar Kimi K2 como modelo default do reasoner LangGraph                         | ✅ done      | critical   | F3-S00, F9-S00                                 |
+| F7-S02 | CI — E2E smoke test (docker-compose + fluxo crítico)                                 | ✅ done      | critical   | F3-S33, F3-S34                                 |
 | F7-S03 | Hardening F3 pré-produção (timing-safe token, multi-tenant scope, idempotency, logs) | 🟢 available | critical   | F3-S33, F3-S34, F9-S10                         |
 | F7-S04 | Adapter de importação Notion → leads + lead_history                                  | 🟢 available | high       | F1-S17, F1-S18, F1-S24                         |
 | F7-S06 | Runbook de go-live + observabilidade pré-prod                                        | 🟢 available | high       | F7-S01, F7-S02, F7-S03                         |

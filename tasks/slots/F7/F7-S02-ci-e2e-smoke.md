@@ -3,13 +3,13 @@ id: F7-S02
 title: CI — E2E smoke test (docker-compose + fluxo crítico)
 phase: F7
 task_ref: T7.2
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: qa-tester
 claimed_at: 2026-05-22T17:13:26Z
 completed_at: 2026-05-22T17:29:27Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/140
 depends_on: [F3-S33, F3-S34]
 blocks: [F7-S09]
 labels: []
