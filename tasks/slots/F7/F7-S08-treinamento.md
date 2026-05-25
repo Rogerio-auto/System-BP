@@ -3,13 +3,13 @@ id: F7-S08
 title: Treinamento dos agentes humanos + material de apoio
 phase: F7
 task_ref: T7.8
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: backend-engineer
 claimed_at: 2026-05-25T16:34:34Z
 completed_at: 2026-05-25T16:41:10Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/151
 depends_on: [F7-S06]
 blocks: [F7-S09]
 labels: []

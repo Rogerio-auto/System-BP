@@ -12,9 +12,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
-| F4   | 6     | 1   | 0   | 0   | 0   | 1   | 4   |
-| F5   | 8     | 7   | 0   | 0   | 0   | 0   | 1   |
-| F7   | 8     | 2   | 0   | 0   | 0   | 1   | 5   |
+| F4   | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
+| F5   | 8     | 6   | 0   | 0   | 0   | 0   | 2   |
+| F7   | 8     | 2   | 0   | 0   | 0   | 0   | 6   |
 | F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F9   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 
@@ -132,14 +132,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 4 — Atendimento WhatsApp + Chatwoot
 
-| ID     | Título                                                                 | Status       | Prioridade | Depende de                             |
-| ------ | ---------------------------------------------------------------------- | ------------ | ---------- | -------------------------------------- |
-| F4-S01 | Schema credit_analyses + credit_analysis_versions + migration          | ✅ done      | critical   | F2-S01, F1-S09, F1-S13, F1-S15, F1-S24 |
-| F4-S02 | Backend — service + endpoints CRUD de credit_analyses (RBAC + Art. 20) | ✅ done      | critical   | F4-S01, F1-S04, F1-S15, F1-S16         |
-| F4-S03 | Frontend — lista, detalhe, form e nova versão de análise de crédito    | ✅ done      | high       | F4-S02, F1-S08, F1-S12, F8-S08         |
-| F4-S04 | Tool LangGraph get_credit_analysis_history (read-only mascarado)       | ✅ done      | high       | F4-S02, F3-S04, F1-S26                 |
-| F4-S05 | Worker kanban-on-analysis — promoção aprova/recusa move o card         | 🟢 available | high       | F4-S02, F1-S13, F1-S15, F2-S09         |
-| F4-S06 | Adapter de importação de análises de crédito                           | 🟣 review    | medium     | F4-S02, F1-S17, F1-S18                 |
+| ID     | Título                                                                 | Status  | Prioridade | Depende de                             |
+| ------ | ---------------------------------------------------------------------- | ------- | ---------- | -------------------------------------- |
+| F4-S01 | Schema credit_analyses + credit_analysis_versions + migration          | ✅ done | critical   | F2-S01, F1-S09, F1-S13, F1-S15, F1-S24 |
+| F4-S02 | Backend — service + endpoints CRUD de credit_analyses (RBAC + Art. 20) | ✅ done | critical   | F4-S01, F1-S04, F1-S15, F1-S16         |
+| F4-S03 | Frontend — lista, detalhe, form e nova versão de análise de crédito    | ✅ done | high       | F4-S02, F1-S08, F1-S12, F8-S08         |
+| F4-S04 | Tool LangGraph get_credit_analysis_history (read-only mascarado)       | ✅ done | high       | F4-S02, F3-S04, F1-S26                 |
+| F4-S05 | Worker kanban-on-analysis — promoção aprova/recusa move o card         | ✅ done | high       | F4-S02, F1-S13, F1-S15, F2-S09         |
+| F4-S06 | Adapter de importação de análises de crédito                           | ✅ done | medium     | F4-S02, F1-S17, F1-S18                 |
 
 ## Fase 5 — Follow-up e cobrança
 
@@ -150,7 +150,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F5-S03 | Worker followup-sender + cliente Meta WhatsApp templates      | 🟢 available | high       | F5-S01, F5-S02, F1-S15, F1-S20                 |
 | F5-S04 | Cancelamento de followup por resposta do cliente              | 🟢 available | high       | F5-S01, F5-S03, F1-S19, F1-S15                 |
 | F5-S05 | Frontend — réguas de followup, jobs agendados e pausa manual  | 🟢 available | medium     | F5-S01, F5-S02, F5-S03, F1-S08, F1-S23, F8-S08 |
-| F5-S06 | Schema payment_dues + collection_rules + collection_jobs      | 🟣 review    | medium     | F5-S01, F1-S09, F1-S15, F1-S23, F1-S24         |
+| F5-S06 | Schema payment_dues + collection_rules + collection_jobs      | ✅ done      | medium     | F5-S01, F1-S09, F1-S15, F1-S23, F1-S24         |
 | F5-S07 | Workers collection-scheduler + collection-sender (gated)      | 🟢 available | medium     | F5-S06, F5-S03, F1-S15                         |
 | F5-S08 | Frontend cobrança + importação payment_dues + marcação manual | 🟢 available | medium     | F5-S06, F5-S07, F1-S08, F1-S17, F8-S08         |
 
@@ -164,7 +164,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F7-S04 | Adapter de importação Notion → leads + lead_history                                  | ✅ done      | high       | F1-S17, F1-S18, F1-S24                         |
 | F7-S06 | Runbook de go-live + observabilidade pré-prod                                        | ✅ done      | high       | F7-S01, F7-S02, F7-S03                         |
 | F7-S07 | Importação em staging + conferência paralela com Notion                              | 🟢 available | high       | F4-S06, F7-S04, F7-S06                         |
-| F7-S08 | Treinamento dos agentes humanos + material de apoio                                  | 🟣 review    | medium     | F7-S06                                         |
+| F7-S08 | Treinamento dos agentes humanos + material de apoio                                  | ✅ done      | medium     | F7-S06                                         |
 | F7-S09 | Cutover, go-live e monitoramento das primeiras 168h                                  | 🟢 available | critical   | F7-S01, F7-S02, F7-S03, F7-S06, F7-S07, F7-S08 |
 
 ## Fase 8 —
