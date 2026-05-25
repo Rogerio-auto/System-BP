@@ -14,6 +14,7 @@
 // =============================================================================
 import { registerHandler } from '../events/handlers.js';
 
+import { buildKanbanOnAnalysisHandler } from './kanban-on-analysis.js';
 import { buildKanbanOnSimulationHandler } from './kanban-on-simulation.js';
 
 /**
@@ -28,5 +29,12 @@ export function setupWorkerHandlers(): void {
     'simulations.generated',
     'kanban.on_simulation_generated',
     buildKanbanOnSimulationHandler(),
+  );
+
+  // F4-S05: credit_analysis.status_changed → move card conforme decisão da análise
+  registerHandler(
+    'credit_analysis.status_changed',
+    'kanban.on_analysis_status_changed',
+    buildKanbanOnAnalysisHandler(),
   );
 }
