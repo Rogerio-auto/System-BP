@@ -3,11 +3,11 @@ id: F5-S01
 title: Schema followup_rules + followup_jobs + whatsapp_templates
 phase: F5
 task_ref: T5.1
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: db-schema-engineer
-claimed_at: null
+claimed_at: 2026-05-25T15:52:01Z
 completed_at: null
 pr_url: null
 depends_on: [F0-S04, F1-S09, F1-S15, F1-S23]
