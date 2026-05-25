@@ -151,7 +151,70 @@ Arquivo `elemento-prod-secrets.txt` cifrado com GPG armazenado no cofre do clien
 
 ---
 
-## 5. Checklist pré-cutover (D-7 → D0)
+## 5. Procedimento de importação em staging (F7-S07)
+
+> Antes de qualquer cutover em produção, a importação completa deve ser **exercitada em staging** e conferida com os gestores do Banco do Povo. O procedimento detalhado está em:
+>
+> **[`tasks/slots/F7/runbook-f7-s07.md`](../tasks/slots/F7/runbook-f7-s07.md)**
+>
+> O runbook cobre os seguintes passos cronológicos:
+>
+> | Passo | Descrição |
+> |-------|-----------|
+> | 1 | Snapshot Notion (timestamp + arquivo JSON de referência) |
+> | 2 | Subir ambiente de staging com `.env` (referenciar §3 deste doc) |
+> | 3 | Migrations + seed mínimo |
+> | 4 | Importar Notion (F7-S04) — anotar `batch_id` e contadores |
+> | 5 | Importar análises CSV (F4-S06) — anotar `batch_id` e contadores |
+> | 6 | Rodar `scripts/diff-import-vs-source.ps1` (diff automatizado) |
+> | 7 | Sessão com gestor: revisar divergências, decidir GO/NO-GO |
+> | 8 | Documento de aceitação assinado (PDF anexado ao PR do slot F7-S07) |
+>
+> ### 5.1 Script de diff (`scripts/diff-import-vs-source.ps1`)
+>
+> Compara a fonte original (Notion JSON + CSV de análises) contra o banco de staging e emite um CSV de divergências.
+>
+> ```powershell
+> # Uso basico
+> .\scripts\diff-import-vs-source.ps1 `
+>     -NotionBackup  .\notion-backup-<timestamp>.json `
+>     -AnalysesCsv   .\analyses.csv `
+>     -StagingDbUrl  $env:STAGING_DATABASE_URL
+>
+> # Com output em caminho especifico
+> .\scripts\diff-import-vs-source.ps1 `
+>     -NotionBackup  .\notion-backup-<timestamp>.json `
+>     -AnalysesCsv   .\analyses.csv `
+>     -StagingDbUrl  $env:STAGING_DATABASE_URL `
+>     -OutputCsv     .\reports\import-diff-staging.csv
+> ```
+>
+> **Exit codes do script:**
+>
+> | Código | Significado | Ação recomendada |
+> |--------|-------------|-----------------|
+> | 0 | Sem divergências nem ausentes | Importação perfeita — prosseguir |
+> | 1 | WARN: < 5% de registros com problema | Revisar com gestor — pode prosseguir com ressalvas documentadas |
+> | 2 | FAIL: ≥ 5% de registros com problema | **Não prosseguir.** Investigar e corrigir antes do cutover. |
+>
+> ### 5.2 Rotina diária de operação paralela (D0+1 → D0+7)
+>
+> Durante a operação paralela, rodar o script diariamente às 9h (ver §8.2 deste doc) para monitorar divergências acumuladas entre Elemento e Notion (somente leitura após D0).
+>
+> ```powershell
+> # Operacao paralela — snapshot Notion do dia
+> .\scripts\diff-import-vs-source.ps1 `
+>     -NotionBackup  .\notion-snapshot-$(Get-Date -Format 'yyyyMMdd').json `
+>     -AnalysesCsv   .\analyses-$(Get-Date -Format 'yyyyMMdd').csv `
+>     -StagingDbUrl  $env:PROD_DATABASE_URL `
+>     -OutputCsv     .\reports\parallel-diff-$(Get-Date -Format 'yyyyMMdd').csv
+> ```
+>
+> Registrar resultado na tabela de operação paralela (§8.2).
+
+---
+
+## 5a. Checklist pré-cutover (D-7 → D0)
 
 > **Como usar:** marcar cada item com data e responsável. Item não marcado no momento indicado = bloqueio do passo seguinte.
 
