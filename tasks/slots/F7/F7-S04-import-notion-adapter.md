@@ -3,12 +3,12 @@ id: F7-S04
 title: Adapter de importação Notion → leads + lead_history
 phase: F7
 task_ref: T7.4
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: backend-engineer
 claimed_at: 2026-05-25T15:01:31Z
-completed_at: null
+completed_at: 2026-05-25T15:20:07Z
 pr_url: null
 depends_on: [F1-S17, F1-S18, F1-S24]
 blocks: [F7-S07]
