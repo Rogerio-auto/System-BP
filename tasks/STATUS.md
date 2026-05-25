@@ -12,7 +12,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
-| F4   | 6     | 3   | 0   | 0   | 1   | 0   | 2   |
+| F4   | 6     | 3   | 0   | 0   | 0   | 1   | 2   |
 | F5   | 8     | 8   | 0   | 0   | 0   | 0   | 0   |
 | F7   | 8     | 4   | 0   | 0   | 0   | 0   | 4   |
 | F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
@@ -132,14 +132,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 4 — Atendimento WhatsApp + Chatwoot
 
-| ID     | Título                                                                 | Status         | Prioridade | Depende de                             |
-| ------ | ---------------------------------------------------------------------- | -------------- | ---------- | -------------------------------------- |
-| F4-S01 | Schema credit_analyses + credit_analysis_versions + migration          | ✅ done        | critical   | F2-S01, F1-S09, F1-S13, F1-S15, F1-S24 |
-| F4-S02 | Backend — service + endpoints CRUD de credit_analyses (RBAC + Art. 20) | ✅ done        | critical   | F4-S01, F1-S04, F1-S15, F1-S16         |
-| F4-S03 | Frontend — lista, detalhe, form e nova versão de análise de crédito    | 🔵 in-progress | high       | F4-S02, F1-S08, F1-S12, F8-S08         |
-| F4-S04 | Tool LangGraph get_credit_analysis_history (read-only mascarado)       | 🟢 available   | high       | F4-S02, F3-S04, F1-S26                 |
-| F4-S05 | Worker kanban-on-analysis — promoção aprova/recusa move o card         | 🟢 available   | high       | F4-S02, F1-S13, F1-S15, F2-S09         |
-| F4-S06 | Adapter de importação de análises de crédito                           | 🟢 available   | medium     | F4-S02, F1-S17, F1-S18                 |
+| ID     | Título                                                                 | Status       | Prioridade | Depende de                             |
+| ------ | ---------------------------------------------------------------------- | ------------ | ---------- | -------------------------------------- |
+| F4-S01 | Schema credit_analyses + credit_analysis_versions + migration          | ✅ done      | critical   | F2-S01, F1-S09, F1-S13, F1-S15, F1-S24 |
+| F4-S02 | Backend — service + endpoints CRUD de credit_analyses (RBAC + Art. 20) | ✅ done      | critical   | F4-S01, F1-S04, F1-S15, F1-S16         |
+| F4-S03 | Frontend — lista, detalhe, form e nova versão de análise de crédito    | 🟣 review    | high       | F4-S02, F1-S08, F1-S12, F8-S08         |
+| F4-S04 | Tool LangGraph get_credit_analysis_history (read-only mascarado)       | 🟢 available | high       | F4-S02, F3-S04, F1-S26                 |
+| F4-S05 | Worker kanban-on-analysis — promoção aprova/recusa move o card         | 🟢 available | high       | F4-S02, F1-S13, F1-S15, F2-S09         |
+| F4-S06 | Adapter de importação de análises de crédito                           | 🟢 available | medium     | F4-S02, F1-S17, F1-S18                 |
 
 ## Fase 5 — Follow-up e cobrança
 
