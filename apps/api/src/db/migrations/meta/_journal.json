@@ -227,10 +227,31 @@
       "breakpoints": true
     },
     {
+      "idx": 34,
+      "version": "7",
+      "when": 1748477000000,
+      "tag": "0034_followup_and_templates",
+      "breakpoints": true
+    },
+    {
       "idx": 38,
       "version": "7",
       "when": 1779753600000,
       "tag": "0038_seed_kimi_k2_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1779753700000,
+      "tag": "0039_unique_org_phone_active",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1779753800000,
+      "tag": "0040_used_totp_codes",
       "breakpoints": true
     },
     {

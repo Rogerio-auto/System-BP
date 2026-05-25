@@ -76,3 +76,8 @@ export * from './usedTotpCodes.js';
 
 // Preços por modelo LLM — custeio de decisões IA (F9-S00)
 export * from './modelPricing.js';
+
+// Follow-up automático — templates Meta + régua de regras + jobs agendados (F5-S01)
+export * from './whatsappTemplates.js';
+export * from './followupRules.js';
+export * from './followupJobs.js';

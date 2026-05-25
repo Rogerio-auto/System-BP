@@ -125,6 +125,26 @@ const FLAGS: SeedFlag[] = [
     audience: {},
   },
   {
+    key: 'followup.scheduler.enabled',
+    status: 'disabled',
+    visible: false,
+    uiLabel: null,
+    // Worker scheduler (F5-S02): cria followup_jobs para leads inativos.
+    // Habilitar apenas após followup.enabled estar ativo.
+    description: 'Worker scheduler de follow-up — cria followup_jobs para leads inativos',
+    audience: {},
+  },
+  {
+    key: 'followup.sender.enabled',
+    status: 'disabled',
+    visible: false,
+    uiLabel: null,
+    // Worker sender (F5-S03): envia mensagens via Meta API para jobs agendados.
+    // Habilitar apenas após followup.scheduler.enabled estar ativo.
+    description: 'Worker sender de follow-up — envia templates via Meta API',
+    audience: {},
+  },
+  {
     key: 'collection.enabled',
     status: 'disabled',
     visible: true,
