@@ -153,6 +153,39 @@ const FLAGS: SeedFlag[] = [
     audience: {},
   },
   {
+    key: 'billing.enabled',
+    status: 'disabled',
+    visible: true,
+    uiLabel: 'Disponível na Fase 5',
+    // Triple-gate (1/3): habilita o módulo de billing/cobrança escalonada (F5-S06+).
+    // Manter desabilitado até decisão explícita do cliente (Banco do Povo / SEDEC-RO).
+    description: 'Módulo de cobrança escalonada — régua de payment_dues',
+    audience: {},
+  },
+  {
+    key: 'billing.scheduler.enabled',
+    status: 'disabled',
+    visible: false,
+    uiLabel: null,
+    // Triple-gate (2/3): habilita o worker scheduler de cobrança (F5-S07).
+    // Habilitar apenas após billing.enabled estar ativo.
+    // Cria collection_jobs para parcelas em status pending/overdue conforme collection_rules.
+    description:
+      'Worker scheduler de cobrança — cria collection_jobs para parcelas a vencer/vencidas',
+    audience: {},
+  },
+  {
+    key: 'billing.sender.enabled',
+    status: 'disabled',
+    visible: false,
+    uiLabel: null,
+    // Triple-gate (3/3): habilita o worker sender de cobrança (F5-S07).
+    // Habilitar apenas após billing.scheduler.enabled estar ativo.
+    // Envia templates WhatsApp via Meta API para collection_jobs agendados.
+    description: 'Worker sender de cobrança — envia templates de cobrança via Meta API',
+    audience: {},
+  },
+  {
     key: 'dashboard.by_agent.enabled',
     status: 'disabled',
     visible: true,
