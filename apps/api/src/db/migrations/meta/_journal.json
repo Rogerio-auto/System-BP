@@ -220,6 +220,13 @@
       "breakpoints": true
     },
     {
+      "idx": 33,
+      "version": "7",
+      "when": 1748131200000,
+      "tag": "0033_seed_credit_analyses_permissions",
+      "breakpoints": true
+    },
+    {
       "idx": 38,
       "version": "7",
       "when": 1779753600000,
