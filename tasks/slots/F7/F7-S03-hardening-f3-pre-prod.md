@@ -3,13 +3,13 @@ id: F7-S03
 title: Hardening F3 pré-produção (timing-safe token, multi-tenant scope, idempotency, logs)
 phase: F7
 task_ref: T7.3
-status: review
+status: done
 priority: critical
 estimated_size: L
 agent_id: backend-engineer
 claimed_at: 2026-05-25T13:42:11Z
 completed_at: 2026-05-25T14:56:40Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/142
 depends_on: [F3-S33, F3-S34, F9-S10]
 blocks: [F7-S09]
 labels: [lgpd-impact]
