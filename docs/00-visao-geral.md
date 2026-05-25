@@ -85,6 +85,7 @@ WhatsApp API oficial e Chatwoot continuam, mas como **canais**, nunca como **est
 | [17-lgpd-protecao-dados.md](17-lgpd-protecao-dados.md)                     | **LGPD e proteção de dados — política normativa, RoPA, direitos do titular, controles de dev/prod, IA, incidentes, DPIA, checklist de PR. Vence qualquer slot ou decisão em conflito.** |
 | [18-design-system.md](18-design-system.md)                                 | Design System v2 — tokens, profundidade, hovers, componentes, fontes. Lei visual para todo PR de frontend.                                                                              |
 | [19-runbook-go-live.md](19-runbook-go-live.md)                             | **Runbook de go-live e operação — cutover, rollback, operação paralela, smoke test, observabilidade, playbooks de incidente, contatos. Referência operacional obrigatória para o D0.**  |
+| [treinamento/README.md](treinamento/README.md)                             | **Pacote de treinamento dos agentes humanos — agenda das 3 sessões, checklist de presença, critério "100% treinados antes do D0". Contém os 5 documentos de apoio às sessões.**         |
 
 ---
 
