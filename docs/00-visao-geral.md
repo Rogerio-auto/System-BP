@@ -83,6 +83,8 @@ WhatsApp API oficial e Chatwoot continuam, mas como **canais**, nunca como **est
 | [15-estrategia-desenvolvimento-ia.md](15-estrategia-desenvolvimento-ia.md) | Como executar com Opus, Sonnet, GPT, Gemini, Copilot                                                                                                                                    |
 | [16-revisao-critica.md](16-revisao-critica.md)                             | Revisão crítica do PRD e o que fica para depois do MVP                                                                                                                                  |
 | [17-lgpd-protecao-dados.md](17-lgpd-protecao-dados.md)                     | **LGPD e proteção de dados — política normativa, RoPA, direitos do titular, controles de dev/prod, IA, incidentes, DPIA, checklist de PR. Vence qualquer slot ou decisão em conflito.** |
+| [18-design-system.md](18-design-system.md)                                 | Design System v2 — tokens, profundidade, hovers, componentes, fontes. Lei visual para todo PR de frontend.                                                                              |
+| [19-runbook-go-live.md](19-runbook-go-live.md)                             | **Runbook de go-live e operação — cutover, rollback, operação paralela, smoke test, observabilidade, playbooks de incidente, contatos. Referência operacional obrigatória para o D0.**  |
 
 ---
 

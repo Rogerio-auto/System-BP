@@ -130,3 +130,47 @@
 ## 15. Aceite final do MVP
 
 O MVP é considerado pronto quando todos os critérios das seções 1, 2, 3, 4, 5, 6, 7, 8 e 12 estão verdes em ambiente de staging com dados realistas, validados pelo gestor do Banco do Povo + Rogério (CTO).
+
+## 16. Gates de go-live
+
+> Referência completa: [docs/19-runbook-go-live.md §5](19-runbook-go-live.md) (checklist D-7 → D0).
+>
+> Estes gates são **bloqueadores**: nenhum pode estar vermelho no início do cutover (D0) sem aprovação explícita e documentada do CTO como "risco aceito".
+
+### 16.1 Gates de produto (slots)
+
+Todos os seguintes slots devem estar com status `done`:
+
+- [x] F7-S01 — Kimi K2 como modelo padrão
+- [x] F4-S01 — Schema de análise de crédito
+- [x] F4-S02 — API de análise de crédito
+- [x] F7-S02 — Smoke E2E verde no CI
+- [x] F7-S03 — Hardening F3 fechado
+- [x] F7-S04 — Importação Notion validada em staging
+- [ ] F7-S07 — Importação em staging conferida com cliente
+- [ ] F7-S08 — Treinamento dos agentes humanos 100%
+
+### 16.2 Gates de segurança e compliance
+
+- [ ] DPIA aprovado pelo DPO (doc 17 §11)
+- [ ] Contrato com Banco do Povo assinado
+- [ ] DPAs assinados: OpenRouter, Meta
+- [ ] RoPA atualizado com os fluxos do Elemento
+- [ ] Plano de rollback exercitado em staging (RTO medido ≤ 30 min)
+
+### 16.3 Gates técnicos (verificáveis)
+
+- [ ] `scripts/smoke-prod.ps1` roda com exit code 0 em staging
+- [ ] Todos os critérios da seção 5 (Segurança) verdes
+- [ ] Todos os critérios da seção 10 (Observabilidade) verdes
+- [ ] Todos os critérios da seção 11 (Deploy e rollback) verdes
+- [ ] Feature flags `followup.*` e `billing.*` confirmadas `disabled` em prod
+- [ ] Cert TLS válido por ≥ 30 dias
+- [ ] DNS configurado com TTL de 60s (para rollback rápido)
+
+### 16.4 Gates operacionais
+
+- [ ] Equipe de plantão designada e disponível (D0..D0+7) — ver doc 19 §12
+- [ ] Canal de incident criado com cliente
+- [ ] Status page configurado com acesso do cliente
+- [ ] Janela de cutover comunicada ao cliente por escrito ≥ 72h antes
