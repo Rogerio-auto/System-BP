@@ -1,0 +1,119 @@
+# =============================================================================
+# docker-compose.ci.yml — Stack mínima para E2E smoke tests no CI.
+#
+# Diferenças do docker-compose.yml principal:
+#   - Sem volumes persistentes (stateless entre runs de CI).
+#   - Healthchecks apertados (interval 5s, timeout 3s, retries 10).
+#   - Image tags pinned para reprodutibilidade.
+#   - Sem serviço `web` (não necessário para testes E2E de API).
+#   - Variáveis de ambiente hardcoded para CI (nunca usar em produção).
+#   - LangGraph usa mock server embutido via env LANGGRAPH_MOCK=true.
+#
+# Uso local:
+#   docker compose -f docker-compose.ci.yml up -d
+#   pnpm --filter @elemento/api db:migrate
+#   pnpm --filter @elemento/api e2e
+#   docker compose -f docker-compose.ci.yml down
+# =============================================================================
+name: elemento-ci
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: elemento_e2e
+      POSTGRES_USER: elemento
+      POSTGRES_PASSWORD: elemento_ci_secret
+    ports:
+      - '5433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U elemento -d elemento_e2e']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks:
+      - elemento-ci
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: test
+      LOG_LEVEL: error
+      API_HOST: 0.0.0.0
+      API_PORT: '3333'
+      API_PUBLIC_URL: http://localhost:3333
+      DATABASE_URL: postgres://elemento:elemento_ci_secret@postgres:5432/elemento_e2e
+      JWT_ACCESS_SECRET: ci-access-secret-for-e2e-tests-only-rotate-this-xxxxxxxxxxxxxxxx
+      JWT_REFRESH_SECRET: ci-refresh-secret-for-e2e-tests-only-rotate-this-xxxxxxxxxxxxxxx
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 30d
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      LANGGRAPH_INTERNAL_TOKEN: ci-internal-token-for-e2e-tests-only-32chars
+      LANGGRAPH_SERVICE_URL: http://langgraph:8000
+      WHATSAPP_APP_SECRET: ci-whatsapp-app-secret-e2e-tests
+      WHATSAPP_VERIFY_TOKEN: ci-verify-token-e2e
+      CHATWOOT_WEBHOOK_HMAC_SECRET: ci-chatwoot-hmac-secret-e2e
+      LGPD_DATA_KEY: P5Uc4j/vdAisFljJ0kdz08PLWmPvMC/NX5VIy99Bv+E=
+      LGPD_DEDUPE_PEPPER: xgRqlH8Ag8bV/DI9gza3qIFx0w4RF3f9ZF/RSilyV2s=
+      FX_BRL_PER_USD: '5.75'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '3333:3333'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3333/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 20s
+    networks:
+      - elemento-ci
+
+  langgraph:
+    build:
+      context: ./apps/langgraph-service
+      dockerfile: Dockerfile
+    environment:
+      ENVIRONMENT: test
+      LOG_LEVEL: ERROR
+      API_BASE_URL: http://api:3333
+      INTERNAL_TOKEN: ci-internal-token-for-e2e-tests-only-32chars
+      # E2E_MOCK_MODE: quando "true", o serviço responde com respostas sintéticas
+      # sem chamar o LLM externo — elimina flakiness e custo em CI.
+      E2E_MOCK_MODE: 'true'
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '8000:8000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+      start_period: 20s
+    networks:
+      - elemento-ci
+
+networks:
+  elemento-ci:
+    name: elemento-ci
+    driver: bridge
