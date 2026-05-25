@@ -3,13 +3,13 @@ id: F7-S07
 title: Importação em staging + conferência paralela com Notion
 phase: F7
 task_ref: T7.7
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: qa-tester
 claimed_at: 2026-05-25T19:05:09Z
 completed_at: 2026-05-25T19:13:23Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/153
 depends_on: [F4-S06, F7-S04, F7-S06]
 blocks: [F7-S09]
 labels: []
@@ -18,6 +18,7 @@ source_docs:
   - docs/13-criterios-aceite.md
   - docs/19-runbook-go-live.md
 ---
+
 # F7-S07 — Importação em staging + conferência paralela
 
 ## Objetivo
