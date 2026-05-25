@@ -1,5 +1,5 @@
 // =============================================================================
-// modules/internal/index.ts — Plugin agregador para rotas /internal/* (F3-S04).
+// modules/internal/index.ts — Plugin agregador para rotas /internal/* (F3-S04, F4-S04).
 //
 // Responsabilidade:
 //   Registrar todas as rotas internas de F3 automaticamente via @fastify/autoload.
@@ -37,6 +37,10 @@
 //   - F3-S04: internal/leads/routes.ts → POST /internal/leads/get-or-create
 //   - F3-S02, S05–S12: serão adicionados por slots futuros sem editar este arquivo.
 //
+// Rotas internas NÃO gerenciadas por autoload (registro manual):
+//   - F4-S04: credit-analyses/routes.ts → GET /internal/customers/:id/credit-analyses
+//             (prefixo /customers registrado manualmente abaixo — autoload daria prefixo errado)
+//
 // Rotas internas NÃO gerenciadas por este plugin (legacy — named export):
 //   - internal/featureFlags/routes.ts → registrado diretamente em app.ts.
 //   - modules/simulations/internal-routes.ts → registrado diretamente em app.ts.
@@ -47,6 +51,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { FastifyPluginAsync } from 'fastify';
+
+import { internalCreditAnalysesRoutes } from './credit-analyses/index.js';
 
 // @fastify/autoload é CJS que exporta via module.exports (não tem named exports ESM).
 // `createRequire` é necessário para importar módulos CJS a partir de um módulo ESM
@@ -100,13 +106,34 @@ const internalPlugin: FastifyPluginAsync = async (fastify) => {
     // @fastify/autoload v6 ignora silenciosamente arquivos sem default export Fastify,
     // mas a exclusão explícita é mais clara sobre a intenção arquitetural:
     // featureFlags usa named export por legado e está registrado diretamente em app.ts.
-    ignorePattern: /featureFlags/,
+    //
+    // Ignorar credit-analyses: este módulo é registrado manualmente abaixo com o
+    // prefixo /internal/customers para que o endpoint final seja
+    // GET /internal/customers/:id/credit-analyses (F4-S04).
+    // O autoload daria o prefixo errado (/internal/credit-analyses).
+    ignorePattern: /featureFlags|credit-analyses/,
 
     // forceESM: força carregamento como ESM para compatibilidade com tsx.
     // O projeto usa "type": "module" — ESM é o padrão. forceESM garante que
     // autoload use `import()` dinâmico (não `require()`) para os plugins .ts.
     forceESM: true,
   });
+
+  // ---------------------------------------------------------------------------
+  // Registro manual: credit-analyses sob /internal/customers
+  //
+  // F4-S04: GET /internal/customers/:id/credit-analyses (leitura mascarada para LangGraph).
+  // Não passa pelo autoload porque o dirname 'credit-analyses' daria o prefixo errado.
+  // O prefix '/customers' é combinado com o prefixo '/internal' (registrado em app.ts)
+  // para produzir o path final: /internal/customers/:id/credit-analyses.
+  //
+  // Por que registrar aqui e não em app.ts?
+  //   - app.ts não deve conhecer módulos internos individualmente (separação de concerns).
+  //   - internal/index.ts é o ponto central de agregação de todas as rotas /internal/*.
+  //   - O plugin recebe prefix '/customers' (relativo ao pai '/internal') — consistente
+  //     com a semântica do endpoint: "análises de crédito de um customer/lead".
+  // ---------------------------------------------------------------------------
+  await fastify.register(internalCreditAnalysesRoutes, { prefix: '/customers' });
 };
 
 export default internalPlugin;

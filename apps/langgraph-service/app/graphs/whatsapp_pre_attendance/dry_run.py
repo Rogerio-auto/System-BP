@@ -162,6 +162,36 @@ def _stub_conversation_state(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _stub_customers_credit_analyses(body: dict[str, Any]) -> dict[str, Any]:
+    """Stub para GET /internal/customers/:id/credit-analyses → AnalysisHistoryOutput.
+
+    F4-S04: Tool get_credit_analysis_history usa GET, portanto este stub é
+    relevante apenas quando _allow_real_reads=False (modo 100% sintético).
+
+    Retorna payload compatível com AnalysisHistoryOutput:
+      - lead_id: UUID sintético opaco.
+      - items: lista com 1 análise em curso (status=em_analise, version=1).
+
+    Justificativa de retornar 1 item (não vazio):
+      O dry-run deve exercitar o caminho de código do grafo com análise existente.
+      Retornar vazio seria menos informativo para quem testa o playground.
+    """
+    _ = body  # GET não tem body — argumento presente por contrato da factory
+    return {
+        "lead_id": str(uuid.uuid4()),
+        "items": [
+            {
+                "analysis_id": str(uuid.uuid4()),
+                "status": "em_analise",
+                "current_version_number": 1,
+                "created_at": "2026-05-01T08:00:00.000Z",
+                "updated_at": "2026-05-01T08:00:00.000Z",
+            }
+        ],
+        "dry_run": True,
+    }
+
+
 def _stub_cities_identify(body: dict[str, Any]) -> dict[str, Any]:
     """Stub para POST /internal/cities/identify.
 
@@ -209,6 +239,11 @@ _PATH_TO_STUB_FACTORY: dict[re.Pattern[str], Callable[[dict[str, Any]], dict[str
     re.compile(r"^/internal/simulations$"): _stub_simulations,
     re.compile(r"^/internal/ai/decisions$"): _stub_ai_decisions,
     re.compile(r"^/internal/conversations/[^/]+/state$"): _stub_conversation_state,
+    # F4-S04: GET /internal/customers/:id/credit-analyses → AnalysisHistoryOutput.
+    # Nota: GET é interceptado pelo _synthetic_get_response por padrão quando
+    # _allow_real_reads=False. Este mapeamento é usado pelo _synthetic_write_response
+    # em caso de chamada _request("GET", ...) direta (via analysis_tools._request).
+    re.compile(r"^/internal/customers/[^/]+/credit-analyses$"): _stub_customers_credit_analyses,
 }
 
 # ---------------------------------------------------------------------------
@@ -360,8 +395,23 @@ class DryRunInternalApiClient(InternalApiClient):
 
     @staticmethod
     def _synthetic_get_response(path: str) -> dict[str, Any]:
-        """Resposta sintética para GET — estado vazio (nova conversa)."""
-        # persist_state nunca chama GET, mas load_state chama.
+        """Resposta sintética para GET.
+
+        Consulta _PATH_TO_STUB_FACTORY para retornar payload compatível com o
+        schema esperado pelo caller. Isso garante que tools GET (como
+        get_credit_analysis_history — F4-S04) recebam respostas válidas no dry-run.
+
+        Fallback: estado vazio (equivale a "conversa nova") — compatível com
+        load_state que espera {"state": {}, ...}.
+        """
+        # Verificar se há factory específica para este path GET.
+        # A factory recebe {} como body (GET não tem body).
+        for pattern, factory in _PATH_TO_STUB_FACTORY.items():
+            if pattern.search(path):
+                return factory({})
+
+        # Fallback: load_state e outros GET genéricos retornam estado vazio.
+        # persist_state nunca chama GET — load_state sim.
         # Retornar estado vazio equivale a "conversa nova" no dry-run.
         return {"state": {}, "dry_run": True}
 
@@ -457,6 +507,8 @@ async def dry_run_context(
         "app.tools.simulation_tools.InternalApiClient",
         "app.tools.chatwoot_tools.InternalApiClient",
         "app.tools.city_tools.InternalApiClient",
+        # F4-S04: tool get_credit_analysis_history — binding independente
+        "app.tools.analysis_tools.InternalApiClient",
         # Nós do grafo que criam InternalApiClient() localmente
         "app.graphs.whatsapp_pre_attendance.nodes.load_state.InternalApiClient",
         "app.graphs.whatsapp_pre_attendance.nodes.persist_state.InternalApiClient",
