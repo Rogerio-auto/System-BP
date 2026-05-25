@@ -36,8 +36,8 @@ def for_role(role: Role) -> str:
 
     Os valores vêm das variáveis de ambiente:
         - ``LLM_MODEL_CLASSIFIER`` → default ``anthropic/claude-3.5-haiku``
-        - ``LLM_MODEL_REASONER``   → default ``anthropic/claude-sonnet-4``
-        - ``LLM_MODEL_FALLBACK``   → default ``openai/gpt-4o-mini``
+        - ``LLM_MODEL_REASONER``   → default ``moonshot/kimi-k2``
+        - ``LLM_MODEL_FALLBACK``   → default ``anthropic/claude-sonnet-4``
 
     Args:
         role: Um de ``"classifier"``, ``"reasoner"``, ``"fallback"``.
