@@ -3,12 +3,12 @@ id: F5-S02
 title: Worker followup-scheduler (gated)
 phase: F5
 task_ref: T5.2
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: backend-engineer
 claimed_at: 2026-05-25T19:05:06Z
-completed_at: null
+completed_at: 2026-05-25T19:20:08Z
 pr_url: null
 depends_on: [F5-S01, F1-S15, F1-S23]
 blocks: [F5-S03]
