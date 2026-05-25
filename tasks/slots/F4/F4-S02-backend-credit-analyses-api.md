@@ -3,11 +3,11 @@ id: F4-S02
 title: Backend — service + endpoints CRUD de credit_analyses (RBAC + Art. 20)
 phase: F4
 task_ref: T4.2
-status: available
+status: in-progress
 priority: critical
 estimated_size: L
 agent_id: backend-engineer
-claimed_at: null
+claimed_at: 2026-05-25T13:41:42Z
 completed_at: null
 pr_url: null
 depends_on: [F4-S01, F1-S04, F1-S15, F1-S16]
