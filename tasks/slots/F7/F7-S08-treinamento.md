@@ -3,12 +3,12 @@ id: F7-S08
 title: Treinamento dos agentes humanos + material de apoio
 phase: F7
 task_ref: T7.8
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: backend-engineer
-claimed_at: null
-completed_at: null
+claimed_at: 2026-05-25T16:34:34Z
+completed_at: 2026-05-25T16:41:10Z
 pr_url: null
 depends_on: [F7-S06]
 blocks: [F7-S09]

@@ -14,7 +14,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 6     | 1   | 0   | 0   | 0   | 1   | 4   |
 | F5   | 8     | 7   | 0   | 0   | 0   | 0   | 1   |
-| F7   | 8     | 3   | 0   | 0   | 0   | 0   | 5   |
+| F7   | 8     | 2   | 0   | 0   | 0   | 1   | 5   |
 | F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F9   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 
@@ -164,7 +164,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F7-S04 | Adapter de importação Notion → leads + lead_history                                  | ✅ done      | high       | F1-S17, F1-S18, F1-S24                         |
 | F7-S06 | Runbook de go-live + observabilidade pré-prod                                        | ✅ done      | high       | F7-S01, F7-S02, F7-S03                         |
 | F7-S07 | Importação em staging + conferência paralela com Notion                              | 🟢 available | high       | F4-S06, F7-S04, F7-S06                         |
-| F7-S08 | Treinamento dos agentes humanos + material de apoio                                  | 🟢 available | medium     | F7-S06                                         |
+| F7-S08 | Treinamento dos agentes humanos + material de apoio                                  | 🟣 review    | medium     | F7-S06                                         |
 | F7-S09 | Cutover, go-live e monitoramento das primeiras 168h                                  | 🟢 available | critical   | F7-S01, F7-S02, F7-S03, F7-S06, F7-S07, F7-S08 |
 
 ## Fase 8 —
