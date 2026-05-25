@@ -79,6 +79,14 @@ const envSchema = z.object({
   // silenciosamente (comprometeria o HMAC dos challenge tokens de 2FA).
   LGPD_DEDUPE_PEPPER: z.string().min(32, 'LGPD_DEDUPE_PEPPER precisa ter ao menos 32 caracteres'),
 
+  // ---- Notion (F7-S04) --------------------------------------------------------
+  // Integration token de acesso read-only à Notion API (migração de base histórica).
+  // Suboperador internacional temporário — ativo apenas durante janela de migração (≤30 dias).
+  // LGPD §12.1: DPA + TIA obrigatórios. Veja docs/17-lgpd-protecao-dados.md §12.1.
+  // Em produção: configurar token de integration com escopo read-only na workspace Banco do Povo.
+  // Opcional: undefined desabilita o adapter notion_leads graciosamente.
+  NOTION_INTEGRATION_TOKEN: z.string().min(1).optional(),
+
   // ---- Custeio LLM (F9-S00) -----------------------------------------------
   // Taxa de câmbio BRL/USD usada para converter custos de modelo LLM em reais.
   // NÃO é persistida no banco — consultada em runtime pelo pricing.ts.

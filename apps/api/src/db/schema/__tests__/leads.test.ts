@@ -432,6 +432,7 @@ describe('tipos Drizzle — compilação sem any', () => {
       updatedAt: new Date(),
       deletedAt: null,
       anonymizedAt: null,
+      notionPageId: null, // adicionado em F7-S04 (0041_leads_notion_page_id.sql)
     };
     expect(lead.id).toBe(LEAD_ID);
     expect(lead.source).toBe('whatsapp');
@@ -560,6 +561,7 @@ describe('LGPD — cpf_* colunas reservadas para F1-S24', () => {
       updatedAt: new Date(),
       deletedAt: null,
       anonymizedAt: null,
+      notionPageId: null, // adicionado em F7-S04 (0041_leads_notion_page_id.sql)
     };
     expect(lead.cpfEncrypted).toBeNull();
     expect(lead.cpfHash).toBeNull();
