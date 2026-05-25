@@ -663,7 +663,9 @@ class TestQualifyHandoff:
         errors: list[dict[str, Any]] = result["errors"]
         assert len(errors) >= 1
         assert errors[-1]["node"] == "qualify_credit_interest"
-        assert "LLM indisponível" in errors[-1]["error"]
+        # F7-S03: errors[] registra type(exc).__name__ em vez de str(exc)
+        # para não vazar mensagens internas de exceção
+        assert "ConnectionError" in errors[-1]["error"]
 
     @pytest.mark.asyncio
     async def test_prior_errors_preserved_on_new_error(self) -> None:
@@ -712,8 +714,10 @@ class TestQualifyHandoff:
             result = await qualify_credit_interest(state)
 
         assert result["handoff_required"] is True
-        # PromptNotFoundError retorna str(exc) como handoff_reason (key visível no motivo)
-        assert "pre_attendance_qualify" in result.get("handoff_reason", "")
+        # F7-S03: handoff_reason é genérico — não expõe key interna do prompt
+        handoff_reason = result.get("handoff_reason", "")
+        assert handoff_reason != ""
+        assert "pre_attendance_qualify" not in handoff_reason
 
     @pytest.mark.asyncio
     async def test_invalid_json_response_produces_empty_result(self) -> None:

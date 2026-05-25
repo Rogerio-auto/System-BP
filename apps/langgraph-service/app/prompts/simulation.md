@@ -34,8 +34,7 @@ Você receberá um JSON com os dados da simulação calculada pelo sistema:
   "parcela_mensal": "<string decimal>",
   "total_a_pagar": "<string decimal>",
   "total_juros": "<string decimal>",
-  "taxa_mensal": "<string decimal>",
-  "sistema_amortizacao": "<price|sac>"
+  "taxa_mensal": "<string decimal>"
 }
 ```
 

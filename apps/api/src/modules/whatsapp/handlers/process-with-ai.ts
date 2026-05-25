@@ -292,10 +292,9 @@ export async function handleProcessWithAi(
     .limit(1);
 
   if (waMessageRow === undefined) {
-    logger.warn(
-      { eventId: event.id, waMessageId },
-      'whatsapp_messages: registro não encontrado; skip',
-    );
+    // F7-S03 log sanitization: waMessageId removido de logs warn/info (F3-S33).
+    // Identificador externo pode ser usado para rastreamento cross-sistema.
+    logger.warn({ eventId: event.id }, 'whatsapp_messages: registro não encontrado; skip');
     return;
   }
 
@@ -312,10 +311,8 @@ export async function handleProcessWithAi(
   const waMsg = firstChange?.value?.messages?.[0];
 
   if (!waMsg) {
-    logger.warn(
-      { eventId: event.id, waMessageId },
-      'payload: mensagem não encontrada no entry; skip',
-    );
+    // F7-S03 log sanitization: waMessageId removido de logs warn/info (F3-S33).
+    logger.warn({ eventId: event.id }, 'payload: mensagem não encontrada no entry; skip');
     return;
   }
 
@@ -360,7 +357,9 @@ export async function handleProcessWithAi(
   const chatwootConversationId = convState.chatwootConversationId ?? '0';
   const leadId = eventPayload.lead_id ?? convState.leadId ?? null;
 
-  logger.info({ eventId: event.id, conversationId, waMessageId }, 'iniciando processamento com IA');
+  // F7-S03 log sanitization: waMessageId removido de logs warn/info (F3-S33).
+  // Identificador externo disponível em debug via correlation_id.
+  logger.info({ eventId: event.id, conversationId }, 'iniciando processamento com IA');
 
   // -------------------------------------------------------------------------
   // 5. Montar request LangGraph (doc 06 §4.1)

@@ -29,6 +29,8 @@
 //   - lead_history append-only para toda mutação de perfil.
 //   - Rate limit 60 req/min por IP (proteção contra loop de IA).
 // =============================================================================
+import { createHash } from 'node:crypto';
+
 import { eq } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
@@ -37,6 +39,7 @@ import { db } from '../../../db/client.js';
 import { kanbanCards, kanbanStages, leadHistory } from '../../../db/schema/index.js';
 import { emit } from '../../../events/emit.js';
 import { auditLog } from '../../../lib/audit.js';
+import { verifyInternalToken } from '../../../lib/auth/internal-token.js';
 import { NotFoundError, UnauthorizedError } from '../../../shared/errors.js';
 import { findLeadById, updateLead } from '../../leads/repository.js';
 import { getOrCreateLead } from '../../leads/service.js';
@@ -102,11 +105,10 @@ const internalLeadsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      // 1. Verificar X-Internal-Token
+      // 1. Verificar X-Internal-Token (timing-safe — previne timing oracle, doc 10 §2.3).
       //    Lançamos UnauthorizedError (tratado pelo error handler central) em vez de
       //    reply.status(401).send() para evitar conflito com o tipo de resposta Zod (200 only).
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new UnauthorizedError('Token interno inválido ou ausente');
       }
 
@@ -193,9 +195,8 @@ const internalLeadsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      // 1. Verificar X-Internal-Token.
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      // 1. Verificar X-Internal-Token (timing-safe — previne timing oracle, doc 10 §2.3).
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new UnauthorizedError('Token interno inválido ou ausente');
       }
 
@@ -373,7 +374,13 @@ const internalLeadsRoutes: FastifyPluginAsyncZod = async (app) => {
 
         // 4c. Outbox leads.updated — sem PII bruta; apenas nomes dos campos.
         //     idempotency_key inclui timestamp para evitar conflito em atualizações
-        //     rápidas sequenciais (comportamento idêntico ao updateLeadService).
+        // Chave determinística: hash SHA-256 dos campos alterados (F3-S12).
+        // Elimina duplicatas quando o LangGraph reemite update_lead_profile em retry.
+        // Formato: lead_update_<lead_id>_<sha256(sorted_changed_fields)[:16]>
+        const fieldHash = createHash('sha256')
+          .update([...changedFields].sort().join(','))
+          .digest('hex')
+          .slice(0, 16);
         await emit(
           // `as` justificado: DrizzleTx é interface estrutural compatível com tx.
           tx as unknown as Parameters<typeof emit>[0],
@@ -383,7 +390,7 @@ const internalLeadsRoutes: FastifyPluginAsyncZod = async (app) => {
             aggregateId: leadId,
             organizationId: body.organization_id,
             actor: { kind: 'system', id: 'langgraph', ip: request.ip },
-            idempotencyKey: `leads.updated:${leadId}:${Date.now()}`,
+            idempotencyKey: `lead_update_${leadId}_${fieldHash}`,
             data: {
               lead_id: leadId,
               // PII (name) redactado no outbox — apenas nomes dos campos alterados.

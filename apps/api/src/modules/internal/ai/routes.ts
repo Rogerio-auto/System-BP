@@ -37,6 +37,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { env } from '../../../config/env.js';
 import { db } from '../../../db/client.js';
 import { aiDecisionLogs } from '../../../db/schema/aiDecisionLogs.js';
+import { verifyInternalToken } from '../../../lib/auth/internal-token.js';
 import { AppError, UnauthorizedError } from '../../../shared/errors.js';
 
 import { LogAiDecisionBodySchema, LogAiDecisionResponseSchema } from './schemas.js';
@@ -58,6 +59,13 @@ const PII_KEYS_FORBIDDEN = [
   'telefone',
   'senha',
   'password',
+  // F7-S03 hardening: hashes/cifras de PII também são PII derivada (doc 17 §8.4).
+  // Previne vazamento de identificadores pseudônimos que possibilitam rastreamento.
+  'cpf_hash',
+  'cpf_encrypted',
+  'phone_normalized',
+  'phone_e164',
+  'document_hash',
 ] as const;
 
 /**
@@ -116,11 +124,10 @@ const internalAiRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      // 1. Verificar X-Internal-Token
+      // 1. Verificar X-Internal-Token (timing-safe — previne timing oracle, doc 10 §2.3).
       //    UnauthorizedError (tratado pelo error handler central) em vez de
       //    reply.status(401) para evitar conflito com o tipo de resposta Zod (200 only).
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new UnauthorizedError('Token interno inválido ou ausente');
       }
 

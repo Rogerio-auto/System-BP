@@ -219,7 +219,10 @@ class TestClassifyIntentLlmParams:
 
         assert result.get("handoff_required") is True
         assert result.get("current_intent") == ci._FALLBACK_INTENT
-        assert "pre_attendance_classify" in result.get("handoff_reason", "")
+        # F7-S03: handoff_reason é genérico — não expõe key interna do prompt
+        handoff_reason = result.get("handoff_reason", "")
+        assert handoff_reason != ""
+        assert "pre_attendance_classify" not in handoff_reason
 
     async def test_retorna_handoff_quando_timeout(self) -> None:
         """httpx.TimeoutException → handoff_required=True."""

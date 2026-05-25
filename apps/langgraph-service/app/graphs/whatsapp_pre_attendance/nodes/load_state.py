@@ -157,11 +157,13 @@ async def load_state(state: ConversationState) -> ConversationState:
             return initialized
 
         # 4xx não-404 ou 5xx — handoff
+        # F7-S03 log sanitization: str(exc) pode vazar URL interna com path
+        # contendo conversation_id. Usar apenas o status code (dado seguro).
         error_entry = {
             "node": "load_state",
             "error": "BACKEND_ERROR",
             "status_code": exc.response.status_code,
-            "message": str(exc),
+            "message": f"http_status_{exc.response.status_code}",
         }
         errors = [*list(state.get("errors") or []), error_entry]
         log.error(
@@ -172,11 +174,11 @@ async def load_state(state: ConversationState) -> ConversationState:
         result = {**_initial_state(state), "handoff_required": True, "errors": errors}
         return result
 
-    except httpx.TimeoutException as exc:
+    except httpx.TimeoutException:
         error_entry = {
             "node": "load_state",
             "error": "TIMEOUT",
-            "message": f"Timeout ao carregar estado: {exc}",
+            "message": "Timeout ao carregar estado do backend",
         }
         errors = [*list(state.get("errors") or []), error_entry]
         log.error("load_state_timeout", conversation_id=conversation_id)

@@ -403,6 +403,8 @@ async def qualify_credit_interest(state: ConversationState) -> dict[str, Any]:
         }
 
     except PromptNotFoundError as exc:
+        # F7-S03 log sanitization (F9-S09): str(exc) substituído por mensagem genérica.
+        # key do prompt é dado de infra interna — não deve vazar para clientes ou alertas.
         latency_ms = (time.monotonic() - start) * 1000
         log.error(
             "qualify_credit_interest_prompt_not_found",
@@ -415,31 +417,33 @@ async def qualify_credit_interest(state: ConversationState) -> dict[str, Any]:
         errors_pnf.append(
             {
                 "node": "qualify_credit_interest",
-                "error": str(exc),
+                "error": "PROMPT_NOT_FOUND",
                 "latency_ms": round(latency_ms, 1),
             }
         )
         return {
             "handoff_required": True,
-            "handoff_reason": str(exc),
+            "handoff_reason": "Prompt de qualificação não encontrado — handoff automático.",
             "errors": errors_pnf,
         }
 
     except Exception as exc:
+        # F7-S03 log sanitization: str(exc) pode vazar contexto interno.
+        # Logar apenas o type; str(exc) vai para debug.
         latency_ms = (time.monotonic() - start) * 1000
-        # Log com detalhe técnico (structlog — não chega ao cliente)
         log.error(
             "qualify_credit_interest_error",
             conversation_id=conversation_id,
             lead_id=lead_id,
-            error=str(exc),
+            error_type=type(exc).__name__,
             latency_ms=round(latency_ms, 1),
         )
+        log.debug("qualify_credit_interest_error_detail", error=str(exc))
         errors_gen: list[dict[str, Any]] = list(state.get("errors", []))
         errors_gen.append(
             {
                 "node": "qualify_credit_interest",
-                "error": str(exc),
+                "error": type(exc).__name__,
                 "latency_ms": round(latency_ms, 1),
             }
         )

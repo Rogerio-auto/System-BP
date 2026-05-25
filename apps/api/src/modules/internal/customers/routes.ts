@@ -45,7 +45,8 @@ import { interactions } from '../../../db/schema/interactions.js';
 import { kanbanCards } from '../../../db/schema/kanbanCards.js';
 import { kanbanStages } from '../../../db/schema/kanbanStages.js';
 import { leads } from '../../../db/schema/leads.js';
-import { NotFoundError, UnauthorizedError } from '../../../shared/errors.js';
+import { verifyInternalToken } from '../../../lib/auth/internal-token.js';
+import { AppError, NotFoundError, UnauthorizedError } from '../../../shared/errors.js';
 
 import {
   CustomerContextParamsSchema,
@@ -79,22 +80,29 @@ const internalCustomersRoutes: FastifyPluginAsyncZod = async (app) => {
   //
   // Pipeline:
   //   1. Verificar X-Internal-Token → 401 se ausente/inválido.
-  //   2. Validar :id (UUID) e ?type via Zod.
-  //   3. Resolver lead:
-  //      a. type=lead  → buscar lead por id diretamente.
-  //      b. type=customer → buscar customer por id → obter primary_lead_id → buscar lead.
-  //      Em ambos, 404 se entidade não existir.
-  //   4. Resolver dados auxiliares em paralelo (minimiza latência):
+  //   2. Extrair organization_id do header X-Organization-Id → 400 se ausente.
+  //      Regra inviolável #3: toda query filtra por organization_id (multi-tenant).
+  //   3. Validar :id (UUID) e ?type via Zod.
+  //   4. Resolver lead:
+  //      a. type=lead  → buscar lead por id + organization_id diretamente.
+  //      b. type=customer → buscar customer por id + organization_id → obter primary_lead_id.
+  //      Em ambos, 404 se entidade não existir OU pertencer a outra org.
+  //   5. Resolver dados auxiliares em paralelo (minimiza latência):
   //      - city name (via leads.city_id → cities.name)
   //      - agent name (via leads.agent_id → agents.display_name)
   //      - kanban stage name (via kanban_cards.lead_id → kanban_stages.name)
   //      - última simulação (via leads.last_simulation_id → credit_simulations)
   //      - contagem de mensagens nos últimos 30 dias (COUNT de interactions)
-  //   5. Montar ficha resumida e retornar 200.
+  //   6. Montar ficha resumida e retornar 200.
   //
   // Observação sobre last_analysis:
   //   A tabela credit_analyses não existe até F4+. Retorna null até lá.
   //   O schema de resposta documenta o stub (LastAnalysisSchema.nullable()).
+  //
+  // Multi-tenant (regra inviolável #3 — CLAUDE.md):
+  //   organization_id vem do header X-Organization-Id — não do path/query.
+  //   O LangGraph passa a org de cada requisição. O token não carrega contexto de org.
+  //   Customer/lead de outra org retorna 404 (não 403) — não vaza existência do recurso.
   // -------------------------------------------------------------------------
   app.get(
     '/:id/context',
@@ -108,35 +116,51 @@ const internalCustomersRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      // 1. Verificar X-Internal-Token
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      // 1. Verificar X-Internal-Token (timing-safe — previne timing oracle, doc 10 §2.3).
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new UnauthorizedError('Token interno inválido ou ausente');
       }
+
+      // 2. Extrair organization_id do header X-Organization-Id.
+      //    Regra inviolável #3 (CLAUDE.md): toda rota interna filtra por organization_id.
+      //    O LangGraph passa a org de cada requisição via header (token não carrega org).
+      //    400 se ausente — erro de contrato (caller deve sempre fornecer).
+      const orgHeader = request.headers['x-organization-id'];
+      if (typeof orgHeader !== 'string' || orgHeader.trim() === '') {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          'Header X-Organization-Id obrigatório para escopo multi-tenant (regra inviolável #3).',
+        );
+      }
+      const organizationId = orgHeader;
 
       const { id } = request.params;
       const { type } = request.query;
 
       // -----------------------------------------------------------------------
-      // 2. Resolver lead
+      // 3. Resolver lead
       //
       // LGPD: buscamos apenas as colunas necessárias (minimização — art. 6 III).
       // NÃO selecionar: phone_e164, phone_normalized, email, cpf_encrypted,
       //                 cpf_hash, notes (texto livre potencialmente com PII).
+      //
+      // Multi-tenant: toda query filtra por organization_id (regra inviolável #3).
+      //   Customer/lead de outra org retorna 404 — não vaza existência do recurso.
       // -----------------------------------------------------------------------
 
       let leadId: string;
       let customerId: string | null = null;
 
       if (type === 'customer') {
-        // Buscar customer para obter o lead primário
+        // Buscar customer para obter o lead primário — filtrando por organization_id.
         const customerRows = await db
           .select({
             id: customers.id,
             primaryLeadId: customers.primaryLeadId,
           })
           .from(customers)
-          .where(eq(customers.id, id))
+          .where(and(eq(customers.id, id), eq(customers.organizationId, organizationId)))
           .limit(1);
 
         const customer = customerRows[0];
@@ -151,7 +175,8 @@ const internalCustomersRoutes: FastifyPluginAsyncZod = async (app) => {
         leadId = id;
       }
 
-      // Buscar lead — colunas não-PII selecionadas explicitamente (minimização)
+      // Buscar lead — colunas não-PII selecionadas explicitamente (minimização).
+      // organization_id filtrado para garantir multi-tenant scope (regra inviolável #3).
       const leadRows = await db
         .select({
           id: leads.id,
@@ -163,7 +188,7 @@ const internalCustomersRoutes: FastifyPluginAsyncZod = async (app) => {
           deletedAt: leads.deletedAt,
         })
         .from(leads)
-        .where(eq(leads.id, leadId))
+        .where(and(eq(leads.id, leadId), eq(leads.organizationId, organizationId)))
         .limit(1);
 
       const lead = leadRows[0];

@@ -241,7 +241,11 @@ class TestGenerateSimulationHappyPath:
             result = await generate_simulation(state)
 
         assert result["last_simulation_id"] == "sim-uuid-001"
-        assert result.get("handoff_required") is False or "handoff_required" not in result or not result["handoff_required"]
+        assert (
+            result.get("handoff_required") is False
+            or "handoff_required" not in result
+            or not result["handoff_required"]
+        )
 
     @pytest.mark.asyncio
     async def test_happy_path_sets_selected_product_id(self) -> None:
@@ -749,7 +753,10 @@ class TestSaveSimulationToolError:
     @pytest.mark.asyncio
     async def test_prior_errors_preserved_on_new_error(self) -> None:
         """Erros anteriores são preservados ao acumular novo erro."""
-        prior_error: dict[str, Any] = {"node": "generate_simulation", "error_code": "TERM_OUT_OF_RANGE"}
+        prior_error: dict[str, Any] = {
+            "node": "generate_simulation",
+            "error_code": "TERM_OUT_OF_RANGE",
+        }
         state = _make_state(
             last_simulation_id="sim-uuid-008",
             errors=[prior_error],

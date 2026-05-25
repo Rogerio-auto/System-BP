@@ -192,12 +192,19 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
         intent = _validate_intent(response.content)
         latency_ms = (time.monotonic() - start) * 1000
 
+        # F7-S03 log sanitization: raw_response removido do log.info —
+        # pode conter conteúdo da conversa (PII indireta, §8.3 doc 17).
+        # Mantido apenas em debug (não emitido em produção com LOG_LEVEL=info).
+        log.debug(
+            "intent_classified_raw_response",
+            conversation_id=conversation_id,
+            raw_response=response.content.strip(),
+        )
         log.info(
             "intent_classified",
             conversation_id=conversation_id,
             lead_id=lead_id,
             intent=intent,
-            raw_response=response.content.strip(),
             prompt_key=prompt_key,
             prompt_version=prompt_version,
             latency_ms=round(latency_ms, 1),
@@ -222,6 +229,9 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
         }
 
     except PromptNotFoundError as exc:
+        # F7-S03 log sanitization: str(exc) pode vazar o key exato do prompt
+        # (dado interno de infra). Usar mensagem genérica em estado de erro e
+        # handoff_reason para não expor topologia de prompts em logs externos.
         latency_ms = (time.monotonic() - start) * 1000
         log.error(
             "classify_intent_prompt_not_found",
@@ -234,38 +244,41 @@ async def classify_intent(state: ConversationState) -> dict[str, Any]:
         errors.append(
             {
                 "node": "classify_intent",
-                "error": str(exc),
+                "error": "PROMPT_NOT_FOUND",
                 "latency_ms": round(latency_ms, 1),
             }
         )
         return {
             "current_intent": _FALLBACK_INTENT,
             "handoff_required": True,
-            "handoff_reason": str(exc),
+            "handoff_reason": "Prompt de classificação não encontrado — handoff automático.",
             "errors": errors,
         }
 
     except Exception as exc:
+        # F7-S03 log sanitization: str(exc) pode vazar contexto interno.
+        # Logar apenas o type; str(exc) vai para debug.
         latency_ms = (time.monotonic() - start) * 1000
         log.error(
             "classify_intent_error",
             conversation_id=conversation_id,
             lead_id=lead_id,
-            error=str(exc),
+            error_type=type(exc).__name__,
             latency_ms=round(latency_ms, 1),
         )
+        log.debug("classify_intent_error_detail", error=str(exc))
         errors = list(state.get("errors", []))
         errors.append(
             {
                 "node": "classify_intent",
-                "error": str(exc),
+                "error": type(exc).__name__,
                 "latency_ms": round(latency_ms, 1),
             }
         )
         return {
             "current_intent": _FALLBACK_INTENT,
             "handoff_required": True,
-            "handoff_reason": f"classify_intent falhou: {exc}",
+            "handoff_reason": f"classify_intent falhou: {type(exc).__name__}",
             "errors": errors,
         }
 

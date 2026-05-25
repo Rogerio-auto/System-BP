@@ -236,8 +236,12 @@ export async function triggerAiFallback(
     error: errorMessage,
   };
 
+  // F7-S03 (F3-S34): ai_decision_logs é append-only — Idempotency-Key removido
+  // para /internal/ai/decisions pois retries devem criar registros separados
+  // (cada registro é uma entrada de auditoria independente e imutável).
   const decisionUrl = `${resolvedInternalBaseUrl}/internal/ai/decisions`;
-  const decisionIdempotencyKey = `ai_decision_fallback:${ctx.waMessageId}`;
+  // Caminho relativo para logs (URL completa expõe topologia interna em produção).
+  const decisionPath = '/internal/ai/decisions';
 
   let decisionResponse: Response;
   try {
@@ -247,7 +251,7 @@ export async function triggerAiFallback(
         'Content-Type': 'application/json',
         'X-Internal-Token': resolvedInternalToken,
         'X-Correlation-Id': ctx.correlationId,
-        'Idempotency-Key': decisionIdempotencyKey,
+        // Sem Idempotency-Key: tabela append-only, cada retry cria novo registro de auditoria.
       },
       body: JSON.stringify(decisionBody),
     });
@@ -269,7 +273,8 @@ export async function triggerAiFallback(
     );
   }
 
-  logger.info({ decision_url: decisionUrl }, 'decisão de erro registrada em ai_decision_logs');
+  // F7-S03 (F3-S34): logar path relativo em vez da URL completa (evita expor base URL interna).
+  logger.info({ decision_path: decisionPath }, 'decisão de erro registrada em ai_decision_logs');
 
   // -------------------------------------------------------------------------
   // Passo 3: Criar handoff via POST /internal/handoffs
@@ -312,6 +317,8 @@ export async function triggerAiFallback(
 
   const handoffUrl = `${resolvedInternalBaseUrl}/internal/handoffs`;
   const handoffIdempotencyKey = `handoff_fallback:${ctx.waMessageId}`;
+  // F7-S03 (F3-S34): path relativo para logs — evita expor base URL interna.
+  const handoffPath = '/internal/handoffs';
 
   let handoffResponse: Response;
   try {
@@ -340,7 +347,7 @@ export async function triggerAiFallback(
   }
 
   logger.info(
-    { handoff_url: handoffUrl, lead_id: ctx.leadId },
+    { handoff_path: handoffPath, lead_id: ctx.leadId },
     'handoff ai_unavailable criado com sucesso',
   );
 }

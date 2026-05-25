@@ -371,7 +371,9 @@ class TestClassifyIntentGatewayError:
         errors: list[dict[str, Any]] = result["errors"]
         assert len(errors) >= 1
         assert errors[-1]["node"] == "classify_intent"
-        assert "LLM indisponível" in errors[-1]["error"]
+        # F7-S03: errors[] registra type(exc).__name__ em vez de str(exc)
+        # para não vazar mensagens internas de exceção
+        assert "ValueError" in errors[-1]["error"]
 
     @pytest.mark.asyncio
     async def test_prior_errors_preserved_on_new_error(self) -> None:
@@ -397,7 +399,12 @@ class TestClassifyIntentGatewayError:
 
     @pytest.mark.asyncio
     async def test_prompt_not_found_triggers_handoff(self) -> None:
-        """PromptNotFoundError → handoff_required=True, motivo contém a key."""
+        """PromptNotFoundError → handoff_required=True, motivo é mensagem genérica.
+
+        F7-S03 item 6 (F9-S09): handoff_reason usa mensagem genérica em vez de
+        str(PromptNotFoundError) para evitar vazar nome interno do prompt em logs
+        ou rastreamento externo (minimização LGPD, doc 17 §8.3).
+        """
         from app.prompts.loader import PromptNotFoundError
 
         state = _make_state("Quero crédito")
@@ -410,7 +417,10 @@ class TestClassifyIntentGatewayError:
 
         assert result["current_intent"] == _FALLBACK_INTENT
         assert result["handoff_required"] is True
-        assert "pre_attendance_classify" in result.get("handoff_reason", "")
+        # Motivo é genérico — não vaza o nome interno do prompt (F7-S03 F9-S09)
+        handoff_reason = result.get("handoff_reason", "")
+        assert handoff_reason != ""
+        assert "pre_attendance_classify" not in handoff_reason
 
 
 # ---------------------------------------------------------------------------

@@ -34,6 +34,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { env } from '../../../config/env.js';
 import { db } from '../../../db/client.js';
 import { aiConversationStates } from '../../../db/schema/aiConversationStates.js';
+import { verifyInternalToken } from '../../../lib/auth/internal-token.js';
 import { AppError, NotFoundError, UnauthorizedError } from '../../../shared/errors.js';
 
 import {
@@ -90,9 +91,8 @@ const internalConversationsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      // 1. Verificar X-Internal-Token
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      // 1. Verificar X-Internal-Token (timing-safe — previne timing oracle, doc 10 §2.3).
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new UnauthorizedError('Token interno inválido ou ausente');
       }
 
@@ -168,9 +168,8 @@ const internalConversationsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request, reply) => {
-      // 1. Verificar X-Internal-Token
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      // 1. Verificar X-Internal-Token (timing-safe — previne timing oracle, doc 10 §2.3).
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new UnauthorizedError('Token interno inválido ou ausente');
       }
 

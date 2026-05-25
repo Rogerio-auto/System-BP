@@ -23,6 +23,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 import { env } from '../../../config/env.js';
 import { db } from '../../../db/client.js';
+import { verifyInternalToken } from '../../../lib/auth/internal-token.js';
 import { ForbiddenError } from '../../../shared/errors.js';
 import {
   internalCheckBodySchema,
@@ -45,9 +46,8 @@ export const internalFeatureFlagsRoutes: FastifyPluginAsyncZod = async (app) => 
       },
     },
     async (request, reply) => {
-      // Verificar X-Internal-Token
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      // Verificar X-Internal-Token (timing-safe — previne timing oracle, doc 10 §2.3).
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new ForbiddenError('Token interno inválido');
       }
 
