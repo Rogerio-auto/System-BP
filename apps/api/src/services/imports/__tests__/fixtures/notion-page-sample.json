@@ -1,0 +1,51 @@
+{
+  "object": "page",
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "created_time": "2024-01-15T10:00:00.000Z",
+  "last_edited_time": "2024-01-20T14:30:00.000Z",
+  "archived": false,
+  "properties": {
+    "Nome": {
+      "type": "title",
+      "title": [
+        {
+          "type": "text",
+          "plain_text": "João da Silva Santos"
+        }
+      ]
+    },
+    "WhatsApp": {
+      "type": "phone_number",
+      "phone_number": "(69) 99123-4567"
+    },
+    "Cidade": {
+      "type": "rich_text",
+      "rich_text": [
+        {
+          "type": "text",
+          "plain_text": "Porto Velho"
+        }
+      ]
+    },
+    "Status": {
+      "type": "select",
+      "select": {
+        "name": "qualificação",
+        "color": "yellow"
+      }
+    },
+    "Email": {
+      "type": "email",
+      "email": "joao.silva@exemplo.com.br"
+    },
+    "Observações": {
+      "type": "rich_text",
+      "rich_text": [
+        {
+          "type": "text",
+          "plain_text": "Cliente interessado em microcrédito produtivo"
+        }
+      ]
+    }
+  }
+}

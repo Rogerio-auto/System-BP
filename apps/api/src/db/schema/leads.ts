@@ -220,6 +220,16 @@ export const leads = pgTable(
      * Adicionado em migration 0010_data_subject.sql (F1-S25).
      */
     anonymizedAt: timestamp('anonymized_at', { withTimezone: true }),
+
+    /**
+     * ID opaco da page Notion de origem (migração F7-S04).
+     * null = lead não veio de importação Notion.
+     * Usado para dedupe: re-importar a mesma page não cria lead duplicado.
+     * Não é PII — é ID interno do Notion (não identificável por si só).
+     * Mantido após cutover para auditoria de proveniência.
+     * Adicionado em migration 0041_leads_notion_page_id.sql.
+     */
+    notionPageId: text('notion_page_id'),
   },
   (table) => ({
     // -------------------------------------------------------------------------
@@ -310,6 +320,15 @@ export const leads = pgTable(
      * (0007_leads_core.sql) foi ajustada manualmente com o operator class correto.
      */
     idxNameTrgm: index('idx_leads_name_trgm').using('gin', table.name),
+
+    /**
+     * Dedupe de importação Notion: mesma page nunca gera dois leads na org.
+     * Parcial: só para leads com notion_page_id preenchido (IS NOT NULL).
+     * Criado com CONCURRENTLY na migration SQL (0041_leads_notion_page_id.sql).
+     */
+    uqNotionPageId: uniqueIndex('uq_leads_notion_page_id')
+      .on(table.organizationId, table.notionPageId)
+      .where(sql`${table.notionPageId} IS NOT NULL`),
   }),
 );
 

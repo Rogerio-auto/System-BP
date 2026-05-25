@@ -378,6 +378,13 @@ Template em `docs/anexos/lgpd/template-comunicacao-anpd.md` (a criar quando prim
 
 Template em `docs/anexos/lgpd/template-dpia.md` (criar junto ao primeiro DPIA — provavelmente da IA de pré-atendimento).
 
+### 11.3 DPIAs pendentes / em andamento
+
+| #   | Finalidade / tratamento                                           | Status      | Prazo                           | Responsável                 | Notas                                                                                                                                                                                                                                         |
+| --- | ----------------------------------------------------------------- | ----------- | ------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | IA de pré-atendimento (decisão automatizada)                      | Pendente    | Antes go-live                   | DPO técnico (Rogério Viana) | Template em `docs/anexos/lgpd/template-dpia.md`                                                                                                                                                                                               |
+| 2   | Migração de base histórica via Notion API (finalidade #7, F7-S04) | **Urgente** | Antes ativar Notion em produção | DPO técnico + DPO oficial   | Novo suboperador internacional. Base legal: Art. 7º II (execução de contrato) + Art. 7º VI (interesse legítimo do Controlador para gestão de portfolio histórico). Janela máx. 30 dias. Autorização do Controlador obrigatória (Art. 39 §2º). |
+
 ---
 
 ## 12. Suboperadores e transferência internacional
@@ -386,14 +393,15 @@ Template em `docs/anexos/lgpd/template-dpia.md` (criar junto ao primeiro DPIA �
 
 Tabela viva. Atualizada por PR sempre que houver mudança.
 
-| Suboperador                                  | Finalidade         | País de processamento | Dados acessados                  | DPA assinado?                       | Notas                              |
-| -------------------------------------------- | ------------------ | --------------------- | -------------------------------- | ----------------------------------- | ---------------------------------- |
-| OpenRouter                                   | Roteamento de LLM  | EUA                   | Texto de prompt **já mascarado** | A confirmar                         | TIA obrigatório                    |
-| Anthropic / OpenAI / Google (via OpenRouter) | LLM                | EUA / variável        | Idem acima                       | Via OpenRouter                      | Auditar política de não-retenção   |
-| WhatsApp Cloud API (Meta)                    | Canal de mensagens | EUA / Irlanda         | Conteúdo da conversa             | Termos Meta + ajuste do Controlador | Avaliar políticas                  |
-| Chatwoot (modo self-hosted ou cloud)         | Atendimento humano | A definir             | Conteúdo da conversa + metadados | A formalizar                        | Preferência: self-hosted no Brasil |
-| Provedor de hospedagem                       | Hosting            | A definir             | Tudo em repouso (cifrado)        | Sim                                 | Preferência: BR                    |
-| Provedor de email transacional               | Notificação        | A definir             | Email + conteúdo                 | Sim                                 |                                    |
+| Suboperador                                  | Finalidade                                          | País de processamento | Dados acessados                                         | DPA assinado?                                   | Notas                                                                                                                                                                                                    |
+| -------------------------------------------- | --------------------------------------------------- | --------------------- | ------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenRouter                                   | Roteamento de LLM                                   | EUA                   | Texto de prompt **já mascarado**                        | A confirmar                                     | TIA obrigatório                                                                                                                                                                                          |
+| Anthropic / OpenAI / Google (via OpenRouter) | LLM                                                 | EUA / variável        | Idem acima                                              | Via OpenRouter                                  | Auditar política de não-retenção                                                                                                                                                                         |
+| WhatsApp Cloud API (Meta)                    | Canal de mensagens                                  | EUA / Irlanda         | Conteúdo da conversa                                    | Termos Meta + ajuste do Controlador             | Avaliar políticas                                                                                                                                                                                        |
+| Chatwoot (modo self-hosted ou cloud)         | Atendimento humano                                  | A definir             | Conteúdo da conversa + metadados                        | A formalizar                                    | Preferência: self-hosted no Brasil                                                                                                                                                                       |
+| Provedor de hospedagem                       | Hosting                                             | A definir             | Tudo em repouso (cifrado)                               | Sim                                             | Preferência: BR                                                                                                                                                                                          |
+| Provedor de email transacional               | Notificação                                         | A definir             | Email + conteúdo                                        | Sim                                             |                                                                                                                                                                                                          |
+| **Notion (API read-only) — TEMPORÁRIO**      | Migração de base histórica de leads (finalidade #7) | EUA                   | Nome, telefone, cidade, estágio — leitura via API HTTPS | **A formalizar — obrigatório antes do go-live** | **Ativo apenas durante janela de migração (≤30 dias). Desativar após cutover. TIA + DPIA atualizado obrigatórios. Autorização do Controlador exigida (Art. 39 §2º). Adicionado em F7-S04 — 2026-05-25.** |
 
 ### 12.2 Transferência internacional (Art. 33)
 
@@ -557,9 +565,10 @@ A serem criados em `docs/anexos/lgpd/`:
 
 ### 18.1 Histórico de versões
 
-| Versão | Data       | Autor                                   | Mudança         |
-| ------ | ---------- | --------------------------------------- | --------------- |
-| 1.0    | 2026-05-11 | Rogério Viana (DPO técnico do Operador) | Versão inicial. |
+| Versão | Data       | Autor                                   | Mudança                                                                                                                                                                                                                       |
+| ------ | ---------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0    | 2026-05-11 | Rogério Viana (DPO técnico do Operador) | Versão inicial.                                                                                                                                                                                                               |
+| 1.1    | 2026-05-25 | Backend Engineer (F7-S04)               | §12.1: Notion adicionado como suboperador internacional temporário (migração de base histórica, ≤30 dias). §11.3: DPIA #2 registrado como urgente. Autorização do Controlador e TIA obrigatórios antes de ativar em produção. |
 
 ---
 

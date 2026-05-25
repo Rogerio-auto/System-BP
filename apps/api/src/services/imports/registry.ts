@@ -6,8 +6,12 @@
 // =============================================================================
 import type { AnyAdapter } from './adapter.js';
 import { leadsAdapter } from './adapters/leadsAdapter.js';
+import { notionLeadsAdapter } from './adapters/notionLeadsAdapter.js';
 
-const ADAPTERS = new Map<string, AnyAdapter>([['leads', leadsAdapter]]);
+const ADAPTERS = new Map<string, AnyAdapter>([
+  ['leads', leadsAdapter],
+  ['notion_leads', notionLeadsAdapter],
+]);
 
 /**
  * Retorna o adapter registrado para um entity_type.
