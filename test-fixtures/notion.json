@@ -1,0 +1,82 @@
+{
+  "object": "list",
+  "results": [
+    {
+      "object": "page",
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "created_time": "2024-01-15T10:00:00.000Z",
+      "last_edited_time": "2024-01-20T14:30:00.000Z",
+      "archived": false,
+      "properties": {
+        "Nome": {
+          "type": "title",
+          "title": [{ "type": "text", "plain_text": "Joao da Silva Santos" }]
+        },
+        "WhatsApp": {
+          "type": "phone_number",
+          "phone_number": "(69) 99123-4567"
+        },
+        "Cidade": {
+          "type": "rich_text",
+          "rich_text": [{ "type": "text", "plain_text": "Porto Velho" }]
+        },
+        "Status": {
+          "type": "select",
+          "select": { "name": "qualificacao", "color": "yellow" }
+        }
+      }
+    },
+    {
+      "object": "page",
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "created_time": "2024-02-01T09:00:00.000Z",
+      "last_edited_time": "2024-02-10T11:00:00.000Z",
+      "archived": false,
+      "properties": {
+        "Nome": {
+          "type": "title",
+          "title": [{ "type": "text", "plain_text": "Maria Oliveira Costa" }]
+        },
+        "WhatsApp": {
+          "type": "phone_number",
+          "phone_number": "(69) 98765-4321"
+        },
+        "Cidade": {
+          "type": "rich_text",
+          "rich_text": [{ "type": "text", "plain_text": "Ji-Parana" }]
+        },
+        "Status": {
+          "type": "select",
+          "select": { "name": "aprovado", "color": "green" }
+        }
+      }
+    },
+    {
+      "object": "page",
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "created_time": "2024-03-05T08:00:00.000Z",
+      "last_edited_time": "2024-03-05T08:00:00.000Z",
+      "archived": true,
+      "properties": {
+        "Nome": {
+          "type": "title",
+          "title": [{ "type": "text", "plain_text": "Lead Arquivado" }]
+        },
+        "WhatsApp": {
+          "type": "phone_number",
+          "phone_number": "(69) 91111-2222"
+        },
+        "Cidade": {
+          "type": "rich_text",
+          "rich_text": [{ "type": "text", "plain_text": "Porto Velho" }]
+        },
+        "Status": {
+          "type": "select",
+          "select": { "name": "cancelado", "color": "red" }
+        }
+      }
+    }
+  ],
+  "next_cursor": null,
+  "has_more": false
+}
