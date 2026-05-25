@@ -3,11 +3,11 @@ id: F7-S07
 title: Importação em staging + conferência paralela com Notion
 phase: F7
 task_ref: T7.7
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: qa-tester
-claimed_at: null
+claimed_at: 2026-05-25T19:05:09Z
 completed_at: null
 pr_url: null
 depends_on: [F4-S06, F7-S04, F7-S06]
