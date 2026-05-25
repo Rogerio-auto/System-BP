@@ -13,7 +13,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 6     | 4   | 0   | 0   | 0   | 0   | 2   |
-| F5   | 8     | 8   | 0   | 0   | 0   | 0   | 0   |
+| F5   | 8     | 7   | 0   | 0   | 0   | 1   | 0   |
 | F7   | 8     | 4   | 0   | 0   | 0   | 0   | 4   |
 | F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F9   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
@@ -145,7 +145,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID     | Título                                                        | Status       | Prioridade | Depende de                                     |
 | ------ | ------------------------------------------------------------- | ------------ | ---------- | ---------------------------------------------- |
-| F5-S01 | Schema followup_rules + followup_jobs + whatsapp_templates    | 🟢 available | high       | F0-S04, F1-S09, F1-S15, F1-S23                 |
+| F5-S01 | Schema followup_rules + followup_jobs + whatsapp_templates    | 🟣 review    | high       | F0-S04, F1-S09, F1-S15, F1-S23                 |
 | F5-S02 | Worker followup-scheduler (gated)                             | 🟢 available | high       | F5-S01, F1-S15, F1-S23                         |
 | F5-S03 | Worker followup-sender + cliente Meta WhatsApp templates      | 🟢 available | high       | F5-S01, F5-S02, F1-S15, F1-S20                 |
 | F5-S04 | Cancelamento de followup por resposta do cliente              | 🟢 available | high       | F5-S01, F5-S03, F1-S19, F1-S15                 |
