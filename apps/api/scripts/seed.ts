@@ -85,37 +85,43 @@ const KANBAN_STAGES = [
   },
 ] as const;
 
-/** Papéis canônicos (doc 10 §3.1) */
+/** Papéis canônicos (doc 10 §3.1 + migration 0021_roles_scope_column) */
 const ROLES = [
   {
     key: 'admin',
     label: 'Administrador',
     description: 'Acesso global e configurações técnicas',
+    scope: 'global' as const,
   },
   {
     key: 'gestor_geral',
     label: 'Gestor Geral',
     description: 'Acesso global a dados de todas as cidades',
+    scope: 'global' as const,
   },
   {
     key: 'gestor_regional',
     label: 'Gestor Regional',
     description: 'Acesso a cidades em user_city_scopes',
+    scope: 'city' as const,
   },
   {
     key: 'agente',
     label: 'Agente',
     description: 'Cidades em user_city_scopes, vê apenas leads atribuídos',
+    scope: 'city' as const,
   },
   {
     key: 'operador',
     label: 'Operador',
     description: 'Atendimento básico, escopo de cidade, leitura ampla',
+    scope: 'city' as const,
   },
   {
     key: 'leitura',
     label: 'Somente Leitura',
     description: 'Somente leitura, escopo configurável',
+    scope: 'city' as const,
   },
 ] as const;
 
@@ -395,7 +401,7 @@ async function seed(): Promise<void> {
   console.log('[seed] Inserindo roles...');
   await db
     .insert(roles)
-    .values(ROLES.map(({ key, label, description }) => ({ key, label, description })))
+    .values(ROLES.map(({ key, label, description, scope }) => ({ key, label, description, scope })))
     .onConflictDoNothing({ target: roles.key });
 
   // Carregar todos os roles com ids
