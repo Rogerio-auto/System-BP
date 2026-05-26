@@ -184,9 +184,7 @@ export function AgentCitiesSelect({
                       'flex items-center justify-center w-4 h-4 rounded-pill',
                       'transition-colors duration-fast',
                       'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-azul/40',
-                      isPrimary
-                        ? 'text-amarelo'
-                        : 'text-ink-4 hover:text-amarelo',
+                      isPrimary ? 'text-amarelo' : 'text-ink-4 hover:text-amarelo',
                     )}
                   >
                     <StarIcon filled={isPrimary} />
@@ -246,7 +244,7 @@ export function AgentCitiesSelect({
                 : 'border-border-strong text-ink-3 hover:border-ink-3 hover:text-ink',
             )}
             style={{
-              background: 'var(--surface-1)',
+              background: 'var(--bg-elev-1)',
               boxShadow: 'inset 0 1px 2px var(--border-inner-dark)',
             }}
           >

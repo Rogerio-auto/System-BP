@@ -10,6 +10,13 @@
 // User Response (GET list / POST create / PATCH update)
 // ---------------------------------------------------------------------------
 
+/** Embedded role returned in user responses (F8-S06 backend addition). */
+export interface EmbeddedRole {
+  id: string;
+  key: string;
+  name: string;
+}
+
 export interface UserResponse {
   id: string;
   organizationId: string;
@@ -20,6 +27,8 @@ export interface UserResponse {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** Roles do usuário — incluídas na resposta desde F8-S06. */
+  roles: EmbeddedRole[];
 }
 
 // ---------------------------------------------------------------------------

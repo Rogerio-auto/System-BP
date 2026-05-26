@@ -107,7 +107,7 @@ export function Button({
         'relative',
         'min-h-[40px]', // WCAG área clicável mínima
         // Foco visível (WCAG 2.4.7) — ring com cor da bandeira em tom suave
-        'outline-none focus-visible:ring-2 focus-visible:ring-azul/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-1)]',
+        'outline-none focus-visible:ring-2 focus-visible:ring-azul/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elev-1)]',
         // Transições — conforme DS §8 (dur-fast, ease)
         'transition-[transform,box-shadow,background,border-color,color]',
         'duration-fast ease',

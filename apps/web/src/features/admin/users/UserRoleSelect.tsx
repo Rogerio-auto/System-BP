@@ -161,7 +161,7 @@ export function UserRoleSelect({
                 : 'border-border-strong text-ink-3 hover:border-ink-3 hover:text-ink',
             )}
             style={{
-              background: 'var(--surface-1)',
+              background: 'var(--bg-elev-1)',
               boxShadow: 'inset 0 1px 2px var(--border-inner-dark)',
             }}
           >

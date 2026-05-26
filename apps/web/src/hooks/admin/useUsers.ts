@@ -37,6 +37,12 @@ import type {
 // Zod Schemas (validação runtime das respostas)
 // ---------------------------------------------------------------------------
 
+const EmbeddedRoleSchema = z.object({
+  id: z.string().uuid(),
+  key: z.string(),
+  name: z.string(),
+});
+
 const UserResponseSchema = z.object({
   id: z.string().uuid(),
   organizationId: z.string().uuid(),
@@ -47,6 +53,7 @@ const UserResponseSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   deletedAt: z.string().nullable(),
+  roles: z.array(EmbeddedRoleSchema).default([]),
 });
 
 const CreateUserResponseSchema = UserResponseSchema.extend({
@@ -66,7 +73,8 @@ const ListUsersResponseSchema = z.object({
 const RoleResponseSchema = z.object({
   id: z.string().uuid(),
   key: z.string(),
-  label: z.string(),
+  name: z.string(),
+  scope: z.enum(['global', 'city']).optional(),
   description: z.string().nullable().optional(),
 });
 
@@ -121,7 +129,7 @@ async function apiListRoles(): Promise<RoleOption[]> {
     return parsed.data.map((r) => ({
       id: r.id,
       key: r.key,
-      label: r.label,
+      label: r.name,
       isGlobal: r.key === 'admin' || r.key === 'gestor_geral',
     }));
   } catch {
