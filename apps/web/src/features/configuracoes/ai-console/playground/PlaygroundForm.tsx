@@ -27,6 +27,8 @@
 
 import * as React from 'react';
 
+import { CityCombobox } from '../../../../components/comboboxes/CityCombobox';
+import { LeadCombobox } from '../../../../components/comboboxes/LeadCombobox';
 import { Button } from '../../../../components/ui/Button';
 import type { PlaygroundRequest } from '../../../../hooks/ai-console/usePlayground';
 import { cn } from '../../../../lib/cn';
@@ -146,58 +148,6 @@ function Spinner(): React.JSX.Element {
       <circle cx="12" cy="12" r="10" strokeOpacity={0.25} />
       <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
     </svg>
-  );
-}
-
-// ─── Autocomplete leve (lead / city) ─────────────────────────────────────────
-
-interface SimpleTextFieldProps {
-  id: string;
-  label: string;
-  placeholder: string;
-  value: string;
-  onChange: (value: string) => void;
-  hint?: string;
-}
-
-function SimpleTextField({
-  id,
-  label,
-  placeholder,
-  value,
-  onChange,
-  hint,
-}: SimpleTextFieldProps): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label
-        htmlFor={id}
-        className="font-sans text-xs font-semibold text-ink-2 uppercase tracking-widest"
-        style={{ fontSize: '0.65rem' }}
-      >
-        {label}
-      </label>
-      <input
-        id={id}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={cn(
-          'w-full font-sans text-sm font-medium text-ink',
-          'bg-surface-1 rounded-sm px-[14px] py-[10px]',
-          'border border-border-strong',
-          'shadow-[inset_0_1px_2px_var(--border-inner-dark)]',
-          'transition-[border-color,box-shadow,background] duration-fast ease',
-          'placeholder:text-ink-4',
-          'hover:border-ink-3 hover:bg-surface-hover',
-          'focus:outline-none focus:border-azul',
-          'focus:shadow-[0_0_0_3px_rgba(27,58,140,0.15),inset_0_1px_2px_var(--border-inner-dark)]',
-          'focus:bg-surface-1',
-        )}
-      />
-      {hint && <p className="font-sans text-xs text-ink-3">{hint}</p>}
-    </div>
   );
 }
 
@@ -471,21 +421,17 @@ export function PlaygroundForm({ onSubmit, isPending }: PlaygroundFormProps): Re
       {/* Contexto real: campos de lead + city */}
       {useRealContext && (
         <div className="flex flex-col gap-4">
-          <SimpleTextField
-            id="playground-lead-id"
-            label="Lead ID (opcional)"
-            placeholder="UUID do lead ou nome/telefone"
+          <LeadCombobox
             value={leadId}
-            onChange={setLeadId}
-            hint="Cole o UUID do lead ou use o nome para busca futura."
+            onChange={(id) => setLeadId(id)}
+            label="Lead (opcional)"
+            placeholder="Busque por nome, email ou CPF"
           />
-          <SimpleTextField
-            id="playground-city-id"
-            label="City ID (opcional)"
-            placeholder="UUID da cidade ou nome"
+          <CityCombobox
             value={cityId}
-            onChange={setCityId}
-            hint="Identificador da cidade para contextualização geográfica."
+            onChange={(id) => setCityId(id)}
+            label="Cidade (opcional)"
+            placeholder="Busque por nome da cidade"
           />
         </div>
       )}

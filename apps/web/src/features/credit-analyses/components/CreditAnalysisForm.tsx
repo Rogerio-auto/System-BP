@@ -16,6 +16,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 
+import { LeadCombobox } from '../../../components/comboboxes/LeadCombobox';
+import { SimulationSelect } from '../../../components/comboboxes/SimulationSelect';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
@@ -322,6 +324,8 @@ export function CreditAnalysisForm({
     register,
     handleSubmit,
     control,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CreditAnalysisCreateForm>({
     resolver: zodResolver(CreditAnalysisCreateFormSchema),
@@ -333,6 +337,9 @@ export function CreditAnalysisForm({
       pendencias: [],
     },
   });
+
+  const watchedLeadId = watch('lead_id');
+  const watchedSimulationId = watch('simulation_id');
 
   const { fields, append, remove } = useFieldArray({ control, name: 'pendencias' });
 
@@ -356,24 +363,29 @@ export function CreditAnalysisForm({
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
       {!defaultLeadId ? (
-        <Input
-          id="ca-lead-id"
-          label="ID do Lead"
-          placeholder="UUID do lead"
-          required
+        <LeadCombobox
+          value={watchedLeadId}
+          onChange={(id) => {
+            setValue('lead_id', id, { shouldValidate: true });
+            // Limpa simulação quando lead muda
+            if (!id) setValue('simulation_id', null);
+          }}
           error={errors.lead_id?.message}
-          {...register('lead_id')}
+          disabled={isPending}
+          label="Lead"
+          required
         />
       ) : (
         <input type="hidden" {...register('lead_id')} />
       )}
 
       {!defaultSimulationId && (
-        <Input
-          id="ca-simulation-id"
+        <SimulationSelect
+          leadId={watchedLeadId || null}
+          value={watchedSimulationId ?? ''}
+          onChange={(id) => setValue('simulation_id', id || null)}
+          disabled={isPending}
           label="Simulação vinculada (opcional)"
-          placeholder="UUID da simulação"
-          {...register('simulation_id')}
         />
       )}
 
