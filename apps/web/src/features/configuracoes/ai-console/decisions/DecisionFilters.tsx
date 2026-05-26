@@ -11,6 +11,7 @@
 
 import * as React from 'react';
 
+import { LeadCombobox } from '../../../../components/comboboxes/LeadCombobox';
 import { cn } from '../../../../lib/cn';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -125,15 +126,12 @@ export function DecisionFilters({
           />
         </FilterField>
 
-        <FilterField label="Lead ID" id="filter-lead-id">
-          <input
-            id="filter-lead-id"
-            type="text"
-            className={cn(inputCls, 'font-mono')}
-            placeholder="UUID do lead"
+        <FilterField label="Lead" id="filter-lead-id">
+          <LeadCombobox
             value={values.lead_id}
-            onChange={(e) => onChange('lead_id', e.target.value)}
-            aria-label="Filtrar por UUID do lead"
+            onChange={(id) => onChange('lead_id', id)}
+            label=""
+            placeholder="Buscar lead…"
           />
         </FilterField>
 
