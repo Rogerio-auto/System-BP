@@ -3,11 +3,11 @@ id: F8-S14
 title: Substituir inputs de UUID por comboboxes com busca (lead, cidade, simulação)
 phase: F8
 task_ref: hotfix
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: ''
-claimed_at: ''
+claimed_at: 2026-05-26T19:30:00Z
 completed_at: ''
 pr_url: ''
 depends_on: []
