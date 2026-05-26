@@ -8,20 +8,20 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | Fase | Total | 🟢  | ⏸️  | 🟡  | 🔵  | 🟣  | ✅  |
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
-| F0   | 16    | 1   | 0   | 0   | 0   | 0   | 15  |
-| F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
-| F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
+| F0   | 16     | 1   | 0   | 0   | 0   | 0   | 15   |
+| F1   | 28     | 0   | 0   | 0   | 0   | 0   | 28   |
+| F2   | 11     | 0   | 0   | 0   | 0   | 0   | 11   |
+| F3   | 38     | 0   | 0   | 0   | 0   | 0   | 38   |
 | F4   | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F5   | 8     | 5   | 0   | 0   | 0   | 0   | 3   |
 | F7   | 8     | 1   | 0   | 0   | 0   | 0   | 7   |
-| F8   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F9   | 12    | 0   | 0   | 0   | 1   | 0   | 11  |
+| F8   | 11     | 0   | 0   | 0   | 0   | 0   | 11   |
+| F9   | 12     | 0   | 0   | 0   | 0   | 1   | 11   |
 
 ## Fase 0 — Preparação
 
-| ID      | Título                                                                        | Status       | Prioridade | Depende de                     |
-| ------- | ----------------------------------------------------------------------------- | ------------ | ---------- | ------------------------------ |
+| ID      | Título                                                                        | Status      | Prioridade | Depende de                     |
+| ------- | ----------------------------------------------------------------------------- | ----------- | ---------- | ------------------------------ |
 | F0-S01  | Verificar e travar lockfiles (pnpm + python)                                  | ✅ done      | critical   | —                              |
 | F0-S02  | ESLint + Prettier — instalar e ligar nos workspaces                           | ✅ done      | high       | F0-S01                         |
 | F0-S03  | Validar boot da API + healthcheck contra Postgres                             | ✅ done      | high       | F0-S01                         |
@@ -35,14 +35,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0-S11  | Investigar e corrigir bloco Validação dos slots F2 (Vitest vs Jest)           | ✅ done      | medium     | —                              |
 | F0-S12  | Investigar staleness do Agent(isolation=worktree) vs commits recentes em main | ✅ done      | medium     | —                              |
 | F0-S13  | Fix heurística de reconcile-merged (não detecta slots mergeados)              | ✅ done      | medium     | —                              |
-| F0-S14  | Guard de sincronia entre migrations .sql e \_journal.json do Drizzle          | ✅ done      | high       | —                              |
+| F0-S14  | Guard de sincronia entre migrations .sql e _journal.json do Drizzle           | ✅ done      | high       | —                              |
 | F0-S15  | Saneamento — restaurar typecheck e testes verdes da API                       | ✅ done      | high       | —                              |
 | F0-S16  | Fix vitest + @fastify/autoload (forceESM) — env.js não resolve em integração  | 🟢 available | high       | —                              |
 
 ## Fase 1 — Base operacional
 
-| ID     | Título                                                                                  | Status  | Prioridade | Depende de                     |
-| ------ | --------------------------------------------------------------------------------------- | ------- | ---------- | ------------------------------ |
+| ID     | Título                                                                                  | Status | Prioridade | Depende de                     |
+| ------ | --------------------------------------------------------------------------------------- | ------ | ---------- | ------------------------------ |
 | F1-S01 | Schema identidade — orgs, users, roles, permissions, sessions, city scopes              | ✅ done | critical   | F0-S04                         |
 | F1-S02 | Helpers de erro e resposta padronizados                                                 | ✅ done | high       | F0-S03                         |
 | F1-S03 | Auth — login, refresh, logout                                                           | ✅ done | critical   | F1-S01, F1-S02                 |
@@ -74,8 +74,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 2 — Crédito e simulação
 
-| ID     | Título                                                                          | Status  | Prioridade | Depende de                     |
-| ------ | ------------------------------------------------------------------------------- | ------- | ---------- | ------------------------------ |
+| ID     | Título                                                                          | Status | Prioridade | Depende de                     |
+| ------ | ------------------------------------------------------------------------------- | ------ | ---------- | ------------------------------ |
 | F2-S01 | Schema credit_products + product_rules + simulations + seed                     | ✅ done | critical   | F0-S04, F1-S09, F1-S13, F1-S15 |
 | F2-S02 | Service de cálculo Price + SAC (puro, testável)                                 | ✅ done | high       | —                              |
 | F2-S03 | CRUD credit-products + publicação versionada de regras                          | ✅ done | high       | F2-S01, F1-S04, F1-S15         |
@@ -90,51 +90,51 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 3 — Agentes IA
 
-| ID     | Título                                                                      | Status  | Prioridade | Depende de                                                     |
-| ------ | --------------------------------------------------------------------------- | ------- | ---------- | -------------------------------------------------------------- |
-| F3-S00 | LLM Gateway — abstração OpenRouter + fallback Anthropic/OpenAI              | ✅ done | critical   | F0-S06                                                         |
-| F3-S01 | Schema ai_conversation_states + ai_decision_logs + prompt_versions          | ✅ done | critical   | —                                                              |
-| F3-S02 | Endpoints /internal/conversations/:id/state (load/save)                     | ✅ done | critical   | F3-S01, F3-S04                                                 |
-| F3-S03 | Estado tipado ConversationState (Python)                                    | ✅ done | critical   | —                                                              |
-| F3-S04 | Endpoint POST /internal/leads/get-or-create + plugin agregador /internal/\* | ✅ done | critical   | —                                                              |
-| F3-S05 | Endpoint POST /internal/cities/identify (fuzzy match)                       | ✅ done | high       | F3-S04                                                         |
-| F3-S06 | Endpoint GET /internal/credit-products                                      | ✅ done | high       | F3-S04                                                         |
-| F3-S07 | Endpoint POST /internal/handoffs (request_handoff)                          | ✅ done | high       | F3-S04                                                         |
-| F3-S08 | Endpoint POST /internal/chatwoot/notes (create_chatwoot_note)               | ✅ done | medium     | F3-S04                                                         |
-| F3-S09 | Endpoint POST /internal/ai/decisions (log_ai_decision)                      | ✅ done | high       | F3-S01, F3-S04                                                 |
-| F3-S10 | Endpoint GET /internal/customers/:id/context (get_customer_context)         | ✅ done | medium     | F3-S04                                                         |
-| F3-S11 | Endpoint POST /internal/simulations/:id/sent (mark_simulation_sent)         | ✅ done | medium     | —                                                              |
-| F3-S12 | Endpoint PATCH /internal/leads/:id (update_lead_profile)                    | ✅ done | medium     | F3-S04                                                         |
-| F3-S13 | Tool get_or_create_lead (Python)                                            | ✅ done | high       | F3-S04                                                         |
-| F3-S14 | Tool identify_city (Python)                                                 | ✅ done | high       | F3-S05                                                         |
-| F3-S15 | Tool list_credit_products (Python)                                          | ✅ done | high       | F3-S06                                                         |
-| F3-S16 | Tool generate_credit_simulation (Python)                                    | ✅ done | high       | F3-S15                                                         |
-| F3-S17 | Tool request_handoff (Python)                                               | ✅ done | high       | F3-S07                                                         |
-| F3-S18 | Tool create_chatwoot_note (Python)                                          | ✅ done | medium     | F3-S08, F3-S17                                                 |
-| F3-S19 | Tool log_ai_decision (Python)                                               | ✅ done | high       | F3-S09                                                         |
-| F3-S20 | Tool get_customer_context (Python)                                          | ✅ done | medium     | F3-S10, F3-S13                                                 |
-| F3-S21 | Tool mark_simulation_sent (Python)                                          | ✅ done | medium     | F3-S11, F3-S15                                                 |
-| F3-S22 | Tool update_lead_profile (Python)                                           | ✅ done | medium     | F3-S12, F3-S13                                                 |
-| F3-S23 | Nó receive_message + load_conversation_state                                | ✅ done | high       | F3-S02, F3-S03                                                 |
-| F3-S24 | Nó classify_intent (prompt versionado)                                      | ✅ done | high       | F3-S00, F3-S03                                                 |
-| F3-S25 | Nó identify_or_create_lead + collect_missing_profile_data                   | ✅ done | high       | F3-S03, F3-S13                                                 |
-| F3-S26 | Nó identify_city (com confirmação)                                          | ✅ done | high       | F3-S03, F3-S14, F3-S22                                         |
-| F3-S27 | Nó qualify_credit_interest                                                  | ✅ done | high       | F3-S00, F3-S03                                                 |
-| F3-S28 | Nós generate_simulation + save_simulation                                   | ✅ done | high       | F3-S00, F3-S03, F3-S15, F3-S16, F3-S21                         |
-| F3-S29 | Nós decide_next_step + request_handoff                                      | ✅ done | high       | F3-S03, F3-S17, F3-S18                                         |
-| F3-S30 | Nós send_response + persist_state + log_decision                            | ✅ done | high       | F3-S00, F3-S02, F3-S03, F3-S19                                 |
-| F3-S31 | Edges + montagem do grafo whatsapp_pre_attendance                           | ✅ done | critical   | F3-S23, F3-S24, F3-S25, F3-S26, F3-S27, F3-S28, F3-S29, F3-S30 |
-| F3-S32 | POST /process/whatsapp/message no LangGraph                                 | ✅ done | critical   | F3-S31                                                         |
-| F3-S33 | Backend integra webhook WhatsApp → LangGraph → resposta                     | ✅ done | critical   | F3-S32                                                         |
-| F3-S34 | Fallback de handoff em falha do LangGraph                                   | ✅ done | high       | F3-S07, F3-S33                                                 |
-| F3-S35 | 5 fixtures conversacionais                                                  | ✅ done | high       | F3-S31                                                         |
-| F3-S36 | Testes de prompt injection                                                  | ✅ done | high       | F3-S31                                                         |
-| F3-S37 | Schema chatwoot_handoffs + persistência no endpoint de handoff              | ✅ done | high       | F3-S01, F3-S07                                                 |
+| ID     | Título                                                                     | Status | Prioridade | Depende de                                                     |
+| ------ | -------------------------------------------------------------------------- | ------ | ---------- | -------------------------------------------------------------- |
+| F3-S00 | LLM Gateway — abstração OpenRouter + fallback Anthropic/OpenAI             | ✅ done | critical   | F0-S06                                                         |
+| F3-S01 | Schema ai_conversation_states + ai_decision_logs + prompt_versions         | ✅ done | critical   | —                                                              |
+| F3-S02 | Endpoints /internal/conversations/:id/state (load/save)                    | ✅ done | critical   | F3-S01, F3-S04                                                 |
+| F3-S03 | Estado tipado ConversationState (Python)                                   | ✅ done | critical   | —                                                              |
+| F3-S04 | Endpoint POST /internal/leads/get-or-create + plugin agregador /internal/* | ✅ done | critical   | —                                                              |
+| F3-S05 | Endpoint POST /internal/cities/identify (fuzzy match)                      | ✅ done | high       | F3-S04                                                         |
+| F3-S06 | Endpoint GET /internal/credit-products                                     | ✅ done | high       | F3-S04                                                         |
+| F3-S07 | Endpoint POST /internal/handoffs (request_handoff)                         | ✅ done | high       | F3-S04                                                         |
+| F3-S08 | Endpoint POST /internal/chatwoot/notes (create_chatwoot_note)              | ✅ done | medium     | F3-S04                                                         |
+| F3-S09 | Endpoint POST /internal/ai/decisions (log_ai_decision)                     | ✅ done | high       | F3-S01, F3-S04                                                 |
+| F3-S10 | Endpoint GET /internal/customers/:id/context (get_customer_context)        | ✅ done | medium     | F3-S04                                                         |
+| F3-S11 | Endpoint POST /internal/simulations/:id/sent (mark_simulation_sent)        | ✅ done | medium     | —                                                              |
+| F3-S12 | Endpoint PATCH /internal/leads/:id (update_lead_profile)                   | ✅ done | medium     | F3-S04                                                         |
+| F3-S13 | Tool get_or_create_lead (Python)                                           | ✅ done | high       | F3-S04                                                         |
+| F3-S14 | Tool identify_city (Python)                                                | ✅ done | high       | F3-S05                                                         |
+| F3-S15 | Tool list_credit_products (Python)                                         | ✅ done | high       | F3-S06                                                         |
+| F3-S16 | Tool generate_credit_simulation (Python)                                   | ✅ done | high       | F3-S15                                                         |
+| F3-S17 | Tool request_handoff (Python)                                              | ✅ done | high       | F3-S07                                                         |
+| F3-S18 | Tool create_chatwoot_note (Python)                                         | ✅ done | medium     | F3-S08, F3-S17                                                 |
+| F3-S19 | Tool log_ai_decision (Python)                                              | ✅ done | high       | F3-S09                                                         |
+| F3-S20 | Tool get_customer_context (Python)                                         | ✅ done | medium     | F3-S10, F3-S13                                                 |
+| F3-S21 | Tool mark_simulation_sent (Python)                                         | ✅ done | medium     | F3-S11, F3-S15                                                 |
+| F3-S22 | Tool update_lead_profile (Python)                                          | ✅ done | medium     | F3-S12, F3-S13                                                 |
+| F3-S23 | Nó receive_message + load_conversation_state                               | ✅ done | high       | F3-S02, F3-S03                                                 |
+| F3-S24 | Nó classify_intent (prompt versionado)                                     | ✅ done | high       | F3-S00, F3-S03                                                 |
+| F3-S25 | Nó identify_or_create_lead + collect_missing_profile_data                  | ✅ done | high       | F3-S03, F3-S13                                                 |
+| F3-S26 | Nó identify_city (com confirmação)                                         | ✅ done | high       | F3-S03, F3-S14, F3-S22                                         |
+| F3-S27 | Nó qualify_credit_interest                                                 | ✅ done | high       | F3-S00, F3-S03                                                 |
+| F3-S28 | Nós generate_simulation + save_simulation                                  | ✅ done | high       | F3-S00, F3-S03, F3-S15, F3-S16, F3-S21                         |
+| F3-S29 | Nós decide_next_step + request_handoff                                     | ✅ done | high       | F3-S03, F3-S17, F3-S18                                         |
+| F3-S30 | Nós send_response + persist_state + log_decision                           | ✅ done | high       | F3-S00, F3-S02, F3-S03, F3-S19                                 |
+| F3-S31 | Edges + montagem do grafo whatsapp_pre_attendance                          | ✅ done | critical   | F3-S23, F3-S24, F3-S25, F3-S26, F3-S27, F3-S28, F3-S29, F3-S30 |
+| F3-S32 | POST /process/whatsapp/message no LangGraph                                | ✅ done | critical   | F3-S31                                                         |
+| F3-S33 | Backend integra webhook WhatsApp → LangGraph → resposta                    | ✅ done | critical   | F3-S32                                                         |
+| F3-S34 | Fallback de handoff em falha do LangGraph                                  | ✅ done | high       | F3-S07, F3-S33                                                 |
+| F3-S35 | 5 fixtures conversacionais                                                 | ✅ done | high       | F3-S31                                                         |
+| F3-S36 | Testes de prompt injection                                                 | ✅ done | high       | F3-S31                                                         |
+| F3-S37 | Schema chatwoot_handoffs + persistência no endpoint de handoff             | ✅ done | high       | F3-S01, F3-S07                                                 |
 
 ## Fase 4 — Atendimento WhatsApp + Chatwoot
 
-| ID     | Título                                                                 | Status  | Prioridade | Depende de                             |
-| ------ | ---------------------------------------------------------------------- | ------- | ---------- | -------------------------------------- |
+| ID     | Título                                                                 | Status | Prioridade | Depende de                             |
+| ------ | ---------------------------------------------------------------------- | ------ | ---------- | -------------------------------------- |
 | F4-S01 | Schema credit_analyses + credit_analysis_versions + migration          | ✅ done | critical   | F2-S01, F1-S09, F1-S13, F1-S15, F1-S24 |
 | F4-S02 | Backend — service + endpoints CRUD de credit_analyses (RBAC + Art. 20) | ✅ done | critical   | F4-S01, F1-S04, F1-S15, F1-S16         |
 | F4-S03 | Frontend — lista, detalhe, form e nova versão de análise de crédito    | ✅ done | high       | F4-S02, F1-S08, F1-S12, F8-S08         |
@@ -144,8 +144,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 5 — Follow-up e cobrança
 
-| ID     | Título                                                        | Status       | Prioridade | Depende de                                     |
-| ------ | ------------------------------------------------------------- | ------------ | ---------- | ---------------------------------------------- |
+| ID     | Título                                                        | Status      | Prioridade | Depende de                                     |
+| ------ | ------------------------------------------------------------- | ----------- | ---------- | ---------------------------------------------- |
 | F5-S01 | Schema followup_rules + followup_jobs + whatsapp_templates    | ✅ done      | high       | F0-S04, F1-S09, F1-S15, F1-S23                 |
 | F5-S02 | Worker followup-scheduler (gated)                             | ✅ done      | high       | F5-S01, F1-S15, F1-S23                         |
 | F5-S03 | Worker followup-sender + cliente Meta WhatsApp templates      | 🟢 available | high       | F5-S01, F5-S02, F1-S15, F1-S20                 |
@@ -157,8 +157,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 7 — Hardening final
 
-| ID     | Título                                                                               | Status       | Prioridade | Depende de                                     |
-| ------ | ------------------------------------------------------------------------------------ | ------------ | ---------- | ---------------------------------------------- |
+| ID     | Título                                                                               | Status      | Prioridade | Depende de                                     |
+| ------ | ------------------------------------------------------------------------------------ | ----------- | ---------- | ---------------------------------------------- |
 | F7-S01 | Configurar Kimi K2 como modelo default do reasoner LangGraph                         | ✅ done      | critical   | F3-S00, F9-S00                                 |
 | F7-S02 | CI — E2E smoke test (docker-compose + fluxo crítico)                                 | ✅ done      | critical   | F3-S33, F3-S34                                 |
 | F7-S03 | Hardening F3 pré-produção (timing-safe token, multi-tenant scope, idempotency, logs) | ✅ done      | critical   | F3-S33, F3-S34, F9-S10                         |
@@ -170,8 +170,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 8 —
 
-| ID     | Título                                                                     | Status  | Prioridade | Depende de                     |
-| ------ | -------------------------------------------------------------------------- | ------- | ---------- | ------------------------------ |
+| ID     | Título                                                                     | Status | Prioridade | Depende de                     |
+| ------ | -------------------------------------------------------------------------- | ------ | ---------- | ------------------------------ |
 | F8-S01 | Backend CRUD agents + agent_cities (admin)                                 | ✅ done | high       | F1-S04, F1-S05, F1-S07         |
 | F8-S02 | Frontend gestão de usuários (admin/users)                                  | ✅ done | high       | F1-S07, F1-S08                 |
 | F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados)                   | ✅ done | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
@@ -186,17 +186,17 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 9 —
 
-| ID     | Título                                                                          | Status         | Prioridade | Depende de             |
-| ------ | ------------------------------------------------------------------------------- | -------------- | ---------- | ---------------------- |
-| F9-S00 | Schema model_pricing — preços por modelo LLM (USD) + FX para BRL                | ✅ done        | high       | —                      |
-| F9-S01 | Backend — API de prompt_versions (CRUD + ativação transacional)                 | ✅ done        | high       | F3-S01, F1-S04, F1-S16 |
-| F9-S02 | Backend — API read de ai_decision_logs (lista + timeline, city-scoped)          | ✅ done        | high       | F3-S01, F9-S00, F1-S04 |
-| F9-S03 | LangGraph — endpoint dry-run (POST /process/whatsapp/playground)                | ✅ done        | high       | F3-S31, F3-S32         |
-| F9-S04 | Backend — proxy /api/ai-console/playground + DLP na entrada do operador         | ✅ done        | high       | F9-S03, F3-S33         |
-| F9-S05 | Frontend — gestão de prompts (editor + preview markdown + diff + ativação)      | ✅ done        | high       | F9-S01, F8-S08, F1-S08 |
-| F9-S06 | Frontend — visualizador de ai_decision_logs (lista + timeline por conversa)     | ✅ done        | high       | F9-S02, F8-S08, F1-S08 |
-| F9-S07 | Frontend — playground (com contexto real opcional + DRY-RUN banner)             | ✅ done        | high       | F9-S04, F8-S08, F1-S08 |
-| F9-S08 | Parametrização de modelo no editor de prompts — temperature, max_tokens, top_p  | ✅ done        | medium     | F9-S01, F9-S05, F3-S00 |
-| F9-S09 | LangGraph lê prompts de prompt_versions (DB) em vez de arquivos .md             | ✅ done        | high       | F9-S01, F9-S08         |
-| F9-S10 | Hardening do runtime do agente — DLP gateway + dry_run_sink + mensagens de erro | ✅ done        | critical   | F3-S24, F9-S03         |
-| F9-S11 | Fix dry-run GET /internal/conversations/:id/state — retorna shape errado        | 🔵 in-progress | high       | —                      |
+| ID     | Título                                                                          | Status   | Prioridade | Depende de             |
+| ------ | ------------------------------------------------------------------------------- | -------- | ---------- | ---------------------- |
+| F9-S00 | Schema model_pricing — preços por modelo LLM (USD) + FX para BRL                | ✅ done   | high       | —                      |
+| F9-S01 | Backend — API de prompt_versions (CRUD + ativação transacional)                 | ✅ done   | high       | F3-S01, F1-S04, F1-S16 |
+| F9-S02 | Backend — API read de ai_decision_logs (lista + timeline, city-scoped)          | ✅ done   | high       | F3-S01, F9-S00, F1-S04 |
+| F9-S03 | LangGraph — endpoint dry-run (POST /process/whatsapp/playground)                | ✅ done   | high       | F3-S31, F3-S32         |
+| F9-S04 | Backend — proxy /api/ai-console/playground + DLP na entrada do operador         | ✅ done   | high       | F9-S03, F3-S33         |
+| F9-S05 | Frontend — gestão de prompts (editor + preview markdown + diff + ativação)      | ✅ done   | high       | F9-S01, F8-S08, F1-S08 |
+| F9-S06 | Frontend — visualizador de ai_decision_logs (lista + timeline por conversa)     | ✅ done   | high       | F9-S02, F8-S08, F1-S08 |
+| F9-S07 | Frontend — playground (com contexto real opcional + DRY-RUN banner)             | ✅ done   | high       | F9-S04, F8-S08, F1-S08 |
+| F9-S08 | Parametrização de modelo no editor de prompts — temperature, max_tokens, top_p  | ✅ done   | medium     | F9-S01, F9-S05, F3-S00 |
+| F9-S09 | LangGraph lê prompts de prompt_versions (DB) em vez de arquivos .md             | ✅ done   | high       | F9-S01, F9-S08         |
+| F9-S10 | Hardening do runtime do agente — DLP gateway + dry_run_sink + mensagens de erro | ✅ done   | critical   | F3-S24, F9-S03         |
+| F9-S11 | Fix dry-run GET /internal/conversations/:id/state — retorna shape errado        | 🟣 review | high       | —                      |
