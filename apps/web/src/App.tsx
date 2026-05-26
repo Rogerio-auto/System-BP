@@ -101,7 +101,8 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/crm/:id" element={<CrmDetailPage />} />
         <Route path="/imports/leads/new" element={<ImportWizardPage />} />
         <Route path="/simulator" element={<SimulatorPage />} />
-        <Route path="/analise" element={<PlaceholderPage title="Análise" />} />
+        {/* Legacy redirect — /analise era placeholder; a rota real é /credit-analyses (F4-S03) */}
+        <Route path="/analise" element={<Navigate to="/credit-analyses" replace />} />
         {/* F4-S03: Análise de crédito */}
         <Route path="/credit-analyses" element={<CreditAnalysesListPage />} />
         <Route path="/credit-analyses/:id" element={<CreditAnalysisDetailPage />} />

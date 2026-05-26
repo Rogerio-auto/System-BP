@@ -8,25 +8,32 @@
 //   - Logo/marca com gradient da bandeira (--grad-rondonia)
 //   - Nav labels em caption-style (Geist, uppercase, tracking, text-ink-3)
 //   - Colapsado: mostra apenas ícones (64px), expandido: ícone + label (240px)
+//
+// Fonte de dados: APP_NAV + FOOTER_NAV de app/navigation.ts (F4-S07).
+// Permission gate: useAuth().hasPermission(item.permission).
+// Feature flag gate: useFeatureFlag(item.featureFlag).enabled.
 // =============================================================================
 
 import * as React from 'react';
 import { NavLink } from 'react-router-dom';
 
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { APP_NAV, FOOTER_NAV } from '../../app/navigation';
+import type { NavItem as NavItemMeta } from '../../app/navigation';
+import { useFeatureFlags } from '../../hooks/useFeatureFlag';
+import { useAuth } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+// ─── Tipos internos (com icon JSX resolvido) ──────────────────────────────────
 
-interface NavItem {
+interface ResolvedNavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
 }
 
-interface NavSection {
+interface ResolvedNavSection {
   heading?: string;
-  items: NavItem[];
+  items: ResolvedNavItem[];
 }
 
 // ─── Ícones SVG inline (20×20) ───────────────────────────────────────────────
@@ -146,56 +153,113 @@ function IconSimulator(): React.JSX.Element {
   );
 }
 
-// ─── Nav sections (base — feature flags aplicadas no componente) ──────────────
+// ─── Mapa iconKey → JSX ───────────────────────────────────────────────────────
 //
-// Administração removida da sidebar (F8-S08): tudo acessível via /configuracoes.
-// Configurações move para rodapé isolado (padrão Linear) — ponto único de entrada.
+// Fonte canônica: navigation.ts declara iconKey (string); aqui resolvemos para
+// o JSX correspondente. Adicionar entradas ao crescer o APP_NAV.
 
-const NAV_SECTIONS_BASE: NavSection[] = [
-  {
-    items: [{ href: '/', label: 'Dashboard', icon: <IconDashboard /> }],
-  },
-  {
-    heading: 'Operações',
-    items: [
-      { href: '/crm', label: 'CRM', icon: <IconCrm /> },
-      { href: '/analise', label: 'Análise', icon: <IconAnalise /> },
-      { href: '/contratos', label: 'Contratos', icon: <IconContratos /> },
-    ],
-  },
-  {
-    heading: 'Gestão',
-    items: [{ href: '/relatorios', label: 'Relatórios', icon: <IconRelatorios /> }],
-  },
-];
+const ICON_MAP: Record<string, React.ReactNode> = {
+  dashboard: <IconDashboard />,
+  crm: <IconCrm />,
+  analise: <IconAnalise />,
+  contratos: <IconContratos />,
+  relatorios: <IconRelatorios />,
+  simulator: <IconSimulator />,
+  configuracoes: <IconConfiguracoes />,
+};
+
+/** Resolve iconKey para JSX; fallback neutro se a chave não estiver no mapa. */
+function resolveIcon(iconKey: string): React.ReactNode {
+  return (
+    ICON_MAP[iconKey] ?? (
+      <svg
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        className="w-5 h-5 shrink-0"
+        aria-hidden="true"
+      >
+        <circle cx="10" cy="10" r="7" />
+      </svg>
+    )
+  );
+}
+
+// ─── Helpers de gate (exportados para teste) ──────────────────────────────────
 
 /**
- * Hook que constrói as nav sections dinamicamente com base em feature flags.
- * - Quando credit_simulation.enabled está off, o item "Simulador" fica oculto.
- * - Seção "Administração" removida: tudo centralizado em /configuracoes (F8-S08).
+ * Verifica se um NavItem deve ser exibido dado o estado de permissões e flags.
+ * Puro — recebe os mapas por parâmetro para facilitar testes unitários.
  */
-function useNavSections(): NavSection[] {
-  const { enabled: simulatorEnabled } = useFeatureFlag('credit_simulation.enabled');
+export function isNavItemVisible(
+  item: NavItemMeta,
+  opts: {
+    hasPermission: (perm: string) => boolean;
+    flagEnabled: (key: string) => boolean;
+  },
+): boolean {
+  if (item.permission !== undefined && !opts.hasPermission(item.permission)) {
+    return false;
+  }
+  if (item.featureFlag !== undefined && !opts.flagEnabled(item.featureFlag)) {
+    return false;
+  }
+  return true;
+}
+
+// ─── Hook principal ───────────────────────────────────────────────────────────
+
+/**
+ * Deriva as nav sections de APP_NAV aplicando gates de permissão e feature flag.
+ * Remove seções cujos items foram todos filtrados.
+ */
+function useNavSections(): ResolvedNavSection[] {
+  const { hasPermission } = useAuth();
+  const { flags } = useFeatureFlags();
 
   return React.useMemo(() => {
-    if (!simulatorEnabled) {
-      return [
-        NAV_SECTIONS_BASE[0]!, // Dashboard
-        NAV_SECTIONS_BASE[1]!, // Operações
-        NAV_SECTIONS_BASE[2]!, // Gestão
-      ];
+    const flagEnabled = (key: string): boolean => {
+      const status = flags[key];
+      return status === 'enabled' || status === 'internal_only';
+    };
+
+    const resolved: ResolvedNavSection[] = [];
+
+    for (const section of APP_NAV) {
+      const visibleItems = section.items
+        .filter((item) => isNavItemVisible(item, { hasPermission, flagEnabled }))
+        .map((item) => ({
+          href: item.href,
+          label: item.label,
+          icon: resolveIcon(item.iconKey),
+        }));
+
+      // Remove seções vazias
+      if (visibleItems.length > 0) {
+        const resolvedSection: ResolvedNavSection = { items: visibleItems };
+        if (section.heading !== undefined) {
+          resolvedSection.heading = section.heading;
+        }
+        resolved.push(resolvedSection);
+      }
     }
 
-    return [
-      NAV_SECTIONS_BASE[0]!, // Dashboard
-      NAV_SECTIONS_BASE[1]!, // Operações
-      {
-        heading: 'Crédito',
-        items: [{ href: '/simulator', label: 'Simulador', icon: <IconSimulator /> }],
-      },
-      NAV_SECTIONS_BASE[2]!, // Gestão
-    ];
-  }, [simulatorEnabled]);
+    return resolved;
+  }, [hasPermission, flags]);
+}
+
+/** Resolve FOOTER_NAV (sem gates — Configurações é sempre visível). */
+function useFooterNav(): ResolvedNavItem[] {
+  return React.useMemo(
+    () =>
+      FOOTER_NAV.map((item) => ({
+        href: item.href,
+        label: item.label,
+        icon: resolveIcon(item.iconKey),
+      })),
+    [],
+  );
 }
 
 // ─── Marca da sidebar ─────────────────────────────────────────────────────────
@@ -241,7 +305,7 @@ function SidebarNavLink({
   item,
   collapsed,
 }: {
-  item: NavItem;
+  item: ResolvedNavItem;
   collapsed: boolean;
 }): React.JSX.Element {
   return (
@@ -290,9 +354,11 @@ interface SidebarProps {
  * - Expandida: 240px (w-60)
  * - Colapsada: 64px (w-16)
  * - DS: elev-1, borda direita, brand em topo, nav sections com headings.
+ * - Fonte de dados: APP_NAV de app/navigation.ts (F4-S07).
  */
 export function Sidebar({ collapsed, onToggle }: SidebarProps): React.JSX.Element {
   const navSections = useNavSections();
+  const footerNav = useFooterNav();
 
   return (
     <aside
@@ -326,10 +392,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps): React.JSX.Elemen
 
       {/* Configurações — item isolado no rodapé (padrão Linear/F8-S08) */}
       <div className="shrink-0 border-t border-border pt-2 px-0">
-        <SidebarNavLink
-          item={{ href: '/configuracoes', label: 'Configurações', icon: <IconConfiguracoes /> }}
-          collapsed={collapsed}
-        />
+        {footerNav.map((item) => (
+          <SidebarNavLink key={item.href} item={item} collapsed={collapsed} />
+        ))}
       </div>
 
       {/* Toggle collapse — botão na base */}
