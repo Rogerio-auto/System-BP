@@ -3,12 +3,12 @@ id: F0-S16
 title: Fix vitest + @fastify/autoload (forceESM) — env.js não resolve em integração
 phase: F0
 task_ref: hotfix
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: ''
-claimed_at: ''
-completed_at: ''
+claimed_at: 2026-05-26T15:10:16Z
+completed_at: 2026-05-26T15:18:24Z
 pr_url: ''
 depends_on: []
 blocks: []
