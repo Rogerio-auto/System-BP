@@ -3,13 +3,13 @@ id: F8-S14
 title: Substituir inputs de UUID por comboboxes com busca (lead, cidade, simulação)
 phase: F8
 task_ref: hotfix
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: ''
 claimed_at: 2026-05-26T19:30:00Z
 completed_at: 2026-05-26T19:40:42Z
-pr_url: ''
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/159
 depends_on: []
 blocks: []
 labels: []
