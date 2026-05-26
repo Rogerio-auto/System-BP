@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 8     | 5   | 0   | 0   | 0   | 0   | 3   |
 | F7   | 8     | 1   | 0   | 0   | 0   | 0   | 7   |
-| F8   | 17    | 0   | 0   | 0   | 1   | 0   | 16  |
+| F8   | 17    | 0   | 0   | 0   | 0   | 1   | 16  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 
 ## Fase 0 — Preparação
@@ -171,25 +171,25 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 8 —
 
-| ID     | Título                                                                                        | Status         | Prioridade | Depende de                     |
-| ------ | --------------------------------------------------------------------------------------------- | -------------- | ---------- | ------------------------------ |
-| F8-S01 | Backend CRUD agents + agent_cities (admin)                                                    | ✅ done        | high       | F1-S04, F1-S05, F1-S07         |
-| F8-S02 | Frontend gestão de usuários (admin/users)                                                     | ✅ done        | high       | F1-S07, F1-S08                 |
-| F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados)                                      | ✅ done        | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
-| F8-S04 | Frontend gestão de agentes de crédito                                                         | ✅ done        | high       | F8-S01, F1-S08                 |
-| F8-S05 | Frontend dashboard real com KPIs e gráficos                                                   | ✅ done        | medium     | F8-S03, F1-S08                 |
-| F8-S06 | Backend — GET /api/admin/roles + roles na listagem de usuários                                | ✅ done        | high       | —                              |
-| F8-S07 | Promover roles.scope a coluna real (migration + backfill) e ler do banco                      | ✅ done        | medium     | F8-S06                         |
-| F8-S08 | Frontend — Hub de Configurações + reorganização da Administração                              | ✅ done        | medium     | —                              |
-| F8-S09 | Conta — self-service de perfil, senha e aparência (backend + frontend)                        | ✅ done        | medium     | F8-S08                         |
-| F8-S10 | Reconciliação RBAC — padronizar permissões em :manage                                         | ✅ done        | medium     | —                              |
-| F8-S11 | 2FA / TOTP — enrolment, verificação, recovery codes e enforcement no login                    | ✅ done        | medium     | F8-S09                         |
-| F8-S12 | Fix /admin/users — drawer transparente, kebab clipado, roles vazias, seed sem credit_analyses | ✅ done        | high       | —                              |
-| F8-S13 | Fix seed.ts ROLES sem scope — quebra db:seed pós-migration 0021                               | ✅ done        | high       | —                              |
-| F8-S14 | Substituir inputs de UUID por comboboxes com busca (lead, cidade, simulação)                  | ✅ done        | high       | —                              |
-| F8-S15 | Fix loop infinito em SimulationSelect (regressão F8-S14)                                      | ✅ done        | high       | —                              |
-| F8-S16 | Fix 500 em GET /api/leads?search (regressão F8-S14)                                           | ✅ done        | high       | —                              |
-| F8-S17 | Fix migrator Drizzle — `CREATE INDEX CONCURRENTLY` falha silenciosamente em transação         | 🔵 in-progress | high       | —                              |
+| ID     | Título                                                                                        | Status    | Prioridade | Depende de                     |
+| ------ | --------------------------------------------------------------------------------------------- | --------- | ---------- | ------------------------------ |
+| F8-S01 | Backend CRUD agents + agent_cities (admin)                                                    | ✅ done   | high       | F1-S04, F1-S05, F1-S07         |
+| F8-S02 | Frontend gestão de usuários (admin/users)                                                     | ✅ done   | high       | F1-S07, F1-S08                 |
+| F8-S03 | Backend endpoint /api/dashboard/metrics (KPIs agregados)                                      | ✅ done   | medium     | F1-S04, F1-S09, F1-S11, F1-S13 |
+| F8-S04 | Frontend gestão de agentes de crédito                                                         | ✅ done   | high       | F8-S01, F1-S08                 |
+| F8-S05 | Frontend dashboard real com KPIs e gráficos                                                   | ✅ done   | medium     | F8-S03, F1-S08                 |
+| F8-S06 | Backend — GET /api/admin/roles + roles na listagem de usuários                                | ✅ done   | high       | —                              |
+| F8-S07 | Promover roles.scope a coluna real (migration + backfill) e ler do banco                      | ✅ done   | medium     | F8-S06                         |
+| F8-S08 | Frontend — Hub de Configurações + reorganização da Administração                              | ✅ done   | medium     | —                              |
+| F8-S09 | Conta — self-service de perfil, senha e aparência (backend + frontend)                        | ✅ done   | medium     | F8-S08                         |
+| F8-S10 | Reconciliação RBAC — padronizar permissões em :manage                                         | ✅ done   | medium     | —                              |
+| F8-S11 | 2FA / TOTP — enrolment, verificação, recovery codes e enforcement no login                    | ✅ done   | medium     | F8-S09                         |
+| F8-S12 | Fix /admin/users — drawer transparente, kebab clipado, roles vazias, seed sem credit_analyses | ✅ done   | high       | —                              |
+| F8-S13 | Fix seed.ts ROLES sem scope — quebra db:seed pós-migration 0021                               | ✅ done   | high       | —                              |
+| F8-S14 | Substituir inputs de UUID por comboboxes com busca (lead, cidade, simulação)                  | ✅ done   | high       | —                              |
+| F8-S15 | Fix loop infinito em SimulationSelect (regressão F8-S14)                                      | ✅ done   | high       | —                              |
+| F8-S16 | Fix 500 em GET /api/leads?search (regressão F8-S14)                                           | ✅ done   | high       | —                              |
+| F8-S17 | Fix migrator Drizzle — `CREATE INDEX CONCURRENTLY` falha silenciosamente em transação         | 🟣 review | high       | —                              |
 
 ## Fase 9 —
 
