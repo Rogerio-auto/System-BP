@@ -66,13 +66,21 @@ export function SimulationSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Guarda referência estável ao callback para evitar loop infinito.
+  // O parent pode passar callback inline (nova ref a cada render); colocá-lo
+  // direto na dep list do effect abaixo causaria Maximum update depth exceeded.
+  const onChangeRef = React.useRef(onChange);
+  React.useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+
   // Sincroniza quando leadId muda (resetar seleção)
   React.useEffect(() => {
     if (!leadId) {
       setSelectedSimulation(null);
-      onChange('', null);
+      onChangeRef.current('', null);
     }
-  }, [leadId, onChange]);
+  }, [leadId]);
 
   // Sincroniza quando value é limpo externamente
   React.useEffect(() => {
