@@ -3,13 +3,13 @@ id: F8-S13
 title: Fix seed.ts ROLES sem scope — quebra db:seed pós-migration 0021
 phase: F8
 task_ref: hotfix
-status: review
+status: done
 priority: high
 estimated_size: XS
 agent_id: ''
 claimed_at: 2026-05-26T17:00:10Z
 completed_at: 2026-05-26T17:02:54Z
-pr_url: ''
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/158
 depends_on: []
 blocks: []
 labels: []
