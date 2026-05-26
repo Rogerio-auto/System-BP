@@ -3,12 +3,12 @@ id: F8-S12
 title: Fix /admin/users — drawer transparente, kebab clipado, roles vazias, seed sem credit_analyses
 phase: F8
 task_ref: hotfix
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: ''
 claimed_at: 2026-05-26T16:26:11Z
-completed_at: ''
+completed_at: 2026-05-26T16:35:50Z
 pr_url: ''
 depends_on: []
 blocks: []
