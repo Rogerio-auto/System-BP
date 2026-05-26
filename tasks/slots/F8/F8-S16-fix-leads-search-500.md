@@ -3,11 +3,11 @@ id: F8-S16
 title: Fix 500 em GET /api/leads?search (regressão F8-S14)
 phase: F8
 task_ref: hotfix
-status: backlog
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: ''
-claimed_at: ''
+claimed_at: 2026-05-26T20:13:54Z
 completed_at: ''
 pr_url: ''
 depends_on: []
@@ -22,7 +22,6 @@ source_docs:
   - packages/shared-schemas/src/leads.ts
   - docs/17-lgpd-protecao-dados.md
 ---
-
 # F8-S16 — Fix 500 em `GET /api/leads?search`
 
 ## Contexto (incidente 2026-05-26, pós-merge F8-S14)
