@@ -78,6 +78,85 @@ class TestDryRunGet:
 
 
 # ---------------------------------------------------------------------------
+# Regressão F9-S11 — GET vs POST/PUT no mesmo path conversation_state
+# ---------------------------------------------------------------------------
+
+
+class TestConversationStateMethodShape:
+    """Garante que GET e POST/PUT em /internal/conversations/:id/state retornem
+    shapes distintos e corretos (regressão F9-S11).
+
+    Antes do fix (F7-S03), _synthetic_get_response consultava _PATH_TO_STUB_FACTORY
+    compartilhado com escritas e retornava {"ok", dry_run} para GET — shape
+    rejeitado pelo nó load_state que valida a chave "state". O Playground
+    (F9-S07) entrava em handoff genérico de falha.
+    """
+
+    @pytest.mark.asyncio
+    async def test_post_conversation_state_returns_ok_shape(self) -> None:
+        """POST /conversations/:id/state deve retornar {'ok': True, 'dry_run': True}.
+
+        Previne regressão: o factory _stub_conversation_state deve continuar
+        sendo usado para escritas — qualquer mudança que quebre esse contrato
+        vai regredir persist_state.
+        """
+        _sink, stub = _make_stub(allow_real_reads=False)
+        result = await stub.post(
+            "/internal/conversations/abc-123/state",
+            json={"state": {"conversation_id": "abc-123"}},
+        )
+        assert result.get("dry_run") is True
+        assert result.get("ok") is True
+        # Shape de escrita NÃO deve conter a chave "state" (seria ambíguo)
+        assert "state" not in result
+
+    @pytest.mark.asyncio
+    async def test_put_conversation_state_returns_ok_shape(self) -> None:
+        """PUT /conversations/:id/state deve retornar {'ok': True, 'dry_run': True}.
+
+        persist_state usa PUT via _request — garante que o factory de escrita
+        é acionado e o shape permanece correto após o split de mapas F9-S11.
+        """
+        _sink, stub = _make_stub(allow_real_reads=False)
+        result = await stub._request(
+            "PUT",
+            "/internal/conversations/abc-123/state",
+            json={"state": {"conversation_id": "abc-123"}},
+        )
+        assert result.get("dry_run") is True
+        assert result.get("ok") is True
+        assert "state" not in result
+
+    @pytest.mark.asyncio
+    async def test_get_and_post_same_path_return_different_shapes(self) -> None:
+        """GET e POST no mesmo path devem retornar shapes diferentes.
+
+        Teste de contrato dual: o mesmo URL tem semânticas distintas por método.
+        Falha se o mapa de stubs for unificado novamente (regressão futura).
+        """
+        _sink_get, stub_get = _make_stub(allow_real_reads=False)
+        get_result = await stub_get.get("/internal/conversations/xyz/state")
+
+        _sink_post, stub_post = _make_stub(allow_real_reads=False)
+        post_result = await stub_post.post(
+            "/internal/conversations/xyz/state",
+            json={"state": {}},
+        )
+
+        # GET: shape compatível com load_state
+        assert "state" in get_result
+        assert get_result.get("dry_run") is True
+
+        # POST: shape idempotente de confirmação
+        assert "ok" in post_result
+        assert post_result.get("dry_run") is True
+
+        # Os shapes são mutuamente exclusivos
+        assert "state" not in post_result
+        assert "ok" not in get_result
+
+
+# ---------------------------------------------------------------------------
 # Testes de POST interceptado
 # ---------------------------------------------------------------------------
 

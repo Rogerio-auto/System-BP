@@ -225,10 +225,31 @@ def _stub_simulations_sent(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-# Mapa canônico de path → factory de stub.
-# Patterns são compilados uma vez; matching é feito por re.search().
+# ---------------------------------------------------------------------------
+# Mapas canônicos de path → factory de stub (F9-S11: separados por método)
+# ---------------------------------------------------------------------------
+# Separar GET de WRITE é necessário porque alguns paths têm semânticas
+# completamente diferentes dependendo do método HTTP:
+#
+#   GET  /internal/conversations/:id/state  → {"state": {}, "dry_run": True}
+#   POST /internal/conversations/:id/state  → {"ok": True,  "dry_run": True}
+#   PUT  /internal/conversations/:id/state  → {"ok": True,  "dry_run": True}
+#
+# Usar um único mapa compartilhado fazia _synthetic_get_response capturar o
+# factory de POST/PUT e retornar {"ok", dry_run} para GET — shape errado para
+# o nó load_state (que valida a chave "state"). Regressão introduzida em F7-S03.
+#
 # Ordem importa: padrões mais específicos devem vir antes dos mais genéricos.
-_PATH_TO_STUB_FACTORY: dict[re.Pattern[str], Callable[[dict[str, Any]], dict[str, Any]]] = {
+
+# Paths exclusivos de GET → cada factory retorna o payload esperado pelo caller.
+_GET_STUB_FACTORY: dict[re.Pattern[str], Callable[[dict[str, Any]], dict[str, Any]]] = {
+    # F4-S04: GET /internal/customers/:id/credit-analyses → AnalysisHistoryOutput.
+    re.compile(r"^/internal/customers/[^/]+/credit-analyses$"): _stub_customers_credit_analyses,
+}
+
+# Paths de escrita (POST / PUT / PATCH / DELETE) → cada factory retorna o
+# payload esperado pelo caller (schema Pydantic do nó correspondente).
+_WRITE_STUB_FACTORY: dict[re.Pattern[str], Callable[[dict[str, Any]], dict[str, Any]]] = {
     re.compile(r"^/internal/chatwoot/notes$"): _stub_chatwoot_notes,
     re.compile(r"^/internal/handoffs$"): _stub_handoffs,
     re.compile(r"^/internal/leads/get-or-create$"): _stub_leads_get_or_create,
@@ -238,13 +259,18 @@ _PATH_TO_STUB_FACTORY: dict[re.Pattern[str], Callable[[dict[str, Any]], dict[str
     re.compile(r"^/internal/simulations/[^/]+/sent$"): _stub_simulations_sent,
     re.compile(r"^/internal/simulations$"): _stub_simulations,
     re.compile(r"^/internal/ai/decisions$"): _stub_ai_decisions,
+    # POST/PUT /internal/conversations/:id/state → idempotente (ok + dry_run).
+    # GET no mesmo path NÃO está aqui — cai no fallback {"state": {}, "dry_run": True}
+    # em _synthetic_get_response, que é o contrato esperado pelo nó load_state.
     re.compile(r"^/internal/conversations/[^/]+/state$"): _stub_conversation_state,
-    # F4-S04: GET /internal/customers/:id/credit-analyses → AnalysisHistoryOutput.
-    # Nota: GET é interceptado pelo _synthetic_get_response por padrão quando
-    # _allow_real_reads=False. Este mapeamento é usado pelo _synthetic_write_response
-    # em caso de chamada _request("GET", ...) direta (via analysis_tools._request).
+    # F4-S04: também aceita POST/PUT de credit-analyses (improvável, mas seguro).
     re.compile(r"^/internal/customers/[^/]+/credit-analyses$"): _stub_customers_credit_analyses,
 }
+
+# Alias de retrocompatibilidade — código externo que possa referenciar o nome
+# antigo continua funcionando; aponta para o mapa de escrita (comportamento
+# original para mutações).
+_PATH_TO_STUB_FACTORY = _WRITE_STUB_FACTORY
 
 # ---------------------------------------------------------------------------
 # Entrada do sink de chamadas interceptadas (para compor o trace)
@@ -397,16 +423,22 @@ class DryRunInternalApiClient(InternalApiClient):
     def _synthetic_get_response(path: str) -> dict[str, Any]:
         """Resposta sintética para GET.
 
-        Consulta _PATH_TO_STUB_FACTORY para retornar payload compatível com o
+        Consulta _GET_STUB_FACTORY para retornar payload compatível com o
         schema esperado pelo caller. Isso garante que tools GET (como
         get_credit_analysis_history — F4-S04) recebam respostas válidas no dry-run.
+
+        Deliberadamente NÃO consulta _WRITE_STUB_FACTORY: paths como
+        /internal/conversations/:id/state têm semântica diferente em GET
+        (retorna estado salvo) vs POST/PUT (confirma persistência).
+        Usar o factory de escrita causava o bug F9-S11: GET retornava
+        {"ok", dry_run} em vez de {"state", dry_run}, rejeitado pelo load_state.
 
         Fallback: estado vazio (equivale a "conversa nova") — compatível com
         load_state que espera {"state": {}, ...}.
         """
         # Verificar se há factory específica para este path GET.
         # A factory recebe {} como body (GET não tem body).
-        for pattern, factory in _PATH_TO_STUB_FACTORY.items():
+        for pattern, factory in _GET_STUB_FACTORY.items():
             if pattern.search(path):
                 return factory({})
 
@@ -420,7 +452,7 @@ class DryRunInternalApiClient(InternalApiClient):
     ) -> dict[str, Any]:
         """Resposta sintética para POST/PUT/PATCH — usa factory por path (F9-S10).
 
-        Procura o path no ``_PATH_TO_STUB_FACTORY`` canônico. Se encontrado,
+        Procura o path no ``_WRITE_STUB_FACTORY`` canônico. Se encontrado,
         delega à factory correspondente que retorna um payload compatível com
         o schema Pydantic esperado pelo caller.
 
@@ -428,7 +460,7 @@ class DryRunInternalApiClient(InternalApiClient):
         compatível com a maioria dos consumidores (fallback de segurança).
         """
         body = body or {}
-        for pattern, factory in _PATH_TO_STUB_FACTORY.items():
+        for pattern, factory in _WRITE_STUB_FACTORY.items():
             if pattern.search(path):
                 return factory(body)
 
