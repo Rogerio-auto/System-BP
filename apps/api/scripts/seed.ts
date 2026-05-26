@@ -173,6 +173,17 @@ const PERMISSIONS = [
     key: 'ai_playground:run',
     description: 'Execução do playground dry-run do agente LangGraph (somente admin)',
   },
+  // credit-analyses — F8 (migration 0033)
+  { key: 'credit_analyses:read', description: 'Visualizar análises de crédito (módulo F8)' },
+  { key: 'credit_analyses:write', description: 'Criar e editar análises de crédito (módulo F8)' },
+  {
+    key: 'credit_analyses:decide',
+    description: 'Aprovar ou recusar análises de crédito (módulo F8)',
+  },
+  {
+    key: 'credit_analyses:request_review',
+    description: 'Solicitar revisão de análises de crédito (módulo F8)',
+  },
 ] as const;
 
 /**
@@ -218,6 +229,11 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'ai_decisions:read',
     // ai-console/playground — F9-S04 (admin-only)
     'ai_playground:run',
+    // credit-analyses — F8 (migration 0033)
+    'credit_analyses:read',
+    'credit_analyses:write',
+    'credit_analyses:decide',
+    'credit_analyses:request_review',
   ],
   gestor_geral: [
     'leads:read',
@@ -250,6 +266,10 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'ai_prompts:read',
     // ai-console/decisions — F9-S02
     'ai_decisions:read',
+    // credit-analyses — F8 (migration 0033)
+    'credit_analyses:read',
+    'credit_analyses:write',
+    'credit_analyses:decide',
   ],
   gestor_regional: [
     'leads:read',
@@ -276,6 +296,10 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'assistant:confirm_actions',
     // ai-console/decisions — F9-S02 (city-scoped via leads.city_id no código)
     'ai_decisions:read',
+    // credit-analyses — F8 (migration 0033)
+    'credit_analyses:read',
+    'credit_analyses:write',
+    'credit_analyses:decide',
   ],
   agente: [
     'leads:read',
@@ -289,6 +313,9 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'analyses:write',
     'dashboard:read_by_agent',
     'assistant:query',
+    // credit-analyses — F8 (migration 0033)
+    'credit_analyses:read',
+    'credit_analyses:request_review',
   ],
   operador: [
     'leads:read',

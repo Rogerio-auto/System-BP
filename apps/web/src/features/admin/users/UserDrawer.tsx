@@ -360,7 +360,7 @@ function EditUserForm({ userId, user, onClose }: EditFormProps): React.JSX.Eleme
     defaultValues: {
       fullName: user.fullName,
       email: user.email,
-      roleIds: [],
+      roleIds: user.roles?.map((r) => r.id) ?? [],
       cityIds: [],
     },
   });
@@ -642,7 +642,7 @@ export function UserDrawer({
           'overflow-y-auto',
         )}
         style={{
-          background: 'var(--surface-1)',
+          background: 'var(--bg-elev-1)',
           boxShadow: 'var(--elev-5)',
           animation: 'slide-in-right 300ms cubic-bezier(0.16,1,0.3,1) both',
         }}

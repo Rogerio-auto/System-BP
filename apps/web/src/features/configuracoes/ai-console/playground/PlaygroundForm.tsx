@@ -97,7 +97,7 @@ function ToggleSwitch({
           'relative shrink-0 w-10 h-[22px] rounded-full',
           'transition-colors duration-[200ms] ease-out',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/40 focus-visible:ring-offset-2',
-          'focus-visible:ring-offset-[var(--surface-1)]',
+          'focus-visible:ring-offset-[var(--bg-elev-1)]',
           checked ? 'bg-azul' : 'bg-border-strong',
         )}
         style={{

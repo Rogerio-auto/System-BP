@@ -14,6 +14,7 @@
 // =============================================================================
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 
 import { Avatar } from '../../../components/ui/Avatar';
 import { Badge, type BadgeVariant } from '../../../components/ui/Badge';
@@ -203,7 +204,8 @@ interface KebabMenuProps {
 
 function KebabMenu({ user, onEdit }: KebabMenuProps): React.JSX.Element {
   const [open, setOpen] = React.useState(false);
-  const menuRef = React.useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = React.useState({ top: 0, right: 0 });
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
 
   const { deactivate: doDeactivate, isPending: isDeactivating } = useDeactivateUser();
   const { reactivate: doReactivate, isPending: isReactivating } = useReactivateUser();
@@ -211,16 +213,43 @@ function KebabMenu({ user, onEdit }: KebabMenuProps): React.JSX.Element {
   const isBusy = isDeactivating || isReactivating;
   const isActive = user.status === 'active';
 
+  function openMenu(): void {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const menuWidth = 176; // w-44 = 11rem = 176px
+    const menuHeight = 90; // approximate height for viewport bounds check
+    const rightFromViewport = window.innerWidth - rect.right;
+    const top = rect.bottom + window.scrollY + 4;
+    // Flip up if not enough space below
+    const finalTop =
+      rect.bottom + menuHeight > window.innerHeight
+        ? rect.top + window.scrollY - menuHeight - 4
+        : top;
+    // Ensure menu doesn't go off left edge
+    const right = Math.max(4, rightFromViewport - (menuWidth - rect.width));
+    setDropdownPos({ top: finalTop, right });
+    setOpen(true);
+  }
+
   // Fechar ao clicar fora
   React.useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (triggerRef.current && triggerRef.current.contains(e.target as Node)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Fechar com Escape
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
   }, [open]);
 
   function handleDeactivate(): void {
@@ -237,35 +266,18 @@ function KebabMenu({ user, onEdit }: KebabMenuProps): React.JSX.Element {
     doReactivate(user.id);
   }
 
-  return (
-    <div ref={menuRef} className="relative inline-flex">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={`Ações para ${user.fullName}`}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        disabled={isBusy}
-        className={cn(
-          'w-8 h-8 flex items-center justify-center rounded-sm',
-          'text-ink-3 hover:text-ink hover:bg-surface-hover',
-          'transition-all duration-fast ease',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20',
-          'disabled:opacity-40',
-        )}
-      >
-        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
-          <circle cx="10" cy="4" r="1.5" />
-          <circle cx="10" cy="10" r="1.5" />
-          <circle cx="10" cy="16" r="1.5" />
-        </svg>
-      </button>
-
-      {open && (
+  const dropdown = open
+    ? createPortal(
         <div
           role="menu"
-          className="absolute right-0 top-full mt-1 w-44 rounded-sm border border-border z-10"
-          style={{ background: 'var(--bg-elev-1)', boxShadow: 'var(--elev-3)' }}
+          aria-label={`Ações para ${user.fullName}`}
+          className="fixed w-44 rounded-sm border border-border z-[120]"
+          style={{
+            background: 'var(--bg-elev-1)',
+            boxShadow: 'var(--elev-3)',
+            top: dropdownPos.top,
+            right: dropdownPos.right,
+          }}
         >
           <button
             type="button"
@@ -352,9 +364,37 @@ function KebabMenu({ user, onEdit }: KebabMenuProps): React.JSX.Element {
               {isReactivating ? 'Reativando...' : 'Reativar'}
             </button>
           )}
-        </div>
-      )}
-    </div>
+        </div>,
+        document.body,
+      )
+    : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={openMenu}
+        aria-label={`Ações para ${user.fullName}`}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        disabled={isBusy}
+        className={cn(
+          'w-8 h-8 flex items-center justify-center rounded-sm',
+          'text-ink-3 hover:text-ink hover:bg-surface-hover',
+          'transition-all duration-fast ease',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20',
+          'disabled:opacity-40',
+        )}
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+          <circle cx="10" cy="4" r="1.5" />
+          <circle cx="10" cy="10" r="1.5" />
+          <circle cx="10" cy="16" r="1.5" />
+        </svg>
+      </button>
+      {dropdown}
+    </>
   );
 }
 

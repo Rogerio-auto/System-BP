@@ -501,7 +501,7 @@ export function AgentDrawer({
           'overflow-y-auto',
         )}
         style={{
-          background: 'var(--surface-1)',
+          background: 'var(--bg-elev-1)',
           boxShadow: 'var(--elev-5)',
           animation: 'slide-in-right 300ms cubic-bezier(0.16,1,0.3,1) both',
         }}

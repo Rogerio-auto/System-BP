@@ -267,3 +267,54 @@ describe('Detecção de conflito de email (ApiError simulado)', () => {
     expect(mockApiError.code).toBe('CANNOT_REMOVE_LAST_ADMIN');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Testes: EditUserForm defaultValues — pré-população de roleIds (F8-S12)
+// ---------------------------------------------------------------------------
+
+describe('EditUserForm defaultValues — pré-população de roles', () => {
+  /** Simula a derivação de defaultValues.roleIds de user.roles (bug fix F8-S12). */
+  function deriveDefaultRoleIds(
+    userRoles: Array<{ id: string; key: string; name: string }>,
+  ): string[] {
+    return userRoles?.map((r) => r.id) ?? [];
+  }
+
+  it('retorna IDs quando user.roles está preenchido', () => {
+    const roles = [
+      { id: VALID_UUID, key: 'admin', name: 'Administrador' },
+      { id: '223e4567-e89b-12d3-a456-426614174001', key: 'gestor_geral', name: 'Gestor Geral' },
+    ];
+    const roleIds = deriveDefaultRoleIds(roles);
+    expect(roleIds).toEqual([VALID_UUID, '223e4567-e89b-12d3-a456-426614174001']);
+  });
+
+  it('retorna [] quando user.roles é array vazio', () => {
+    expect(deriveDefaultRoleIds([])).toEqual([]);
+  });
+
+  it('defaultValues com roleIds pré-populados passa na validação do schema', () => {
+    const roleIds = [VALID_UUID];
+    const result = UserFormSchema.safeParse({
+      fullName: 'João Silva',
+      email: 'joao@banco.ro.gov.br',
+      roleIds,
+      cityIds: [],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('defaultValues com roleIds vazio (bug antigo) falha na validação', () => {
+    const result = UserFormSchema.safeParse({
+      fullName: 'João Silva',
+      email: 'joao@banco.ro.gov.br',
+      roleIds: [],
+      cityIds: [],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const err = result.error.issues.find((i) => i.path[0] === 'roleIds');
+      expect(err).toBeDefined();
+    }
+  });
+});
