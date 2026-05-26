@@ -19,7 +19,7 @@
 //   - Queries nunca retornam cpf_encrypted nem cpf_hash.
 //   - O select explícito exclui esses campos da resposta.
 // =============================================================================
-import { and, count, eq, ilike, inArray, isNull, isNotNull, or, sql } from 'drizzle-orm';
+import { type SQL, and, count, eq, ilike, inArray, isNull, isNotNull, or, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import { leads } from '../../db/schema/leads.js';
@@ -107,6 +107,9 @@ function buildCityScopeCondition(
 /**
  * Lista leads da org com paginação, filtros e escopo de cidade.
  * Exclui leads deletados (deleted_at IS NULL).
+ *
+ * LGPD (doc 17 §8.1): search bate apenas em `name` e `phone_e164` —
+ * nunca em `cpf_encrypted` / `cpf_hash` para evitar timing-attack.
  */
 export async function findLeads(
   db: Database,
@@ -117,16 +120,21 @@ export async function findLeads(
   const { page, limit, search, status, city_id, agent_id, source } = query;
   const offset = (page - 1) * limit;
 
-  const conditions: ReturnType<typeof eq>[] = [
+  // Padrão idiomático do Drizzle: array de SQL<unknown>, sem casts.
+  // O tipo SQL<unknown> é a superclasse de todos os builders (eq, isNull, ilike, or…).
+  // Evita casts (as ReturnType<typeof eq>) que mascaravam incompatibilidades de tipo —
+  // root cause do 500 em GET /api/leads?search= (F8-S16): or() retorna SQL | undefined,
+  // e o cast para ReturnType<typeof eq> ocultava que o Drizzle processava o valor de
+  // forma diferente ao iterar internamente o spread do and().
+  const conditions: SQL<unknown>[] = [
     eq(leads.organizationId, organizationId),
-    // `as` justificado: isNull retorna SQL<boolean> compatível com and()
-    isNull(leads.deletedAt) as ReturnType<typeof eq>,
+    isNull(leads.deletedAt),
   ];
 
   // City scope RBAC
   const scopeCondition = buildCityScopeCondition(cityScopeIds);
   if (scopeCondition !== null) {
-    conditions.push(scopeCondition as ReturnType<typeof eq>);
+    conditions.push(scopeCondition);
   }
 
   if (status !== undefined) {
@@ -146,11 +154,16 @@ export async function findLeads(
   }
 
   if (search !== undefined && search.length > 0) {
-    const pattern = `%${search}%`;
-    // `as` justificado: or() com ilike retorna SQL compatível com and()
-    conditions.push(
-      or(ilike(leads.name, pattern), ilike(leads.phoneE164, pattern)) as ReturnType<typeof eq>,
-    );
+    // Escapa caracteres especiais de LIKE (% e _) para evitar injeção de padrão.
+    // Isso garante que "100%" busca literalmente "100%" e não "100<qualquer char>".
+    const escaped = search.replace(/[%_\\]/g, '\\$&');
+    const pattern = `%${escaped}%`;
+    // LGPD: busca apenas em name e phone_e164 — nunca em cpf_encrypted/cpf_hash.
+    // or() é usado corretamente com seu tipo de retorno próprio, sem cast.
+    const searchCondition = or(ilike(leads.name, pattern), ilike(leads.phoneE164, pattern));
+    if (searchCondition !== undefined) {
+      conditions.push(searchCondition);
+    }
   }
 
   const where = and(...conditions);

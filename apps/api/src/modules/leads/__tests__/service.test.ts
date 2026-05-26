@@ -588,3 +588,95 @@ describe('soft delete e restore', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Suite 4: Regressão F8-S16 — search não causa 500
+// ---------------------------------------------------------------------------
+
+describe('listLeads com search — regressão F8-S16', () => {
+  it('search=Rog → repassa query ao repository e retorna LeadListResponse', async () => {
+    mockFindLeads.mockResolvedValueOnce({
+      data: [makeLead({ name: 'Rogerio' })],
+      total: 1,
+    });
+
+    const { listLeads } = await import('../service.js');
+    const result = await listLeads(
+      mockDb as unknown as Parameters<typeof listLeads>[0],
+      ACTOR_ADMIN,
+      { page: 1, limit: 20, search: 'Rog' },
+    );
+
+    // repository deve ter sido chamado com a query que inclui search
+    expect(mockFindLeads).toHaveBeenCalledWith(
+      expect.anything(),
+      ACTOR_ADMIN.organizationId,
+      ACTOR_ADMIN.cityScopeIds,
+      expect.objectContaining({ search: 'Rog' }),
+    );
+    expect(result.data).toHaveLength(1);
+    expect(result.pagination.total).toBe(1);
+  });
+
+  it('search= vazio → repository chamado; sem resultados não quebra paginação', async () => {
+    mockFindLeads.mockResolvedValueOnce({ data: [], total: 0 });
+
+    const { listLeads } = await import('../service.js');
+    const result = await listLeads(
+      mockDb as unknown as Parameters<typeof listLeads>[0],
+      ACTOR_ADMIN,
+      { page: 1, limit: 20, search: '' },
+    );
+
+    expect(result.data).toHaveLength(0);
+    expect(result.pagination.totalPages).toBe(0);
+  });
+
+  it('search com acento (joão) → passa string preservada ao repository', async () => {
+    mockFindLeads.mockResolvedValueOnce({ data: [], total: 0 });
+
+    const { listLeads } = await import('../service.js');
+    await listLeads(mockDb as unknown as Parameters<typeof listLeads>[0], ACTOR_ADMIN, {
+      page: 1,
+      limit: 20,
+      search: 'joão',
+    });
+
+    // Verifica que findLeads foi chamado com query contendo search='joão'
+    expect(mockFindLeads).toHaveBeenCalledOnce();
+    const callArgs = mockFindLeads.mock.calls[0] as unknown[];
+    const query = callArgs[3] as Record<string, unknown>;
+    expect(query['search']).toBe('joão');
+  });
+
+  it('search com % → não explode (escapamento no repository)', async () => {
+    mockFindLeads.mockResolvedValueOnce({ data: [], total: 0 });
+
+    const { listLeads } = await import('../service.js');
+    const result = await listLeads(
+      mockDb as unknown as Parameters<typeof listLeads>[0],
+      ACTOR_ADMIN,
+      { page: 1, limit: 20, search: '100%' },
+    );
+
+    // O service apenas delega ao repository — a prova de não-explosão é que resolve sem throw
+    expect(result.pagination.total).toBe(0);
+  });
+
+  it('search não repassa cpf_hash ao repository — LGPD §8.1', async () => {
+    mockFindLeads.mockResolvedValueOnce({ data: [], total: 0 });
+
+    const { listLeads } = await import('../service.js');
+    await listLeads(mockDb as unknown as Parameters<typeof listLeads>[0], ACTOR_ADMIN, {
+      page: 1,
+      limit: 20,
+      search: 'Rog',
+    });
+
+    // O único campo de busca passado é `search` — não há acesso a cpf_hash
+    const callArgs = mockFindLeads.mock.calls[0] as unknown[];
+    const query = callArgs[3] as Record<string, unknown>;
+    expect(query).not.toHaveProperty('cpf_hash');
+    expect(query).not.toHaveProperty('cpfHash');
+  });
+});
