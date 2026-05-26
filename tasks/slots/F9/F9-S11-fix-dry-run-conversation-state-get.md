@@ -3,11 +3,11 @@ id: F9-S11
 title: Fix dry-run GET /internal/conversations/:id/state — retorna shape errado
 phase: F9
 task_ref: hotfix
-status: available
+status: in-progress
 priority: high
 estimated_size: XS
 agent_id: ''
-claimed_at: ''
+claimed_at: 2026-05-26T15:10:29Z
 completed_at: ''
 pr_url: ''
 depends_on: []
