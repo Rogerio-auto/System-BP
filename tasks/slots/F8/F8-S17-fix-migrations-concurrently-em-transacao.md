@@ -3,11 +3,11 @@ id: F8-S17
 title: Fix migrator Drizzle — `CREATE INDEX CONCURRENTLY` falha silenciosamente em transação
 phase: F8
 task_ref: hotfix
-status: backlog
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: ''
-claimed_at: ''
+claimed_at: 2026-05-26T22:41:47Z
 completed_at: ''
 pr_url: ''
 depends_on: []
