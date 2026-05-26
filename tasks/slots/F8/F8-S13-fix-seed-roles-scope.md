@@ -3,12 +3,12 @@ id: F8-S13
 title: Fix seed.ts ROLES sem scope — quebra db:seed pós-migration 0021
 phase: F8
 task_ref: hotfix
-status: in-progress
+status: review
 priority: high
 estimated_size: XS
 agent_id: ''
 claimed_at: 2026-05-26T17:00:10Z
-completed_at: ''
+completed_at: 2026-05-26T17:02:54Z
 pr_url: ''
 depends_on: []
 blocks: []
