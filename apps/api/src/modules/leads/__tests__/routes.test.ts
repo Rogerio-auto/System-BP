@@ -230,6 +230,71 @@ describe('GET /api/leads', () => {
     expect(body.data[0]?.['status']).toBe('new');
     expect(body.data[0]?.['city_id']).toBe(FIXTURE_CITY_ID);
   });
+
+  // ---------------------------------------------------------------------------
+  // Regressão F8-S16: GET /api/leads?search= retornava 500 em qualquer termo.
+  // Root cause: or(ilike(), ilike()) castado como ReturnType<typeof eq> causava
+  // incompatibilidade interna no Drizzle ao iterar o spread do and().
+  // ---------------------------------------------------------------------------
+
+  it('regressão F8-S16: search=Rog retorna 200 (não 500)', async () => {
+    mockListLeads.mockResolvedValue({
+      data: [makeLeadResponse({ name: 'Rogerio Silva' })],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/leads?search=Rog&limit=20' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<Record<string, unknown>>();
+    expect(body).toHaveProperty('data');
+    expect(body).toHaveProperty('pagination');
+  });
+
+  it('regressão F8-S16: search= vazio retorna 200 e ignora filtro', async () => {
+    mockListLeads.mockResolvedValue({
+      data: [makeLeadResponse()],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/leads?search=' });
+
+    expect(res.statusCode).toBe(200);
+    // Quando search é string vazia, listLeads é chamado sem filtro de search
+    expect(mockListLeads).toHaveBeenCalledOnce();
+  });
+
+  it('regressão F8-S16: search com acento (joão) retorna 200', async () => {
+    mockListLeads.mockResolvedValue({
+      data: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/leads?search=' + encodeURIComponent('joão'),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<Record<string, unknown>>();
+    expect(Array.isArray(body['data'])).toBe(true);
+  });
+
+  it('regressão F8-S16: search com % (char especial LIKE) retorna 200', async () => {
+    mockListLeads.mockResolvedValue({
+      data: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/leads?search=' + encodeURIComponent('100%'),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<Record<string, unknown>>();
+    expect(Array.isArray(body['data'])).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

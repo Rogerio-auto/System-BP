@@ -3,12 +3,12 @@ id: F8-S16
 title: Fix 500 em GET /api/leads?search (regressão F8-S14)
 phase: F8
 task_ref: hotfix
-status: backlog
+status: review
 priority: high
 estimated_size: S
 agent_id: ''
-claimed_at: ''
-completed_at: ''
+claimed_at: 2026-05-26T20:13:54Z
+completed_at: 2026-05-26T20:26:20Z
 pr_url: ''
 depends_on: []
 blocks: []
