@@ -3,13 +3,13 @@ id: F9-S11
 title: Fix dry-run GET /internal/conversations/:id/state — retorna shape errado
 phase: F9
 task_ref: hotfix
-status: review
+status: done
 priority: high
 estimated_size: XS
 agent_id: ''
 claimed_at: 2026-05-26T15:10:29Z
 completed_at: 2026-05-26T15:18:31Z
-pr_url: ''
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/155
 depends_on: []
 blocks: []
 labels: []
@@ -17,6 +17,7 @@ source_docs:
   - tasks/PROTOCOL.md
   - apps/langgraph-service/app/graphs/whatsapp_pre_attendance/dry_run.py
 ---
+
 # F9-S11 — Fix dry-run GET conversation_state retorna shape errado
 
 ## Contexto (incidente 2026-05-26)
