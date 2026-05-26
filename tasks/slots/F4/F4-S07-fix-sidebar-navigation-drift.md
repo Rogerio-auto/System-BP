@@ -3,11 +3,11 @@ id: F4-S07
 title: Fix sidebar drift — remove /analise placeholder e faz Sidebar consumir navigation.ts
 phase: F4
 task_ref: hotfix
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: ''
-claimed_at: ''
+claimed_at: 2026-05-26T15:48:39Z
 completed_at: ''
 pr_url: ''
 depends_on: []
