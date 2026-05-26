@@ -3,12 +3,12 @@ id: F8-S15
 title: Fix loop infinito em SimulationSelect (regressão F8-S14)
 phase: F8
 task_ref: hotfix
-status: in-progress
+status: review
 priority: high
 estimated_size: XS
 agent_id: ''
 claimed_at: 2026-05-26T20:12:19Z
-completed_at: ''
+completed_at: 2026-05-26T20:16:55Z
 pr_url: ''
 depends_on: []
 blocks: []
