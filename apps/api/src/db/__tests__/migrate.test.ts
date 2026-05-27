@@ -420,4 +420,63 @@ describe('readMigrationFiles', () => {
 
     fs.rmSync(dir, { recursive: true, force: true });
   });
+
+  it('CONCURRENTLY apenas em comentário de linha (--) é classificado como transacional', () => {
+    // Reproduz exatamente o caso de 0002_cities_agents.sql
+    const content = [
+      '-- CONCURRENTLY não pode ser usada em transação — drizzle-kit gera sem ela em migrations.',
+      'CREATE INDEX idx_cities_name ON cities (name);',
+    ].join('\n');
+    const fixture: MigrationFixture = { tag: '0002_comment_line', when: 2, content };
+    const dir = createMigrationsDir([fixture]);
+
+    const files = readMigrationFiles(dir);
+    expect(files[0]!.noTransaction).toBe(false);
+
+    // Hash deve continuar sendo SHA-256 do conteúdo bruto (incluindo o comentário)
+    expect(files[0]!.hash).toBe(sha256(content));
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('CONCURRENTLY apenas em comentário de bloco (/* */) é classificado como transacional', () => {
+    const content = [
+      '/* CONCURRENTLY não é suportado dentro de transações explícitas */',
+      'CREATE INDEX idx_agents_city ON agents (city_id);',
+    ].join('\n');
+    const fixture: MigrationFixture = { tag: '0003_comment_block', when: 3, content };
+    const dir = createMigrationsDir([fixture]);
+
+    const files = readMigrationFiles(dir);
+    expect(files[0]!.noTransaction).toBe(false);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('CONCURRENTLY real em statement é não-transacional mesmo com comentário também presente', () => {
+    // Reproduz 0041 com marker + CONCURRENTLY real
+    const content = [
+      '-- no-transaction',
+      '-- CONCURRENTLY abaixo é intencional e requer modo não-transacional.',
+      'CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS uq_leads_notion ON leads (organization_id, notion_page_id) WHERE notion_page_id IS NOT NULL;',
+    ].join('\n');
+    const fixture: MigrationFixture = { tag: '0041_real_concurrently', when: 41, content };
+    const dir = createMigrationsDir([fixture]);
+
+    const files = readMigrationFiles(dir);
+    expect(files[0]!.noTransaction).toBe(true);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('marker -- no-transaction na linha 1 vence mesmo sem CONCURRENTLY no corpo', () => {
+    const content = '-- no-transaction\nALTER TABLE foo ADD COLUMN bar text;';
+    const fixture: MigrationFixture = { tag: '0005_marker_only', when: 5, content };
+    const dir = createMigrationsDir([fixture]);
+
+    const files = readMigrationFiles(dir);
+    expect(files[0]!.noTransaction).toBe(true);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });

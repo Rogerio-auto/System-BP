@@ -69,11 +69,27 @@ interface MigrationFile {
 const MIGRATIONS_SCHEMA = 'drizzle';
 const MIGRATIONS_TABLE = '__drizzle_migrations';
 
-// Regex que detecta statements que não podem rodar em transação
+// Regex que detecta statements que não podem rodar em transação.
+// Aplicado somente sobre o conteúdo SQL sem comentários (ver stripComments).
 const NO_TXN_RE = /\bCONCURRENTLY\b|\bVACUUM\b|\bREINDEX\b/i;
 
 // Marker explícito na primeira linha do arquivo
 const MARKER_RE = /^--\s*no-transaction\b/;
+
+/**
+ * Remove comentários SQL (`-- …` de linha e `/* … *\/` de bloco) do conteúdo
+ * bruto para evitar falsos-positivos na detecção de CONCURRENTLY/VACUUM/REINDEX.
+ *
+ * Não afeta o hash (que é calculado sobre o conteúdo bruto) nem o marker
+ * `-- no-transaction` (que é lido separadamente na primeira linha antes do strip).
+ */
+function stripSqlComments(sql: string): string {
+  // Remove blocos /* ... */ (incluindo multi-linha, não-guloso)
+  let stripped = sql.replace(/\/\*[\s\S]*?\*\//g, '');
+  // Remove comentários de linha -- ... até EOL
+  stripped = stripped.replace(/--[^\r\n]*/g, '');
+  return stripped;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -107,8 +123,12 @@ function readMigrationFiles(migrationsFolder: string): MigrationFile[] {
 
     // Detecta modo não-transacional pelo marker explícito OU pela presença de
     // statements que o Postgres recusa dentro de BEGIN/COMMIT.
+    // O marker é verificado na linha 1 bruta (antes do strip) — tem precedência.
+    // NO_TXN_RE é aplicado no conteúdo sem comentários para evitar falsos-positivos
+    // como `-- CONCURRENTLY não pode ser usada em transação`.
     const firstLine = content.split('\n')[0] ?? '';
-    const noTransaction = MARKER_RE.test(firstLine) || NO_TXN_RE.test(content);
+    const contentWithoutComments = stripSqlComments(content);
+    const noTransaction = MARKER_RE.test(firstLine) || NO_TXN_RE.test(contentWithoutComments);
 
     return {
       tag: entry.tag,
