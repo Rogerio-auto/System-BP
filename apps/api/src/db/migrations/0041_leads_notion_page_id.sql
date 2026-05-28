@@ -1,3 +1,4 @@
+-- no-transaction
 -- =============================================================================
 -- 0041_leads_notion_page_id.sql — Coluna notion_page_id em leads.
 --
