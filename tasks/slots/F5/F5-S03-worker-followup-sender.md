@@ -3,13 +3,13 @@ id: F5-S03
 title: Worker followup-sender + cliente Meta WhatsApp templates
 phase: F5
 task_ref: T5.3
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: backend-engineer
 claimed_at: 2026-05-29T23:02:00Z
 completed_at: 2026-05-29T23:19:00Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/164
 depends_on: [F5-S01, F5-S02, F1-S15, F1-S20]
 blocks: []
 labels: [lgpd-impact]
