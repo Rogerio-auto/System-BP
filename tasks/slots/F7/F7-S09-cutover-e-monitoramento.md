@@ -3,11 +3,11 @@ id: F7-S09
 title: Cutover, go-live e monitoramento das primeiras 168h
 phase: F7
 task_ref: T7.9
-status: available
+status: in-progress
 priority: critical
 estimated_size: L
 agent_id: backend-engineer
-claimed_at: null
+claimed_at: 2026-05-29T19:41:02Z
 completed_at: null
 pr_url: null
 depends_on: [F7-S01, F7-S02, F7-S03, F7-S06, F7-S07, F7-S08]
