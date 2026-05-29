@@ -3,13 +3,13 @@ id: F5-S04
 title: Cancelamento de followup por resposta do cliente
 phase: F5
 task_ref: T5.4
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: backend-engineer
 claimed_at: 2026-05-29T23:33:38Z
 completed_at: 2026-05-29T23:37:14Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/165
 depends_on: [F5-S01, F5-S03, F1-S19, F1-S15]
 blocks: []
 labels: []
