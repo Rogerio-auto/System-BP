@@ -20,6 +20,7 @@
 //   4. (opcional) Re-exporte aqui para documentação centralizada de workers ativos.
 // =============================================================================
 import { registerHandler } from '../events/handlers.js';
+import { buildCancelFollowupsOnReplyHandler } from '../handlers/cancel-followups-on-inbound-message.js';
 
 import { buildKanbanOnAnalysisHandler } from './kanban-on-analysis.js';
 import { buildKanbanOnSimulationHandler } from './kanban-on-simulation.js';
@@ -53,5 +54,12 @@ export function setupWorkerHandlers(): void {
     'credit_analysis.status_changed',
     'kanban.on_analysis_status_changed',
     buildKanbanOnAnalysisHandler(),
+  );
+
+  // F5-S04: whatsapp.message_received → cancela followup_jobs scheduled do lead
+  registerHandler(
+    'whatsapp.message_received',
+    'followup.cancel_on_customer_reply',
+    buildCancelFollowupsOnReplyHandler(),
   );
 }
