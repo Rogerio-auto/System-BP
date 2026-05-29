@@ -91,10 +91,15 @@ function makeSuccessResponse(wamid = 'wamid.test123'): Response {
   });
 }
 
-function makeErrorResponse(status: number, code = 131047, title = 'Template error'): Response {
+function makeErrorResponse(
+  status: number,
+  code = 131047,
+  title = 'Template error',
+  extraHeaders: Record<string, string> = {},
+): Response {
   return new Response(JSON.stringify({ error: { code, title } }), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...extraHeaders },
   });
 }
 
@@ -213,6 +218,63 @@ describe('MetaWhatsAppClient', () => {
       expect(sleepMock).toHaveBeenCalledTimes(1);
       const delayMs = sleepMock.mock.calls[0]?.[0] as number;
       expect(delayMs).toBeGreaterThan(0);
+    });
+
+    it('respeita Retry-After numérico: delay >= retryAfterMs', async () => {
+      // Meta devolve Retry-After: 2 (segundos) → esperamos delay >= 2000ms
+      const sleepMock = vi.fn().mockResolvedValue(undefined);
+      fetchSpy
+        .mockResolvedValueOnce(
+          makeErrorResponse(429, 131056, 'Limit reached', { 'retry-after': '2' }),
+        )
+        .mockResolvedValueOnce(makeSuccessResponse('wamid.after-retry-after'));
+
+      const client = new MetaWhatsAppClient({
+        accessToken: 'tok',
+        phoneNumberId: '111',
+        maxAttempts: 2,
+        backoffBaseMs: 1, // backoff pequeno para garantir que Retry-After domina
+        jitterMaxMs: 0,
+        sleepFn: sleepMock,
+        timeoutMs: 5000,
+      });
+
+      const result = await client.sendTemplate(SEND_PARAMS);
+
+      expect(result.wamid).toBe('wamid.after-retry-after');
+      expect(sleepMock).toHaveBeenCalledTimes(1);
+      // Retry-After de 2s → delay deve ser >= 2000ms
+      const delayMs = sleepMock.mock.calls[0]?.[0] as number;
+      expect(delayMs).toBeGreaterThanOrEqual(2000);
+    });
+
+    it('ignora Retry-After não-numérico (HTTP-date) e usa backoff normal', async () => {
+      const sleepMock = vi.fn().mockResolvedValue(undefined);
+      fetchSpy
+        .mockResolvedValueOnce(
+          makeErrorResponse(429, 131056, 'Limit reached', {
+            'retry-after': 'Wed, 29 May 2030 00:00:00 GMT',
+          }),
+        )
+        .mockResolvedValueOnce(makeSuccessResponse('wamid.after-date-retry'));
+
+      const client = new MetaWhatsAppClient({
+        accessToken: 'tok',
+        phoneNumberId: '111',
+        maxAttempts: 2,
+        backoffBaseMs: 50,
+        jitterMaxMs: 0,
+        sleepFn: sleepMock,
+        timeoutMs: 5000,
+      });
+
+      const result = await client.sendTemplate(SEND_PARAMS);
+
+      expect(result.wamid).toBe('wamid.after-date-retry');
+      expect(sleepMock).toHaveBeenCalledTimes(1);
+      // HTTP-date ignorado — delay vem apenas do backoff (50ms * 2^0 = 50ms)
+      const delayMs = sleepMock.mock.calls[0]?.[0] as number;
+      expect(delayMs).toBe(50);
     });
   });
 

@@ -543,12 +543,14 @@ export async function processJob(
     );
 
     // Reverter para scheduled para ser reprocessado quando flag ligar.
-    // Incrementar attempt_count apenas em dry-run para não desperdiçar tentativas reais.
+    // Cooldown: avança scheduledAt em DEFAULT_TICK_MS para evitar log spam quando
+    // a flag fica oscilando off entre ticks consecutivos.
     // Nota: em dry-run, não incrementamos attempt_count para preservar as tentativas reais.
     await database
       .update(followupJobs)
       .set({
         status: 'scheduled',
+        scheduledAt: new Date(Date.now() + DEFAULT_TICK_MS),
         updatedAt: new Date(),
       })
       .where(eq(followupJobs.id, job.id));
@@ -636,6 +638,8 @@ export async function processJob(
       });
     });
 
+    // Sanitizar err: serializar apenas campos seguros para evitar que
+    // err.details.response (body bruto da Meta) vaze PII em logs futuros.
     logger.error(
       {
         event: 'sender.job_failed',
@@ -644,7 +648,14 @@ export async function processJob(
         template_name: ctx.template.name,
         attempt_count: newAttemptCount,
         terminal: isTerminal,
-        err,
+        err: {
+          message: err instanceof Error ? err.message : String(err),
+          code: err instanceof ExternalServiceError ? err.code : undefined,
+          upstreamStatus: (err as { details?: { upstreamStatus?: number } } | null)?.details
+            ?.upstreamStatus,
+          meta_code: (err as { details?: { meta_error_code?: number } } | null)?.details
+            ?.meta_error_code,
+        },
       },
       `job ${job.id}: falha no envio (tentativa ${String(newAttemptCount)}/${String(ctx.rule.maxAttempts)})`,
     );
@@ -789,6 +800,7 @@ export async function runSenderTick(
   // Buscar lote de jobs agendados prontos para envio
   // -------------------------------------------------------------------------
   const now = new Date();
+  // multi-tenant batch; isolamento per-job via organizationId carregado no contexto
   const batch = await database
     .select()
     .from(followupJobs)
@@ -816,7 +828,19 @@ export async function runSenderTick(
       results.push(result);
     } catch (err: unknown) {
       logger.error(
-        { event: 'sender.job_unexpected_error', job_id: job.id, lead_id: job.leadId, err },
+        {
+          event: 'sender.job_unexpected_error',
+          job_id: job.id,
+          lead_id: job.leadId,
+          err: {
+            message: err instanceof Error ? err.message : String(err),
+            code: err instanceof ExternalServiceError ? err.code : undefined,
+            upstreamStatus: (err as { details?: { upstreamStatus?: number } } | null)?.details
+              ?.upstreamStatus,
+            meta_code: (err as { details?: { meta_error_code?: number } } | null)?.details
+              ?.meta_error_code,
+          },
+        },
         `erro inesperado ao processar job ${job.id}`,
       );
 
@@ -892,7 +916,12 @@ async function main(): Promise<void> {
     );
   } catch (err: unknown) {
     runtime.logger.warn(
-      { event: 'sender.meta_client_unavailable', err },
+      {
+        event: 'sender.meta_client_unavailable',
+        err: {
+          message: err instanceof Error ? err.message : String(err),
+        },
+      },
       'META_WHATSAPP_ACCESS_TOKEN ou META_WHATSAPP_PHONE_NUMBER_ID ausente — worker em modo degradado (dry-run forçado)',
     );
   }
@@ -903,7 +932,17 @@ async function main(): Promise<void> {
     try {
       await runSenderTick(defaultDb, metaClient, runtime.logger);
     } catch (err: unknown) {
-      runtime.logger.error({ err }, 'followup-sender: erro inesperado no tick');
+      runtime.logger.error(
+        {
+          err: {
+            message: err instanceof Error ? err.message : String(err),
+            code: err instanceof ExternalServiceError ? err.code : undefined,
+            upstreamStatus: (err as { details?: { upstreamStatus?: number } } | null)?.details
+              ?.upstreamStatus,
+          },
+        },
+        'followup-sender: erro inesperado no tick',
+      );
     }
     await sleep(tickMs);
   }
@@ -911,7 +950,10 @@ async function main(): Promise<void> {
 
 if (process.argv[1] !== undefined && process.argv[1].includes('followup-sender')) {
   main().catch((err: unknown) => {
-    runtime.logger.fatal({ err }, 'followup-sender: falha fatal');
+    runtime.logger.fatal(
+      { err: { message: err instanceof Error ? err.message : String(err) } },
+      'followup-sender: falha fatal',
+    );
     process.exit(1);
   });
 }

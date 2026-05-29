@@ -475,6 +475,75 @@ describe('processJob() — dry_run=true', () => {
 });
 
 // -------------------------------------------------------------------------
+// Cenário 4b: dry-run cooldown — scheduledAt avançado para evitar log spam
+// -------------------------------------------------------------------------
+describe('processJob() — dry_run cooldown', () => {
+  it('avança scheduledAt em dry-run para evitar reprocessamento imediato', async () => {
+    const ctx = makeCtx();
+    const job = makeJob();
+
+    const mockSet = vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
+    });
+
+    const dbWithCtx = {
+      select: vi
+        .fn()
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnThis(),
+          innerJoin: vi.fn().mockReturnThis(),
+          where: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockResolvedValue([{ rule: ctx.rule, template: ctx.template }]),
+        })
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockResolvedValue([ctx.lead]),
+        })
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockResolvedValue([ctx.customer]),
+        })
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnThis(),
+          where: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockResolvedValue([ctx.simulation]),
+        }),
+      // 1ª chamada: lock (status→triggered)
+      // 2ª chamada: dry-run revert (status→scheduled com cooldown)
+      update: vi
+        .fn()
+        .mockReturnValueOnce({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue(makeWhereResult([{ id: job.id }])),
+          }),
+        })
+        .mockReturnValueOnce({ set: mockSet }),
+      transaction: vi.fn(),
+    };
+
+    const before = Date.now();
+    await processJob(
+      dbWithCtx as unknown as Parameters<typeof processJob>[0],
+      null,
+      job,
+      true,
+      mockLogger,
+    );
+    const after = Date.now();
+
+    // Verificar que o set() de dry-run inclui scheduledAt no futuro
+    const setArg = mockSet.mock.calls[0]?.[0] as { scheduledAt?: Date; status?: string };
+    expect(setArg?.status).toBe('scheduled');
+    expect(setArg?.scheduledAt).toBeInstanceOf(Date);
+    // scheduledAt deve ser posterior ao momento da chamada (cooldown aplicado)
+    expect((setArg?.scheduledAt as Date).getTime()).toBeGreaterThan(before);
+    expect((setArg?.scheduledAt as Date).getTime()).toBeGreaterThan(after);
+  });
+});
+
+// -------------------------------------------------------------------------
 // Cenário 5: Lead deletado
 // -------------------------------------------------------------------------
 describe('processJob() — lead deletado', () => {

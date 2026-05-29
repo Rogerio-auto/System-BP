@@ -219,6 +219,7 @@ export class MetaWhatsAppClient {
 
   /**
    * Executa uma requisição HTTP com retry em 429/5xx.
+   * Respeita o header Retry-After em 429: se presente e numérico, usa como delay mínimo.
    */
   private async requestWithRetry(
     method: string,
@@ -229,7 +230,15 @@ export class MetaWhatsAppClient {
 
     for (let attempt = 0; attempt < this.maxAttempts; attempt++) {
       if (attempt > 0) {
-        const delay = calcBackoffDelay(attempt - 1, this.backoffBaseMs, this.jitterMaxMs);
+        const backoff = calcBackoffDelay(attempt - 1, this.backoffBaseMs, this.jitterMaxMs);
+
+        // Respeitar Retry-After da Meta se presente (isFinite já garante que é número válido).
+        const retryAfterMs =
+          lastError instanceof ExternalServiceError
+            ? ((lastError.details as { retryAfterMs?: number } | undefined)?.retryAfterMs ?? 0)
+            : 0;
+
+        const delay = Math.max(backoff, Number.isFinite(retryAfterMs) ? retryAfterMs : 0);
         await this.sleepFn(delay);
       }
 
@@ -303,6 +312,13 @@ export class MetaWhatsAppClient {
 
     if (!response.ok) {
       const errorDetail = (responseBody as MetaMessageResponse | null)?.error;
+
+      // Respeitar Retry-After em 429: se o header for um inteiro numérico, convertemos
+      // para ms e incluímos nos details para que requestWithRetry possa usar como delay.
+      // isFinite filtra HTTP-date e valores não-numéricos — nesses casos ignoramos.
+      const retryAfterRaw = response.status === 429 ? response.headers.get('retry-after') : null;
+      const retryAfterMs = retryAfterRaw !== null ? parseInt(retryAfterRaw, 10) * 1000 : undefined;
+
       throw new ExternalServiceError(
         `Meta WhatsApp API ${response.status}: ${errorDetail?.title ?? 'Unknown error'}`,
         // to_hash em vez de to_phone — LGPD §8.3. Code/title da Meta para diagnóstico.
@@ -311,6 +327,8 @@ export class MetaWhatsAppClient {
           meta_error_code: errorDetail?.code,
           meta_error_title: errorDetail?.title,
           to_hash: toHash,
+          retryAfterMs:
+            retryAfterMs !== undefined && Number.isFinite(retryAfterMs) ? retryAfterMs : undefined,
         },
       );
     }
