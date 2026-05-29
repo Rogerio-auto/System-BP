@@ -3,11 +3,11 @@ id: F5-S09
 title: Frontend templates WhatsApp + sync Meta Cloud + webhook de status
 phase: F5
 task_ref: T5.9
-status: available
+status: in-progress
 priority: medium
 estimated_size: L
 agent_id: frontend-engineer
-claimed_at: null
+claimed_at: 2026-05-29T23:49:02Z
 completed_at: null
 pr_url: null
 depends_on: [F5-S01, F5-S03, F1-S08, F1-S20, F8-S08]
