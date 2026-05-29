@@ -445,6 +445,15 @@ def all_slots() -> list[Slot]:
     for path in sorted(SLOTS_DIR.rglob("F*-S*.md")):
         if path.name.endswith("README.md"):
             continue
+        # Ignorar sub-arquivos de suporte que não possuem frontmatter YAML
+        # (ex: F7-S09-postmortem.md, F7-S09-runbook-execucao.md)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception as e:  # noqa: BLE001
+            warn(f"skip {path.relative_to(REPO_ROOT)}: {e}")
+            continue
+        if not _FRONTMATTER_RE.match(text):
+            continue
         try:
             slots.append(parse_slot(path))
         except SystemExit:
