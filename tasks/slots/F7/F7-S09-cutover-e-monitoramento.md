@@ -3,13 +3,13 @@ id: F7-S09
 title: Cutover, go-live e monitoramento das primeiras 168h
 phase: F7
 task_ref: T7.9
-status: review
+status: done
 priority: critical
 estimated_size: L
 agent_id: backend-engineer
 claimed_at: 2026-05-29T19:41:02Z
 completed_at: 2026-05-29T19:47:22Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/163
 depends_on: [F7-S01, F7-S02, F7-S03, F7-S06, F7-S07, F7-S08]
 blocks: []
 labels: []
