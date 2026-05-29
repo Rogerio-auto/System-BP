@@ -4,8 +4,9 @@
 // Estratégia: injeção de db mock via parâmetro de handleInboundMessageReceived().
 //   Não depende de banco real. Todos os efeitos colaterais são mockados.
 //
-// Chamadas db.select() no handler — ordem determinística:
-//   [0] busca followup_jobs scheduled do lead
+// Chamadas db.select() no handler — dentro da transação (após fix FOR UPDATE):
+//   [0] SELECT FOR UPDATE SKIP LOCKED busca followup_jobs scheduled do lead
+//       Encadeamento: .select().from().where().for('update', { skipLocked: true })
 //
 // Cenários cobertos:
 //   1. 0 jobs (no-op): evento sem lead_id → skip sem update/emit/audit
@@ -13,6 +14,7 @@
 //   3. N jobs cancelados: N jobs scheduled → todos viram cancelled + emit + audit
 //   4. Evento já processado (idempotência): jobs já cancelled, 0 scheduled → no-op
 //   5. Erro em transação propaga para o outbox-publisher registrar falha
+//   6. Zod rejeita payload com lead_id que não é UUID válido
 // =============================================================================
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -148,7 +150,8 @@ function makeEvent(overrides: Partial<EventOutbox> = {}): EventOutbox {
 /**
  * Constrói um mock mínimo de Database para injeção em handleInboundMessageReceived.
  *
- * scheduledJobs: lista de jobs retornados pelo SELECT (simula followup_jobs scheduled).
+ * scheduledJobs: lista de jobs retornados pelo SELECT FOR UPDATE SKIP LOCKED
+ *   (agora dentro da transação).
  */
 function makeMockDb(scheduledJobs: Array<{ id: string; ruleId: string }>): {
   db: unknown;
@@ -156,8 +159,21 @@ function makeMockDb(scheduledJobs: Array<{ id: string; ruleId: string }>): {
 } {
   const updatedJobValues: unknown[] = [];
 
-  // db.select() → SELECT scheduled jobs
+  // Helper: mock do encadeamento select().from().where().for()
+  // O handler usa SELECT FOR UPDATE SKIP LOCKED dentro da tx.
+  function makeTxSelectMock() {
+    return vi.fn().mockImplementation(() => ({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          // .for('update', { skipLocked: true }) → resolve com scheduledJobs
+          for: vi.fn().mockResolvedValue(scheduledJobs),
+        }),
+      }),
+    }));
+  }
+
   const mockDb = {
+    // db.select() fora da tx não é mais chamado — mantido por compatibilidade
     select: vi.fn().mockImplementation(() => ({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue(scheduledJobs),
@@ -172,7 +188,7 @@ function makeMockDb(scheduledJobs: Array<{ id: string; ruleId: string }>): {
       }),
     })),
     transaction: vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
-      // tx tem select (não chamado no handler dentro da tx), update, insert
+      // tx agora tem SELECT FOR UPDATE SKIP LOCKED (encadeamento com .for())
       const txMockUpdate = vi.fn().mockImplementation(() => ({
         set: vi.fn().mockImplementation((vals: unknown) => {
           updatedJobValues.push(vals);
@@ -183,9 +199,8 @@ function makeMockDb(scheduledJobs: Array<{ id: string; ruleId: string }>): {
       }));
 
       const txMock = {
+        select: makeTxSelectMock(),
         update: txMockUpdate,
-        // select não é chamado dentro da transação neste handler
-        select: vi.fn(),
         insert: vi.fn(),
       };
 
@@ -328,5 +343,22 @@ describe('handleInboundMessageReceived', () => {
     await expect(handleInboundMessageReceived(db as never, makeEvent())).rejects.toThrow(
       'DB error simulado',
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // Cenário 6: Zod rejeita payload com lead_id que não é UUID válido
+  // -------------------------------------------------------------------------
+  it('rejeita (ZodError) quando lead_id no payload não é um UUID válido', async () => {
+    const { db } = makeMockDb([]);
+
+    const event = makeEvent({
+      payload: {
+        whatsapp_message_id: WA_MESSAGE_ID,
+        chatwoot_conversation_id: null,
+        lead_id: 'not-a-valid-uuid',
+      },
+    });
+
+    await expect(handleInboundMessageReceived(db as never, event)).rejects.toThrow();
   });
 });

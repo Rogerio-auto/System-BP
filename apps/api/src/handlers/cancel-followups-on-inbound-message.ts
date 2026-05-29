@@ -29,6 +29,7 @@
 // =============================================================================
 import { and, eq } from 'drizzle-orm';
 import pino from 'pino';
+import { z } from 'zod';
 
 import { env } from '../config/env.js';
 import { db } from '../db/client.js';
@@ -37,9 +38,23 @@ import type { EventOutbox } from '../db/schema/events.js';
 import { followupJobs } from '../db/schema/index.js';
 import { emit } from '../events/emit.js';
 import type { DrizzleTx } from '../events/emit.js';
-import type { FollowupJobData, WhatsappMessageReceivedData } from '../events/types.js';
+import type { FollowupJobData } from '../events/types.js';
 import { auditLog } from '../lib/audit.js';
 import type { AuditTx } from '../lib/audit.js';
+
+// ---------------------------------------------------------------------------
+// Schema Zod para validação estrita do payload do evento
+// ---------------------------------------------------------------------------
+
+/**
+ * Valida o payload de 'whatsapp.message_received' sem `as` inseguro.
+ * Parse falha → throw (outbox-publisher registra como 'failed').
+ */
+const WhatsappMessageReceivedPayloadSchema = z.object({
+  whatsapp_message_id: z.string(),
+  chatwoot_conversation_id: z.number().nullable().optional(),
+  lead_id: z.string().uuid().nullable().optional(),
+});
 
 // ---------------------------------------------------------------------------
 // Logger auto-suficiente (sem dep do runtime do worker para evitar ciclos)
@@ -94,13 +109,11 @@ export async function handleInboundMessageReceived(
   const logger = baseLogger.child({ correlation_id: event.id });
 
   // -------------------------------------------------------------------------
-  // 1. Extrair payload tipado
+  // 1. Extrair payload com validação Zod estrita (sem `as` inseguro)
   // -------------------------------------------------------------------------
-  // Justificativa do `as`: event.payload é unknown por design do outbox (§8.5).
-  // Validamos os campos essenciais antes de usá-los.
-  const payload = event.payload as Partial<WhatsappMessageReceivedData>;
+  const payload = WhatsappMessageReceivedPayloadSchema.parse(event.payload);
 
-  const leadId = payload.lead_id;
+  const leadId = payload.lead_id ?? null;
   const organizationId = event.organizationId;
 
   if (!leadId) {
@@ -112,33 +125,16 @@ export async function handleInboundMessageReceived(
     return;
   }
 
-  // -------------------------------------------------------------------------
-  // 2. Buscar jobs scheduled do lead para cancelar
-  // -------------------------------------------------------------------------
-  const scheduledJobs = await database
-    .select({ id: followupJobs.id, ruleId: followupJobs.ruleId })
-    .from(followupJobs)
-    .where(
-      and(
-        eq(followupJobs.leadId, leadId),
-        eq(followupJobs.organizationId, organizationId),
-        eq(followupJobs.status, 'scheduled'),
-      ),
-    );
-
-  if (scheduledJobs.length === 0) {
-    // Idempotência: nenhum job scheduled — no-op.
-    logger.debug(
-      { eventId: event.id, lead_id: leadId },
-      'nenhum followup_job scheduled para o lead — no-op',
-    );
-    return;
-  }
-
   const now = new Date();
 
   // -------------------------------------------------------------------------
-  // 3. Cancelar jobs + emitir outbox + audit log em transação atômica
+  // 2+3. SELECT FOR UPDATE SKIP LOCKED + cancelar + emitir + audit em transação
+  //
+  // SELECT dentro da tx fecha race com followup-sender: sem a tx, o sender
+  // pode mover um job de 'scheduled' para 'triggered' entre SELECT e UPDATE.
+  // FOR UPDATE SKIP LOCKED garante que jobs sendo processados pelo sender
+  // (já com lock) são ignorados — evitando emitir followup.cancelled para
+  // um job que vai ser enviado.
   // -------------------------------------------------------------------------
   await database.transaction(async (tx) => {
     // Justificativa dos casts: Drizzle não exporta NodePgTransaction como tipo público.
@@ -147,7 +143,29 @@ export async function handleInboundMessageReceived(
     const txForEmit = tx as unknown as DrizzleTx;
     const txForAudit = tx as unknown as AuditTx;
 
-    // UPDATE batch: todos os jobs scheduled do lead → cancelled
+    // SELECT FOR UPDATE SKIP LOCKED fecha race com followup-sender
+    const scheduledJobs = await txDb
+      .select({ id: followupJobs.id, ruleId: followupJobs.ruleId })
+      .from(followupJobs)
+      .where(
+        and(
+          eq(followupJobs.leadId, leadId),
+          eq(followupJobs.organizationId, organizationId),
+          eq(followupJobs.status, 'scheduled'),
+        ),
+      )
+      .for('update', { skipLocked: true });
+
+    if (scheduledJobs.length === 0) {
+      // Idempotência: nenhum job scheduled disponível — no-op.
+      logger.debug(
+        { eventId: event.id, lead_id: leadId },
+        'nenhum followup_job scheduled para o lead — no-op',
+      );
+      return;
+    }
+
+    // UPDATE batch: todos os jobs locked → cancelled
     await txDb
       .update(followupJobs)
       .set({
@@ -198,16 +216,16 @@ export async function handleInboundMessageReceived(
         correlationId: event.id,
       });
     }
-  });
 
-  logger.info(
-    {
-      event: 'followup.cancelled_on_reply',
-      lead_id: leadId,
-      jobs_cancelled: scheduledJobs.length,
-    },
-    `${String(scheduledJobs.length)} followup_job(s) cancelado(s) por resposta do cliente`,
-  );
+    logger.info(
+      {
+        event: 'followup.cancelled_on_reply',
+        lead_id: leadId,
+        jobs_cancelled: scheduledJobs.length,
+      },
+      `${String(scheduledJobs.length)} followup_job(s) cancelado(s) por resposta do cliente`,
+    );
+  });
 }
 
 // ---------------------------------------------------------------------------
