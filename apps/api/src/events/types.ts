@@ -438,6 +438,39 @@ export interface FollowupJobData {
   rule_id: string;
 }
 
+/**
+ * Emitido pelo worker followup-sender (F5-S03) ao enviar template com sucesso.
+ * LGPD §8.5: sem telefone bruto — apenas IDs opacos + template_key + wamid.
+ * O wamid permite correlacionar webhooks de delivery status da Meta.
+ */
+export interface FollowupSentData {
+  followup_job_id: string;
+  lead_id: string;
+  rule_id: string;
+  /** Slug do template enviado (ex: "followup_d1"). Para auditoria de qual template foi usado. */
+  template_key: string;
+  /** WhatsApp Message ID retornado pela Meta. Para correlacionar delivery webhooks. */
+  wamid: string;
+  /** Número da tentativa (1-indexed). */
+  attempt_count: number;
+}
+
+/**
+ * Emitido pelo worker followup-sender (F5-S03) ao falhar envio.
+ * LGPD §8.5: sem telefone bruto. last_error é mensagem técnica (código de erro Meta).
+ */
+export interface FollowupFailedData {
+  followup_job_id: string;
+  lead_id: string;
+  rule_id: string;
+  /** Descrição técnica do erro (sem PII — código/título da Meta API ou timeout). */
+  last_error: string;
+  /** Número da tentativa que falhou (1-indexed). */
+  attempt_count: number;
+  /** true se atingiu max_attempts e o job foi marcado como 'failed' definitivo. */
+  terminal: boolean;
+}
+
 // --- Domínio: importação ---
 
 export interface ImportBatchData {
@@ -652,8 +685,9 @@ export interface AppEventDataMap {
   'internal_assistant.action_confirmed': InternalAssistantActionConfirmedData;
   'followup.scheduled': FollowupJobData;
   'followup.triggered': FollowupJobData;
-  'followup.sent': FollowupJobData;
-  'followup.failed': FollowupJobData;
+  // F5-S03: tipos enriquecidos com template_key, wamid e contexto de erro (LGPD §8.5)
+  'followup.sent': FollowupSentData;
+  'followup.failed': FollowupFailedData;
   'followup.cancelled': FollowupJobData;
   'import.batch_created': ImportBatchData;
   'import.batch_validated': ImportBatchData;

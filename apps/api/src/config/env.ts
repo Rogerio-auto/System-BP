@@ -108,6 +108,28 @@ const envSchema = z.object({
     .min(1000, 'FOLLOWUP_SCHEDULER_TICK_MS deve ser >= 1000ms')
     .default(60_000)
     .optional(),
+
+  // ---- Meta WhatsApp Cloud API (F5-S03) ------------------------------------
+  // Access token de longa duração (System User Token) da Meta Business Suite.
+  // Permissões mínimas: whatsapp_business_messaging, whatsapp_business_management.
+  // Gerar em: business.facebook.com → System Users → Generate Token.
+  // Opcional: ausente → worker followup-sender lança ExternalServiceError ao tentar enviar.
+  META_WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
+
+  // ID do número de telefone registrado na Meta (Phone Number ID).
+  // Encontrado em: Meta Business Suite → WhatsApp → Phone Numbers → ID.
+  // Opcional: ausente → worker followup-sender lança ExternalServiceError ao tentar enviar.
+  META_WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
+
+  // Intervalo do tick do worker followup-sender em milissegundos.
+  // Default: 30000 (30 segundos). Processa lotes de 50 jobs por tick.
+  // Valores < 1000 são rejeitados para evitar sobrecarga.
+  FOLLOWUP_SENDER_TICK_MS: z.coerce
+    .number()
+    .int()
+    .min(1000, 'FOLLOWUP_SENDER_TICK_MS deve ser >= 1000ms')
+    .default(30_000)
+    .optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

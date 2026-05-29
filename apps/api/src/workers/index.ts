@@ -29,6 +29,11 @@ import { buildKanbanOnSimulationHandler } from './kanban-on-simulation.js';
 // Re-exportado aqui para documentação centralizada e acesso em scripts de diagnóstico.
 export { runSchedulerTick } from './followup-scheduler.js';
 
+// F5-S03: worker periódico de envio de templates via Meta WhatsApp Cloud API.
+// Iniciado como processo separado: pnpm --filter @elemento/api worker:followup:sender
+// Gated por followup.enabled + followup.sender.enabled (default=disabled).
+export { runSenderTick } from './followup-sender.js';
+
 /**
  * Registra todos os worker-handlers de domínio no registry do outbox-publisher.
  *
