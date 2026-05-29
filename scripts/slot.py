@@ -333,14 +333,23 @@ _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def find_slot_file(slot_id: str) -> Path:
-    """Localiza o arquivo .md do slot por ID."""
+    """Localiza o arquivo .md do slot por ID.
+
+    Filtra apenas candidatos que possuem frontmatter YAML válido (início ---),
+    para ignorar sub-arquivos de suporte (postmortem, runbook, etc.) que seguem
+    a mesma convenção de nome mas não são slots formais.
+    """
     phase = phase_of(slot_id)
     phase_dir = SLOTS_DIR / phase
     if not phase_dir.is_dir():
         die(f"Phase dir not found: {phase_dir}")
-    candidates = sorted(phase_dir.glob(f"{slot_id}-*.md"))
-    if not candidates:
+    all_candidates = sorted(phase_dir.glob(f"{slot_id}-*.md"))
+    if not all_candidates:
         die(f"Slot file not found for {slot_id} in {phase_dir}")
+    # Filtrar apenas arquivos que começam com frontmatter YAML
+    candidates = [p for p in all_candidates if _FRONTMATTER_RE.match(p.read_text(encoding="utf-8"))]
+    if not candidates:
+        die(f"Slot file not found for {slot_id} in {phase_dir} (found {len(all_candidates)} file(s) but none has YAML frontmatter)")
     if len(candidates) > 1:
         die(f"Multiple slot files match {slot_id}: {[p.name for p in candidates]}")
     return candidates[0]
@@ -435,6 +444,15 @@ def all_slots() -> list[Slot]:
     slots: list[Slot] = []
     for path in sorted(SLOTS_DIR.rglob("F*-S*.md")):
         if path.name.endswith("README.md"):
+            continue
+        # Ignorar sub-arquivos de suporte que não possuem frontmatter YAML
+        # (ex: F7-S09-postmortem.md, F7-S09-runbook-execucao.md)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception as e:  # noqa: BLE001
+            warn(f"skip {path.relative_to(REPO_ROOT)}: {e}")
+            continue
+        if not _FRONTMATTER_RE.match(text):
             continue
         try:
             slots.append(parse_slot(path))
