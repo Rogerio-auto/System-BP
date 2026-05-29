@@ -22,9 +22,15 @@
 | [F5-S07](F5-S07-workers-collection.md)  | Workers collection-scheduler + collection-sender (gated)      | medium     | M       | F5-S06, F5-S03, F1-S15                 |
 | [F5-S08](F5-S08-frontend-collection.md) | Frontend cobrança + importação payment_dues + marcação manual | medium     | L       | F5-S06, F5-S07, F1-S08, F1-S17, F8-S08 |
 
+## Templates WhatsApp Meta
+
+| ID                                          | Título                                                            | Prioridade | Tamanho | Depende de                             |
+| ------------------------------------------- | ----------------------------------------------------------------- | ---------- | ------- | -------------------------------------- |
+| [F5-S09](F5-S09-frontend-templates-meta.md) | Frontend templates WhatsApp + sync Meta Cloud + webhook de status | medium     | L       | F5-S01, F5-S03, F1-S08, F1-S20, F8-S08 |
+
 ### Ordem sugerida
 
-1. **B0:** F5-S01 (schema followup — bloqueia 2–5)
+1. **B0:** F5-S01 (schema followup — bloqueia 2–5, 9)
 2. **B1:** F5-S02 → F5-S03 → F5-S04 sequencial (encadeamento da régua)
-3. **B2 (paralelo após B1):** F5-S05 (UI followup) + F5-S06 (schema cobrança)
+3. **B2 (paralelo após B1):** F5-S05 (UI followup) + F5-S06 (schema cobrança) + F5-S09 (UI templates Meta)
 4. **B3:** F5-S07 → F5-S08 (cobrança completa)
