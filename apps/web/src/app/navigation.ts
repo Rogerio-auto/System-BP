@@ -81,3 +81,19 @@ export const TEMPLATES_NAV_ITEM: NavItem = {
   iconKey: 'templates',
   permission: 'templates:read',
 };
+
+/**
+ * Item de navegação para o módulo de cobrança (F5-S08).
+ * Adicionado como seção "Cobrança" na sidebar.
+ * Visível para usuários com billing:read.
+ * Feature flag: billing.enabled.
+ *
+ * NOTA: F5-S08 adiciona este item. Não reorganizar os itens acima.
+ */
+export const BILLING_NAV_ITEM: NavItem = {
+  href: '/admin/billing/dues',
+  label: 'Cobrança',
+  iconKey: 'billing',
+  permission: 'billing:read',
+  featureFlag: 'billing.enabled',
+};

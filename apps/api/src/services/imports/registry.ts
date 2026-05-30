@@ -8,11 +8,13 @@ import type { AnyAdapter } from './adapter.js';
 import { analysesAdapter } from './adapters/analysesAdapter.js';
 import { leadsAdapter } from './adapters/leadsAdapter.js';
 import { notionLeadsAdapter } from './adapters/notionLeadsAdapter.js';
+import { paymentDuesAdapter } from './adapters/paymentDuesAdapter.js';
 
 const ADAPTERS = new Map<string, AnyAdapter>([
   ['leads', leadsAdapter],
   ['notion_leads', notionLeadsAdapter],
   ['analyses', analysesAdapter],
+  ['payment_dues', paymentDuesAdapter],
 ]);
 
 /**

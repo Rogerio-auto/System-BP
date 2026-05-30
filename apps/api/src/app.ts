@@ -21,6 +21,7 @@ import { decisionsRoutes } from './modules/ai-console/decisions/index.js';
 import { playgroundRoutes } from './modules/ai-console/playground/index.js';
 import { promptsRoutes } from './modules/ai-console/prompts/index.js';
 import { authRoutes } from './modules/auth/routes.js';
+import { billingRoutes } from './modules/billing/index.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
 import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
 import { creditAnalysesRoutes } from './modules/credit-analyses/index.js';
@@ -213,6 +214,8 @@ export async function buildApp() {
   await app.register(playgroundRoutes, { prefix: '/api/ai-console/playground' });
   // Follow-up CRUD + jobs (F5-S05)
   await app.register(followupRoutes);
+  // Cobrança escalonada — parcelas, réguas, jobs (F5-S08)
+  await app.register(billingRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.
