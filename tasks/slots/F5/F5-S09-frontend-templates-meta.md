@@ -3,13 +3,13 @@ id: F5-S09
 title: Frontend templates WhatsApp + sync Meta Cloud + webhook de status
 phase: F5
 task_ref: T5.9
-status: review
+status: done
 priority: medium
 estimated_size: L
 agent_id: frontend-engineer
 claimed_at: 2026-05-29T23:49:02Z
 completed_at: 2026-05-30T00:22:14Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/168
 depends_on: [F5-S01, F5-S03, F1-S08, F1-S20, F8-S08]
 blocks: []
 labels: []
