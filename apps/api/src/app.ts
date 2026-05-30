@@ -40,6 +40,7 @@ import { leadsRoutes } from './modules/leads/routes.js';
 import { rolesRoutes } from './modules/roles/routes.js';
 import { internalSimulationsRoutes } from './modules/simulations/internal-routes.js';
 import { simulationsRoutes } from './modules/simulations/routes.js';
+import { templatesRoutes } from './modules/templates/index.js';
 import { usersRoutes } from './modules/users/routes.js';
 import { whatsappRoutes } from './modules/whatsapp/routes.js';
 import { dataSubjectRoutes } from './routes/data-subject.routes.js';
@@ -177,6 +178,8 @@ export async function buildApp() {
   await app.register(kanbanRoutes);
   await app.register(leadsRoutes);
   await app.register(whatsappRoutes);
+  // Templates WhatsApp Meta — CRUD + sync + webhook handler (F5-S09)
+  await app.register(templatesRoutes);
   // Webhook Chatwoot (F1-S21) — entrada + idempotência + outbox
   await app.register(chatwootWebhookRoutes);
   await app.register(usersRoutes);

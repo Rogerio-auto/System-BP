@@ -11,6 +11,7 @@ import * as React from 'react';
 import { Route } from 'react-router-dom';
 
 import { CreditAnalysesListPage, CreditAnalysisDetailPage } from '../features/credit-analyses';
+import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from '../features/templates';
 
 /**
  * Rotas do módulo de análise de crédito.
@@ -21,6 +22,23 @@ export function CreditAnalysisRoutes(): React.JSX.Element {
     <>
       <Route path="/credit-analyses" element={<CreditAnalysesListPage />} />
       <Route path="/credit-analyses/:id" element={<CreditAnalysisDetailPage />} />
+    </>
+  );
+}
+
+/**
+ * Rotas do módulo de templates WhatsApp (F5-S09).
+ * Inserir dentro de <Routes> protegidas (AuthGuard > AppLayout).
+ *
+ * NOTA: F5-S05 também adiciona rotas a router.tsx.
+ * Adicionar apenas estas rotas, sem reorganizar as existentes.
+ */
+export function TemplateRoutes(): React.JSX.Element {
+  return (
+    <>
+      <Route path="/admin/templates" element={<TemplatesListPage />} />
+      <Route path="/admin/templates/new" element={<TemplateFormPage />} />
+      <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
     </>
   );
 }

@@ -521,6 +521,20 @@ export interface FollowupFailedData {
   terminal: boolean;
 }
 
+// --- Domínio: templates WhatsApp (F5-S09) ---
+
+/**
+ * Emitido quando o status de um template WhatsApp muda.
+ * LGPD §8.5: apenas IDs opacos + status (sem PII).
+ */
+export interface TemplateStatusChangedData {
+  template_id: string;
+  /** Status anterior (null na criação). */
+  previous_status: string | null;
+  /** Novo status: pending | approved | rejected | paused. */
+  new_status: string;
+}
+
 // --- Domínio: importação ---
 
 export interface ImportBatchData {
@@ -761,6 +775,8 @@ export interface AppEventDataMap {
   'user.role_assigned': UserRoleAssignedData;
   'user.city_scope_changed': UserCityScopeChangedData;
   'user.session_revoked': UserEventData;
+  // --- Templates WhatsApp (F5-S09) ---
+  'templates.status_changed': TemplateStatusChangedData;
   // --- LGPD direitos do titular (F1-S25) ---
   'data_subject.access_requested': DataSubjectAccessRequestedData;
   'data_subject.access_fulfilled': DataSubjectAccessFulfilledData;
