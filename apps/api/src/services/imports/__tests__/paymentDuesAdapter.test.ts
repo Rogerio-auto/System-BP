@@ -15,7 +15,8 @@
 //     8. "1234,56" → "1234.56"
 //     9. "1234.56" → "1234.56"
 //     10. "R$ 1.500,00" → "1500.00"
-//     11. "0" → null (não positivo)
+//     11. "0" → "0.00" (MEDIUM-03: aceita zero — era null antes)
+//     11b. "0,00" → "0.00" (MEDIUM-03)
 //     12. "abc" → null
 //
 //   parseBRDate:
@@ -162,8 +163,18 @@ describe('parseBRCurrency', () => {
     expect(parseBRCurrency('R$ 1.500,00')).toBe('1500.00');
   });
 
-  it('11. "0" → null (não positivo)', () => {
-    expect(parseBRCurrency('0')).toBeNull();
+  it('11. "0" → "0.00" (MEDIUM-03: aceita zero — guard era > 0, corrigido para >= 0)', () => {
+    // MEDIUM-03: parseBRCurrency agora aceita zero.
+    // Validação de negócio (zero inválido) deve ocorrer no schema Zod do caller.
+    expect(parseBRCurrency('0')).toBe('0.00');
+  });
+
+  it('11b. "0,00" → "0.00" (MEDIUM-03)', () => {
+    expect(parseBRCurrency('0,00')).toBe('0.00');
+  });
+
+  it('11c. "-1,00" → null (negativo ainda é inválido)', () => {
+    expect(parseBRCurrency('-1,00')).toBeNull();
   });
 
   it('12. "abc" → null', () => {

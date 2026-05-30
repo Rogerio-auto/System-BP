@@ -268,6 +268,14 @@ export async function getPaymentDueById(
 /**
  * Marca uma parcela como paga.
  *
+ * Deve ser chamada DENTRO de uma transação ativa (HIGH-02 atomicidade).
+ * Faz SELECT ... FOR UPDATE para evitar race com workers.
+ *
+ * cityScopeIds (HIGH-01): valida que a parcela pertence à cidade do gestor.
+ * - null     → acesso global.
+ * - []       → sem acesso — sempre 404.
+ * - string[] → valida que leads.city_id está no escopo.
+ *
  * Idempotente: parcela já paga retorna o mesmo registro sem erro.
  * Rejeita parcelas em status terminal (cancelled, renegotiated).
  */
@@ -275,7 +283,20 @@ export async function markPaymentDuePaid(
   db: Database,
   organizationId: string,
   dueId: string,
+  cityScopeIds: string[] | null,
 ): Promise<PaymentDueResponse> {
+  // SELECT FOR UPDATE — fecha race com collection-sender e outros workers.
+  // JOIN customers → leads para validar city scope (HIGH-01).
+  const cityScopeCondition = buildCityScopeCondition(cityScopeIds);
+
+  const existingConditions = [
+    eq(paymentDues.id, dueId),
+    eq(paymentDues.organizationId, organizationId),
+  ];
+  if (cityScopeCondition !== null) {
+    existingConditions.push(cityScopeCondition);
+  }
+
   const existing = await db
     .select({
       id: paymentDues.id,
@@ -283,7 +304,10 @@ export async function markPaymentDuePaid(
       paidAt: paymentDues.paidAt,
     })
     .from(paymentDues)
-    .where(and(eq(paymentDues.id, dueId), eq(paymentDues.organizationId, organizationId)))
+    .leftJoin(customers, eq(paymentDues.customerId, customers.id))
+    .leftJoin(leads, eq(customers.primaryLeadId, leads.id))
+    .where(and(...existingConditions))
+    .for('update')
     .limit(1);
 
   if (existing.length === 0) {
@@ -325,6 +349,14 @@ export async function markPaymentDuePaid(
 /**
  * Marca uma parcela como renegociada.
  *
+ * Deve ser chamada DENTRO de uma transação ativa (HIGH-02 atomicidade).
+ * Faz SELECT ... FOR UPDATE para evitar race com workers.
+ *
+ * cityScopeIds (HIGH-01): valida que a parcela pertence à cidade do gestor.
+ * - null     → acesso global.
+ * - []       → sem acesso — sempre 404.
+ * - string[] → valida que leads.city_id está no escopo.
+ *
  * Idempotente: parcela já renegociada retorna o mesmo registro sem erro.
  * Rejeita parcelas pagas ou canceladas.
  */
@@ -332,14 +364,30 @@ export async function renegotiatePaymentDue(
   db: Database,
   organizationId: string,
   dueId: string,
+  cityScopeIds: string[] | null,
 ): Promise<PaymentDueResponse> {
+  // SELECT FOR UPDATE — fecha race com collection-sender e outros workers.
+  // JOIN customers → leads para validar city scope (HIGH-01).
+  const cityScopeCondition = buildCityScopeCondition(cityScopeIds);
+
+  const existingConditions = [
+    eq(paymentDues.id, dueId),
+    eq(paymentDues.organizationId, organizationId),
+  ];
+  if (cityScopeCondition !== null) {
+    existingConditions.push(cityScopeCondition);
+  }
+
   const existing = await db
     .select({
       id: paymentDues.id,
       status: paymentDues.status,
     })
     .from(paymentDues)
-    .where(and(eq(paymentDues.id, dueId), eq(paymentDues.organizationId, organizationId)))
+    .leftJoin(customers, eq(paymentDues.customerId, customers.id))
+    .leftJoin(leads, eq(customers.primaryLeadId, leads.id))
+    .where(and(...existingConditions))
+    .for('update')
     .limit(1);
 
   if (existing.length === 0) {

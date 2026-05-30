@@ -12,7 +12,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
-import { UnauthorizedError } from '../../shared/errors.js';
+import { AppError, UnauthorizedError } from '../../shared/errors.js';
 import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
 import type {
@@ -79,11 +79,29 @@ export async function markPaidController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const { organizationId, userId, ip } = getUserContext(request);
+  const { organizationId, cityScopeIds, userId, ip } = getUserContext(request);
   const { id } = typedParams<{ id: string }>(request);
   // Body parsed but unused — mark-paid has no required fields; body accepted for future extensibility
   void typedBody<MarkPaidBody>(request);
-  const result = await markPaidService(db, organizationId, id, { userId, ip });
+
+  // HIGH-03: Idempotency-Key obrigatório para mutações financeiras
+  const idempotencyKey = request.headers['idempotency-key'];
+  if (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '') {
+    throw new AppError(
+      400,
+      'VALIDATION_ERROR',
+      'Idempotency-Key header obrigatório para mutações financeiras',
+    );
+  }
+
+  const result = await markPaidService(
+    db,
+    organizationId,
+    id,
+    cityScopeIds,
+    { userId, ip },
+    idempotencyKey,
+  );
   await reply.status(200).send(result);
 }
 
@@ -95,11 +113,29 @@ export async function renegotiateController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const { organizationId, userId, ip } = getUserContext(request);
+  const { organizationId, cityScopeIds, userId, ip } = getUserContext(request);
   const { id } = typedParams<{ id: string }>(request);
   // Body parsed but unused — renegotiate has no required fields; accepted for future extensibility
   void typedBody<RenegotiateBody>(request);
-  const result = await renegotiateService(db, organizationId, id, { userId, ip });
+
+  // HIGH-03: Idempotency-Key obrigatório para mutações financeiras
+  const idempotencyKey = request.headers['idempotency-key'];
+  if (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '') {
+    throw new AppError(
+      400,
+      'VALIDATION_ERROR',
+      'Idempotency-Key header obrigatório para mutações financeiras',
+    );
+  }
+
+  const result = await renegotiateService(
+    db,
+    organizationId,
+    id,
+    cityScopeIds,
+    { userId, ip },
+    idempotencyKey,
+  );
   await reply.status(200).send(result);
 }
 

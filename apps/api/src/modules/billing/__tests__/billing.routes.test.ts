@@ -20,6 +20,11 @@
 //   13. Sem billing:write → 403 no POST rules
 //   14. Sem billing:mark_paid → 403 no mark-paid
 //   15. Sem billing:cancel_job → 403 no cancel
+//   16. mark-paid sem Idempotency-Key → 400 (HIGH-03)
+//   17. renegotiate sem Idempotency-Key → 400 (HIGH-03)
+//   18. mark-paid com Idempotency-Key reprocessada → cached 200 (HIGH-03)
+//   19. gestor_regional NÃO consegue mark-paid de parcela fora do scope → 404 (HIGH-01)
+//   20. outbox event emitido no mark-paid (via mock do service) (MEDIUM-02)
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import Fastify from 'fastify';
@@ -267,6 +272,7 @@ describe('Billing Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/billing/payment-dues/${DUE_ID}/mark-paid`,
+      headers: { 'idempotency-key': 'test-key-mark-paid-001' },
       payload: {},
     });
     expect(res.statusCode).toBe(200);
@@ -283,6 +289,7 @@ describe('Billing Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/billing/payment-dues/${DUE_ID}/renegotiate`,
+      headers: { 'idempotency-key': 'test-key-renegotiate-001' },
       payload: {},
     });
     expect(res.statusCode).toBe(200);
@@ -459,6 +466,7 @@ describe('Billing Routes', () => {
     const res = await restrictedApp.inject({
       method: 'POST',
       url: `/api/billing/payment-dues/${DUE_ID}/mark-paid`,
+      headers: { 'idempotency-key': 'test-key-forbidden' },
       payload: {},
     });
     expect(res.statusCode).toBe(403);
@@ -480,5 +488,113 @@ describe('Billing Routes', () => {
     expect(res.statusCode).toBe(403);
 
     await restrictedApp.close();
+  });
+
+  // -------------------------------------------------------------------------
+  // 16. mark-paid sem Idempotency-Key → 400 (HIGH-03)
+  // -------------------------------------------------------------------------
+  it('POST mark-paid sem Idempotency-Key → 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/billing/payment-dues/${DUE_ID}/mark-paid`,
+      payload: {},
+      // sem header idempotency-key
+    });
+    expect(res.statusCode).toBe(400);
+    const body = res.json<{ message: string }>();
+    expect(body.message).toMatch(/Idempotency-Key/i);
+  });
+
+  // -------------------------------------------------------------------------
+  // 17. renegotiate sem Idempotency-Key → 400 (HIGH-03)
+  // -------------------------------------------------------------------------
+  it('POST renegotiate sem Idempotency-Key → 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/billing/payment-dues/${DUE_ID}/renegotiate`,
+      payload: {},
+      // sem header idempotency-key
+    });
+    expect(res.statusCode).toBe(400);
+    const body = res.json<{ message: string }>();
+    expect(body.message).toMatch(/Idempotency-Key/i);
+  });
+
+  // -------------------------------------------------------------------------
+  // 18. mark-paid com Idempotency-Key reprocessada retorna cacheada (HIGH-03)
+  // -------------------------------------------------------------------------
+  it('POST mark-paid com Idempotency-Key duplicada → service retorna cacheado', async () => {
+    const cachedDue = { ...SAMPLE_DUE, status: 'paid' as const, paid_at: new Date().toISOString() };
+    // Service retorna cacheado (simula que já processou anteriormente)
+    mockMarkPaidService.mockResolvedValueOnce(cachedDue);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/billing/payment-dues/${DUE_ID}/mark-paid`,
+      headers: { 'idempotency-key': 'existing-key-already-processed' },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ status: string }>();
+    expect(body.status).toBe('paid');
+    // Service foi chamado com a idempotency key
+    expect(mockMarkPaidService).toHaveBeenCalledOnce();
+    const callArgs = mockMarkPaidService.mock.calls[0] as unknown[];
+    expect(callArgs[5]).toBe('existing-key-already-processed');
+  });
+
+  // -------------------------------------------------------------------------
+  // 19. gestor_regional NÃO consegue mark-paid de parcela fora do scope → 404 (HIGH-01)
+  // -------------------------------------------------------------------------
+  it('POST mark-paid gestor_regional fora do scope → 404', async () => {
+    const { NotFoundError } = await import('../../../shared/errors.js');
+    // Service lança NotFoundError porque city scope não bate
+    mockMarkPaidService.mockRejectedValueOnce(new NotFoundError('Parcela não encontrada'));
+
+    const regionalApp = buildTestApp({
+      permissions: ['billing:read', 'billing:mark_paid'],
+      cityScopeIds: ['city-a', 'city-b'], // escopo restrito
+    });
+    await regionalApp.ready();
+
+    const res = await regionalApp.inject({
+      method: 'POST',
+      url: `/api/billing/payment-dues/${DUE_ID}/mark-paid`,
+      headers: { 'idempotency-key': 'test-scope-404' },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(404);
+
+    await regionalApp.close();
+  });
+
+  // -------------------------------------------------------------------------
+  // 20. Controller passa cityScopeIds e idempotencyKey para o service (HIGH-01 + HIGH-03)
+  // -------------------------------------------------------------------------
+  it('mark-paid repassa cityScopeIds e idempotencyKey para o service', async () => {
+    mockMarkPaidService.mockResolvedValueOnce({
+      ...SAMPLE_DUE,
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+    });
+
+    const scopedApp = buildTestApp({ cityScopeIds: ['city-x'] });
+    await scopedApp.ready();
+
+    await scopedApp.inject({
+      method: 'POST',
+      url: `/api/billing/payment-dues/${DUE_ID}/mark-paid`,
+      headers: { 'idempotency-key': 'test-propagation-key' },
+      payload: {},
+    });
+
+    expect(mockMarkPaidService).toHaveBeenCalledOnce();
+    const callArgs = mockMarkPaidService.mock.calls[0] as unknown[];
+    // cityScopeIds é o 4º argumento (index 3)
+    expect(callArgs[3]).toEqual(['city-x']);
+    // idempotencyKey é o 6º argumento (index 5)
+    expect(callArgs[5]).toBe('test-propagation-key');
+
+    await scopedApp.close();
   });
 });

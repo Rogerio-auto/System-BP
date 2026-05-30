@@ -129,6 +129,8 @@ function extractField(raw: Record<string, unknown>, field: keyof PaymentDuesPars
 /**
  * Converte valor monetário BR para string decimal.
  * Suporta: "1.234,56" → "1234.56", "1234,56" → "1234.56", "1234.56" → "1234.56".
+ * MEDIUM-03: aceita zero ("0,00" → "0.00") — guard era num > 0, corrigido para >= 0.
+ * Validação de negócio (zero inválido) deve ser feita no chamador via Zod.
  *
  * Retorna null se não conseguir parsear.
  */
@@ -142,7 +144,8 @@ export function parseBRCurrency(raw: string): string | null {
     // Remove pontos de milhar e troca vírgula decimal por ponto
     const normalized = cleaned.replace(/\./g, '').replace(',', '.');
     const num = parseFloat(normalized);
-    if (!isNaN(num) && num > 0) {
+    // MEDIUM-03: >= 0 (antes era > 0 — rejeitava "0,00" incorretamente)
+    if (!isNaN(num) && num >= 0) {
       return num.toFixed(2);
     }
     return null;
@@ -150,7 +153,8 @@ export function parseBRCurrency(raw: string): string | null {
 
   // Formato decimal padrão: "1234.56"
   const num = parseFloat(cleaned);
-  if (!isNaN(num) && num > 0) {
+  // MEDIUM-03: >= 0 (antes era > 0)
+  if (!isNaN(num) && num >= 0) {
     return num.toFixed(2);
   }
 
@@ -223,12 +227,21 @@ async function resolveCustomerByCpf(
 }
 
 // ---------------------------------------------------------------------------
-// Dedupe: verifica se parcela já existe
+// Dedupe: verifica se parcela já existe (MEDIUM-01 — org-scoped)
 // ---------------------------------------------------------------------------
 
+/**
+ * Verifica se uma parcela com o mesmo (contract_reference, installment_number)
+ * já existe para a organização.
+ *
+ * MEDIUM-01: filtro de organizationId adicionado para evitar cross-tenant oracle.
+ * Dois contratos com a mesma referência em orgs diferentes são aceitos
+ * independentemente.
+ */
 async function paymentDueExists(
   contractReference: string,
   installmentNumber: number,
+  organizationId: string,
 ): Promise<boolean> {
   const rows = await db
     .select({ id: paymentDues.id })
@@ -237,6 +250,9 @@ async function paymentDueExists(
       and(
         eq(paymentDues.contractReference, contractReference),
         eq(paymentDues.installmentNumber, installmentNumber),
+        // MEDIUM-01: escopo de organização — sem isso um contrato em outra org
+        // poderia bloquear a importação incorretamente (cross-tenant oracle).
+        eq(paymentDues.organizationId, organizationId),
       ),
     )
     .limit(1);
@@ -358,8 +374,13 @@ export const paymentDuesAdapter: ImportAdapter<PaymentDuesParsed, PaymentDuesCre
       return { errors };
     }
 
-    // 5. Verificar dedupe — (contract_reference, installment_number) já existe
-    const exists = await paymentDueExists(parsed.contractReference, installmentNumber);
+    // 5. Verificar dedupe — (contract_reference, installment_number, organization_id) já existe
+    // MEDIUM-01: escopo de org para evitar cross-tenant oracle
+    const exists = await paymentDueExists(
+      parsed.contractReference,
+      installmentNumber,
+      ctx.organizationId,
+    );
     if (exists) {
       return {
         errors: [

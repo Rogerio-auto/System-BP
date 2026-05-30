@@ -100,12 +100,18 @@ export interface CancelCollectionsResult {
  *
  * Idempotente: se nenhum job scheduled existir, retorna { jobsCancelled: 0 }.
  *
- * @param database  Instância Drizzle injetável (facilita testes).
+ * @param database  Instância Drizzle injetável (facilita testes). Pode ser
+ *                  uma transação ativa (Database cast de tx) — nesse caso
+ *                  a lógica roda dentro do savepoint do caller sem criar
+ *                  uma transação própria (HIGH-02 atomicidade).
  * @param params    Parâmetros de cancelamento.
+ * @param activeTx  Quando fornecido, usa a transação ativa em vez de abrir
+ *                  uma nova. Permite atomicidade completa com o caller (HIGH-02).
  */
 export async function cancelCollectionJobsOnPayment(
   database: Database,
   params: CancelCollectionsParams,
+  activeTx?: Database,
 ): Promise<CancelCollectionsResult> {
   const { paymentDueId, organizationId, correlationId } = params;
   const logger = baseLogger.child({
@@ -117,13 +123,14 @@ export async function cancelCollectionJobsOnPayment(
 
   let jobsCancelled = 0;
 
-  await database.transaction(async (tx) => {
-    // Justificativa dos casts: Drizzle não exporta NodePgTransaction como tipo público.
-    // DrizzleTx e AuditTx são interfaces estruturais compatíveis com a transação.
-    const txDb = tx as unknown as Database;
-    const txForEmit = tx as unknown as DrizzleTx;
-    const txForAudit = tx as unknown as AuditTx;
-
+  /**
+   * Corpo do cancelamento — executado dentro de tx ativa ou de uma nova tx.
+   */
+  const runWork = async (
+    txDb: Database,
+    txForEmit: DrizzleTx,
+    txForAudit: AuditTx,
+  ): Promise<void> => {
     // -------------------------------------------------------------------------
     // SELECT FOR UPDATE SKIP LOCKED: fecha race com collection-sender
     // Jobs sendo processados pelo sender (já com lock triggered) são ignorados
@@ -215,7 +222,23 @@ export async function cancelCollectionJobsOnPayment(
       },
       `${String(jobsCancelled)} collection_job(s) cancelado(s) por pagamento da parcela`,
     );
-  });
+  };
+
+  if (activeTx !== undefined) {
+    // HIGH-02: executa dentro da transação ativa do caller (sem nova tx)
+    // Os casts são justificados: DrizzleTx e AuditTx são interfaces estruturais
+    // compatíveis com Database (transação Drizzle tem os mesmos métodos de query).
+    await runWork(activeTx, activeTx as unknown as DrizzleTx, activeTx as unknown as AuditTx);
+  } else {
+    // Chamada standalone: abre transação própria (compatível com uso em events/workers)
+    await database.transaction(async (tx) => {
+      // `as` justificados: Drizzle não exporta tipo público da transação.
+      const txDb = tx as unknown as Database;
+      const txForEmit = tx as unknown as DrizzleTx;
+      const txForAudit = tx as unknown as AuditTx;
+      await runWork(txDb, txForEmit, txForAudit);
+    });
+  }
 
   return { jobsCancelled, paymentDueId };
 }
