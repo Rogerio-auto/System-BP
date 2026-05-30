@@ -3,13 +3,17 @@
 //
 // Importadas em App.tsx e inseridas dentro do elemento AuthGuard > AppLayout.
 // Rotas:
-//   /credit-analyses       → CreditAnalysesListPage
-//   /credit-analyses/:id   → CreditAnalysisDetailPage
+//   /credit-analyses              → CreditAnalysesListPage
+//   /credit-analyses/:id          → CreditAnalysisDetailPage
+//   /admin/billing/dues           → PaymentDuesPage
+//   /admin/billing/rules          → CollectionRulesPage
+//   /admin/billing/jobs           → CollectionJobsPage
 // =============================================================================
 
 import * as React from 'react';
 import { Route } from 'react-router-dom';
 
+import { CollectionJobsPage, CollectionRulesPage, PaymentDuesPage } from '../features/billing';
 import { CreditAnalysesListPage, CreditAnalysisDetailPage } from '../features/credit-analyses';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from '../features/templates';
 
@@ -39,6 +43,22 @@ export function TemplateRoutes(): React.JSX.Element {
       <Route path="/admin/templates" element={<TemplatesListPage />} />
       <Route path="/admin/templates/new" element={<TemplateFormPage />} />
       <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
+    </>
+  );
+}
+
+/**
+ * Rotas do módulo de cobrança (F5-S08).
+ * Inserir dentro de <Routes> protegidas (AuthGuard > AppLayout).
+ *
+ * Permissão mínima: billing:read (checada internamente pelos stores).
+ */
+export function BillingRoutes(): React.JSX.Element {
+  return (
+    <>
+      <Route path="/admin/billing/dues" element={<PaymentDuesPage />} />
+      <Route path="/admin/billing/rules" element={<CollectionRulesPage />} />
+      <Route path="/admin/billing/jobs" element={<CollectionJobsPage />} />
     </>
   );
 }

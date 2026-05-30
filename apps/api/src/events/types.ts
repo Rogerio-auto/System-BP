@@ -521,6 +521,40 @@ export interface FollowupFailedData {
   terminal: boolean;
 }
 
+// --- Domínio: billing — mark-paid / renegotiate (F5-S08) ---
+// LGPD §8.5: payloads carregam apenas IDs opacos + dados financeiros operacionais.
+// Sem PII bruta (sem CPF, telefone, nome, e-mail).
+
+/**
+ * Emitido ao marcar parcela como paga (F5-S08).
+ * Permite workflows downstream (ex: kanban, DLP) reagirem ao pagamento.
+ */
+export interface BillingDuePaidData {
+  /** UUID opaco da parcela — não é PII direta. */
+  payment_due_id: string;
+  /** UUID do customer (aponta para entidade com PII — não logar diretamente). */
+  customer_id: string;
+  /** Valor em centavos (dado financeiro operacional, não PII). */
+  amount_cents: number;
+  /** Data de vencimento original (dado contratual, não PII). */
+  due_date: string;
+}
+
+/**
+ * Emitido ao marcar parcela como renegociada (F5-S08).
+ * Permite workflows downstream reagirem à renegociação.
+ */
+export interface BillingDueRenegotiatedData {
+  /** UUID opaco da parcela — não é PII direta. */
+  payment_due_id: string;
+  /** UUID do customer (aponta para entidade com PII — não logar diretamente). */
+  customer_id: string;
+  /** Valor em centavos (dado financeiro operacional, não PII). */
+  amount_cents: number;
+  /** Data de vencimento original (dado contratual, não PII). */
+  due_date: string;
+}
+
 // --- Domínio: templates WhatsApp (F5-S09) ---
 
 /**
@@ -757,6 +791,9 @@ export interface AppEventDataMap {
   'billing.collection_sent': CollectionSentData;
   'billing.collection_failed': CollectionFailedData;
   'billing.collection_cancelled': CollectionCancelledData;
+  // F5-S08: mark-paid / renegotiate (LGPD §8.5 — payload sem PII bruta)
+  'billing.due_paid': BillingDuePaidData;
+  'billing.due_renegotiated': BillingDueRenegotiatedData;
   'import.batch_created': ImportBatchData;
   'import.batch_validated': ImportBatchData;
   'import.batch_completed': ImportBatchData;
