@@ -35,6 +35,16 @@ export { runSchedulerTick } from './followup-scheduler.js';
 // Gated por followup.enabled + followup.sender.enabled (default=disabled).
 export { runSenderTick } from './followup-sender.js';
 
+// F5-S07: worker periódico de agendamento de cobranças de parcelas.
+// Iniciado como processo separado: pnpm --filter @elemento/api worker:collection
+// Gated por billing.enabled + billing.scheduler.enabled (default=disabled).
+export { runCollectionSchedulerTick } from './collection-scheduler.js';
+
+// F5-S07: worker periódico de envio de templates de cobrança via Meta WhatsApp.
+// Iniciado como processo separado: pnpm --filter @elemento/api worker:collection:sender
+// Gated por billing.enabled + billing.sender.enabled (default=disabled).
+export { runCollectionSenderTick } from './collection-sender.js';
+
 /**
  * Registra todos os worker-handlers de domínio no registry do outbox-publisher.
  *

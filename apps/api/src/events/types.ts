@@ -438,6 +438,56 @@ export interface FollowupJobData {
   rule_id: string;
 }
 
+// --- Domínio: cobrança (F5-S07) ---
+// LGPD §8.5: payloads carregam apenas IDs opacos — sem PII bruta.
+// Base legal: Art. 7º V (execução de contrato).
+
+/**
+ * Emitido pelo worker collection-sender (F5-S07) ao enviar template com sucesso.
+ * O wamid permite correlacionar webhooks de delivery status da Meta.
+ * Sem telefone bruto — MetaWhatsAppClient usa `to_hash` internamente.
+ */
+export interface CollectionSentData {
+  collection_job_id: string;
+  /** UUID da parcela — não é PII direta. */
+  payment_due_id: string;
+  rule_id: string;
+  /** Slug do template enviado (ex: "cobranca_d7"). */
+  template_key: string;
+  /** WhatsApp Message ID retornado pela Meta. */
+  wamid: string;
+  /** Número da tentativa (1-indexed). */
+  attempt_count: number;
+}
+
+/**
+ * Emitido pelo worker collection-sender (F5-S07) ao falhar envio.
+ * last_error é mensagem técnica (código de erro Meta ou timeout) — sem PII.
+ */
+export interface CollectionFailedData {
+  collection_job_id: string;
+  payment_due_id: string;
+  rule_id: string;
+  /** Descrição técnica do erro — sem PII. */
+  last_error: string;
+  /** Número da tentativa que falhou (1-indexed). */
+  attempt_count: number;
+  /** true se atingiu max_attempts e o job foi marcado como 'failed' definitivo. */
+  terminal: boolean;
+}
+
+/**
+ * Emitido ao cancelar jobs pendentes quando a parcela é paga (F5-S07 handler).
+ * Permite auditoria de qual parcela originou o cancelamento.
+ */
+export interface CollectionCancelledData {
+  collection_job_id: string;
+  payment_due_id: string;
+  rule_id: string;
+  /** Motivo do cancelamento: 'paid_before_send' | 'rule_deactivated' | 'billing_disabled'. */
+  reason: string;
+}
+
 /**
  * Emitido pelo worker followup-sender (F5-S03) ao enviar template com sucesso.
  * LGPD §8.5: sem telefone bruto — apenas IDs opacos + template_key + wamid.
@@ -689,6 +739,10 @@ export interface AppEventDataMap {
   'followup.sent': FollowupSentData;
   'followup.failed': FollowupFailedData;
   'followup.cancelled': FollowupJobData;
+  // F5-S07: cobrança escalonada de parcelas (LGPD §8.5 — sem PII bruta)
+  'billing.collection_sent': CollectionSentData;
+  'billing.collection_failed': CollectionFailedData;
+  'billing.collection_cancelled': CollectionCancelledData;
   'import.batch_created': ImportBatchData;
   'import.batch_validated': ImportBatchData;
   'import.batch_completed': ImportBatchData;

@@ -3,12 +3,12 @@ id: F5-S07
 title: Workers collection-scheduler + collection-sender (gated)
 phase: F5
 task_ref: T5.7
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: backend-engineer
-claimed_at: null
-completed_at: null
+claimed_at: 2026-05-29T23:47:51Z
+completed_at: 2026-05-30T00:01:36Z
 pr_url: null
 depends_on: [F5-S06, F5-S03, F1-S15]
 blocks: [F5-S08]
