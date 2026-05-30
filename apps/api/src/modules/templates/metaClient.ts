@@ -21,10 +21,9 @@
 //
 // Nota sobre WABA_ID:
 //   A Meta requer o WABA ID (WhatsApp Business Account ID) nos endpoints de
-//   gestão de templates. Como env.ts não tem META_WABA_ID ainda, este cliente
-//   lê META_WABA_ID do env.META_WHATSAPP_PHONE_NUMBER_ID como fallback com
-//   comentário explícito. O operador deverá adicionar META_WABA_ID ao .env.
-//   Ver comentário no constructor abaixo.
+//   gestão de templates. META_WABA_ID foi adicionado ao envSchema (F5-S09 security fix).
+//   Fallback para META_WHATSAPP_PHONE_NUMBER_ID mantido para dev/test.
+//   ANTES DO GO-LIVE: configurar META_WABA_ID explicitamente.
 // =============================================================================
 
 import { env } from '../../config/env.js';
@@ -121,11 +120,9 @@ export interface MetaTemplatesClientOptions {
  *
  * Configuração:
  *   META_WHATSAPP_ACCESS_TOKEN — Bearer token da Meta Business Suite.
- *   META_WABA_ID — WhatsApp Business Account ID.
- *     ⚠ Nota: Não existe META_WABA_ID em env.ts ainda.
- *     Adicionar ao .env e ao envSchema em config/env.ts antes de produção.
- *     Em dev/test, usa META_WHATSAPP_PHONE_NUMBER_ID como fallback provisório
- *     (funcionalmente incorreto mas permite testar o código).
+ *   META_WABA_ID — WhatsApp Business Account ID (adicionado ao envSchema em F5-S09 security fix).
+ *     Fallback para META_WHATSAPP_PHONE_NUMBER_ID em dev/test se META_WABA_ID ausente.
+ *     ANTES DO GO-LIVE: configurar META_WABA_ID e remover o fallback.
  */
 export class MetaTemplatesClient {
   private readonly accessToken: string;
@@ -139,11 +136,11 @@ export class MetaTemplatesClient {
   constructor(options: MetaTemplatesClientOptions = {}) {
     const resolvedToken = options.accessToken ?? env.META_WHATSAPP_ACCESS_TOKEN;
 
-    // ⚠ META_WABA_ID não está em env.ts ainda — usa META_WHATSAPP_PHONE_NUMBER_ID como
-    // fallback provisório para não quebrar o boot. Operador deve adicionar META_WABA_ID
-    // ao .env e ao envSchema antes de go-live. TODO: F5-S09 follow-up env var.
-    const resolvedWabaId =
-      options.wabaId ?? (process.env['META_WABA_ID'] || env.META_WHATSAPP_PHONE_NUMBER_ID);
+    // L-1: META_WABA_ID agora está em env.ts (F5-S09 security fix).
+    // Fallback para META_WHATSAPP_PHONE_NUMBER_ID: funcionalmente incorreto em produção
+    // mas mantido para compatibilidade de dev/test onde apenas o phone_number_id está configurado.
+    // ANTES DO GO-LIVE: configurar META_WABA_ID explicitamente e remover o fallback.
+    const resolvedWabaId = options.wabaId ?? env.META_WABA_ID ?? env.META_WHATSAPP_PHONE_NUMBER_ID;
 
     if (!resolvedToken) {
       throw new ExternalServiceError(
@@ -217,6 +214,21 @@ export class MetaTemplatesClient {
     return raw.data ?? [];
   }
 
+  /**
+   * Deleta um template na Meta pelo nome.
+   * DELETE /{waba_id}/message_templates?name=<template_name>
+   *
+   * Usado para compensação quando o INSERT local falha após submitTemplate().
+   * A Meta identifica templates para deleção pelo nome, não pelo ID numérico.
+   *
+   * @param templateName  Nome exato do template enviado no submitTemplate().
+   */
+  async deleteTemplate(templateName: string): Promise<void> {
+    const url = `${META_GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${this.wabaId}/message_templates?name=${encodeURIComponent(templateName)}`;
+    // DELETE não envia body — passamos objeto vazio e o doFetch usa body apenas para !GET
+    await this.requestWithRetry('DELETE', url, {});
+  }
+
   // -------------------------------------------------------------------------
   // Internals
   // -------------------------------------------------------------------------
@@ -269,7 +281,7 @@ export class MetaTemplatesClient {
         },
         signal: controller.signal,
       };
-      if (method !== 'GET') {
+      if (method !== 'GET' && method !== 'DELETE') {
         init.body = JSON.stringify(body);
       }
       response = await fetch(url, init);

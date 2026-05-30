@@ -121,6 +121,13 @@ const envSchema = z.object({
   // Opcional: ausente → worker followup-sender lança ExternalServiceError ao tentar enviar.
   META_WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
 
+  // WhatsApp Business Account ID (WABA ID) — necessário para gestão de templates (F5-S09).
+  // Diferente do Phone Number ID: é o ID da conta WABA, não do número específico.
+  // Encontrado em: Meta Business Suite → Business Settings → WhatsApp Accounts → ID.
+  // Opcional agora — ANTES DO GO-LIVE: tornar required para garantir configuração correta.
+  // Fallback em metaClient.ts usa META_WHATSAPP_PHONE_NUMBER_ID (funcionalmente incorreto em prod).
+  META_WABA_ID: z.string().min(1).optional(),
+
   // Intervalo do tick do worker followup-sender em milissegundos.
   // Default: 30000 (30 segundos). Processa lotes de 50 jobs por tick.
   // Valores < 1000 são rejeitados para evitar sobrecarga.

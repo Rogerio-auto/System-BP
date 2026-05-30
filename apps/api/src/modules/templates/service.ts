@@ -20,6 +20,7 @@
 import { db } from '../../db/client.js';
 import { emit } from '../../events/emit.js';
 import { auditLog } from '../../lib/audit.js';
+import { logger } from '../../lib/logger.js';
 import { AppError, NotFoundError } from '../../shared/errors.js';
 
 import { MetaTemplatesClient } from './metaClient.js';
@@ -148,61 +149,81 @@ export async function createTemplateService(
     authentication: 'AUTHENTICATION',
   };
 
-  const metaTemplateId = await metaClient.submitTemplate({
-    name: data.name,
-    category: categoryMap[data.category] ?? 'UTILITY',
-    language: data.language,
-    components: [{ type: 'BODY', text: data.body }],
-  });
+  // M-2: submitTemplate antes da transação DB — se o INSERT falhar, compensamos deletando
+  // o template fantasma na Meta. Sem compensação, o operador teria de resolver manualmente.
+  let metaTemplateId: string | undefined;
 
-  // Persistir local em transação com auditoria + outbox
-  let insertedRow: Awaited<ReturnType<typeof insertTemplate>>;
-
-  await db.transaction(async (tx) => {
-    insertedRow = await insertTemplate(
-      tx as Parameters<typeof insertTemplate>[0],
-      actor.organizationId,
-      metaTemplateId,
-      data,
-    );
-
-    await auditLog(tx, {
-      actor: {
-        userId: actor.userId,
-        role: actor.role,
-        ip: actor.ip ?? null,
-        userAgent: actor.userAgent ?? null,
-      },
-      action: 'template.created',
-      resource: { type: 'whatsapp_template', id: insertedRow.id },
-      organizationId: actor.organizationId,
-      before: null,
-      after: {
-        name: data.name,
-        category: data.category,
-        language: data.language,
-        status: 'pending',
-        metaTemplateId,
-      },
-      correlationId: idempotencyKey,
+  try {
+    metaTemplateId = await metaClient.submitTemplate({
+      name: data.name,
+      category: categoryMap[data.category] ?? 'UTILITY',
+      language: data.language,
+      components: [{ type: 'BODY', text: data.body }],
     });
 
-    await emit(tx, {
-      eventName: 'templates.status_changed',
-      aggregateType: 'whatsapp_template',
-      aggregateId: insertedRow.id,
-      organizationId: actor.organizationId,
-      actor: { kind: 'user', id: actor.userId, ip: actor.ip ?? null },
-      idempotencyKey: `templates.status_changed:${insertedRow.id}:created`,
-      data: {
-        template_id: insertedRow.id,
-        previous_status: null,
-        new_status: 'pending',
-      },
-    });
-  });
+    // Persistir local em transação com auditoria + outbox
+    let insertedRow: Awaited<ReturnType<typeof insertTemplate>>;
 
-  return toResponse(insertedRow!);
+    await db.transaction(async (tx) => {
+      insertedRow = await insertTemplate(
+        tx as Parameters<typeof insertTemplate>[0],
+        actor.organizationId,
+        metaTemplateId!,
+        data,
+      );
+
+      await auditLog(tx, {
+        actor: {
+          userId: actor.userId,
+          role: actor.role,
+          ip: actor.ip ?? null,
+          userAgent: actor.userAgent ?? null,
+        },
+        action: 'template.created',
+        resource: { type: 'whatsapp_template', id: insertedRow.id },
+        organizationId: actor.organizationId,
+        before: null,
+        after: {
+          name: data.name,
+          category: data.category,
+          language: data.language,
+          status: 'pending',
+          metaTemplateId,
+        },
+        correlationId: idempotencyKey,
+      });
+
+      await emit(tx, {
+        eventName: 'templates.status_changed',
+        aggregateType: 'whatsapp_template',
+        aggregateId: insertedRow.id,
+        organizationId: actor.organizationId,
+        actor: { kind: 'user', id: actor.userId, ip: actor.ip ?? null },
+        idempotencyKey: `templates.status_changed:${insertedRow.id}:created`,
+        data: {
+          template_id: insertedRow.id,
+          previous_status: null,
+          new_status: 'pending',
+        },
+      });
+    });
+
+    return toResponse(insertedRow!);
+  } catch (e) {
+    // M-2 compensação: se o INSERT local falhou mas o submit já ocorreu,
+    // tentar deletar o template fantasma na Meta para evitar inconsistência.
+    // A deleção usa o nome do template (requisito Meta API).
+    if (metaTemplateId !== undefined) {
+      await metaClient.deleteTemplate(data.name).catch((deleteErr: unknown) => {
+        const errMsg = deleteErr instanceof Error ? deleteErr.message : String(deleteErr);
+        logger.error(
+          { metaTemplateId, templateName: data.name, err: { message: errMsg } },
+          'createTemplate: compensation_failed — template fantasma na Meta requer remoção manual',
+        );
+      });
+    }
+    throw e;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -236,6 +257,9 @@ export async function updateTemplateService(
     );
     if (!updatedRow) throw new NotFoundError(`Template ${id} não encontrado`);
 
+    // L-2: audit sem body completo — registra QUE campos mudaram, não o conteúdo.
+    // Template body pode conter texto de marketing longo; não há necessidade de
+    // armazenar o texto completo no audit log para rastreabilidade de mudanças.
     await auditLog(tx, {
       actor: {
         userId: actor.userId,
@@ -247,13 +271,15 @@ export async function updateTemplateService(
       resource: { type: 'whatsapp_template', id },
       organizationId: actor.organizationId,
       before: {
-        body: existing.body,
+        id,
+        body_changed: data.body !== undefined && data.body !== existing.body,
         variables: existing.variables,
         category: existing.category,
         language: existing.language,
       },
       after: {
-        body: data.body ?? existing.body,
+        id,
+        body_changed: data.body !== undefined && data.body !== existing.body,
         variables: data.variables ?? existing.variables,
         category: data.category ?? existing.category,
         language: data.language ?? existing.language,
@@ -306,7 +332,8 @@ export async function deleteTemplateService(
       aggregateId: id,
       organizationId: actor.organizationId,
       actor: { kind: 'user', id: actor.userId, ip: actor.ip ?? null },
-      idempotencyKey: `templates.status_changed:${id}:deleted:${Date.now()}`,
+      // M-3: key determinística — (template, ator, ação) → sem replay duplicado em outbox
+      idempotencyKey: `templates.status_changed:${id}:deleted:${actor.userId}`,
       data: {
         template_id: id,
         previous_status: existing.status,
@@ -437,7 +464,8 @@ export async function syncAllService(
                 aggregateId: tmpl.id,
                 organizationId: actor.organizationId,
                 actor: { kind: 'system', id: null, ip: null },
-                idempotencyKey: `templates.status_changed:${tmpl.id}:sync-all:${Date.now()}`,
+                // M-3: key determinística — (template, ator, ação) → sem replay duplicado em outbox
+                idempotencyKey: `templates.status_changed:${tmpl.id}:sync-all:${actor.userId}`,
                 data: {
                   template_id: tmpl.id,
                   previous_status: tmpl.status,
