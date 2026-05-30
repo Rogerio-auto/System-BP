@@ -3,12 +3,12 @@ id: F5-S08
 title: Frontend cobrança + importação payment_dues + marcação manual
 phase: F5
 task_ref: T5.8
-status: in-progress
+status: review
 priority: medium
 estimated_size: L
 agent_id: frontend-engineer
 claimed_at: 2026-05-30T00:40:31Z
-completed_at: null
+completed_at: 2026-05-30T01:06:08Z
 pr_url: null
 depends_on: [F5-S06, F5-S07, F1-S08, F1-S17, F8-S08]
 blocks: []
