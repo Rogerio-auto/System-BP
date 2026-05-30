@@ -27,6 +27,7 @@ import { creditAnalysesRoutes } from './modules/credit-analyses/index.js';
 import { creditProductsRoutes } from './modules/credit-products/routes.js';
 import { dashboardRoutes } from './modules/dashboard/routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
+import { followupRoutes } from './modules/followup/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
 import { importsRoutes } from './modules/imports/routes.js';
 import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/routes.js';
@@ -207,6 +208,8 @@ export async function buildApp() {
   await app.register(decisionsRoutes, { prefix: '/api/ai-console/decisions' });
   // Console de IA — playground dry-run (F9-S04) + DLP na entrada do operador
   await app.register(playgroundRoutes, { prefix: '/api/ai-console/playground' });
+  // Follow-up CRUD + jobs (F5-S05)
+  await app.register(followupRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.

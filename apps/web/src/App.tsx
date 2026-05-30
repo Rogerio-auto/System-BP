@@ -31,6 +31,7 @@ import { CreditAnalysesListPage, CreditAnalysisDetailPage } from './features/cre
 import { CrmDetailPage } from './features/crm/CrmDetailPage';
 import { CrmListPage } from './features/crm/CrmListPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
+import { FollowupJobsPage, FollowupRulesPage } from './features/followup';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
 import { AgentsPage } from './pages/admin/Agents';
 import { CitiesPage } from './pages/admin/Cities';
@@ -123,6 +124,9 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/admin/products/:id" element={<ProductDetailPage />} />
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/agents" element={<AgentsPage />} />
+        {/* F5-S05: Follow-up — réguas e jobs */}
+        <Route path="/admin/followup/rules" element={<FollowupRulesPage />} />
+        <Route path="/admin/followup/jobs" element={<FollowupJobsPage />} />
       </Route>
 
       {/* ── Catch-all ────────────────────────────────────────────────── */}

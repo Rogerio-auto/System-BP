@@ -116,6 +116,22 @@ function IconFeatureFlags(): React.JSX.Element {
   );
 }
 
+function IconFollowup(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <path d="M8 10h.01M12 10h.01M16 10h.01" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function IconAgenteIA(): React.JSX.Element {
   return (
     <svg
@@ -260,6 +276,28 @@ function AdminSection(): React.JSX.Element {
             description: 'Agentes de crédito, vínculos com cidades e perfis de acesso.',
             icon: <IconAgentes />,
             href: '/admin/agents',
+          },
+        ]
+      : []),
+    // Follow-up — Réguas: gated por followup:write (admin + gestor_geral)
+    ...(hasPermission('followup:write')
+      ? [
+          {
+            title: 'Follow-up — Réguas',
+            description: 'Configure quando e como contatar leads inativos automaticamente.',
+            icon: <IconFollowup />,
+            href: '/admin/followup/rules',
+          },
+        ]
+      : []),
+    // Follow-up — Jobs: gated por followup:read (admin + gestor_geral + gestor_regional)
+    ...(hasPermission('followup:read')
+      ? [
+          {
+            title: 'Follow-up — Jobs',
+            description: 'Monitore e gerencie envios de follow-up agendados.',
+            icon: <IconFollowup />,
+            href: '/admin/followup/jobs',
           },
         ]
       : []),
