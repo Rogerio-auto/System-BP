@@ -3,7 +3,7 @@
 //
 // Responsabilidades:
 //   - Extrair params/body/query do request Fastify.
-//   - Montar organizationId a partir de request.user.
+//   - Montar organizationId + cityScopeIds a partir de request.user.
 //   - Chamar service correto e enviar resposta tipada.
 //
 // request.user é garantido por authenticate() nos preHandlers de cada rota.
@@ -11,6 +11,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
+import { UnauthorizedError } from '../../shared/errors.js';
 import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
 import type { FollowupJobsListQuery, FollowupRuleCreate, FollowupRuleUpdate } from './schemas.js';
@@ -23,15 +24,23 @@ import {
 } from './service.js';
 
 // ---------------------------------------------------------------------------
-// Helper — organizationId do usuário autenticado
+// Helper — contexto do usuário autenticado
 // ---------------------------------------------------------------------------
 
-function getOrgId(request: FastifyRequest): string {
+interface UserContext {
+  organizationId: string;
+  cityScopeIds: string[] | null;
+}
+
+function getUserContext(request: FastifyRequest): UserContext {
   if (!request.user?.organizationId) {
     // Nunca deve ocorrer se authenticate() está no preHandler
-    throw new Error('organizationId ausente — authenticate() não executou');
+    throw new UnauthorizedError('Contexto de usuário ausente — authenticate() não executou');
   }
-  return request.user.organizationId;
+  return {
+    organizationId: request.user.organizationId,
+    cityScopeIds: request.user.cityScopeIds ?? null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -42,7 +51,7 @@ export async function listRulesController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const organizationId = getOrgId(request);
+  const { organizationId } = getUserContext(request);
   const result = await listRulesService(db, organizationId);
   await reply.status(200).send(result);
 }
@@ -55,7 +64,7 @@ export async function createRuleController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const organizationId = getOrgId(request);
+  const { organizationId } = getUserContext(request);
   const body = typedBody<FollowupRuleCreate>(request);
   const result = await createRuleService(db, organizationId, body);
   await reply.status(201).send(result);
@@ -69,7 +78,7 @@ export async function updateRuleController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const organizationId = getOrgId(request);
+  const { organizationId } = getUserContext(request);
   const { id } = typedParams<{ id: string }>(request);
   const body = typedBody<FollowupRuleUpdate>(request);
   const result = await updateRuleService(db, organizationId, id, body);
@@ -84,9 +93,9 @@ export async function listJobsController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const organizationId = getOrgId(request);
+  const { organizationId, cityScopeIds } = getUserContext(request);
   const query = typedQuery<FollowupJobsListQuery>(request);
-  const result = await listJobsService(db, organizationId, query);
+  const result = await listJobsService(db, organizationId, cityScopeIds, query);
   await reply.status(200).send(result);
 }
 
@@ -98,8 +107,8 @@ export async function cancelJobController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const organizationId = getOrgId(request);
+  const { organizationId, cityScopeIds } = getUserContext(request);
   const { id } = typedParams<{ id: string }>(request);
-  const result = await cancelJobService(db, organizationId, id);
+  const result = await cancelJobService(db, organizationId, cityScopeIds, id);
   await reply.status(200).send(result);
 }

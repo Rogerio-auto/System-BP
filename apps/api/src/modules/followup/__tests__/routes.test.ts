@@ -13,10 +13,12 @@
 //   6.  GET  /api/followup/jobs → 200 com filtro status
 //   7.  POST /api/followup/jobs/:id/cancel → 200 job cancelado
 //   8.  POST /api/followup/jobs/:id/cancel → 404 job não encontrado
-//   9.  Sem auth → 401
+//   9.  Sem auth → 401                                   [L-02]
 //   10. Sem followup:read → 403
 //   11. Sem followup:write → 403 no POST rules
 //   12. Sem followup:cancel_job → 403 no cancel
+//   13. wait_hours > 8760 → 400                          [L-03]
+//   14. max_attempts > 10 → 400                          [L-03]
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import Fastify from 'fastify';
@@ -42,6 +44,8 @@ vi.mock('pg', () => {
 // ---------------------------------------------------------------------------
 // Mock authenticate/authorize
 // ---------------------------------------------------------------------------
+// authenticate é no-op por padrão; buildTestAppNoAuth injeta preHandler que
+// lança UnauthorizedError antes de authenticate() ser chamado.
 vi.mock('../../auth/middlewares/authenticate.js', () => ({
   authenticate: () => async () => {
     // no-op: request.user injetado pelo addHook global no buildTestApp
@@ -52,8 +56,9 @@ vi.mock('../../auth/middlewares/authorize.js', () => ({
   authorize:
     (opts: { permissions: string[] }) =>
     async (request: { user?: { permissions: string[] } }, _reply: unknown) => {
-      const { ForbiddenError } = await import('../../../shared/errors.js');
-      if (!request.user) throw new ForbiddenError('Não autenticado');
+      const { ForbiddenError, UnauthorizedError } = await import('../../../shared/errors.js');
+      // L-02: sem request.user (authenticate não injetou) → 401
+      if (!request.user) throw new UnauthorizedError('Não autenticado');
       const missing = opts.permissions.filter((p) => !request.user!.permissions.includes(p));
       if (missing.length > 0) throw new ForbiddenError('Acesso negado: permissões insuficientes');
     },
@@ -98,12 +103,41 @@ async function buildTestApp(
   app.addHook('preHandler', async (request) => {
     // `as` justificado: mock para testes, tipagem correta de user
     (
-      request as unknown as { user: { id: string; organizationId: string; permissions: string[] } }
+      request as unknown as {
+        user: { id: string; organizationId: string; permissions: string[]; cityScopeIds: null };
+      }
     ).user = {
       id: 'user-1',
       organizationId: ORG_ID,
       permissions,
+      cityScopeIds: null, // admin global nos testes
     };
+  });
+
+  await app.register(followupRoutes);
+  await app.ready();
+  return app;
+}
+
+/**
+ * App sem injeção de request.user — authenticate() é no-op mas authorize()
+ * lança UnauthorizedError quando request.user está ausente.
+ * Usado para testar que requisições sem token retornam 401. [L-02]
+ */
+async function buildTestAppNoAuth(): Promise<FastifyInstance> {
+  const app = Fastify({ logger: false });
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+
+  // Sem addHook de preHandler — request.user nunca é definido.
+  // O mock de authorize() lança UnauthorizedError (401) quando request.user é undefined.
+  app.setErrorHandler(async (error, _request, reply) => {
+    const { AppError } = await import('../../../shared/errors.js');
+    if (error instanceof AppError) {
+      await reply.status(error.statusCode).send({ error: error.code, message: error.message });
+      return;
+    }
+    await reply.status(500).send({ error: 'INTERNAL_ERROR', message: 'Internal server error' });
   });
 
   await app.register(followupRoutes);
@@ -341,6 +375,7 @@ describe('GET /api/followup/jobs', () => {
     expect(mockListJobsService).toHaveBeenCalledWith(
       expect.anything(),
       ORG_ID,
+      null, // cityScopeIds — null = admin global nos testes
       expect.objectContaining({ status: 'scheduled' }),
     );
   });
@@ -433,5 +468,64 @@ describe('Autorização — sem permissões', () => {
       url: `/api/followup/jobs/${JOB_ID}/cancel`,
     });
     expect(res.statusCode).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Autenticação — sem request.user [L-02]
+// ---------------------------------------------------------------------------
+
+describe('Autenticação — sem token (401)', () => {
+  let appNoAuth: FastifyInstance;
+
+  beforeAll(async () => {
+    appNoAuth = await buildTestAppNoAuth();
+  });
+
+  afterAll(async () => {
+    await appNoAuth.close();
+  });
+
+  it('retorna 401 em GET /api/followup/rules sem request.user injetado', async () => {
+    const res = await appNoAuth.inject({ method: 'GET', url: '/api/followup/rules' });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Validação de limites superiores [L-03]
+// ---------------------------------------------------------------------------
+
+describe('POST /api/followup/rules — limites superiores', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('retorna 400 quando wait_hours > 8760 (acima de 1 ano)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/followup/rules',
+      payload: { ...CREATE_RULE_PAYLOAD, wait_hours: 8761 },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('retorna 400 quando max_attempts > 10', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/followup/rules',
+      payload: { ...CREATE_RULE_PAYLOAD, max_attempts: 11 },
+    });
+
+    expect(res.statusCode).toBe(400);
   });
 });

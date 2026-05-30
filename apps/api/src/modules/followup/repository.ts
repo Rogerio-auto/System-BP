@@ -11,7 +11,7 @@
 //   - Sem phone, cpf, email em qualquer query deste repositório.
 //   - lead_name: primeiro nome apenas (split em ' ')[0]) — redução de PII.
 // =============================================================================
-import { and, count, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import { followupJobs } from '../../db/schema/followupJobs.js';
@@ -29,6 +29,60 @@ import type {
   FollowupRuleResponse,
   FollowupRulesListResponse,
 } from './schemas.js';
+
+// ---------------------------------------------------------------------------
+// City scope helper (padrão: leads/repository.ts §buildCityScopeCondition)
+// ---------------------------------------------------------------------------
+
+/**
+ * Constrói condição SQL para filtrar leads por cidade permitida.
+ *
+ * - null     → acesso global (admin/gestor_geral) — sem filtro adicional.
+ * - []       → sem scope de cidade — retorna condição falsa (1=0).
+ * - string[] → WHERE leads.city_id IN (...).
+ */
+function buildCityScopeCondition(
+  cityScopeIds: string[] | null,
+): ReturnType<typeof inArray> | ReturnType<typeof sql> | null {
+  if (cityScopeIds === null) {
+    return null;
+  }
+
+  if (cityScopeIds.length === 0) {
+    // `as` justificado: sql<boolean> é compatível com SQL condition no Drizzle.
+    return sql`1 = 0` as ReturnType<typeof sql>;
+  }
+
+  return inArray(leads.cityId, cityScopeIds);
+}
+
+// ---------------------------------------------------------------------------
+// Template org validation (M-02)
+// ---------------------------------------------------------------------------
+
+/**
+ * Verifica se um template WhatsApp pertence à organização.
+ * Retorna true se existe, false caso contrário.
+ * Use NotFoundError (não ForbiddenError) para não confirmar existência cross-tenant.
+ */
+export async function checkTemplateInOrg(
+  db: Database,
+  organizationId: string,
+  templateId: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: whatsappTemplates.id })
+    .from(whatsappTemplates)
+    .where(
+      and(
+        eq(whatsappTemplates.id, templateId),
+        eq(whatsappTemplates.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+
+  return rows.length > 0;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -171,16 +225,26 @@ export async function updateFollowupRule(
  *
  * LGPD: apenas campos não-PII são retornados.
  * lead_name: primeiro nome apenas (split ' ')[0].
+ *
+ * M-01: cityScopeIds aplica filtro RBAC multi-cidade via leads.city_id.
+ * null = admin global; [] = sem acesso; string[] = cidades permitidas.
  */
 export async function listFollowupJobs(
   db: Database,
   organizationId: string,
+  cityScopeIds: string[] | null,
   query: FollowupJobsListQuery,
 ): Promise<FollowupJobsListResponse> {
   const offset = (query.page - 1) * query.limit;
 
   // Build conditions
   const conditions = [eq(followupJobs.organizationId, organizationId)];
+
+  // M-01: applyCityScope via leads JOIN
+  const cityScopeCondition = buildCityScopeCondition(cityScopeIds);
+  if (cityScopeCondition !== null) {
+    conditions.push(cityScopeCondition);
+  }
 
   if (query.status) {
     // `as` justificado: FollowupJobStatusSchema valida o valor antes.
@@ -205,8 +269,12 @@ export async function listFollowupJobs(
 
   const whereClause = and(...conditions);
 
-  // Count total
-  const countResult = await db.select({ total: count() }).from(followupJobs).where(whereClause);
+  // Count total — JOIN com leads quando cityScopeIds aplica filtro por cidade
+  const countResult = await db
+    .select({ total: count() })
+    .from(followupJobs)
+    .leftJoin(leads, eq(followupJobs.leadId, leads.id))
+    .where(whereClause);
 
   const total = countResult[0]?.total ?? 0;
 
@@ -273,13 +341,28 @@ export async function listFollowupJobs(
  * Lança NotFoundError se não encontrar ou se status não permitir cancelamento.
  *
  * Idempotente: job já cancelado retorna o mesmo job sem erro.
+ *
+ * M-01: cityScopeIds valida que o lead do job pertence à cidade permitida.
+ * null = admin global; [] = sem acesso; string[] = cidades permitidas.
  */
 export async function cancelFollowupJob(
   db: Database,
   organizationId: string,
+  cityScopeIds: string[] | null,
   jobId: string,
 ): Promise<FollowupJobResponse> {
-  // Fetch job primeiro para validação de escopo + status
+  // Fetch job primeiro para validação de escopo (org + cidade) + status
+  // JOIN com leads para aplicar cityScopeIds
+  const existingConditions = [
+    eq(followupJobs.id, jobId),
+    eq(followupJobs.organizationId, organizationId),
+  ];
+
+  const cityScopeCondition = buildCityScopeCondition(cityScopeIds);
+  if (cityScopeCondition !== null) {
+    existingConditions.push(cityScopeCondition);
+  }
+
   const existing = await db
     .select({
       id: followupJobs.id,
@@ -287,7 +370,8 @@ export async function cancelFollowupJob(
       organizationId: followupJobs.organizationId,
     })
     .from(followupJobs)
-    .where(and(eq(followupJobs.id, jobId), eq(followupJobs.organizationId, organizationId)))
+    .leftJoin(leads, eq(followupJobs.leadId, leads.id))
+    .where(and(...existingConditions))
     .limit(1);
 
   if (existing.length === 0) {

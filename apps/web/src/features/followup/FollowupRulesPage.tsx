@@ -193,10 +193,9 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
   };
 
   return (
-    /* Backdrop */
+    /* Backdrop — DS token: bg-[var(--text)]/60 (adapta light/dark, substituindo rgba hardcoded) */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(14, 20, 40, 0.6)', backdropFilter: 'blur(4px)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--text)]/60 backdrop-blur-[4px]"
       role="dialog"
       aria-modal="true"
       aria-label={isEditing ? 'Editar régua' : 'Nova régua'}
