@@ -34,6 +34,11 @@ import { UnauthorizedError, ValidationError } from '../../shared/errors.js';
 
 import { webhookPayloadSchema, webhookVerifyQuerySchema } from './schemas.js';
 import { processWebhook } from './service.js';
+import {
+  hasTemplateStatusUpdates,
+  processTemplateStatusUpdates,
+  TemplateStatusWebhookPayloadSchema,
+} from './webhookController.js';
 
 // Extensão de tipo para expor rawBody no request
 declare module 'fastify' {
@@ -186,6 +191,31 @@ export const whatsappRoutes: FastifyPluginAsyncZod = async (app) => {
       const ORG_ID_PLACEHOLDER = '00000000-0000-0000-0000-000000000001';
 
       const result = await processWebhook(ORG_ID_PLACEHOLDER, payload, correlationId);
+
+      // -----------------------------------------------------------------------
+      // Passo 4b: processar template_status_update se presente no payload
+      //
+      // O payload Meta pode conter tanto `messages` quanto `message_template_status_update`
+      // na mesma requisição (ou apenas um deles). Verificamos e despacho para o handler
+      // específico. A validação do schema template usa parsedBody (pre-HMAC parse) — seguro
+      // porque o HMAC já foi validado no Passo 2.
+      // -----------------------------------------------------------------------
+      if (hasTemplateStatusUpdates(parsedBody)) {
+        const templateParseResult = TemplateStatusWebhookPayloadSchema.safeParse(parsedBody);
+        if (templateParseResult.success) {
+          await processTemplateStatusUpdates(
+            templateParseResult.data,
+            ORG_ID_PLACEHOLDER,
+            correlationId,
+          );
+        } else {
+          // Schema falhou → log sem PII e continua (não bloqueia resposta 200)
+          request.log.warn(
+            { issues: templateParseResult.error.issues.map((i) => i.message) },
+            'whatsapp webhook: template_status_update parse failed — skipping',
+          );
+        }
+      }
 
       // -----------------------------------------------------------------------
       // Passo 5: responder 200 (Meta exige resposta rápida < 2s)

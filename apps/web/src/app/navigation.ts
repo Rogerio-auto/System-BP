@@ -65,3 +65,19 @@ export const APP_NAV: NavSection[] = [
 export const FOOTER_NAV: NavItem[] = [
   { href: '/configuracoes', label: 'Configurações', iconKey: 'configuracoes' },
 ];
+
+/**
+ * Item de navegação para Templates WhatsApp (F5-S09).
+ * Adicionado como item de configuração (tab no Hub de Configurações).
+ * Visível para usuários com templates:read.
+ * Referenciado pela ConfiguracoesPage para inclusão no grupo "Gestão".
+ *
+ * NOTA: F5-S05 também adiciona itens a navigation.ts.
+ * Adicionar apenas este item, sem reorganizar a estrutura existente.
+ */
+export const TEMPLATES_NAV_ITEM: NavItem = {
+  href: '/admin/templates',
+  label: 'Templates WhatsApp',
+  iconKey: 'templates',
+  permission: 'templates:read',
+};

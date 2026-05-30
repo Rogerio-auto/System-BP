@@ -274,6 +274,13 @@
       "when": 1748736000000,
       "tag": "0042_seed_followup_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1748736001000,
+      "tag": "0043_seed_template_permissions",
+      "breakpoints": true
     }
   ]
 }
