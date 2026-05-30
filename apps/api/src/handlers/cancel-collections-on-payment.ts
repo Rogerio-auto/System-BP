@@ -30,7 +30,7 @@
 //   - Conteúdo de pagamento NUNCA logado.
 //   - Outbox payloads sem PII bruta.
 // =============================================================================
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import pino from 'pino';
 
 import { env } from '../config/env.js';
@@ -149,7 +149,10 @@ export async function cancelCollectionJobsOnPayment(
       return;
     }
 
-    // UPDATE batch: todos os jobs locked → paid_before_send
+    // UPDATE batch: apenas os jobs travados pelo SELECT FOR UPDATE SKIP LOCKED.
+    // M1 fix: filtrar por ID exato para não pegar jobs que outra instância saltou via
+    // SKIP LOCKED — sem inArray o UPDATE poderia afetar jobs sem emit/auditLog correspondente.
+    const jobIds = scheduledJobs.map((j) => j.id);
     await txDb
       .update(collectionJobs)
       .set({
@@ -159,7 +162,7 @@ export async function cancelCollectionJobsOnPayment(
       })
       .where(
         and(
-          eq(collectionJobs.paymentDueId, paymentDueId),
+          inArray(collectionJobs.id, jobIds),
           eq(collectionJobs.organizationId, organizationId),
           eq(collectionJobs.status, 'scheduled'),
         ),

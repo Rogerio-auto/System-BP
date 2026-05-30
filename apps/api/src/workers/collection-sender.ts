@@ -404,19 +404,20 @@ export async function processCollectionJob(
   // 2. Skip se parcela já foi paga (paid_before_send)
   // -------------------------------------------------------------------------
   if (ctx.due.status === 'paid') {
-    await database
-      .update(collectionJobs)
-      .set({
-        status: 'paid_before_send',
-        lastError: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(collectionJobs.id, job.id));
-
-    // Emitir billing.collection_cancelled com razão 'paid_before_send
+    // L1 fix: UPDATE dentro da mesma tx que emit + auditLog — se a tx falhar, o status
+    // não fica em paid_before_send sem o evento correspondente no outbox.
     await database.transaction(async (tx) => {
       const txForEmit = tx as unknown as DrizzleTx;
       const txForAudit = tx as unknown as AuditTx;
+
+      await tx
+        .update(collectionJobs)
+        .set({
+          status: 'paid_before_send',
+          lastError: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(collectionJobs.id, job.id));
 
       const cancelledData: CollectionCancelledData = {
         collection_job_id: job.id,
@@ -892,6 +893,7 @@ export async function runCollectionSenderTick(
   // -------------------------------------------------------------------------
   // Buscar lote de jobs agendados prontos para envio
   // -------------------------------------------------------------------------
+  // MULTI-TENANT: worker processa todos os orgs intencionalmente — organization_id preservado em cada job
   const now = new Date();
   const batch = await database
     .select()

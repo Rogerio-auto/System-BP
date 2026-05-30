@@ -7,6 +7,7 @@
 //   3. Parcela com 2 jobs scheduled → cancela ambos
 //   4. Re-execução (já cancelados) → no-op (idempotência)
 // =============================================================================
+import { inArray as inArrayMock } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -237,5 +238,39 @@ describe('cancelCollectionJobsOnPayment()', () => {
 
     expect(result.jobsCancelled).toBe(0);
     expect(mockEmit).not.toHaveBeenCalled();
+  });
+
+  // M1 fix: UPDATE usa inArray com IDs exatos do SELECT, não WHERE status='scheduled' amplo.
+  // Cenário: SELECT retorna 2 jobs (os únicos travados via SKIP LOCKED), mas existe um 3º
+  // job 'scheduled' no banco que outra instância saltou. O UPDATE deve cobrir somente os 2.
+  it('M1: UPDATE filtra pelos IDs exatos do SELECT — não pelo status amplo', async () => {
+    const JOB_ID_3 = 'job-uuid-3'; // 3º job scheduled que o SELECT não retornou (SKIP LOCKED)
+    const db = makeDb([
+      { id: JOB_ID_1, ruleId: RULE_ID },
+      { id: JOB_ID_2, ruleId: RULE_ID },
+    ]);
+
+    const result = await cancelCollectionJobsOnPayment(db as never, {
+      paymentDueId: DUE_ID,
+      organizationId: ORG_ID,
+    });
+
+    // Apenas os 2 do SELECT devem ser cancelados
+    expect(result.jobsCancelled).toBe(2);
+
+    // inArray deve ter sido chamado com exatamente os 2 IDs do SELECT
+    expect(inArrayMock).toHaveBeenCalledWith(
+      expect.anything(), // collectionJobs.id column
+      [JOB_ID_1, JOB_ID_2],
+    );
+
+    // JOB_ID_3 (não retornado pelo SELECT) NÃO deve aparecer no inArray call
+    const inArrayCall = (inArrayMock as ReturnType<typeof vi.fn>).mock.calls[0];
+    const passedIds = inArrayCall?.[1] as string[];
+    expect(passedIds).not.toContain(JOB_ID_3);
+
+    // emit/auditLog chamados apenas para os 2 jobs
+    expect(mockEmit).toHaveBeenCalledTimes(2);
+    expect(mockAuditLog).toHaveBeenCalledTimes(2);
   });
 });
