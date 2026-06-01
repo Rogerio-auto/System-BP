@@ -3,7 +3,7 @@ id: F0-S20
 title: Fix CI — db:migrate exige .env físico que CI não tem (6ª camada)
 phase: F0
 task_ref: F0.20
-status: in-progress
+status: review
 priority: critical
 estimated_size: XS
 agent_id: backend-engineer
@@ -13,6 +13,7 @@ labels: [ci, infra, migrations]
 source_docs:
   - apps/api/package.json
 claimed_at: 2026-06-01T17:12:40Z
+completed_at: 2026-06-01T17:14:50Z
 ---
 
 # F0-S20 — `db:migrate` exige `.env` físico que o CI não tem
