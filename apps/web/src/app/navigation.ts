@@ -66,34 +66,8 @@ export const FOOTER_NAV: NavItem[] = [
   { href: '/configuracoes', label: 'Configurações', iconKey: 'configuracoes' },
 ];
 
-/**
- * Item de navegação para Templates WhatsApp (F5-S09).
- * Adicionado como item de configuração (tab no Hub de Configurações).
- * Visível para usuários com templates:read.
- * Referenciado pela ConfiguracoesPage para inclusão no grupo "Gestão".
- *
- * NOTA: F5-S05 também adiciona itens a navigation.ts.
- * Adicionar apenas este item, sem reorganizar a estrutura existente.
- */
-export const TEMPLATES_NAV_ITEM: NavItem = {
-  href: '/admin/templates',
-  label: 'Templates WhatsApp',
-  iconKey: 'templates',
-  permission: 'templates:read',
-};
-
-/**
- * Item de navegação para o módulo de cobrança (F5-S08).
- * Adicionado como seção "Cobrança" na sidebar.
- * Visível para usuários com billing:read.
- * Feature flag: billing.enabled.
- *
- * NOTA: F5-S08 adiciona este item. Não reorganizar os itens acima.
- */
-export const BILLING_NAV_ITEM: NavItem = {
-  href: '/admin/billing/dues',
-  label: 'Cobrança',
-  iconKey: 'billing',
-  permission: 'billing:read',
-  featureFlag: 'billing.enabled',
-};
+// Nota F8-S18: TEMPLATES_NAV_ITEM e BILLING_NAV_ITEM foram removidos.
+// Ambos eram dead code — nunca plugados em APP_NAV.
+// O gating de cobrança e templates é feito diretamente em ConfiguracoesPage.tsx
+// (grupo Gestão do AdminSection), com permissão + flag conforme billing/routes.ts
+// e templates/routes.ts.
