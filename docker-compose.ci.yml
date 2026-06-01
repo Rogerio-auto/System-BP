@@ -86,10 +86,10 @@ services:
       context: ./apps/langgraph-service
       dockerfile: Dockerfile
     environment:
-      ENVIRONMENT: test
+      NODE_ENV: test
       LOG_LEVEL: ERROR
-      API_BASE_URL: http://api:3333
-      INTERNAL_TOKEN: ci-internal-token-for-e2e-tests-only-32chars
+      BACKEND_INTERNAL_URL: http://api:3333
+      LANGGRAPH_INTERNAL_TOKEN: ci-internal-token-for-e2e-tests-only-32chars
       # E2E_MOCK_MODE: quando "true", o serviço responde com respostas sintéticas
       # sem chamar o LLM externo — elimina flakiness e custo em CI.
       E2E_MOCK_MODE: 'true'
