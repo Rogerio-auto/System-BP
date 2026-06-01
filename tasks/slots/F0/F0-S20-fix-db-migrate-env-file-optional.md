@@ -3,7 +3,7 @@ id: F0-S20
 title: Fix CI — db:migrate exige .env físico que CI não tem (6ª camada)
 phase: F0
 task_ref: F0.20
-status: review
+status: done
 priority: critical
 estimated_size: XS
 agent_id: backend-engineer
@@ -14,6 +14,7 @@ source_docs:
   - apps/api/package.json
 claimed_at: 2026-06-01T17:12:40Z
 completed_at: 2026-06-01T17:14:50Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/175
 ---
 
 # F0-S20 — `db:migrate` exige `.env` físico que o CI não tem
