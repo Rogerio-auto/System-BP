@@ -279,6 +279,10 @@ importers:
         version: 15.9.0
 
   packages/shared-schemas:
+    dependencies:
+      zod:
+        specifier: 3.23.8
+        version: 3.23.8
     devDependencies:
       '@elemento/eslint-config':
         specifier: workspace:*
@@ -295,9 +299,6 @@ importers:
       typescript:
         specifier: 5.6.2
         version: 5.6.2
-      zod:
-        specifier: 3.23.8
-        version: 3.23.8
 
   packages/shared-types:
     devDependencies:
