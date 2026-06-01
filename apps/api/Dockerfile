@@ -18,7 +18,16 @@ RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
 COPY --from=deps /repo/apps/api/node_modules ./apps/api/node_modules
+# shared-schemas has zod as a direct dep → pnpm installs it in its own
+# node_modules. Without this COPY, tsc cannot resolve `import { z } from 'zod'`
+# inside packages/shared-schemas/src/*.ts when building @elemento/api, because
+# module resolution walks up from the file's directory — not from apps/api.
+COPY --from=deps /repo/packages/shared-schemas/node_modules ./packages/shared-schemas/node_modules
 COPY . .
+# Build shared-schemas first so dist/ exists before api tsc runs.
+# turbo dependsOn ["^build"] handles ordering in monorepo, but Docker does not
+# run turbo here — we invoke pnpm --filter directly and must respect the order.
+RUN pnpm --filter @elemento/shared-schemas build
 RUN pnpm --filter @elemento/api build
 RUN pnpm --filter @elemento/api deploy --prod /out
 

@@ -11,8 +11,8 @@
 // =============================================================================
 import { pgTable, uuid, boolean, primaryKey, foreignKey, index } from 'drizzle-orm/pg-core';
 
-import { cities } from './cities';
-import { users } from './users';
+import { cities } from './cities.js';
+import { users } from './users.js';
 
 export const userCityScopes = pgTable(
   'user_city_scopes',

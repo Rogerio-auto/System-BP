@@ -14,9 +14,9 @@ export * from './user_city_scopes.js';
 export * from './user_sessions.js';
 
 // Geografia e times (F1-S05)
-export * from './cities';
-export * from './agents';
-export * from './agent_cities';
+export * from './cities.js';
+export * from './agents.js';
+export * from './agent_cities.js';
 
 // Outbox pattern (F1-S15)
 export * from './events.js';
