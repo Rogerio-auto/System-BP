@@ -3,7 +3,7 @@ id: F0-S18
 title: Fix CI — langgraph Dockerfile não encontra uvicorn em runtime (4ª camada do destrava-CI)
 phase: F0
 task_ref: F0.18
-status: available
+status: review
 priority: critical
 estimated_size: S
 agent_id: python-engineer
@@ -12,6 +12,8 @@ blocks: []
 labels: [ci, infra, dockerfile, langgraph]
 source_docs:
   - apps/langgraph-service/Dockerfile
+claimed_at: 2026-06-01T10:39:45Z
+completed_at: 2026-06-01T10:41:21Z
 ---
 
 # F0-S18 — Fix Dockerfile do langgraph: `uvicorn` não encontrado em $PATH

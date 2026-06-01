@@ -22,4 +22,6 @@ COPY --from=builder /deps /usr/local/lib/python3.12/site-packages
 COPY --chown=app:app app ./app
 USER app
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Opção (1): python -m uvicorn importa o módulo via PYTHONPATH — não depende
+# do bin script em /deps/bin que pip install --target coloca fora do $PATH.
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
