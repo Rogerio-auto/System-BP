@@ -3,7 +3,7 @@ id: F0-S17
 title: Fix CI — shared-schemas typecheck (zod resolution + any implícito) + flaky rate-limit test
 phase: F0
 task_ref: F0.17
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: backend-engineer
@@ -14,6 +14,7 @@ source_docs:
   - apps/api/Dockerfile
   - packages/shared-schemas/package.json
   - packages/shared-schemas/tsconfig.json
+claimed_at: 2026-06-01T02:18:13Z
 ---
 
 # F0-S17 — Fix CI quebrado: shared-schemas typecheck + flaky rate-limit test
