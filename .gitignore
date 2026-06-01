@@ -54,3 +54,4 @@ tmp/
 
 # Material local de referência (export n8n — contém secrets, não versionar)
 docs/mvp-atual-ia-agente/
+.claude/scheduled_tasks.lock
