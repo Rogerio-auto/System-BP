@@ -2,7 +2,27 @@
 // Validação de variáveis de ambiente. Falhar cedo se algo estiver faltando.
 // Toda nova env var DEVE ser adicionada aqui — nada de process.env espalhado.
 // =============================================================================
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { z } from 'zod';
+
+// ---------------------------------------------------------------------------
+// Carrega .env antes do parse — funciona em dev local e em scripts CLI.
+// process.loadEnvFile() existe desde Node 20.6.0 (disponível no 20.11+).
+// Em ESM, imports são hoisted mas nenhum deles (node:fs/path/url, zod) acessa
+// process.env — logo este bloco executa antes do safeParse abaixo.
+// Variáveis já presentes no processo (CI secrets, docker) têm precedência —
+// o Node não sobrescreve vars existentes por padrão.
+// Necessário porque --env-file-if-exists só existe no Node 21.7+.
+// ---------------------------------------------------------------------------
+const _envDir = fileURLToPath(new URL('../../../..', import.meta.url));
+const _envPath = resolve(_envDir, '.env');
+
+if (existsSync(_envPath) && typeof process.loadEnvFile === 'function') {
+  process.loadEnvFile(_envPath);
+}
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

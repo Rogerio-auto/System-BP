@@ -5,7 +5,7 @@ Testes ponta a ponta que sobem a stack completa e validam o caminho crítico.
 ## Pré-requisitos
 
 - Docker + Docker Compose v2
-- Node 20.11.0 + pnpm 9
+- Node 20.18.3 + pnpm 9
 - Porta `5433` livre (Postgres CI), porta `3333` (API), porta `8000` (LangGraph)
 
 ## Como rodar localmente
