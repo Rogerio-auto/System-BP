@@ -26,6 +26,7 @@
 -- =============================================================================
 
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS notion_page_id text NULL;
+--> statement-breakpoint
 
 -- CONCURRENTLY não pode rodar dentro de uma transação explícita.
 -- O Drizzle runner executa cada statement separadamente por default.

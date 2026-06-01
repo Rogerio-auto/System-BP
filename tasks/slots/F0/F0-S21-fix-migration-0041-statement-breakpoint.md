@@ -3,7 +3,7 @@ id: F0-S21
 title: Fix CI — migration 0041 sem `--> statement-breakpoint` (7ª e última camada)
 phase: F0
 task_ref: F0.21
-status: available
+status: review
 priority: critical
 estimated_size: XS
 agent_id: db-schema-engineer
@@ -13,6 +13,8 @@ labels: [ci, infra, migrations, db-schema]
 source_docs:
   - apps/api/src/db/migrate.ts
   - apps/api/src/db/migrations/0041_leads_notion_page_id.sql
+claimed_at: 2026-06-01T20:28:34Z
+completed_at: 2026-06-01T20:30:19Z
 ---
 
 # F0-S21 — Migration `0041_leads_notion_page_id` sem statement-breakpoint
