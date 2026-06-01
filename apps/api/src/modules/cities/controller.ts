@@ -15,7 +15,13 @@ import { db } from '../../db/client.js';
 import { ForbiddenError } from '../../shared/errors.js';
 import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
-import type { CityCreate, CityIdParam, CityListQuery, CityUpdate } from './schemas.js';
+import type {
+  CityCreate,
+  CityIdParam,
+  CityListQuery,
+  CityResponse,
+  CityUpdate,
+} from './schemas.js';
 import type { ActorContext } from './service.js';
 import {
   createCity,
@@ -146,7 +152,7 @@ export async function listCitiesPublicController(
     },
   );
   return reply.status(200).send({
-    cities: result.data.map((c) => ({
+    cities: result.data.map((c: CityResponse) => ({
       id: c.id,
       name: c.name,
       state_uf: c.state_uf,

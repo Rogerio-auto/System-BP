@@ -656,14 +656,19 @@ describe('Rate-limit em /api/auth/login', () => {
   });
 
   it('retorna 429 após 5 tentativas de login por IP', async () => {
-    // Fazer 5 tentativas que falham (401) — dentro do limite
-    for (let i = 0; i < 5; i++) {
-      await app.inject({
-        method: 'POST',
-        url: '/api/auth/login',
-        payload: { email: `user${i}@test.com`, password: 'wrong' },
-      });
-    }
+    // Disparar 5 tentativas em paralelo (rate-limit conta por IP, ordem irrelevante).
+    // Promise.all garante que todas as 5 requisições são lançadas antes de qualquer
+    // uma terminar — elimina a janela de tempo em que o contador poderia expirar
+    // entre iterações sequenciais num ambiente CI lento.
+    await Promise.all(
+      Array.from({ length: 5 }, (_, i) =>
+        app.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          payload: { email: `user${i}@test.com`, password: 'wrong' },
+        }),
+      ),
+    );
 
     // A 6ª tentativa deve retornar 429
     const res = await app.inject({
@@ -673,5 +678,5 @@ describe('Rate-limit em /api/auth/login', () => {
     });
 
     expect(res.statusCode).toBe(429);
-  });
+  }, 15000);
 });
