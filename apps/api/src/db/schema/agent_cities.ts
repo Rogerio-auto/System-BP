@@ -18,8 +18,8 @@
 // =============================================================================
 import { pgTable, uuid, boolean, primaryKey, foreignKey, index } from 'drizzle-orm/pg-core';
 
-import { agents } from './agents';
-import { cities } from './cities';
+import { agents } from './agents.js';
+import { cities } from './cities.js';
 
 export const agentCities = pgTable(
   'agent_cities',

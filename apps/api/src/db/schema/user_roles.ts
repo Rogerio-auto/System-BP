@@ -6,8 +6,8 @@
 // =============================================================================
 import { pgTable, uuid, primaryKey, foreignKey, index } from 'drizzle-orm/pg-core';
 
-import { roles } from './roles';
-import { users } from './users';
+import { roles } from './roles.js';
+import { users } from './users.js';
 
 export const userRoles = pgTable(
   'user_roles',
