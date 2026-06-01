@@ -3,7 +3,7 @@ id: F0-S19
 title: Fix CI — alinhar env vars do langgraph no docker-compose.ci.yml (5ª camada)
 phase: F0
 task_ref: F0.19
-status: review
+status: done
 priority: critical
 estimated_size: XS
 agent_id: backend-engineer
@@ -16,6 +16,7 @@ source_docs:
   - .env.example
 claimed_at: 2026-06-01T10:53:07Z
 completed_at: 2026-06-01T10:54:42Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/174
 ---
 
 # F0-S19 — Alinhar env vars do langgraph no `docker-compose.ci.yml`
