@@ -58,6 +58,7 @@ beforeEach(async () => {
     .insert(leads)
     .values({
       organizationId: E2E_ORG_ID,
+      name: 'E2E Test Lead (handoff)',
       source: 'whatsapp',
       status: 'new',
       // phone_e164 e phone_normalized necessários — usar valores sintéticos

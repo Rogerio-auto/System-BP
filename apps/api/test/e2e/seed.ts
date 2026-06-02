@@ -201,7 +201,7 @@ export async function cleanE2eData(): Promise<void> {
   `);
 
   await db.execute(sql`
-    DELETE FROM outbox_events
+    DELETE FROM event_outbox
     WHERE organization_id = ${E2E_ORG_ID}
       AND created_at > NOW() - INTERVAL '1 hour';
   `);
