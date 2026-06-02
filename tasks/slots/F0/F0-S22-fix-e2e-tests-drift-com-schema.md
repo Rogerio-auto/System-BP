@@ -3,7 +3,7 @@ id: F0-S22
 title: Fix CI — testes E2E desatualizados em relação ao schema (8ª camada)
 phase: F0
 task_ref: F0.22
-status: available
+status: review
 priority: critical
 estimated_size: XS
 agent_id: qa-tester
@@ -13,6 +13,8 @@ labels: [ci, e2e, tests, schema-drift]
 source_docs:
   - apps/api/src/db/schema/leads.ts
   - apps/api/src/db/schema/events.ts
+claimed_at: 2026-06-02T14:23:07Z
+completed_at: 2026-06-02T14:32:30Z
 ---
 
 # F0-S22 — Testes E2E desatualizados em relação ao schema
