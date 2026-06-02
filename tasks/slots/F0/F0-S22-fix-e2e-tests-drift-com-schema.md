@@ -3,7 +3,7 @@ id: F0-S22
 title: Fix CI — testes E2E desatualizados em relação ao schema (8ª camada)
 phase: F0
 task_ref: F0.22
-status: review
+status: done
 priority: critical
 estimated_size: XS
 agent_id: qa-tester
@@ -15,6 +15,7 @@ source_docs:
   - apps/api/src/db/schema/events.ts
 claimed_at: 2026-06-02T14:23:07Z
 completed_at: 2026-06-02T14:32:30Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/177
 ---
 
 # F0-S22 — Testes E2E desatualizados em relação ao schema
