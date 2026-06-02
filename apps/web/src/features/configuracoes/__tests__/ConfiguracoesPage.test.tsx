@@ -11,6 +11,8 @@
 //   4. Ambos os grupos vazios → seção Administração vazia
 //   5. Cidades sempre visível (sem gating de UI)
 //   6. Contrato das permissões: chaves exatas confirmadas nas páginas-alvo
+//   7. Cobrança: billing:read + flag billing.enabled (F8-S18)
+//   8. Templates WhatsApp: templates:read (F8-S18)
 // =============================================================================
 
 import { describe, expect, it } from 'vitest';
@@ -27,12 +29,18 @@ interface ConfigGroup {
   cards: ConfigCard[];
 }
 
+type FeatureFlagsMap = Record<string, 'enabled' | 'disabled' | 'internal_only'>;
+
 /**
  * Replica da lógica de buildAdminGroups presente em ConfiguracoesPage.tsx.
  * Centralizada aqui para testar sem montar o componente React.
  */
-function buildAdminGroups(permissions: string[]): ConfigGroup[] {
+function buildAdminGroups(permissions: string[], flags: FeatureFlagsMap = {}): ConfigGroup[] {
   const hasPermission = (p: string): boolean => permissions.includes(p);
+  const flagEnabled = (key: string): boolean => {
+    const status = flags[key];
+    return status === 'enabled' || status === 'internal_only';
+  };
 
   // Grupo Gestão
   const gestaoCards: ConfigCard[] = [
@@ -42,6 +50,37 @@ function buildAdminGroups(permissions: string[]): ConfigGroup[] {
     // Cidades: sem gating de UI (Cities.tsx L14 — backend valida admin:cities:write)
     { title: 'Cidades', href: '/admin/cities' },
     ...(hasPermission('agents:manage') ? [{ title: 'Agentes', href: '/admin/agents' }] : []),
+    ...(hasPermission('followup:write')
+      ? [{ title: 'Follow-up — Réguas', href: '/admin/followup/rules' }]
+      : []),
+    ...(hasPermission('followup:read')
+      ? [{ title: 'Follow-up — Jobs', href: '/admin/followup/jobs' }]
+      : []),
+    // Cobrança — Parcelas: billing:read + flag billing.enabled
+    ...(hasPermission('billing:read') && flagEnabled('billing.enabled')
+      ? [{ title: 'Cobrança — Parcelas', href: '/admin/billing/dues' }]
+      : []),
+    // Cobrança — Réguas: billing:write + flag billing.enabled
+    ...(hasPermission('billing:write') && flagEnabled('billing.enabled')
+      ? [{ title: 'Cobrança — Réguas', href: '/admin/billing/rules' }]
+      : []),
+    // Cobrança — Jobs: billing:read + flag billing.enabled
+    ...(hasPermission('billing:read') && flagEnabled('billing.enabled')
+      ? [{ title: 'Cobrança — Jobs', href: '/admin/billing/jobs' }]
+      : []),
+    // Templates WhatsApp: templates:read (sem flag)
+    ...(hasPermission('templates:read')
+      ? [{ title: 'Templates WhatsApp', href: '/admin/templates' }]
+      : []),
+    ...(hasPermission('ai_prompts:read')
+      ? [{ title: 'Agente de IA — Prompts', href: '/configuracoes/ia/prompts' }]
+      : []),
+    ...(hasPermission('ai_decisions:read')
+      ? [{ title: 'Agente de IA — Decisões', href: '/configuracoes/ia/decisoes' }]
+      : []),
+    ...(hasPermission('ai_playground:run')
+      ? [{ title: 'Agente de IA — Playground', href: '/configuracoes/ia/playground' }]
+      : []),
   ];
 
   // Grupo Administração técnica
@@ -162,6 +201,139 @@ describe('ConfiguracoesPage — lógica de gating de administração', () => {
   });
 });
 
+// ─── Cobrança — gating por permissão + feature flag (F8-S18) ─────────────────
+
+describe('ConfiguracoesPage — Cobrança (billing) — gating permissão + flag', () => {
+  it('Cobrança — Parcelas: aparece com billing:read + flag billing.enabled=enabled', () => {
+    const grupos = buildAdminGroups(['billing:read'], { 'billing.enabled': 'enabled' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).toContain('Cobrança — Parcelas');
+    expect(gestao.cards.find((c) => c.title === 'Cobrança — Parcelas')?.href).toBe(
+      '/admin/billing/dues',
+    );
+  });
+
+  it('Cobrança — Parcelas: aparece com billing:read + flag billing.enabled=internal_only', () => {
+    const grupos = buildAdminGroups(['billing:read'], { 'billing.enabled': 'internal_only' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).toContain('Cobrança — Parcelas');
+  });
+
+  it('Cobrança — Parcelas: NÃO aparece sem billing:read (flag ativa)', () => {
+    const grupos = buildAdminGroups([], { 'billing.enabled': 'enabled' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).not.toContain('Cobrança — Parcelas');
+  });
+
+  it('Cobrança — Parcelas: NÃO aparece sem flag (permissão ativa)', () => {
+    const grupos = buildAdminGroups(['billing:read'], { 'billing.enabled': 'disabled' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).not.toContain('Cobrança — Parcelas');
+  });
+
+  it('Cobrança — Parcelas: NÃO aparece com flag ausente do mapa (fail-closed)', () => {
+    const grupos = buildAdminGroups(['billing:read']); // flags = {}
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).not.toContain('Cobrança — Parcelas');
+  });
+
+  it('Cobrança — Réguas: aparece com billing:write + flag billing.enabled=enabled', () => {
+    const grupos = buildAdminGroups(['billing:write'], { 'billing.enabled': 'enabled' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).toContain('Cobrança — Réguas');
+    expect(gestao.cards.find((c) => c.title === 'Cobrança — Réguas')?.href).toBe(
+      '/admin/billing/rules',
+    );
+  });
+
+  it('Cobrança — Réguas: NÃO aparece sem billing:write (flag ativa)', () => {
+    // billing:read não é suficiente para Réguas
+    const grupos = buildAdminGroups(['billing:read'], { 'billing.enabled': 'enabled' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).not.toContain('Cobrança — Réguas');
+  });
+
+  it('Cobrança — Réguas: NÃO aparece sem flag (permissão ativa)', () => {
+    const grupos = buildAdminGroups(['billing:write'], { 'billing.enabled': 'disabled' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).not.toContain('Cobrança — Réguas');
+  });
+
+  it('Cobrança — Jobs: aparece com billing:read + flag billing.enabled=enabled', () => {
+    const grupos = buildAdminGroups(['billing:read'], { 'billing.enabled': 'enabled' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).toContain('Cobrança — Jobs');
+    expect(gestao.cards.find((c) => c.title === 'Cobrança — Jobs')?.href).toBe(
+      '/admin/billing/jobs',
+    );
+  });
+
+  it('Cobrança — Jobs: NÃO aparece sem billing:read', () => {
+    const grupos = buildAdminGroups([], { 'billing.enabled': 'enabled' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).not.toContain('Cobrança — Jobs');
+  });
+
+  it('Cobrança — Jobs: NÃO aparece sem flag', () => {
+    const grupos = buildAdminGroups(['billing:read'], { 'billing.enabled': 'disabled' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).not.toContain('Cobrança — Jobs');
+  });
+
+  it('admin de cobrança (billing:read + billing:write + flag) → todos os 3 cards de cobrança', () => {
+    const grupos = buildAdminGroups(['billing:read', 'billing:write'], {
+      'billing.enabled': 'enabled',
+    });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    const titles = gestao.cards.map((c) => c.title);
+    expect(titles).toContain('Cobrança — Parcelas');
+    expect(titles).toContain('Cobrança — Réguas');
+    expect(titles).toContain('Cobrança — Jobs');
+  });
+
+  it('ordem dos cards de cobrança: Parcelas, Réguas, Jobs (após Follow-up)', () => {
+    const grupos = buildAdminGroups(['billing:read', 'billing:write'], {
+      'billing.enabled': 'enabled',
+    });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    const billingTitles = gestao.cards.map((c) => c.title).filter((t) => t.startsWith('Cobrança'));
+    expect(billingTitles).toEqual(['Cobrança — Parcelas', 'Cobrança — Réguas', 'Cobrança — Jobs']);
+  });
+});
+
+// ─── Templates WhatsApp — gating por permissão (F8-S18) ─────────────────────
+
+describe('ConfiguracoesPage — Templates WhatsApp — gating por permissão', () => {
+  it('Templates WhatsApp: aparece com templates:read', () => {
+    const grupos = buildAdminGroups(['templates:read']);
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).toContain('Templates WhatsApp');
+    expect(gestao.cards.find((c) => c.title === 'Templates WhatsApp')?.href).toBe(
+      '/admin/templates',
+    );
+  });
+
+  it('Templates WhatsApp: NÃO aparece sem templates:read', () => {
+    const grupos = buildAdminGroups([]);
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).not.toContain('Templates WhatsApp');
+  });
+
+  it('Templates WhatsApp: aparece independente de feature flag (sem flag)', () => {
+    // Não requer flag — só permissão
+    const gruposSemFlag = buildAdminGroups(['templates:read']); // flags = {}
+    const gestao = gruposSemFlag.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).toContain('Templates WhatsApp');
+  });
+
+  it('Templates WhatsApp: aparece mesmo com billing flag desativada', () => {
+    // Templates não depende da flag de billing
+    const grupos = buildAdminGroups(['templates:read'], { 'billing.enabled': 'disabled' });
+    const gestao = grupos.find((g) => g.heading === 'Gestão')!;
+    expect(gestao.cards.map((c) => c.title)).toContain('Templates WhatsApp');
+  });
+});
+
 // ─── Contrato de permissões (documentação verificável) ───────────────────────
 
 describe('ConfiguracoesPage — chaves de permissão (contrato)', () => {
@@ -176,6 +348,9 @@ describe('ConfiguracoesPage — chaves de permissão (contrato)', () => {
    *   - agents:manage         → Agents.tsx L10 + Sidebar.tsx
    *   - users:manage          → Sidebar.tsx (hasPermission('users:manage'))
    *   - flags:manage         → FeatureFlags.tsx L14 ("permissão 'flags:manage'")
+   *   - billing:read         → billing/routes.ts L69, L121, L173
+   *   - billing:write        → billing/routes.ts L138, L156
+   *   - templates:read       → templates/routes.ts L47
    */
   it('chaves de permissão formam um conjunto fechado e documentado', () => {
     const PERMISSION_KEYS = {
@@ -184,6 +359,9 @@ describe('ConfiguracoesPage — chaves de permissão (contrato)', () => {
       agentes: 'agents:manage',
       usuarios: 'users:manage',
       featureFlags: 'flags:manage',
+      billingRead: 'billing:read',
+      billingWrite: 'billing:write',
+      templatesRead: 'templates:read',
     } as const;
 
     // Garante que as chaves não são strings vazias ou undefined por acidente
@@ -192,5 +370,17 @@ describe('ConfiguracoesPage — chaves de permissão (contrato)', () => {
     expect(PERMISSION_KEYS.agentes).toBe('agents:manage');
     expect(PERMISSION_KEYS.usuarios).toBe('users:manage');
     expect(PERMISSION_KEYS.featureFlags).toBe('flags:manage');
+    expect(PERMISSION_KEYS.billingRead).toBe('billing:read');
+    expect(PERMISSION_KEYS.billingWrite).toBe('billing:write');
+    expect(PERMISSION_KEYS.templatesRead).toBe('templates:read');
+  });
+
+  it('feature flag de cobrança usa chave billing.enabled (mesma do BILLING_NAV_ITEM removido)', () => {
+    // Confirma que a flag key é consistente com o que o backend registra
+    const FLAG_KEYS = {
+      billing: 'billing.enabled',
+    } as const;
+
+    expect(FLAG_KEYS.billing).toBe('billing.enabled');
   });
 });

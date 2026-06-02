@@ -5,7 +5,8 @@
 //   - Camada 1 (Conta): Perfil, Segurança e Aparência funcionais (F8-S09).
 //     Conteúdo em ContaSection.tsx.
 //   - Camada 2 (Administração): cards gated por permissão, divididos em dois grupos:
-//       · Gestão         — Produtos & Regras, Cidades, Agentes
+//       · Gestão         — Produtos & Regras, Cidades, Agentes, Follow-up,
+//                          Cobrança (3 cards), Templates WhatsApp, Agente de IA
 //       · Adm. técnica   — Usuários & Papéis, Feature Flags
 //     Grupos e camada omitidos quando sem permissão.
 //
@@ -13,17 +14,22 @@
 // DS: elev-2 (cards), Lift hover, tokens canônicos. Light + dark.
 //
 // Permissões (verificadas no código-fonte de cada página):
-//   - Produtos & Regras : credit_products:read (Products.tsx L12)
-//   - Cidades           : sem gating na UI (Cities.tsx L14 — backend valida)
-//                         → card sempre visível para usuários autenticados
-//   - Agentes           : agents:manage (Agents.tsx + backend agents/routes.ts)
-//   - Usuários & Papéis : users:manage (backend users/routes.ts + roles/routes.ts)
-//   - Feature Flags     : flags:manage (FeatureFlags.tsx L14)
+//   - Produtos & Regras    : credit_products:read (Products.tsx L12)
+//   - Cidades              : sem gating na UI (Cities.tsx L14 — backend valida)
+//                            → card sempre visível para usuários autenticados
+//   - Agentes              : agents:manage (Agents.tsx + backend agents/routes.ts)
+//   - Usuários & Papéis    : users:manage (backend users/routes.ts + roles/routes.ts)
+//   - Feature Flags        : flags:manage (FeatureFlags.tsx L14)
+//   - Cobrança — Parcelas  : billing:read + flag billing.enabled (billing/routes.ts L69)
+//   - Cobrança — Réguas    : billing:write + flag billing.enabled (billing/routes.ts L138)
+//   - Cobrança — Jobs      : billing:read + flag billing.enabled (billing/routes.ts L173)
+//   - Templates WhatsApp   : templates:read (templates/routes.ts L47)
 // =============================================================================
 
 import * as React from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
+import { useFeatureFlags } from '../../hooks/useFeatureFlag';
 import { useAuth } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
 
@@ -150,6 +156,76 @@ function IconAgenteIA(): React.JSX.Element {
   );
 }
 
+// Cobrança — Parcelas: ícone de recibo / documento de pagamento
+function IconBillingDues(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="M6 2h12a2 2 0 0 1 2 2v16l-3-2-2 2-2-2-2 2-2-2-3 2V4a2 2 0 0 1 2-2Z" />
+      <path d="M9 7h6M9 11h6M9 15h4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Cobrança — Réguas: ícone de régua / calendário (regras de cobrança)
+function IconBillingRules(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="17" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M8 2v4M16 2v4" strokeLinecap="round" />
+      <path d="M7 14h4M13 14h4M7 18h2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Cobrança — Jobs: ícone de relógio / agendamento
+function IconBillingJobs(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Templates WhatsApp: balão de fala com linhas de texto
+function IconTemplates(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <path d="M8 9h8M8 13h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Tab = 'conta' | 'administracao';
@@ -245,12 +321,21 @@ function AdminCard({ card }: { card: ConfigCard }): React.JSX.Element {
 
 function AdminSection(): React.JSX.Element {
   const { hasPermission } = useAuth();
+  const { flags } = useFeatureFlags();
+
+  // Helper: flag ativa quando status === 'enabled' ou 'internal_only' (padrão Sidebar)
+  const flagEnabled = (key: string): boolean => {
+    const status = flags[key];
+    return status === 'enabled' || status === 'internal_only';
+  };
 
   // ── Grupo Gestão ─────────────────────────────────────────────────────────────
   // Produtos: credit_products:read — confirmado em Products.tsx L12
   // Cidades: sem gating na UI — Cities.tsx L14 ("backend valida admin:cities:write")
   //          → card sempre visível para qualquer usuário autenticado
   // Agentes: agents:manage — convenção canônica :manage (F8-S10)
+  // Cobrança: billing:read|write + flag billing.enabled — confirmado em billing/routes.ts
+  // Templates: templates:read — confirmado em templates/routes.ts L47
   const gestaoCards: ConfigCard[] = [
     ...(hasPermission('credit_products:read')
       ? [
@@ -298,6 +383,50 @@ function AdminSection(): React.JSX.Element {
             description: 'Monitore e gerencie envios de follow-up agendados.',
             icon: <IconFollowup />,
             href: '/admin/followup/jobs',
+          },
+        ]
+      : []),
+    // Cobrança — Parcelas: billing:read + flag billing.enabled
+    ...(hasPermission('billing:read') && flagEnabled('billing.enabled')
+      ? [
+          {
+            title: 'Cobrança — Parcelas',
+            description: 'Visualize e gerencie parcelas de contratos em cobrança.',
+            icon: <IconBillingDues />,
+            href: '/admin/billing/dues',
+          },
+        ]
+      : []),
+    // Cobrança — Réguas: billing:write + flag billing.enabled
+    ...(hasPermission('billing:write') && flagEnabled('billing.enabled')
+      ? [
+          {
+            title: 'Cobrança — Réguas',
+            description: 'Configure as réguas de cobrança: prazos, canais e escalonamento.',
+            icon: <IconBillingRules />,
+            href: '/admin/billing/rules',
+          },
+        ]
+      : []),
+    // Cobrança — Jobs: billing:read + flag billing.enabled
+    ...(hasPermission('billing:read') && flagEnabled('billing.enabled')
+      ? [
+          {
+            title: 'Cobrança — Jobs',
+            description: 'Monitore execuções agendadas do motor de cobrança.',
+            icon: <IconBillingJobs />,
+            href: '/admin/billing/jobs',
+          },
+        ]
+      : []),
+    // Templates WhatsApp: templates:read (sem flag — sempre disponível quando autorizado)
+    ...(hasPermission('templates:read')
+      ? [
+          {
+            title: 'Templates WhatsApp',
+            description: 'Gerencie modelos de mensagem aprovados pelo Meta para envios em massa.',
+            icon: <IconTemplates />,
+            href: '/admin/templates',
           },
         ]
       : []),

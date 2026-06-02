@@ -3,7 +3,7 @@ id: F8-S18
 title: Frontend — plugar Cobrança + Templates WhatsApp no Hub de Configurações
 phase: F8
 task_ref: F8.18
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: frontend-engineer
@@ -13,6 +13,8 @@ labels: [frontend, configuracoes, billing, templates]
 source_docs:
   - docs/18-design-system.md
   - docs/10-seguranca-permissoes.md
+claimed_at: 2026-06-01T01:50:36Z
+completed_at: 2026-06-01T01:57:49Z
 ---
 
 # F8-S18 — Plugar Cobrança + Templates WhatsApp no Hub de Configurações
