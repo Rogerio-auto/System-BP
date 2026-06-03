@@ -19,6 +19,7 @@ import { AuthGuard } from './app/AuthGuard';
 import { SessionBootstrap } from './app/SessionBootstrap';
 import { ToastProvider } from './components/ui/Toast';
 import { LoginPage } from './features/auth/LoginPage';
+import { CollectionJobsPage, CollectionRulesPage, PaymentDuesPage } from './features/billing';
 import {
   ConversationTimelinePage,
   DecisionsListPage,
@@ -33,6 +34,7 @@ import { CrmListPage } from './features/crm/CrmListPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { FollowupJobsPage, FollowupRulesPage } from './features/followup';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
+import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from './features/templates';
 import { AgentsPage } from './pages/admin/Agents';
 import { CitiesPage } from './pages/admin/Cities';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
@@ -127,6 +129,14 @@ function AppRoutes(): React.JSX.Element {
         {/* F5-S05: Follow-up — réguas e jobs */}
         <Route path="/admin/followup/rules" element={<FollowupRulesPage />} />
         <Route path="/admin/followup/jobs" element={<FollowupJobsPage />} />
+        {/* F5-S08: Cobrança — parcelas, réguas, jobs */}
+        <Route path="/admin/billing/dues" element={<PaymentDuesPage />} />
+        <Route path="/admin/billing/rules" element={<CollectionRulesPage />} />
+        <Route path="/admin/billing/jobs" element={<CollectionJobsPage />} />
+        {/* F5-S09: Templates WhatsApp */}
+        <Route path="/admin/templates" element={<TemplatesListPage />} />
+        <Route path="/admin/templates/new" element={<TemplateFormPage />} />
+        <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
       </Route>
 
       {/* ── Catch-all ────────────────────────────────────────────────── */}
