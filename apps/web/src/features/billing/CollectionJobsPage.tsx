@@ -22,6 +22,7 @@
 // =============================================================================
 
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -278,6 +279,28 @@ export function CollectionJobsPage(): React.JSX.Element {
         className="flex flex-col gap-6"
         style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) both' }}
       >
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2">
+          <Link
+            to="/configuracoes"
+            className="font-sans text-sm text-ink-3 hover:text-azul transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20 rounded-xs"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.6}
+              className="w-4 h-4"
+              aria-hidden="true"
+            >
+              <path d="M10 4l-4 4 4 4" />
+            </svg>
+            Configurações
+          </Link>
+          <span className="text-ink-4 text-sm">/</span>
+          <span className="font-sans text-sm text-ink">Cobrança — Jobs</span>
+        </div>
+
         {/* Banner módulo desligado */}
         {!billingEnabled && <BillingGatedBanner />}
 

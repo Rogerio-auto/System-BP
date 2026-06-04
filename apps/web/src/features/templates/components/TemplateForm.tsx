@@ -64,17 +64,19 @@ function FieldLabel({
 
 // ─── Input genérico ───────────────────────────────────────────────────────────
 
-function FieldInput({
-  id,
-  error,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & {
+type FieldInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   id: string;
   error?: string;
-}): React.JSX.Element {
+};
+
+const FieldInput = React.forwardRef<HTMLInputElement, FieldInputProps>(function FieldInput(
+  { id, error, ...props },
+  ref,
+) {
   return (
     <div className="flex flex-col gap-1">
       <input
+        ref={ref}
         id={id}
         className={cn(
           'w-full px-3 py-2 rounded-sm border font-sans text-sm',
@@ -116,7 +118,7 @@ function FieldInput({
       )}
     </div>
   );
-}
+});
 
 // ─── TemplateForm ─────────────────────────────────────────────────────────────
 
