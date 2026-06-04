@@ -279,18 +279,6 @@ export function TemplateDetailPage(): React.JSX.Element {
           <div className="grid grid-cols-2 gap-5 sm:grid-cols-3">
             <DetailField label="Categoria">{template.category}</DetailField>
             <DetailField label="Idioma">{template.language}</DetailField>
-            <DetailField label="Meta Template ID">
-              <code
-                className="font-mono text-xs px-1.5 py-0.5 rounded"
-                style={{
-                  background: 'var(--surface-muted)',
-                  color: 'var(--text-2)',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                {template.metaTemplateId}
-              </code>
-            </DetailField>
           </div>
 
           <DetailField label="Corpo do template">

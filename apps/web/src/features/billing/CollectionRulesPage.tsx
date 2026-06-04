@@ -29,6 +29,7 @@ import { useToast } from '../../components/ui/Toast';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useAuthStore } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
+import { useTemplates } from '../templates/hooks/useTemplates';
 
 import { BillingGatedBanner } from './components/BillingGatedBanner';
 import {
@@ -136,6 +137,19 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
   const { mutate: updateRule, isPending: isUpdating } = useUpdateCollectionRule();
   const isPending = isCreating || isUpdating;
   const isEditing = Boolean(rule);
+
+  // Templates aprovados — combobox em vez de campo de UUID.
+  const { data: templatesData, isLoading: templatesLoading } = useTemplates({
+    status: 'approved',
+    limit: 100,
+  });
+  const templateOptions = React.useMemo(
+    () =>
+      [...(templatesData?.data ?? [])]
+        .map((t) => ({ value: t.id, label: t.name }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
+    [templatesData],
+  );
 
   const [formData, setFormData] = React.useState<CollectionRuleForm>({
     key: rule?.key ?? '',
@@ -293,14 +307,22 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
             />
           </div>
 
-          <Input
+          <Select
             id="rule-template-id"
-            label="ID do template WhatsApp"
-            placeholder="uuid-do-template"
+            label="Template do WhatsApp"
+            placeholder={
+              templatesLoading
+                ? 'Carregando templates…'
+                : templateOptions.length === 0
+                  ? 'Nenhum template aprovado disponível'
+                  : 'Selecione um template'
+            }
+            options={templateOptions}
             value={formData.template_id}
             onChange={(e) => setFormData((f) => ({ ...f, template_id: e.target.value }))}
             error={errors.template_id}
-            hint="UUID do template aprovado pela Meta"
+            hint="Apenas templates já aprovados podem ser usados nas réguas"
+            disabled={templatesLoading || templateOptions.length === 0}
             required
           />
 
@@ -373,7 +395,7 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
                 className="font-sans text-ink-3"
                 style={{ fontSize: 'var(--text-xs)' }}
               >
-                Jobs só são criados quando ativa + feature flag ligada
+                Envios só ocorrem quando a régua está ativa e o módulo de cobrança está liberado.
               </span>
             </div>
           </label>

@@ -60,19 +60,8 @@ function FollowupDisabledBanner(): React.JSX.Element {
           className="font-sans mt-0.5"
           style={{ fontSize: 'var(--text-xs)', color: 'var(--text-2)' }}
         >
-          Você pode gerenciar o catálogo de templates agora. Os envios automáticos só ocorrem quando
-          a feature flag{' '}
-          <code
-            className="px-1 py-0.5 rounded"
-            style={{
-              background: 'var(--surface-muted)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.85em',
-            }}
-          >
-            followup.enabled
-          </code>{' '}
-          estiver ativa.
+          Você pode gerenciar o catálogo de templates agora. Os envios automáticos só serão feitos
+          quando o módulo de Follow-up estiver liberado pelo administrador.
         </p>
       </div>
     </div>
