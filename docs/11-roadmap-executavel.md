@@ -47,6 +47,10 @@ Auditoria pré-launch (ver [`tasks/slots/F7/`](../tasks/slots/F7/)) identificou 
 | 7    | Migração + go-live              | Cutover, monitoramento, hardening                       |
 | 8    | Admin & Gestão                  | Telas admin (usuários, agentes, dashboards, 2FA, conta) |
 | 9    | Console do Agente de IA         | Gestão de prompts, viewer de decisões, playground       |
+| 10   | Central de Ajuda                | `/ajuda` in-app: guias + conceitos + API ref + busca    |
+| 11   | Tutoriais guiados               | Overlay de primeiro acesso por papel (custom, sem SaaS) |
+
+> F10 e F11 são pós-launch — entram após cutover (F7-S09) com infraestrutura. Norma em [`docs/20-central-de-ajuda.md`](20-central-de-ajuda.md). A partir de **F10-S14**, todo slot novo precisa entregar documentação como artefato de DoD (campo `docs_required` no frontmatter).
 
 ---
 
