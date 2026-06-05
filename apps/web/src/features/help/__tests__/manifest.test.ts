@@ -62,6 +62,33 @@ describe('help manifest', () => {
     expect(idxComecar).toBeLessThan(idxConceitos);
   });
 
+  it('seção guias aparece entre comecar e conceitos no manifest', async () => {
+    const m = await getHelpManifest();
+    const slugs = m.sections.map((s) => s.slug);
+    const idxComecar = slugs.indexOf('comecar');
+    const idxGuias = slugs.indexOf('guias');
+    const idxConceitos = slugs.indexOf('conceitos');
+    expect(idxGuias).toBeGreaterThanOrEqual(0);
+    expect(idxComecar).toBeLessThan(idxGuias);
+    expect(idxGuias).toBeLessThan(idxConceitos);
+  });
+
+  it('os 6 slugs de guias/crm resolvem via getArticleBySlug', async () => {
+    const slugs = [
+      'guias/crm/criar-lead',
+      'guias/crm/importar-leads',
+      'guias/crm/kanban',
+      'guias/crm/detalhes-do-lead',
+      'guias/crm/converter-em-cliente',
+      'guias/crm/buscar-e-filtrar',
+    ];
+    for (const slug of slugs) {
+      const article = await getArticleBySlug(slug);
+      expect(article).not.toBeNull();
+      expect(article?.slug).toBe(slug);
+    }
+  });
+
   it('título display da seção comecar é "Começar" (com cedilha)', async () => {
     const m = await getHelpManifest();
     const comecar = m.sections.find((s) => s.slug === 'comecar');

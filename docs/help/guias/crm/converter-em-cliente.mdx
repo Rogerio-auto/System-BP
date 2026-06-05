@@ -1,0 +1,63 @@
+---
+title: Converter lead em cliente
+description: Como finalizar a jornada de crédito e mover o lead para o estágio de cliente.
+order: 50
+keywords: [converter, cliente, aprovado, conversao, encerrar, fechar, closed won]
+---
+
+# Converter lead em cliente
+
+Use este guia quando uma análise de crédito foi aprovada e o lead aceitou a operação — é o passo final da jornada no CRM.
+
+<Callout type="info" title="Pré-requisito obrigatório">
+  O lead precisa ter uma **análise de crédito com parecer aprovado** pelo gestor.
+  Sem isso, o botão de conversão fica desabilitado.
+</Callout>
+
+## Passo a passo
+
+<Step number={1} title="Abra a ficha do lead">
+  No CRM, clique no nome do lead. Confirme que o estágio está em **Aprovado**
+  e que a seção Simulações mostra uma análise com parecer favorável.
+</Step>
+
+<Step number={2} title="Clique em Converter em cliente">
+  Botão no topo da ficha, ao lado do estágio atual. Se estiver acinzentado,
+  passe o mouse para ver qual pré-requisito ainda não foi atendido.
+</Step>
+
+<Step number={3} title="Confirme a ação">
+  Uma janela de confirmação exibe um resumo da operação. Leia e clique em
+  **Confirmar conversão**.
+</Step>
+
+## O que muda após a conversão
+
+- O card sai da coluna **Aprovado** e vai para **Cliente** no Kanban.
+- O lead deixa de aparecer nas listas de atendimento ativo.
+- O histórico completo — timeline, anotações, simulações, mensagens — fica preservado e acessível.
+- Um evento de conversão é registrado na timeline com data, hora e responsável.
+
+<Callout type="info" title="Dados preservados">
+  Converter não apaga nada. Todo o histórico do lead fica disponível para
+  consulta, auditoria e eventuais pedidos do titular.
+</Callout>
+
+## Próximo passo: cobrança
+
+Após a conversão, a operação de crédito entra na régua de cobrança. O guia
+de cobrança estará disponível em breve — acompanhe as atualizações da Central
+de Ajuda.
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Botão "Converter" desabilitado | Análise ainda pendente ou reprovada | Aguarde o parecer do gestor ou reabra a análise |
+| Lead ainda aparece no funil ativo | Cache de tela | Recarregue a página (F5) |
+| Não tenho permissão para converter | Papel sem permissão de encerramento | Fale com seu gestor |
+
+## Veja também
+
+- [Usar o Kanban do CRM](/ajuda/guias/crm/kanban) — entenda as colunas do funil.
+- [Ver e editar detalhes do lead](/ajuda/guias/crm/detalhes-do-lead) — veja a análise e timeline antes de converter.

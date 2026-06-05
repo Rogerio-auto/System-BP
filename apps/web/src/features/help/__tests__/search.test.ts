@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { getIndexSize, searchHelp } from '../search';
 
 describe('searchHelp', () => {
-  it('indexa pelo menos 7 artigos (home + 3 conceitos + 3 trilhas)', () => {
-    expect(getIndexSize()).toBeGreaterThanOrEqual(7);
+  it('indexa pelo menos 13 artigos (home + 3 conceitos + 3 trilhas + 6 guias CRM)', () => {
+    expect(getIndexSize()).toBeGreaterThanOrEqual(13);
   });
 
   it('query vazia retorna lista vazia', () => {
@@ -57,6 +57,30 @@ describe('searchHelp', () => {
   it('respeita o limit', () => {
     const out = searchHelp('a', 1);
     expect(out.length).toBeLessThanOrEqual(1);
+  });
+
+  it('busca por "criar lead" encontra guias/crm/criar-lead', () => {
+    const out = searchHelp('criar lead');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('guias/crm/criar-lead');
+  });
+
+  it('busca por "importar" encontra guias/crm/importar-leads', () => {
+    const out = searchHelp('importar');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('guias/crm/importar-leads');
+  });
+
+  it('busca por "kanban" encontra guias/crm/kanban', () => {
+    const out = searchHelp('kanban');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('guias/crm/kanban');
+  });
+
+  it('busca por "converter" encontra guias/crm/converter-em-cliente', () => {
+    const out = searchHelp('converter');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('guias/crm/converter-em-cliente');
   });
 
   it('cada resultado tem title e snippet não vazios', () => {

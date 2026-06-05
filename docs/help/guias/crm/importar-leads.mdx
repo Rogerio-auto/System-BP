@@ -1,0 +1,75 @@
+---
+title: Importar leads por planilha
+description: Como preparar um CSV e usar o wizard de importação para subir muitos leads de uma vez.
+order: 20
+keywords: [importar leads, csv, planilha, importacao, duplicatas, wizard, upload]
+---
+
+# Importar leads por planilha
+
+Use este guia quando você tem uma lista de leads para subir de uma vez — por exemplo, ao migrar de outra ferramenta ou receber uma listagem de interessados.
+
+## Passo a passo
+
+<Step number={1} title="Baixe o modelo CSV">
+  No CRM, clique no menu **Importar → Baixar modelo**. O arquivo mostra as
+  colunas esperadas: `nome`, `cpf`, `telefone`, `cidade`, `origem` (e outras
+  opcionais como `email` e `observacao`).
+</Step>
+
+<Step number={2} title="Preencha a planilha">
+  Abra o CSV em qualquer editor de planilhas (Excel, Calc, Sheets). Preencha
+  uma linha por lead. Respeite os cabeçalhos exatamente como estão — qualquer
+  coluna fora do padrão será ignorada.
+
+  Exemplo de linha válida:
+
+  | nome | cpf | telefone | cidade | origem |
+  |---|---|---|---|---|
+  | Ana Paula Ferreira | 123.456.789-00 | (69) 99999-0001 | Porto Velho | Balcão |
+
+  Use apenas nomes e dados fictícios em testes — nunca CPFs ou telefones reais
+  de pessoas sem consentimento.
+</Step>
+
+<Step number={3} title="Acesse Importar no CRM">
+  Clique em **Importar → Enviar arquivo** no CRM. Arraste o CSV ou clique para
+  selecionar o arquivo.
+</Step>
+
+<Step number={4} title="Mapeie as colunas">
+  O wizard exibe uma prévia das primeiras linhas e pede que você confirme qual
+  coluna do seu arquivo corresponde a cada campo do sistema. Se você usou o
+  modelo, o mapeamento já vem preenchido automaticamente.
+</Step>
+
+<Step number={5} title="Revise a prévia e confirme">
+  O sistema mostra um resumo: total de linhas, linhas válidas, possíveis
+  duplicatas (mesmo CPF já cadastrado). Revise antes de confirmar.
+  Leads duplicados não sobrescrevem os existentes — eles são ignorados e
+  listados no relatório de importação.
+</Step>
+
+<Step number={6} title="Acompanhe o processamento">
+  Após confirmar, o processamento acontece em segundo plano. Você recebe uma
+  notificação quando terminar. Arquivos menores que 1 MB costumam finalizar em
+  segundos.
+</Step>
+
+<Callout type="warn" title="Arquivos grandes">
+  Planilhas acima de 10 MB levam de 1 a 2 minutos para processar. Não feche a
+  aba durante esse tempo — aguarde a notificação de conclusão.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| "Coluna obrigatória ausente" | Cabeçalho diferente do modelo | Baixe o modelo novamente e respeite os nomes exatos |
+| Leads não aparecem após importar | Processamento ainda em andamento | Aguarde a notificação; atualize a lista depois |
+| Muitas duplicatas ignoradas | CPFs já estavam na base | Isso é esperado — veja o relatório para conferir quais foram ignorados |
+
+## Veja também
+
+- [Criar um lead manualmente](/ajuda/guias/crm/criar-lead) — para cadastros pontuais.
+- [Buscar e filtrar leads](/ajuda/guias/crm/buscar-e-filtrar) — encontre os leads que acabou de importar.
