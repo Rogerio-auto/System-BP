@@ -82,11 +82,35 @@ function fallbackTitleFromSlug(slug: string): string {
 }
 
 /**
- * Pretty label para o folder da seção. `conceitos` → `Conceitos`.
- * Labels reais em pt-BR chegam em F10-S05+ via um mapa explícito.
+ * Pretty label para o folder da seção em pt-BR. Folders fora do mapa
+ * recebem fallback capitalize do slug.
  */
+const SECTION_LABELS: Record<string, string> = {
+  comecar: 'Começar',
+  guias: 'Guias',
+  conceitos: 'Conceitos',
+  api: 'API',
+};
+
+/**
+ * Ordem editorial das seções. Folders fora do mapa caem no fim (99) e
+ * desempatam por título alfabético.
+ */
+const SECTION_ORDER: Record<string, number> = {
+  comecar: 10,
+  guias: 20,
+  conceitos: 30,
+  api: 40,
+};
+
 function sectionTitle(slug: string): string {
+  const labelled = SECTION_LABELS[slug];
+  if (labelled !== undefined) return labelled;
   return slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ');
+}
+
+function sectionOrder(slug: string): number {
+  return SECTION_ORDER[slug] ?? 99;
 }
 
 /**
@@ -156,7 +180,10 @@ export function getHelpManifest(): Promise<HelpManifest> {
           (a, b) => a.order - b.order || a.title.localeCompare(b.title, 'pt-BR'),
         ),
       }))
-      .sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
+      .sort(
+        (a, b) =>
+          sectionOrder(a.slug) - sectionOrder(b.slug) || a.title.localeCompare(b.title, 'pt-BR'),
+      );
 
     return { home, sections };
   })();

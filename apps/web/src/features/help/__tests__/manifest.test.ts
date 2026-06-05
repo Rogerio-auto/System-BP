@@ -52,6 +52,38 @@ describe('help manifest', () => {
     ]);
   });
 
+  it('seção comecar aparece antes de conceitos no manifest', async () => {
+    const m = await getHelpManifest();
+    const slugs = m.sections.map((s) => s.slug);
+    const idxComecar = slugs.indexOf('comecar');
+    const idxConceitos = slugs.indexOf('conceitos');
+    expect(idxComecar).toBeGreaterThanOrEqual(0);
+    expect(idxConceitos).toBeGreaterThanOrEqual(0);
+    expect(idxComecar).toBeLessThan(idxConceitos);
+  });
+
+  it('título display da seção comecar é "Começar" (com cedilha)', async () => {
+    const m = await getHelpManifest();
+    const comecar = m.sections.find((s) => s.slug === 'comecar');
+    expect(comecar?.title).toBe('Começar');
+  });
+
+  it('resolve as 3 trilhas de comecar', async () => {
+    const admin = await getArticleBySlug('comecar/admin');
+    const gestor = await getArticleBySlug('comecar/gestor');
+    const agente = await getArticleBySlug('comecar/agente');
+    expect(admin?.title).toBe('Começar como administrador');
+    expect(gestor?.title).toBe('Começar como gestor');
+    expect(agente?.title).toBe('Começar como agente');
+  });
+
+  it('seção comecar respeita a ordem da frontmatter (admin, gestor, agente)', async () => {
+    const m = await getHelpManifest();
+    const comecar = m.sections.find((s) => s.slug === 'comecar');
+    const slugs = comecar?.articles.map((a) => a.slug) ?? [];
+    expect(slugs).toEqual(['comecar/admin', 'comecar/gestor', 'comecar/agente']);
+  });
+
   it('devolve null para slug inexistente', async () => {
     const article = await getArticleBySlug('nao/existe');
     expect(article).toBeNull();

@@ -1,0 +1,74 @@
+---
+title: Começar como administrador
+description: Primeiros passos para quem acabou de receber acesso de administrador no Manager Banco do Povo.
+order: 10
+keywords: [admin, administrador, comecar, primeiros passos, configurar, cidades, usuarios]
+---
+
+# Começar como administrador
+
+Você acabou de receber acesso de **administrador** no Manager Banco do Povo. Esse é o papel com maior poder do sistema — você configura cidades, libera funcionalidades, cria usuários e define quem faz o quê. Esta página é a sua trilha para os primeiros 30 minutos.
+
+## Antes de tudo, proteja a conta
+
+<Step number={1} title="Ative a verificação em duas etapas">
+  Abra **Configurações → Conta** e siga as instruções de cadastro de aplicativo
+  autenticador. Sem 2FA, o sistema bloqueia ações administrativas.
+</Step>
+
+<Step number={2} title="Confirme seu e-mail e telefone">
+  Os dois aparecem no perfil. Se algum estiver desatualizado, corrija agora — eles
+  são usados para recuperação e para notificações de incidentes.
+</Step>
+
+## Configure o ambiente — pela ordem
+
+<Step number={1} title="Cidades atendidas">
+  **Configurações → Cidades**. Verifique se todas as cidades atendidas pela sua
+  organização estão cadastradas e ativas. Sem cidade, o resto não funciona —
+  agentes não conseguem receber leads e a busca por município volta vazia.
+</Step>
+
+<Step number={2} title="Papéis e usuários">
+  **Configurações → Usuários & Papéis** — cadastre cada operador, gestor e
+  administrador da sua organização. **Configurações → Agentes** — vincule cada
+  agente às cidades onde ele atua.
+</Step>
+
+<Step number={3} title="Módulos liberados">
+  **Configurações → Administração técnica → Feature Flags**. Aqui você decide o
+  que cada usuário vê. Habilite com calma — cada módulo ativado começa a
+  funcionar imediatamente para todos com permissão.
+</Step>
+
+<Callout type="warn" title="Antes de ligar cobrança ou follow-up">
+  Esses dois módulos enviam mensagens em nome do Banco do Povo via WhatsApp.
+  **Nunca** ligue em produção sem antes validar as réguas e os templates em
+  ambiente de homologação. A equipe técnica do projeto pode orientar.
+</Callout>
+
+## O que olhar todo dia
+
+- **Dashboard** — métricas consolidadas de todas as cidades.
+- **Configurações → Administração técnica → Feature Flags** — confirma que nada
+  foi ativado sem comunicação.
+- **Configurações → Usuários & Papéis** — verifica se algum usuário foi adicionado
+  ou modificado fora do processo.
+
+## O que você nunca deve fazer
+
+<Callout type="warn" title="Práticas a evitar">
+  - **Editar dados direto no banco.** O sistema mantém histórico, audit log e
+    eventos. Mudanças manuais quebram isso em silêncio.
+  - **Mexer em módulos liberados sem aviso prévio.** Desligar ou ligar algo
+    durante o expediente pode interromper atendimentos em andamento.
+  - **Compartilhar sua conta.** Mesmo entre administradores, cada um tem a sua.
+</Callout>
+
+## Próximos passos
+
+Leia, na ordem:
+
+1. [Papéis e cidades](/ajuda/conceitos/papeis-e-cidades) — entenda em detalhe como o sistema decide o que cada usuário vê.
+2. [LGPD no Banco do Povo](/ajuda/conceitos/lgpd) — o que é proteção automática e o que precisa de cuidado humano.
+3. [Módulos liberados](/ajuda/conceitos/modulos-liberados) — quando e como ativar cada um.
