@@ -1,0 +1,91 @@
+# Pipeline MDX — smoke test
+
+Esta página existe **apenas em dev** (`import.meta.env.DEV`). Existe para validar que a pipeline MDX está funcionando ponta a ponta — Vite plugin, Shiki, componentes canônicos.
+
+Será removida em **F10-S02** quando o layout real chegar.
+
+## Callouts
+
+<Callout type="info">
+  Use Callout `info` para destacar informação contextual neutra. Aparece em qualquer página
+  de Conceitos e em alguns Guias.
+</Callout>
+
+<Callout type="tip" title="Dica do operador">
+  Você pode dar um título customizado a qualquer Callout passando a prop `title`.
+</Callout>
+
+<Callout type="warn">
+  Callout `warn` é o padrão para banners de módulo em desenvolvimento e avisos suaves.
+</Callout>
+
+<Callout type="danger">
+  Use `danger` apenas quando há risco real de perda de dados ou ação irreversível.
+</Callout>
+
+## Steps
+
+Sequência de passos numerados — padrão Stripe Docs:
+
+<Step number={1} title="Abra o CRM">
+  Clique no item **CRM** na sidebar para ver a lista de leads atribuídos a você.
+</Step>
+
+<Step number={2} title="Selecione um lead">
+  Use a busca ou role até encontrar o lead. Clique no nome para abrir o detalhe.
+</Step>
+
+<Step number={3} title="Mova o card no Kanban">
+  Arraste o card entre as colunas conforme avança o atendimento. O sistema registra
+  cada movimentação para auditoria.
+</Step>
+
+## CodeBlock — TypeScript
+
+<CodeBlock lang="ts" title="Buscar leads por status">
+{`import { api } from '@/lib/api';
+
+export async function fetchLeads(status: 'new' | 'qualifying' | 'closed_won') {
+  return api.get<LeadResponse[]>('/api/leads', {
+    params: { status, limit: 25 },
+  });
+}`}
+</CodeBlock>
+
+## CodeBlock — bash
+
+<CodeBlock lang="bash" title="Setup local">
+{`pnpm install
+docker compose up -d postgres
+pnpm --filter @elemento/api db:migrate
+pnpm dev`}
+</CodeBlock>
+
+## CodeBlock — JSON
+
+<CodeBlock lang="json" title="Resposta da API">
+{`{
+  "id": "lead-001",
+  "name": "Ana Paula",
+  "status": "qualifying",
+  "city_id": "city-001"
+}`}
+</CodeBlock>
+
+## Tabela GFM
+
+| Recurso | Permissão | Onde aparece |
+|---|---|---|
+| Lead | `leads:read` | CRM, Kanban |
+| Análise de Crédito | `credit_analyses:read` | Análise |
+| Régua de Follow-up | `followup:read` | Configurações |
+
+## Heading anchor + link
+
+### Esta H3 tem ID auto-gerado
+
+O plugin `rehype-slug` gera o `id="esta-h3-tem-id-auto-gerado"` automaticamente; `rehype-autolink-headings` adiciona um anchor link clicável.
+
+---
+
+Se você está lendo isto na rota `/_dev/help-mdx-preview` e tudo acima renderizou com cor e espaçamento corretos, a pipeline MDX está funcional. Próximo passo: **F10-S02** (layout 3-pane).
