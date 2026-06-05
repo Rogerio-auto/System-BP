@@ -1,0 +1,56 @@
+---
+title: LGPD no Banco do Povo
+description: Como o sistema protege os dados dos atendidos e o que você precisa saber para operar dentro da lei.
+order: 20
+keywords: [lgpd, dados, privacidade, cpf, telefone, protecao, titular]
+---
+
+# LGPD no Banco do Povo
+
+A **LGPD** (Lei Geral de Proteção de Dados, Lei 13.709/2018) protege os dados pessoais de todo cidadão que é atendido pelo Banco do Povo. O Manager foi construído para garantir essa proteção sem que você precise pensar nela durante o dia a dia — mas existem algumas regras simples de operação que valem para qualquer pessoa com acesso ao sistema.
+
+## O que o sistema protege automaticamente
+
+Algumas proteções já estão ligadas e funcionam o tempo todo:
+
+- **CPF** é armazenado de forma cifrada. Mesmo quem tem acesso ao banco de dados não vê o número diretamente.
+- **Telefone** aparece mascarado nas listagens (algo como `(69) ••••-1234`). O número completo só fica visível em telas onde ele é estritamente necessário para a operação.
+- **E-mail** aparece truncado em listagens.
+- **Logs internos** são sanitizados — nada de CPF, telefone ou nome completo cai em log.
+- **Mensagens automáticas** (follow-up, cobrança) usam apenas o primeiro nome no destinatário.
+
+Você não precisa configurar nada disso. A proteção é nativa.
+
+## Direitos do titular
+
+A LGPD garante alguns direitos a quem tem dados no sistema (o "titular"). O Banco do Povo cumpre cada um deles em até **15 dias úteis** a partir da solicitação formal:
+
+- **Acesso aos próprios dados.** O titular pede e recebe um relatório do que existe sobre ele.
+- **Correção** de informações imprecisas.
+- **Exclusão** dos dados (anonimização), exceto quando há base legal ou contratual para mantê-los.
+- **Portabilidade** dos dados em formato estruturado.
+
+Se um atendido pedir qualquer um desses direitos, encaminhe a solicitação para o administrador. O sistema já tem um fluxo formal para registrar e processar.
+
+## O que você nunca deve fazer
+
+<Callout type="danger" title="Condutas que violam a LGPD">
+  Algumas práticas comuns no dia a dia da operação são proibidas, mesmo que pareçam inofensivas:
+
+  - **Imprimir tela** com dados de um atendido para anexar em planilha externa ou e-mail.
+  - **Anotar CPF** ou telefone em caderno, planilha pessoal ou aplicativo de mensagem.
+  - **Compartilhar prints** que mostram dados de outros atendidos com colegas ou clientes.
+  - **Conversar** sobre dados específicos de atendidos com pessoas fora do sistema (cônjuge, amigos, redes sociais).
+  - **Usar dados** do sistema para fins fora da função (marketing pessoal, contato fora do contexto do atendimento).
+</Callout>
+
+A regra simples: se a informação não está dentro do sistema, ela não deveria existir.
+
+## Dúvidas, incidentes, solicitações
+
+Se você suspeitar de um vazamento, receber uma solicitação de direito do titular, ou tiver qualquer dúvida sobre o que pode ou não fazer com dados — fale com o administrador da sua organização. O sistema tem fluxos prontos para tratar todas essas situações.
+
+<Callout type="info" title="Veja também">
+  Os filtros automáticos de cidade também são parte da proteção — eles garantem que você só
+  veja dados de quem você atende. Saiba mais em [Papéis e cidades](/ajuda/conceitos/papeis-e-cidades).
+</Callout>
