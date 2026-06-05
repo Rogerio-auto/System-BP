@@ -7,6 +7,7 @@ import { getArticleBySlug, type Article } from './manifest';
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'not-found' }
+  | { kind: 'error'; message: string }
   | { kind: 'loaded'; Component: React.ComponentType<Record<string, unknown>> };
 
 export function DocPage(): React.JSX.Element {
@@ -19,15 +20,24 @@ export function DocPage(): React.JSX.Element {
     let cancelled = false;
     setState({ kind: 'loading' });
     void (async () => {
-      const article: Article | null = await getArticleBySlug(slug);
-      if (cancelled) return;
-      if (article === null) {
-        setState({ kind: 'not-found' });
-        return;
+      try {
+        const article: Article | null = await getArticleBySlug(slug);
+        if (cancelled) return;
+        if (article === null) {
+          setState({ kind: 'not-found' });
+          return;
+        }
+        const mod = await article.load();
+        if (cancelled) return;
+        setState({ kind: 'loaded', Component: mod.default });
+      } catch (err) {
+        if (cancelled) return;
+        // Dynamic import pode falhar quando o manifest tem stale path (arquivo
+        // deletado em dev) ou em pane de rede em produção. Sem este catch, a
+        // promessa rejeitada deixava o state em 'loading' para sempre.
+        const message = err instanceof Error ? err.message : String(err);
+        setState({ kind: 'error', message });
       }
-      const mod = await article.load();
-      if (cancelled) return;
-      setState({ kind: 'loaded', Component: mod.default });
     })();
     return () => {
       cancelled = true;
@@ -38,6 +48,7 @@ export function DocPage(): React.JSX.Element {
     <DocLayout>
       {state.kind === 'loading' && <LoadingState />}
       {state.kind === 'not-found' && <NotFoundState />}
+      {state.kind === 'error' && <ErrorState message={state.message} />}
       {state.kind === 'loaded' && <state.Component />}
     </DocLayout>
   );
@@ -78,6 +89,45 @@ function NotFoundState(): React.JSX.Element {
       </h1>
       <p className="font-sans" style={{ fontSize: 'var(--text-base)', color: 'var(--text-2)' }}>
         A página que você procura não existe ou foi movida.
+      </p>
+      <Link
+        to="/ajuda"
+        className="font-sans"
+        style={{ color: 'var(--brand-azul)', textDecoration: 'underline' }}
+      >
+        Voltar para a Central de Ajuda
+      </Link>
+    </div>
+  );
+}
+
+function ErrorState({ message }: { message: string }): React.JSX.Element {
+  return (
+    <div className="flex flex-col items-start gap-4 py-12" role="alert">
+      <h1
+        className="font-display font-bold"
+        style={{
+          fontSize: 'var(--text-2xl)',
+          letterSpacing: '-0.03em',
+          color: 'var(--text)',
+        }}
+      >
+        Não foi possível carregar a página
+      </h1>
+      <p className="font-sans" style={{ fontSize: 'var(--text-base)', color: 'var(--text-2)' }}>
+        Tente recarregar. Se o problema persistir, volte à central e siga por outra rota.
+      </p>
+      <p
+        className="font-mono"
+        style={{
+          fontSize: 'var(--text-xs)',
+          color: 'var(--text-3)',
+          background: 'var(--surface-muted)',
+          padding: '0.5rem 0.75rem',
+          borderRadius: '4px',
+        }}
+      >
+        {message}
       </p>
       <Link
         to="/ajuda"
