@@ -29,6 +29,7 @@ import { useToast } from '../../components/ui/Toast';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useAuthStore } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
+import { buildTemplateOptions } from '../templates/buildTemplateOptions';
 import { useTemplates } from '../templates/hooks/useTemplates';
 
 import { BillingGatedBanner } from './components/BillingGatedBanner';
@@ -144,10 +145,7 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
     limit: 100,
   });
   const templateOptions = React.useMemo(
-    () =>
-      [...(templatesData?.data ?? [])]
-        .map((t) => ({ value: t.id, label: t.name }))
-        .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
+    () => buildTemplateOptions(templatesData?.data ?? []),
     [templatesData],
   );
 
