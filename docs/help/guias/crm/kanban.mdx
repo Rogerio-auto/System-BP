@@ -1,0 +1,71 @@
+---
+title: Usar o Kanban do CRM
+description: Como navegar pelo funil visual, mover cards entre colunas e entender as transições de estágio.
+order: 30
+keywords: [kanban, funil, colunas, drag drop, estagio, transicao, quadro, mover card]
+---
+
+# Usar o Kanban do CRM
+
+Use este guia quando quiser visualizar e gerenciar o funil de atendimento em formato de quadro — ideal para ter uma visão rápida de onde cada lead está na jornada.
+
+## Abrindo o Kanban
+
+No menu lateral, clique em **CRM**. Na parte superior da tela, selecione a aba **Quadro**. Você verá os leads organizados em colunas por estágio.
+
+## As colunas do funil
+
+O CRM usa as seguintes colunas, nesta ordem:
+
+| Coluna | O que significa |
+|---|---|
+| **Novo** | Lead cadastrado, ainda não contatado |
+| **Contato** | Primeiro contato feito, aguardando resposta |
+| **Simulação** | Simulação de crédito em andamento |
+| **Análise** | Análise de crédito aberta pelo agente |
+| **Aprovado** | Análise com parecer favorável do gestor |
+| **Cliente** | Lead convertido em cliente ativo |
+
+## Movendo um card
+
+<Step number={1} title="Localize o card">
+  Cada card exibe nome, origem e data da última atualização. Você pode rolá-los
+  dentro da coluna ou usar os filtros na parte superior.
+</Step>
+
+<Step number={2} title="Arraste para a próxima coluna">
+  Clique e segure o card, depois arraste até a coluna de destino. Solte quando
+  a coluna ficar destacada. A movimentação é registrada automaticamente na
+  timeline do lead com data e hora.
+</Step>
+
+<Step number={3} title="Confirme se necessário">
+  Algumas transições exigem confirmação — por exemplo, mover para **Análise**
+  requer que uma simulação já exista. O sistema avisa se a condição não for
+  atendida.
+</Step>
+
+<Callout type="info" title="Tudo fica registrado">
+  Cada movimentação de coluna cria um evento na timeline do lead. Isso garante
+  rastreabilidade completa da jornada — gestores podem ver quem moveu, quando
+  e de qual estágio para qual.
+</Callout>
+
+<Callout type="tip" title="Filtros no Kanban">
+  Use os filtros no topo (cidade, origem, agente) para focar em um subconjunto
+  do funil. O número de cards em cada coluna atualiza automaticamente.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Não consigo arrastar o card | Papel sem permissão para alterar estágio | Verifique com seu gestor se sua conta tem permissão de edição no CRM |
+| Card sumiu do quadro | Filtro ativo ocultando o estágio | Limpe os filtros no topo da tela |
+| Transição bloqueada | Pré-requisito não cumprido | Leia a mensagem de erro — ela indica o que falta (ex.: "crie uma simulação antes") |
+
+## Veja também
+
+- [Ver e editar detalhes do lead](/ajuda/guias/crm/detalhes-do-lead) — veja a timeline completa do lead.
+- [Converter lead em cliente](/ajuda/guias/crm/converter-em-cliente) — a transição final do funil.
+- [Criar um lead manualmente](/ajuda/guias/crm/criar-lead) — para adicionar novos cards ao quadro.
