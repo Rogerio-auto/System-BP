@@ -300,6 +300,14 @@ export function CreditAnalysisVersionTimeline({
     [versions],
   );
 
+  // Mapa versão → anterior para diff. Declarado antes dos early returns
+  // para preservar a ordem dos hooks entre renders (Rules of Hooks).
+  const byVersion = React.useMemo(() => {
+    const map = new Map<number, CreditAnalysisVersionResponse>();
+    for (const v of versions) map.set(v.version, v);
+    return map;
+  }, [versions]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4">
@@ -320,13 +328,6 @@ export function CreditAnalysisVersionTimeline({
       </div>
     );
   }
-
-  // Montar mapa versão → anterior para diff
-  const byVersion = React.useMemo(() => {
-    const map = new Map<number, CreditAnalysisVersionResponse>();
-    for (const v of versions) map.set(v.version, v);
-    return map;
-  }, [versions]);
 
   return (
     <div className="flex flex-col gap-4">
