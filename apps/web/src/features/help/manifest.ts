@@ -39,8 +39,8 @@ export interface HelpManifest {
 
 // ─── Glob de todos os MDX em docs/help ────────────────────────────────────────
 //
-// Path relativo: manifest.ts está em apps/web/src/features/help/
-// docs/help/ está no monorepo root → ../../../../docs/help/**/*.mdx
+// Path relativo: manifest.ts está em apps/web/src/features/help/ (5 níveis abaixo
+// do monorepo root). docs/help/ está no root → ../../../../../docs/help/**/*.mdx
 //
 // Vite resolve isso em build-time. `eager: false` → cada entrada é uma função
 // `() => Promise<Module>`, dynamic import. Cada arquivo vira um chunk separado.
@@ -48,11 +48,11 @@ export interface HelpManifest {
 const MDX_MODULES = import.meta.glob<{
   default: ComponentType<Record<string, unknown>>;
   frontmatter?: ArticleFrontmatter;
-}>('../../../../docs/help/**/*.mdx');
+}>('../../../../../docs/help/**/*.mdx');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const HELP_ROOT = '../../../../docs/help/';
+const HELP_ROOT = '../../../../../docs/help/';
 
 /**
  * Converte um path de glob (`../../../../docs/help/conceitos/pipeline-mdx.mdx`)
