@@ -6,17 +6,23 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeSlug from 'rehype-slug';
 import remarkFrontmatter from 'remark-frontmatter';
 import remarkGfm from 'remark-gfm';
+import remarkMdxFrontmatter from 'remark-mdx-frontmatter';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [
     // enforce:'pre' garante que MDX transforma .mdx -> JSX ANTES do react plugin
-    // tentar parsear como babel. Sem isso, @vitejs/plugin-react acha que o .mdx
-    // é JSX e quebra no primeiro `#` do markdown.
+    // tentar parsear como babel.
     {
       enforce: 'pre',
       ...mdx({
-        remarkPlugins: [remarkGfm, remarkFrontmatter],
+        remarkPlugins: [
+          remarkGfm,
+          remarkFrontmatter,
+          // Expõe YAML frontmatter como named export `frontmatter` em cada .mdx,
+          // permitindo que o manifest leia título/descrição via dynamic import.
+          [remarkMdxFrontmatter, { name: 'frontmatter' }],
+        ],
         rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings],
         providerImportSource: '@mdx-js/react',
       }),
@@ -30,16 +36,17 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // Vite por default só serve arquivos dentro do project root (apps/web).
+    // docs/ está no monorepo root — precisamos liberar acesso.
+    fs: {
+      allow: [path.resolve(__dirname, '../..')],
+    },
   },
   build: {
     outDir: 'dist',
     sourcemap: true,
-    // O WASM da oniguruma (shiki) é ~622 KB — esperado, lazy-loaded.
-    // 700 KB acomoda sem mascarar regressões reais do app bundle.
     chunkSizeWarningLimit: 700,
     rollupOptions: {
-      // Sourcemap warnings de deps externas (@tanstack/react-query) poluem o log
-      // sem indicar problema real do nosso código. Silenciamos só esse subtipo.
       onwarn(warning, defaultHandler) {
         if (
           warning.code === 'SOURCEMAP_ERROR' &&

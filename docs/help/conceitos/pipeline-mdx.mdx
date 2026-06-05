@@ -1,14 +1,17 @@
-# Pipeline MDX — smoke test
+---
+title: Pipeline MDX — referência de componentes
+description: Showcase dos componentes canônicos disponíveis em qualquer página de ajuda.
+order: 999
+---
 
-Esta página existe **apenas em dev** (`import.meta.env.DEV`). Existe para validar que a pipeline MDX está funcionando ponta a ponta — Vite plugin, Shiki, componentes canônicos.
+# Pipeline MDX — referência de componentes
 
-Será removida em **F10-S02** quando o layout real chegar.
+Esta página é uma referência viva dos componentes canônicos disponíveis em qualquer página de ajuda. Use como guia ao escrever conteúdo novo.
 
 ## Callouts
 
 <Callout type="info">
-  Use Callout `info` para destacar informação contextual neutra. Aparece em qualquer página
-  de Conceitos e em alguns Guias.
+  Use Callout `info` para informação contextual neutra.
 </Callout>
 
 <Callout type="tip" title="Dica do operador">
@@ -16,7 +19,7 @@ Será removida em **F10-S02** quando o layout real chegar.
 </Callout>
 
 <Callout type="warn">
-  Callout `warn` é o padrão para banners de módulo em desenvolvimento e avisos suaves.
+  Callout `warn` é o padrão para avisos sobre módulos em desenvolvimento.
 </Callout>
 
 <Callout type="danger">
@@ -80,12 +83,12 @@ pnpm dev`}
 | Análise de Crédito | `credit_analyses:read` | Análise |
 | Régua de Follow-up | `followup:read` | Configurações |
 
-## Heading anchor + link
+## Anchors em headings
 
 ### Esta H3 tem ID auto-gerado
 
 O plugin `rehype-slug` gera o `id="esta-h3-tem-id-auto-gerado"` automaticamente; `rehype-autolink-headings` adiciona um anchor link clicável.
 
----
+### Outro H3 para popular o TOC
 
-Se você está lendo isto na rota `/_dev/help-mdx-preview` e tudo acima renderizou com cor e espaçamento corretos, a pipeline MDX está funcional. Próximo passo: **F10-S02** (layout 3-pane).
+Útil para validar que o sumário lateral lista todos os subtítulos.
