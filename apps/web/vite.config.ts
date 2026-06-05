@@ -31,7 +31,13 @@ export default defineConfig({
   ],
   envDir: path.resolve(__dirname, '../..'),
   resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      // MDX em docs/help/ (fora de apps/web) precisa resolver providerImportSource
+      // pelo path absoluto — Node resolution sobe a partir do .mdx e não acha
+      // node_modules em CI clean. Alias força o caminho exato.
+      '@mdx-js/react': path.resolve(__dirname, 'node_modules/@mdx-js/react'),
+    },
   },
   server: {
     port: 5173,
