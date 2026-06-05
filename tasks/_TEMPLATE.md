@@ -1,7 +1,7 @@
 ---
 id: TEMPLATE
 title: Título curto e imperativo (ex: "Criar middleware authenticate")
-phase: F0           # F0..F7
+phase: F0           # F0..F11
 task_ref: T0.0      # referência em docs/12-tasks-tecnicas.md
 status: available   # available | blocked | claimed | in-progress | review | done | cancelled
 priority: medium    # low | medium | high | critical
@@ -14,6 +14,16 @@ depends_on: []      # lista de IDs de slots
 blocks: []          # IDs que este slot desbloqueia (informativo)
 source_docs:
   - docs/12-tasks-tecnicas.md#TX.X
+# ─── Documentação (a partir de F10-S14) ──────────────────────────────────────
+# Slots que produzem feature visível ao usuário ou endpoint público devem
+# entregar documentação como artefato de DoD. Ver docs/20-central-de-ajuda.md §10.
+docs_required: true       # default true; só false para refactor/infra invisível
+docs_audience:            # personas que precisam aprender
+  - operador              # agente, agente_admin, gestor_cidade
+  - gestor                # gestor_geral, admin
+  - dev                   # API/integração
+docs_artifacts:           # arquivos esperados ao final do slot
+  - docs/help/guias/<modulo>/<feature>.mdx
 ---
 
 # <SLOT-ID> — <Título>
@@ -66,6 +76,10 @@ O que este slot DEVE entregar para os dependentes consumirem (assinaturas de fun
 - [ ] Audit log aplicado — se aplicável
 - [ ] Feature flag respeitada nas 4 camadas — se aplicável
 - [ ] Logs com correlation_id — se aplicável
+- [ ] **Documentação criada/atualizada em `docs/help/...` conforme `docs_audience`** — se `docs_required: true`
+- [ ] **Screenshots/GIFs em `docs/help/_assets/`** sem PII real — se aplicável
+- [ ] **`<FeedbackWidget />` incluído na página de ajuda** — se aplicável
+- [ ] **Link cruzado adicionado à `docs/help/comecar/<role>.mdx`** quando a feature é first-class
 - [ ] PR aberto com checklist preenchida e link para o slot
 
 ## Comandos de validação
