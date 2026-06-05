@@ -33,6 +33,7 @@ import { CrmDetailPage } from './features/crm/CrmDetailPage';
 import { CrmListPage } from './features/crm/CrmListPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { FollowupJobsPage, FollowupRulesPage } from './features/followup';
+import { HelpMdxPreview } from './features/help/__demo__/HelpMdxPreview';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from './features/templates';
 import { AgentsPage } from './pages/admin/Agents';
@@ -137,6 +138,10 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/admin/templates" element={<TemplatesListPage />} />
         <Route path="/admin/templates/new" element={<TemplateFormPage />} />
         <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
+        {/* F10-S01: smoke test do pipeline MDX — dev-only, removida em F10-S02 */}
+        {import.meta.env.DEV && (
+          <Route path="/_dev/help-mdx-preview" element={<HelpMdxPreview />} />
+        )}
       </Route>
 
       {/* ── Catch-all ────────────────────────────────────────────────── */}
