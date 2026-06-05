@@ -10,6 +10,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 22    | 0   | 0   | 0   | 0   | 0   | 22  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
+| F10  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -77,6 +78,17 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1-S26 | LGPD — DLP no pipeline LangGraph (mascaramento antes do gateway OpenRouter)             | ✅ done | critical   | F0-S06                         |
 | F1-S27 | Fix encadeamento .using('gin') em schemas Drizzle (cities, leads)                       | ✅ done | critical   | —                              |
 | F1-S28 | Fix typecheck do api — drizzle.config.ts fora de rootDir                                | ✅ done | critical   | F1-S27                         |
+
+## Fase 10 —
+
+| ID      | Título                                                               | Status  | Prioridade | Depende de |
+| ------- | -------------------------------------------------------------------- | ------- | ---------- | ---------- |
+| F10-S01 | Pipeline MDX + componentes base (Callout, Step, CodeBlock)           | ✅ done | high       | —          |
+| F10-S02 | Layout 3-pane (nav + conteúdo + TOC) + filesystem-based nav          | ✅ done | high       | F10-S01    |
+| F10-S03 | Busca FlexSearch + Cmd+K palette global                              | ✅ done | high       | F10-S02    |
+| F10-S04 | Entry points — botão "?" na topbar + "Ajuda" no rodapé da sidebar    | ✅ done | high       | F10-S03    |
+| F10-S05 | Home da Central + 3 conceitos base (papéis, LGPD, módulos liberados) | ✅ done | high       | F10-S02    |
+| F10-S06 | Getting started por papel — admin, gestor, agente                    | ✅ done | high       | F10-S05    |
 
 ## Fase 2 — Crédito e simulação
 

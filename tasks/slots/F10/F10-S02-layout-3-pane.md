@@ -3,13 +3,13 @@ id: F10-S02
 title: Layout 3-pane (nav + conteúdo + TOC) + filesystem-based nav
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#3
-status: available
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-05T15:54:05Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/184
 depends_on: [F10-S01]
 blocks: [F10-S03, F10-S04, F10-S05]
 source_docs:

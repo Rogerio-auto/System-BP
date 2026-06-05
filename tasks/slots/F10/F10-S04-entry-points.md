@@ -3,13 +3,13 @@ id: F10-S04
 title: Entry points — botão "?" na topbar + "Ajuda" no rodapé da sidebar
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#1
-status: available
+status: done
 priority: high
 estimated_size: XS
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-05T18:10:17Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/186
 depends_on: [F10-S03]
 blocks: []
 source_docs:

@@ -3,13 +3,13 @@ id: F10-S06
 title: Getting started por papel — admin, gestor, agente
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#5
-status: available
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-05T22:52:06Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/189
 depends_on: [F10-S05]
 blocks: []
 source_docs:

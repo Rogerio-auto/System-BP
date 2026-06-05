@@ -3,13 +3,13 @@ id: F10-S03
 title: Busca FlexSearch + Cmd+K palette global
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#7
-status: available
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-05T17:43:16Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/185
 depends_on: [F10-S02]
 blocks: [F10-S04]
 source_docs:

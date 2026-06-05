@@ -3,13 +3,13 @@ id: F10-S01
 title: Pipeline MDX + componentes base (Callout, Step, CodeBlock)
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#4
-status: available
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-05T15:19:57Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/183
 depends_on: []
 blocks: [F10-S02, F10-S03, F10-S04, F10-S05]
 source_docs:
