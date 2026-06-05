@@ -10,7 +10,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 22    | 0   | 0   | 0   | 0   | 0   | 22  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
-| F10  | 8     | 1   | 0   | 0   | 0   | 1   | 6   |
+| F10  | 8     | 1   | 0   | 0   | 0   | 0   | 7   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -89,7 +89,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F10-S04 | Entry points — botão "?" na topbar + "Ajuda" no rodapé da sidebar    | ✅ done      | high       | F10-S03    |
 | F10-S05 | Home da Central + 3 conceitos base (papéis, LGPD, módulos liberados) | ✅ done      | high       | F10-S02    |
 | F10-S06 | Getting started por papel — admin, gestor, agente                    | ✅ done      | high       | F10-S05    |
-| F10-S07 | Guias CRM — criar lead, importar, kanban, detalhe, conversão, busca  | 🟣 review    | high       | F10-S06    |
+| F10-S07 | Guias CRM — criar lead, importar, kanban, detalhe, conversão, busca  | ✅ done      | high       | F10-S06    |
 | F10-S08 | Guias Análise + Follow-up + Cobrança + Templates                     | 🟢 available | high       | F10-S07    |
 
 ## Fase 2 — Crédito e simulação
