@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { getIndexSize, searchHelp } from '../search';
 
 describe('searchHelp', () => {
-  it('indexa pelo menos 4 artigos (home + 3 conceitos)', () => {
-    expect(getIndexSize()).toBeGreaterThanOrEqual(4);
+  it('indexa pelo menos 7 artigos (home + 3 conceitos + 3 trilhas)', () => {
+    expect(getIndexSize()).toBeGreaterThanOrEqual(7);
   });
 
   it('query vazia retorna lista vazia', () => {
@@ -34,6 +34,24 @@ describe('searchHelp', () => {
     const out = searchHelp('central');
     const slugs = out.map((r) => r.slug);
     expect(slugs).toContain('');
+  });
+
+  it('busca por "admin" encontra a trilha comecar/admin', () => {
+    const out = searchHelp('admin');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('comecar/admin');
+  });
+
+  it('busca por "gestor" encontra a trilha comecar/gestor', () => {
+    const out = searchHelp('gestor');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('comecar/gestor');
+  });
+
+  it('busca por "agente" encontra a trilha comecar/agente', () => {
+    const out = searchHelp('agente');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('comecar/agente');
   });
 
   it('respeita o limit', () => {
