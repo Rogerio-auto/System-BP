@@ -28,5 +28,21 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    // O WASM da oniguruma (shiki) é ~622 KB — esperado, lazy-loaded.
+    // 700 KB acomoda sem mascarar regressões reais do app bundle.
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      // Sourcemap warnings de deps externas (@tanstack/react-query) poluem o log
+      // sem indicar problema real do nosso código. Silenciamos só esse subtipo.
+      onwarn(warning, defaultHandler) {
+        if (
+          warning.code === 'SOURCEMAP_ERROR' &&
+          warning.loc?.file?.includes('@tanstack/react-query')
+        ) {
+          return;
+        }
+        defaultHandler(warning);
+      },
+    },
   },
 });
