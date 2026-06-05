@@ -10,12 +10,18 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [
-    mdx({
-      remarkPlugins: [remarkGfm, remarkFrontmatter],
-      rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings],
-      providerImportSource: '@mdx-js/react',
-    }),
-    react({ include: /\.(jsx|tsx|mdx)$/ }),
+    // enforce:'pre' garante que MDX transforma .mdx -> JSX ANTES do react plugin
+    // tentar parsear como babel. Sem isso, @vitejs/plugin-react acha que o .mdx
+    // é JSX e quebra no primeiro `#` do markdown.
+    {
+      enforce: 'pre',
+      ...mdx({
+        remarkPlugins: [remarkGfm, remarkFrontmatter],
+        rehypePlugins: [rehypeSlug, rehypeAutolinkHeadings],
+        providerImportSource: '@mdx-js/react',
+      }),
+    },
+    react(),
   ],
   envDir: path.resolve(__dirname, '../..'),
   resolve: {
