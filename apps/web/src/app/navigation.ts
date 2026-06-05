@@ -60,9 +60,11 @@ export const APP_NAV: NavSection[] = [
 ];
 
 /**
- * Navegação de rodapé (Configurações — isolado como padrão Linear).
+ * Navegação de rodapé (Configurações + Ajuda — isolados como padrão Linear/ClickUp).
+ * Ordem: Ajuda primeiro (descobrível por novos usuários), Configurações depois.
  */
 export const FOOTER_NAV: NavItem[] = [
+  { href: '/ajuda', label: 'Ajuda', iconKey: 'help' },
   { href: '/configuracoes', label: 'Configurações', iconKey: 'configuracoes' },
 ];
 
