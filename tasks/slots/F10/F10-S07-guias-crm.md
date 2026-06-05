@@ -3,12 +3,12 @@ id: F10-S07
 title: Guias CRM — criar lead, importar, kanban, detalhe, conversão, busca
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#5
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-05T22:56:53Z
-completed_at: null
+completed_at: 2026-06-05T23:13:10Z
 pr_url: null
 depends_on: [F10-S06]
 blocks: []
@@ -114,7 +114,7 @@ Atualiza testes:
 - [ ] Os 6 guias rendem em dev sem PII real em qualquer exemplo
 - [ ] Busca por "criar lead", "kanban", "importar" devolve o guia certo em <100ms
 
-## Comandos de validação
+## Validação
 
 ```powershell
 pnpm --filter @elemento/web typecheck
