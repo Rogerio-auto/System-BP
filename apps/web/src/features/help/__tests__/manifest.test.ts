@@ -22,10 +22,34 @@ describe('help manifest', () => {
     expect(article?.slug).toBe('');
   });
 
-  it('resolve slug aninhado conceitos/pipeline-mdx', async () => {
-    const article = await getArticleBySlug('conceitos/pipeline-mdx');
+  it('resolve slug aninhado conceitos/papeis-e-cidades', async () => {
+    const article = await getArticleBySlug('conceitos/papeis-e-cidades');
     expect(article).not.toBeNull();
-    expect(article?.title).toBe('Pipeline MDX — referência de componentes');
+    expect(article?.title).toBe('Papéis e cidades');
+  });
+
+  it('resolve slug aninhado conceitos/lgpd', async () => {
+    const article = await getArticleBySlug('conceitos/lgpd');
+    expect(article).not.toBeNull();
+    expect(article?.title).toBe('LGPD no Banco do Povo');
+  });
+
+  it('resolve slug aninhado conceitos/modulos-liberados', async () => {
+    const article = await getArticleBySlug('conceitos/modulos-liberados');
+    expect(article).not.toBeNull();
+    expect(article?.title).toBe('Módulos liberados');
+  });
+
+  it('seção conceitos respeita a ordem da frontmatter (10, 20, 30)', async () => {
+    const m = await getHelpManifest();
+    const conceitos = m.sections.find((s) => s.slug === 'conceitos');
+    expect(conceitos).toBeDefined();
+    const slugs = conceitos?.articles.map((a) => a.slug) ?? [];
+    expect(slugs).toEqual([
+      'conceitos/papeis-e-cidades',
+      'conceitos/lgpd',
+      'conceitos/modulos-liberados',
+    ]);
   });
 
   it('devolve null para slug inexistente', async () => {

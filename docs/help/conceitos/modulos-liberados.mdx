@@ -1,0 +1,60 @@
+---
+title: Módulos liberados
+description: Por que algumas funcionalidades aparecem como "em desenvolvimento" e quem decide quando liberá-las.
+order: 30
+keywords: [modulo, modulos, liberado, ativo, em desenvolvimento, ativar, configuracoes]
+---
+
+# Módulos liberados
+
+Algumas telas do Manager Banco do Povo aparecem com um aviso de "em desenvolvimento" ou simplesmente não aparecem para você. Isso não é falha — é o jeito que o sistema organiza o que está disponível. Cada grande conjunto de funcionalidades é chamado de **módulo**, e cada módulo precisa ser explicitamente liberado pelo administrador.
+
+## O que é um módulo
+
+Pense em um módulo como um grande pedaço do sistema: o **CRM** é um módulo, **Cobrança** é outro, **Follow-up automático** é outro. Quando um módulo está liberado, todas as telas, automações e relatórios dele funcionam normalmente. Quando não está, o sistema avisa.
+
+## Por que isso existe
+
+Três razões:
+
+1. **Lançamento gradual.** Funcionalidades novas chegam ao Banco do Povo aos poucos. Liberar tudo de uma vez seria difícil de treinar a equipe e de garantir que está funcionando.
+2. **Validação antes da operação real.** Cobrança, por exemplo, envia mensagens em nome do Banco do Povo. O administrador prefere validar tudo em um ambiente de teste antes de ativar.
+3. **Controle do escopo do contrato.** Algumas funcionalidades só fazem sentido após sign-off formal entre o Banco do Povo e a equipe técnica.
+
+<Callout type="info" title="Você vê o que está liberado">
+  Em **Configurações → Gestão**, os cards de funcionalidades aparecem ou somem com base no
+  que está liberado para o seu papel. Se algo que você esperava ver não está lá, o módulo
+  ainda não foi liberado — ou você não tem permissão.
+</Callout>
+
+## Quem libera
+
+Apenas o administrador pode liberar ou suspender um módulo. A tela fica em:
+
+**Configurações → Administração técnica → Feature Flags**
+
+Cada item da lista tem três estados:
+
+- **Habilitado** — disponível para todos os usuários com permissão.
+- **Desabilitado** — escondido para todos.
+- **Interno** — disponível apenas para a equipe técnica do Banco do Povo (modo de validação).
+
+Alterações refletem em todos os usuários em até 30 segundos.
+
+## Exemplos atuais
+
+| Módulo | Estado típico | O que faz |
+|---|---|---|
+| **CRM** | Liberado | Pipeline de leads, Kanban, importações. |
+| **Simulação de crédito** | Liberado | Calcula condições de empréstimo. |
+| **Análise de crédito** | Liberado | Parecer formal e versionamento. |
+| **Follow-up** | Em liberação | Réguas que enviam lembretes via WhatsApp. |
+| **Cobrança** | Em desenvolvimento | Réguas de cobrança escalonada para parcelas em atraso. |
+| **Templates WhatsApp** | Em liberação | Catálogo de mensagens aprovadas pela Meta. |
+
+Esses estados mudam conforme o Banco do Povo libera cada um. Se você precisa de um módulo que ainda não está liberado, fale com seu gestor — ele pode acionar a equipe técnica.
+
+<Callout type="tip" title="Veja também">
+  Mesmo dentro de um módulo liberado, o que você consegue fazer depende do seu papel.
+  Detalhes em [Papéis e cidades](/ajuda/conceitos/papeis-e-cidades).
+</Callout>
