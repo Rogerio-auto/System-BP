@@ -1,0 +1,81 @@
+---
+title: Configurar uma régua de follow-up
+description: Como o gestor cria e ajusta réguas que enviam mensagens automáticas para leads parados no funil.
+order: 10
+keywords: [regua, régua, follow-up, followup, configurar, automatico, automático, whatsapp, template, gestor, dias]
+---
+
+# Configurar uma régua de follow-up
+
+Uma régua de follow-up define quando o sistema envia mensagens automáticas para leads que ficaram parados no funil — por exemplo, um lembrete no D+1 e outro no D+3 sem movimentação.
+
+<Callout type="info" title="Pré-requisitos">
+  Você precisa ter o papel de **gestor**. O módulo de Follow-up deve estar
+  liberado pelo administrador. Você precisa ter ao menos um **template WhatsApp
+  aprovado pela Meta** — régua sem template aprovado não pode ser ativada.
+</Callout>
+
+## Diferença entre régua de follow-up e régua de cobrança
+
+| | Follow-up | Cobrança |
+|---|---|---|
+| Objetivo | Reengajar leads parados no funil | Lembrar sobre parcelas a vencer ou vencidas |
+| Gatilho | Inatividade no CRM (dias sem movimentação) | Dias antes ou após vencimento da parcela |
+| Destinatário | Lead (prospecto) | Cliente (operação ativa) |
+
+## Passo a passo
+
+<Step number={1} title="Abra o painel de réguas">
+  No menu lateral, clique em **Configurações → Gestão → Follow-up — Réguas**.
+  Você verá a lista de réguas existentes com status ativo ou inativo.
+</Step>
+
+<Step number={2} title="Clique em Nova régua">
+  Botão no canto superior direito. O formulário de criação abre com os campos
+  de configuração.
+</Step>
+
+<Step number={3} title="Defina o gatilho">
+  Escolha **quantos dias sem movimentação** acionam a mensagem — ex.: 1 dia,
+  3 dias, 7 dias. Você pode criar múltiplas réguas para uma cascata de lembretes.
+</Step>
+
+<Step number={4} title="Selecione o template">
+  No campo **Template**, escolha um template já aprovado pela Meta. Templates
+  com status "aguardando aprovação" ou "rejeitado" não aparecem na lista.
+</Step>
+
+<Step number={5} title="Configure o escopo">
+  Escolha quais **estágios do CRM** a régua monitora — ex.: apenas leads em
+  Simulação, ou todos os leads não convertidos.
+</Step>
+
+<Step number={6} title="Salve e ative">
+  Clique em **Salvar**. A régua começa inativa. Quando estiver pronta, ative
+  o toggle **Régua ativa** — a partir deste momento ela passa a monitorar leads.
+</Step>
+
+<Callout type="tip" title="Configure sem pressa">
+  Réguas inativas podem ser editadas a qualquer momento. Use isso para preparar
+  a configuração com calma antes de ligar.
+</Callout>
+
+<Callout type="warn" title="Verifique antes de ativar em produção">
+  Uma régua ativa começa a disparar jobs para todos os leads elegíveis. Valide
+  o template e o gatilho em ambiente de homologação antes de ativar para
+  leads reais.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Nenhum template disponível para selecionar | Template pendente de aprovação Meta ou não criado | Veja [Criar um template WhatsApp](/ajuda/guias/templates/criar-template) |
+| Régua não dispara mesmo com leads elegíveis | Módulo Follow-up não liberado | Administrador verifica em Módulos liberados |
+| Mensagem enviada mas destinatário não recebeu | Número inválido ou fora da janela de WhatsApp | Veja [Monitorar jobs de follow-up](/ajuda/guias/follow-up/monitorar-jobs) |
+
+## Veja também
+
+- [Monitorar jobs de follow-up](/ajuda/guias/follow-up/monitorar-jobs) — acompanhe o que foi enviado e o que falhou.
+- [Criar um template WhatsApp](/ajuda/guias/templates/criar-template) — crie o template que a régua vai usar.
+- [Configurar uma régua de cobrança](/ajuda/guias/cobranca/configurar-reguas) — régua equivalente para parcelas.

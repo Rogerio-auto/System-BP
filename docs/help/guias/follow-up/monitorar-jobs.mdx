@@ -1,0 +1,71 @@
+---
+title: Monitorar jobs de follow-up
+description: Como acompanhar os envios automáticos de follow-up, entender os status e reprocessar falhas.
+order: 20
+keywords: [job, jobs, follow-up, followup, monitorar, status, falhou, reprocessar, agendado, enviado, whatsapp]
+---
+
+# Monitorar jobs de follow-up
+
+Cada vez que uma régua de follow-up dispara, o sistema cria um **job** — um registro do envio programado. Este guia explica como acompanhar esses jobs, interpretar os status e agir quando um job falha.
+
+## Passo a passo: acessar o painel de jobs
+
+<Step number={1} title="Abra o painel de jobs">
+  No menu lateral, clique em **Configurações → Gestão → Follow-up — Jobs**.
+  Você verá a lista de jobs em ordem cronológica, do mais recente ao mais antigo.
+</Step>
+
+<Step number={2} title="Filtre por período ou status">
+  Use os filtros no topo para ver apenas jobs de um dia específico, de uma
+  régua específica ou com um determinado status.
+</Step>
+
+<Step number={3} title="Clique em um job para ver detalhes">
+  O detalhe mostra: régua acionada, lead destinatário, template usado, data
+  e hora do disparo e resposta do canal de envio.
+</Step>
+
+## Status dos jobs
+
+| Status | Significado |
+|---|---|
+| **Agendado** | Aguardando o horário de disparo |
+| **Enviado** | Mensagem aceita pelo canal WhatsApp |
+| **Falhou** | Erro no envio — veja o detalhe para o motivo |
+
+## Como reprocessar um job que falhou
+
+<Step number={1} title="Localize o job com status Falhou">
+  No painel de jobs, filtre por **Status = Falhou**.
+</Step>
+
+<Step number={2} title="Abra o detalhe e leia o motivo">
+  O campo **Motivo da falha** descreve o erro — ex.: número inválido, template
+  não aprovado, janela de mensagem encerrada.
+</Step>
+
+<Step number={3} title="Clique em Reprocessar">
+  Se o motivo for resolvível (ex.: número corrigido no cadastro), clique em
+  **Reprocessar**. O sistema tenta enviar novamente.
+</Step>
+
+<Callout type="warn" title="Limite de re-tentativas">
+  Cada job permite no máximo **3 re-tentativas**. Após isso, o job é marcado
+  como **Expirado** e não pode ser reprocessado. Você precisará enviar
+  manualmente pelo CRM se ainda for relevante.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Job falhou por "janela encerrada" | Resposta do lead foi há mais de 24h | Não é possível reprocessar — abra conversa manualmente |
+| Job travado em Agendado por muito tempo | Serviço de envio com lentidão | Aguarde ou acione o suporte técnico |
+| Jobs duplicados para o mesmo lead | Régua ativada mais de uma vez no mesmo dia | Verifique configurações de gatilho da régua |
+
+## Veja também
+
+- [Configurar uma régua de follow-up](/ajuda/guias/follow-up/configurar-reguas) — configure a régua que gera os jobs.
+- [Usar um template WhatsApp](/ajuda/guias/templates/usar-template) — entenda a janela de 24h do WhatsApp.
+- [Monitorar jobs de cobrança](/ajuda/guias/cobranca/monitorar-jobs) — painel equivalente para cobrança.

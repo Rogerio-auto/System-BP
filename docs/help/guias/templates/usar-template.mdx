@@ -1,0 +1,92 @@
+---
+title: Usar um template WhatsApp
+description: Onde os templates aprovados aparecem no sistema, limites de envio e como a janela de 24h do WhatsApp funciona.
+order: 30
+keywords: [template, usar, whatsapp, regua, régua, janela, 24h, opt-out, envio manual, limite, follow-up, cobranca, cobrança]
+---
+
+# Usar um template WhatsApp
+
+Depois que um template é aprovado pela Meta, ele fica disponível em três contextos: réguas de follow-up, réguas de cobrança e envios manuais. Este guia explica onde usar, os limites de envio e as regras da janela de mensagens do WhatsApp.
+
+## Onde o template aparece
+
+| Contexto | Como usar |
+|---|---|
+| **Régua de follow-up** | Selecione no campo Template ao configurar a régua |
+| **Régua de cobrança** | Selecione no campo Template ao configurar a régua |
+| **Envio manual** | Na ficha do lead ou cliente, botão "Enviar mensagem" — escolha o template |
+
+Apenas templates com status **Aprovado** aparecem nos dropdowns. Templates pendentes ou rejeitados não ficam disponíveis.
+
+## A janela de 24 horas do WhatsApp
+
+<Callout type="info" title="Entendendo a janela de 24h">
+  O WhatsApp permite envio de mensagens com template a qualquer momento — esse
+  é o único tipo de mensagem que pode iniciar uma conversa automaticamente.
+  Porém, se o destinatário responder qualquer mensagem, abre-se uma
+  **janela de 24 horas** durante a qual mensagens livres (sem template) também
+  podem ser enviadas. Após essa janela fechar sem nova resposta, o sistema
+  volta a usar apenas templates para novos envios. Mensagens automáticas das
+  réguas sempre usam templates — elas não dependem da janela estar aberta.
+</Callout>
+
+## Opt-out: respeito à preferência do destinatário
+
+<Callout type="info" title="Direito de não receber mensagens">
+  Mensagens automáticas seguem regras de consentimento. Se um destinatário
+  solicitar para parar de receber mensagens — seja pelo link de opt-out no
+  rodapé do template, seja pelo atendimento — o sistema registra essa
+  preferência e **bloqueia automaticamente** todos os envios automáticos
+  futuros para esse número. Este é um direito garantido pela legislação de
+  proteção de dados. O opt-in só pode ser reativado mediante solicitação
+  expressa do próprio titular.
+</Callout>
+
+## Limites de envio
+
+A Meta aplica limites de volume diário por número de WhatsApp Business. Esses
+limites aumentam conforme o histórico de qualidade das mensagens:
+
+| Nível | Limite diário |
+|---|---|
+| Inicial | 1.000 conversas únicas |
+| Padrão | 10.000 conversas únicas |
+| Alto volume | 100.000+ conversas únicas |
+
+<Callout type="warn" title="Qualidade afeta os limites">
+  Templates com alta taxa de bloqueio ou reporte de spam podem rebaixar o
+  nível do número e reduzir o limite diário. Mantenha os templates relevantes
+  e com opt-out claro no rodapé.
+</Callout>
+
+## Passo a passo: envio manual
+
+<Step number={1} title="Abra a ficha do lead ou cliente">
+  No CRM, clique no nome. O botão **Enviar mensagem** fica no topo da ficha.
+</Step>
+
+<Step number={2} title="Escolha o template">
+  No modal de envio, selecione o template da lista. As variáveis são preenchidas
+  automaticamente com os dados do cadastro — revise antes de confirmar.
+</Step>
+
+<Step number={3} title="Confirme o envio">
+  Clique em **Enviar**. O job de envio manual aparece na timeline do lead com
+  data, hora e template utilizado.
+</Step>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Template não aparece no dropdown | Status diferente de Aprovado | Verifique o status em Configurações → Templates |
+| Variável em branco na mensagem enviada | Campo do cadastro vazio | Corrija o cadastro do lead antes de reenviar |
+| Envio bloqueado para um número | Destinatário em opt-out | Não envie — aguarde solicitação do titular |
+
+## Veja também
+
+- [Criar um template WhatsApp](/ajuda/guias/templates/criar-template) — como criar um template novo.
+- [Aprovação de template](/ajuda/guias/templates/aprovacao-de-template) — como o template passa pela Meta.
+- [Configurar uma régua de follow-up](/ajuda/guias/follow-up/configurar-reguas) — régua que usa o template automaticamente.
+- [Configurar uma régua de cobrança](/ajuda/guias/cobranca/configurar-reguas) — régua de cobrança com template.

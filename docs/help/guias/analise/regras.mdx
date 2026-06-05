@@ -1,0 +1,73 @@
+---
+title: Regras de aprovação automática
+description: Como o motor de regras decide a aprovação automática de análises e como ler o motivo de uma rejeição.
+order: 30
+keywords: [regras, regra, motor de regras, aprovacao, aprovação, automatica, automática, rejeicao, rejeição, analise, análise, configurar regras]
+---
+
+# Regras de aprovação automática
+
+O Manager Banco do Povo inclui um motor de regras que avalia análises automaticamente antes do gestor precisar intervir. Este guia explica como ele funciona, onde o administrador configura as regras e como o agente interpreta um resultado automático.
+
+## Como o motor de regras funciona
+
+Quando uma análise é enviada para aprovação, o motor verifica um conjunto de critérios configurados pelo administrador — como valor máximo, histórico de inadimplência e tipo de garantia. Se todos os critérios forem atendidos, a análise pode ser **aprovada automaticamente**. Se algum critério falhar, a análise é **reprovada automaticamente** e o motivo fica registrado.
+
+O gestor ainda pode revisar e sobrescrever qualquer decisão automática — o motor é um assistente, não a palavra final.
+
+<Callout type="info" title="Transparência da decisão">
+  Todo parecer automático registra quais critérios foram avaliados e qual
+  deles gerou a decisão. O agente e o gestor sempre podem ver o raciocínio
+  completo na ficha da análise.
+</Callout>
+
+## Onde o administrador configura as regras
+
+<Step number={1} title="Acesse Configurações">
+  No menu lateral, clique em **Configurações → Administração técnica → Regras de análise**.
+</Step>
+
+<Step number={2} title="Veja as regras ativas">
+  A lista mostra todas as regras por ordem de prioridade. Cada regra tem um
+  nome, critério e ação (aprovar ou reprovar).
+</Step>
+
+<Step number={3} title="Crie ou edite uma regra">
+  Clique em **Nova regra** ou no nome de uma regra existente. Defina o
+  critério (ex.: valor acima de R$ 50.000 requer revisão manual) e salve.
+</Step>
+
+<Callout type="warn" title="Teste antes de ativar">
+  Regras mal configuradas podem reprovar análises válidas automaticamente.
+  Teste cada nova regra com análises de exemplo antes de ativar em produção.
+</Callout>
+
+## Como o agente lê o motivo de uma rejeição automática
+
+<Step number={1} title="Abra a análise reprovada">
+  Na ficha do lead, aba **Análise**, clique na análise com status **Reprovado automaticamente**.
+</Step>
+
+<Step number={2} title="Leia o painel de motivos">
+  O painel exibe cada critério avaliado e destaca em vermelho o critério que
+  não foi atendido — por exemplo, "Valor solicitado acima do limite configurado".
+</Step>
+
+<Step number={3} title="Decida o próximo passo">
+  Se a rejeição for questionável, encaminhe para o gestor revisar. Se for
+  válida, explique ao lead e registre uma anotação na timeline.
+</Step>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Análise ficou "Aguardando" por muito tempo | Motor de regras desativado | Administrador verifica o status do módulo em Administração técnica |
+| Motivo de rejeição vago | Regra sem descrição configurada | Administrador edita a regra e adiciona descrição clara |
+| Análise aprovada automaticamente que deveria ser manual | Critério de valor muito alto | Administrador ajusta o limite de aprovação automática |
+
+## Veja também
+
+- [Criar uma análise de crédito](/ajuda/guias/analise/criar-analise) — como abrir a análise que será avaliada.
+- [Versionar uma análise de crédito](/ajuda/guias/analise/versionar-analise) — o que acontece após o parecer.
+- [Módulos liberados](/ajuda/conceitos/modulos-liberados) — como o administrador controla o que está ativo.

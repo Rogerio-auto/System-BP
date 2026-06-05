@@ -89,6 +89,34 @@ describe('help manifest', () => {
     }
   });
 
+  it('os 11 slugs novos de guias/analise, follow-up, cobranca e templates resolvem', async () => {
+    const slugs = [
+      'guias/analise/criar-analise',
+      'guias/analise/versionar-analise',
+      'guias/analise/regras',
+      'guias/follow-up/configurar-reguas',
+      'guias/follow-up/monitorar-jobs',
+      'guias/cobranca/registrar-parcelas',
+      'guias/cobranca/configurar-reguas',
+      'guias/cobranca/monitorar-jobs',
+      'guias/templates/criar-template',
+      'guias/templates/aprovacao-de-template',
+      'guias/templates/usar-template',
+    ];
+    for (const slug of slugs) {
+      const article = await getArticleBySlug(slug);
+      expect(article).not.toBeNull();
+      expect(article?.slug).toBe(slug);
+    }
+  });
+
+  it('seção guias contém ao menos 17 artigos (6 CRM + 11 novos)', async () => {
+    const m = await getHelpManifest();
+    const guias = m.sections.find((s) => s.slug === 'guias');
+    expect(guias).toBeDefined();
+    expect(guias?.articles.length).toBeGreaterThanOrEqual(17);
+  });
+
   it('título display da seção comecar é "Começar" (com cedilha)', async () => {
     const m = await getHelpManifest();
     const comecar = m.sections.find((s) => s.slug === 'comecar');

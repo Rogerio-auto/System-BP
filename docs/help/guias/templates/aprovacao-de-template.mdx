@@ -1,0 +1,78 @@
+---
+title: Aprovação de template pela Meta
+description: Ciclo de vida de um template WhatsApp desde o rascunho até aprovado ou rejeitado, e o que fazer em cada caso.
+order: 20
+keywords: [template, aprovacao, aprovação, meta, rascunho, rejeitado, whatsapp, ciclo de vida, status, reenviar]
+---
+
+# Aprovação de template pela Meta
+
+Todo template WhatsApp precisa passar pela análise da Meta antes de poder ser usado em réguas ou envios manuais. Este guia explica os status do ciclo de vida e o que fazer quando um template é rejeitado.
+
+## Ciclo de vida de um template
+
+```
+Rascunho → Aguardando aprovação → Aprovado
+                                ↘ Rejeitado → (editar e reenviar)
+```
+
+| Status | Significado |
+|---|---|
+| **Rascunho** | Criado mas ainda não enviado para a Meta |
+| **Aguardando aprovação** | Enviado — Meta está revisando |
+| **Aprovado** | Pode ser usado em réguas e envios |
+| **Rejeitado** | Meta não aprovou — motivo disponível no detalhe |
+
+## Tempo médio de aprovação
+
+A Meta geralmente revisa templates em **24 a 48 horas úteis**. Em períodos de
+alto volume (datas comemorativas, lançamentos globais) pode levar até 72 horas.
+
+<Callout type="info" title="Planeje com antecedência">
+  Crie os templates pelo menos 3 dias antes de precisar ativá-los em produção.
+  Assim você tem tempo de corrigir e reenviar caso haja rejeição.
+</Callout>
+
+## O que fazer quando um template é rejeitado
+
+<Step number={1} title="Leia o motivo da rejeição">
+  No painel de templates, clique no template com status **Rejeitado**. O campo
+  **Motivo** exibe o código de rejeição da Meta (ex.: `INVALID_FORMAT`,
+  `PROMOTIONAL_CONTENT_NOT_ALLOWED`).
+</Step>
+
+<Step number={2} title="Entenda o motivo">
+  Os motivos mais comuns são:
+  - **INVALID_FORMAT** — estrutura do template não segue as regras (variáveis mal formatadas, header inválido).
+  - **PROMOTIONAL_CONTENT_NOT_ALLOWED** — conteúdo com tom de venda em template categorizado como UTILITY.
+  - **SCAM** — linguagem que a Meta classifica como enganosa.
+</Step>
+
+<Step number={3} title="Edite o template">
+  Clique em **Editar**. Faça as correções indicadas pelo motivo. Não mude o
+  nome do template — isso cria um novo registro e perde o histórico.
+</Step>
+
+<Step number={4} title="Reenvie para aprovação">
+  Clique em **Salvar e reenviar para Meta**. O template volta ao status
+  **Aguardando aprovação**.
+</Step>
+
+<Callout type="warn" title="Limite de reenvios">
+  Templates rejeitados 3 vezes consecutivas podem ser bloqueados permanentemente
+  pela Meta. Se estiver com dificuldade para aprovar, considere recriar o
+  template com um nome diferente e conteúdo revisado.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Status travado em "Aguardando" por mais de 3 dias | Atraso da Meta ou erro de envio | Verifique o detalhe e reenvie se necessário |
+| Template aprovado voltou a "Rejeitado" | Meta revisou novamente por denúncia | Leia o motivo e ajuste o conteúdo |
+| Não consigo editar o template | Régua ativa está usando esse template | Desative a régua, edite o template e reative |
+
+## Veja também
+
+- [Criar um template WhatsApp](/ajuda/guias/templates/criar-template) — como criar um template do zero.
+- [Usar um template](/ajuda/guias/templates/usar-template) — onde o template aprovado pode ser usado.

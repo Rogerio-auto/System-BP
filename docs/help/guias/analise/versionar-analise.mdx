@@ -1,0 +1,65 @@
+---
+title: Versionar uma análise de crédito
+description: Por que toda análise gera uma versão, como ver versões anteriores e o que não pode mudar após o parecer.
+order: 20
+keywords: [versionar, versao, versão, analise, análise, historico, histórico, imutavel, imutável, lgpd, auditoria, parecer]
+---
+
+# Versionar uma análise de crédito
+
+Cada análise de crédito no Manager Banco do Povo gera automaticamente uma versão no momento em que o gestor assina o parecer. Este guia explica por que isso acontece, como consultar versões antigas e o que você pode — e não pode — alterar depois.
+
+## Por que versões são criadas automaticamente
+
+Quando uma análise é aprovada ou reprovada, a decisão é registrada como uma versão com data, hora, responsável e todos os dados que embasaram o parecer. Isso garante que qualquer auditoria futura encontre exatamente o que foi analisado na época.
+
+<Callout type="info" title="Lei de proteção de dados — Art. 20 §1º">
+  O registro imutável de decisões automatizadas ou assistidas por crédito é
+  exigido pela Lei Geral de Proteção de Dados (Art. 20 §1º). Na prática, isso
+  significa que uma versão assinada **não pode ser apagada** — nem pelo agente,
+  nem pelo gestor, nem pelo administrador. Isso protege tanto o titular dos
+  dados quanto o Banco do Povo em caso de questionamento.
+</Callout>
+
+## Passo a passo: consultar versões anteriores
+
+<Step number={1} title="Abra a ficha do lead">
+  No CRM, clique no nome do lead cujas análises você quer consultar.
+</Step>
+
+<Step number={2} title="Acesse a aba Análise">
+  Clique na aba **Análise**. Você verá a análise atual no topo e, abaixo,
+  um histórico de versões em ordem cronológica decrescente.
+</Step>
+
+<Step number={3} title="Clique em uma versão anterior">
+  Cada versão mostra a data do parecer e o responsável. Clique em qualquer
+  versão para expandir os detalhes — campos, valores, parecer e justificativa.
+</Step>
+
+## O que pode e o que não pode ser alterado
+
+| Situação | Pode alterar? |
+|---|---|
+| Análise em rascunho (não enviada) | Sim — todos os campos |
+| Análise aguardando parecer | Sim — até o gestor assinar |
+| Análise com parecer assinado | Não — a versão é permanente |
+
+<Callout type="tip" title="Precisa corrigir uma análise assinada?">
+  Crie uma **nova análise** para o mesmo lead. A versão anterior permanece
+  no histórico, e a nova passa pelo mesmo fluxo de aprovação. O gestor verá
+  as duas ao lado para comparação.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Não consigo editar campos da análise | Parecer já assinado | Crie uma nova análise |
+| Versão anterior não aparece | Análise ainda em rascunho — sem parecer assinado | Aguarde o gestor assinar para que a versão seja registrada |
+
+## Veja também
+
+- [Criar uma análise de crédito](/ajuda/guias/analise/criar-analise) — como abrir uma análise do zero.
+- [Regras de aprovação automática](/ajuda/guias/analise/regras) — como o motor decide antes do gestor ver.
+- [LGPD no Banco do Povo](/ajuda/conceitos/lgpd) — contexto completo de proteção de dados.

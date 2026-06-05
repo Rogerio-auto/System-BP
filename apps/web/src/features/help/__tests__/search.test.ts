@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { getIndexSize, searchHelp } from '../search';
 
 describe('searchHelp', () => {
-  it('indexa pelo menos 13 artigos (home + 3 conceitos + 3 trilhas + 6 guias CRM)', () => {
-    expect(getIndexSize()).toBeGreaterThanOrEqual(13);
+  it('indexa pelo menos 24 artigos (home + 3 conceitos + 3 trilhas + 6 guias CRM + 11 guias novos)', () => {
+    expect(getIndexSize()).toBeGreaterThanOrEqual(24);
   });
 
   it('query vazia retorna lista vazia', () => {
@@ -81,6 +81,57 @@ describe('searchHelp', () => {
     const out = searchHelp('converter');
     const slugs = out.map((r) => r.slug);
     expect(slugs).toContain('guias/crm/converter-em-cliente');
+  });
+
+  // ── Guias novos (F10-S08) ──────────────────────────────────────────────────
+
+  it('busca por "analise" encontra um guia de analise de credito', () => {
+    const out = searchHelp('analise');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs.some((s) => s.startsWith('guias/analise/'))).toBe(true);
+  });
+
+  it('busca por "regua" encontra um guia de configuracao de regua', () => {
+    const out = searchHelp('regua');
+    const slugs = out.map((r) => r.slug);
+    const hasRegua = slugs.some(
+      (s) => s === 'guias/follow-up/configurar-reguas' || s === 'guias/cobranca/configurar-reguas',
+    );
+    expect(hasRegua).toBe(true);
+  });
+
+  it('busca por "job" encontra um guia de monitoramento de jobs', () => {
+    const out = searchHelp('job');
+    const slugs = out.map((r) => r.slug);
+    expect(
+      slugs.some(
+        (s) => s === 'guias/follow-up/monitorar-jobs' || s === 'guias/cobranca/monitorar-jobs',
+      ),
+    ).toBe(true);
+  });
+
+  it('busca por "template" encontra um guia de templates', () => {
+    const out = searchHelp('template');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs.some((s) => s.startsWith('guias/templates/'))).toBe(true);
+  });
+
+  it('busca por "parcela" encontra guias/cobranca/registrar-parcelas', () => {
+    const out = searchHelp('parcela');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('guias/cobranca/registrar-parcelas');
+  });
+
+  it('busca por "aprovacao" encontra guias/templates/aprovacao-de-template', () => {
+    const out = searchHelp('aprovacao');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('guias/templates/aprovacao-de-template');
+  });
+
+  it('busca por "versionar" encontra guias/analise/versionar-analise', () => {
+    const out = searchHelp('versionar');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('guias/analise/versionar-analise');
   });
 
   it('cada resultado tem title e snippet não vazios', () => {
