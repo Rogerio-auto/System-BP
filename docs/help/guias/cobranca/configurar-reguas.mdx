@@ -1,0 +1,84 @@
+---
+title: Configurar uma régua de cobrança
+description: Como criar a cascata automática de lembretes e cobranças por dia de atraso de parcela.
+order: 20
+keywords: [regua, régua, cobranca, cobrança, configurar, automatico, automático, atraso, vencimento, parcela, template, whatsapp, cascata, d-3, d+1]
+---
+
+# Configurar uma régua de cobrança
+
+Uma régua de cobrança define quando o sistema envia mensagens automáticas para clientes com parcelas próximas do vencimento ou já atrasadas — por exemplo, lembrete 3 dias antes, cobrança no dia seguinte ao vencimento e escalada em 15 dias de atraso.
+
+<Callout type="info" title="Pré-requisitos">
+  Você precisa ter o papel de **gestor**. O módulo de Cobrança deve estar
+  liberado pelo administrador. Você precisa ter ao menos um **template WhatsApp
+  aprovado pela Meta** para cada etapa da cascata.
+</Callout>
+
+## Entendendo a cascata de cobrança
+
+Uma cascata é uma sequência de réguas que age progressivamente conforme o atraso aumenta:
+
+| Etapa | Quando dispara | Tom sugerido |
+|---|---|---|
+| Lembrete | D-3 (3 dias antes do vencimento) | Amigável |
+| Cobrança | D+1 (1 dia após vencimento) | Direto |
+| Escalada | D+15 (15 dias de atraso) | Formal |
+
+Você cria cada etapa como uma régua separada. Todas as réguas da cascata ficam ativas ao mesmo tempo.
+
+## Passo a passo
+
+<Step number={1} title="Abra o painel de réguas de cobrança">
+  No menu lateral, clique em **Configurações → Gestão → Cobrança — Réguas**.
+</Step>
+
+<Step number={2} title="Clique em Nova régua">
+  Botão no canto superior direito. O formulário abre para configurar a nova etapa.
+</Step>
+
+<Step number={3} title="Defina o gatilho por dia">
+  Escolha o **número de dias relativo ao vencimento**: negativo para antes
+  (ex.: -3 = 3 dias antes), positivo para depois (ex.: 1 = 1 dia após).
+</Step>
+
+<Step number={4} title="Selecione o template">
+  Escolha o template aprovado para esta etapa. Cada etapa da cascata deve
+  ter um template com tom adequado ao momento.
+</Step>
+
+<Step number={5} title="Salve e ative">
+  Salve a régua e, quando estiver pronto, ative o toggle **Régua ativa**.
+  Repita o processo para cada etapa da cascata.
+</Step>
+
+<Callout type="tip" title="Configure toda a cascata antes de ativar">
+  Crie todas as etapas da cascata como inativas primeiro. Depois revise o
+  conjunto completo e ative todas de uma vez — assim você evita gaps na sequência.
+</Callout>
+
+<Callout type="warn" title="Template aprovado é obrigatório">
+  Réguas sem template aprovado pela Meta ficam bloqueadas mesmo com o toggle
+  ativo. Verifique o status do template antes de ativar.
+</Callout>
+
+## Diferença entre régua de cobrança e régua de follow-up
+
+A régua de cobrança age sobre **clientes com parcelas** — a régua de follow-up
+age sobre **leads parados no funil**. Os dois módulos são independentes e têm
+painéis separados, mas compartilham o mesmo pool de templates.
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Régua não dispara para clientes elegíveis | Módulo Cobrança não liberado | Administrador verifica em Módulos liberados |
+| Cascata com gap (D-3 e D+15 sem D+1) | Faltou criar a régua do meio | Crie a etapa faltante e ative |
+| Mensagem com variável em branco | Campo do cliente não preenchido no cadastro | Corrija o cadastro antes que o job seja disparado |
+
+## Veja também
+
+- [Monitorar jobs de cobrança](/ajuda/guias/cobranca/monitorar-jobs) — acompanhe o que foi enviado.
+- [Registrar e gerenciar parcelas](/ajuda/guias/cobranca/registrar-parcelas) — entenda o ciclo de vida das parcelas.
+- [Criar um template WhatsApp](/ajuda/guias/templates/criar-template) — crie os templates que a régua vai usar.
+- [Configurar uma régua de follow-up](/ajuda/guias/follow-up/configurar-reguas) — régua equivalente para leads.

@@ -1,0 +1,89 @@
+---
+title: Monitorar jobs de cobrança
+description: Como acompanhar o painel de jobs de cobrança, entender evidências de envio e respeitar o opt-out do destinatário.
+order: 30
+keywords: [job, jobs, cobranca, cobrança, monitorar, status, enviado, falhou, evidencia, evidência, opt-out, whatsapp, destinatario, destinatário]
+---
+
+# Monitorar jobs de cobrança
+
+Cada disparo automático de cobrança gera um **job** — um registro rastreável do envio. Este guia explica como acompanhar o painel, ler as evidências de envio e respeitar o direito de opt-out do destinatário.
+
+## Passo a passo: acessar o painel
+
+<Step number={1} title="Abra o painel de jobs de cobrança">
+  No menu lateral, clique em **Configurações → Gestão → Cobrança — Jobs**.
+  A lista mostra todos os jobs em ordem cronológica, do mais recente ao mais antigo.
+</Step>
+
+<Step number={2} title="Filtre por período, régua ou status">
+  Use os filtros no topo para localizar jobs de um cliente específico, de
+  uma etapa da cascata ou com um determinado status.
+</Step>
+
+<Step number={3} title="Clique em um job para ver detalhes">
+  O detalhe mostra: régua acionada, cliente destinatário, parcela de referência,
+  template usado, data e hora do disparo e evidência de entrega.
+</Step>
+
+## Lendo a evidência de envio
+
+Cada job com status **Enviado** exibe o **ID de mensagem** retornado pela
+plataforma WhatsApp. Esse ID é a evidência de que a mensagem foi aceita para
+entrega — não garante que o destinatário leu, mas confirma que foi transmitida.
+
+## Status dos jobs
+
+| Status | Significado |
+|---|---|
+| **Agendado** | Aguardando o horário de disparo |
+| **Enviado** | Mensagem aceita pelo canal |
+| **Falhou** | Erro — veja o detalhe para o motivo |
+| **Opt-out** | Destinatário solicitou não receber mensagens |
+
+## Opt-out: direito do titular
+
+<Callout type="info" title="Direito do titular — respeito ao opt-out">
+  Quando um destinatário solicita não receber mais mensagens (opt-out), o sistema
+  registra essa preferência e bloqueia automaticamente futuros jobs para esse
+  número. Este é um **direito do titular** garantido pela Lei Geral de Proteção
+  de Dados — nunca tente contornar ou reverter um opt-out sem solicitação
+  expressa do próprio titular. Se o cliente mudar de ideia, ele pode solicitar
+  o opt-in pelo canal de atendimento.
+</Callout>
+
+## Como reprocessar um job que falhou
+
+<Step number={1} title="Filtre por status Falhou">
+  No painel de jobs, use o filtro **Status = Falhou**.
+</Step>
+
+<Step number={2} title="Leia o motivo da falha">
+  O campo **Motivo** descreve o erro — ex.: número inválido, template não
+  aprovado, cliente em opt-out.
+</Step>
+
+<Step number={3} title="Corrija o problema e reprocesse">
+  Se o motivo for resolvível (ex.: número corrigido no cadastro), clique em
+  **Reprocessar**. O sistema tenta enviar novamente.
+</Step>
+
+<Callout type="warn" title="Limite de re-tentativas">
+  Cada job de cobrança permite no máximo **3 re-tentativas**. Após isso,
+  o job expira. Se a cobrança ainda for necessária, faça o contato manualmente
+  e registre uma anotação na ficha do cliente.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Job com status Opt-out não pode ser reprocessado | Destinatário pediu opt-out | Aguarde solicitação expressa de retorno do titular |
+| Jobs não aparecem para uma régua ativa | Módulo Cobrança não liberado | Administrador verifica em Módulos liberados |
+| Evidência ausente no job enviado | Plataforma não retornou ID | Aguarde sincronização ou acione suporte técnico |
+
+## Veja também
+
+- [Configurar uma régua de cobrança](/ajuda/guias/cobranca/configurar-reguas) — configure a régua que gera os jobs.
+- [Registrar e gerenciar parcelas](/ajuda/guias/cobranca/registrar-parcelas) — o ciclo de vida das parcelas.
+- [LGPD no Banco do Povo](/ajuda/conceitos/lgpd) — proteção de dados e direitos do titular.

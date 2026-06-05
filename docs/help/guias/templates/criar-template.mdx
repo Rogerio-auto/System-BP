@@ -1,0 +1,87 @@
+---
+title: Criar um template WhatsApp
+description: Como criar um template de mensagem WhatsApp com variáveis, categorias e mapeamento de campos do lead.
+order: 10
+keywords: [template, templates, whatsapp, criar, novo template, variavel, variável, categoria, header, body, footer, idioma, lead]
+---
+
+# Criar um template WhatsApp
+
+Templates WhatsApp são modelos de mensagem que precisam ser aprovados pela Meta antes de poderem ser usados em réguas de follow-up ou cobrança. Este guia explica a estrutura de um template e como criá-lo no sistema.
+
+<Callout type="info" title="Pré-requisito">
+  Você precisa ter o papel de **gestor**. O módulo de Templates deve estar
+  liberado pelo administrador.
+</Callout>
+
+## Estrutura de um template
+
+| Parte | Obrigatório | Descrição |
+|---|---|---|
+| **Header** | Não | Texto curto de destaque no topo (ex.: nome do programa) |
+| **Body** | Sim | Corpo da mensagem com o conteúdo principal |
+| **Footer** | Não | Texto de rodapé menor (ex.: aviso de opt-out) |
+| **Variáveis** | Conforme uso | Campos dinâmicos como `{{nome}}`, `{{valor}}` |
+
+## Categorias de template
+
+A Meta exige que cada template seja classificado em uma categoria. As mais
+usadas no Banco do Povo são:
+
+- **UTILITY** — mensagens transacionais (lembrete de parcela, confirmação).
+- **MARKETING** — mensagens de engajamento (follow-up de lead, campanha).
+
+Escolha a categoria correta — templates com categoria errada têm maior chance
+de rejeição pela Meta.
+
+## Passo a passo
+
+<Step number={1} title="Acesse o painel de templates">
+  No menu lateral, clique em **Configurações → Gestão → Templates WhatsApp**.
+  Você verá a lista de templates com seus status atuais.
+</Step>
+
+<Step number={2} title="Clique em Novo template">
+  Botão no canto superior direito. O editor de template abre com as seções
+  Header, Body e Footer.
+</Step>
+
+<Step number={3} title="Defina o nome e a categoria">
+  O nome do template deve ser em letras minúsculas sem espaços (ex.:
+  `lembrete_parcela_d3`). Escolha a categoria adequada.
+</Step>
+
+<Step number={4} title="Escreva o conteúdo">
+  Use `{{1}}`, `{{2}}` etc. para variáveis. Mantenha o body claro e direto
+  — templates muito longos têm menor taxa de aprovação.
+</Step>
+
+<Step number={5} title="Mapeie as variáveis para campos do lead">
+  Para cada variável `{{n}}`, escolha o campo correspondente no dropdown —
+  ex.: `{{1}}` mapeia para **Nome completo**, `{{2}}` para **Valor da parcela**.
+  Esse mapeamento é usado quando a régua preenche o template com dados reais.
+</Step>
+
+<Step number={6} title="Salve e envie para aprovação">
+  Clique em **Salvar e enviar para Meta**. O template fica com status
+  **Aguardando aprovação**. O tempo médio de resposta da Meta é de 24 a 48 horas.
+</Step>
+
+<Callout type="tip" title="Língua portuguesa do Brasil">
+  Sempre selecione **pt_BR** como idioma. Templates em idioma incorreto podem
+  ser rejeitados ou entregues com formatação errada.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Template rejeitado pela Meta | Conteúdo com tom agressivo ou categoria errada | Leia o feedback da Meta, ajuste e reenvie |
+| Variável não mapeada | Dropdown de mapeamento em branco | Abra o template e complete o mapeamento |
+| Nome com caracteres inválidos | Letras maiúsculas ou espaços no nome | Renomeie usando apenas letras minúsculas, números e `_` |
+
+## Veja também
+
+- [Aprovação de template](/ajuda/guias/templates/aprovacao-de-template) — o que acontece depois de enviar.
+- [Usar um template](/ajuda/guias/templates/usar-template) — onde o template aparece nas réguas.
+- [Configurar uma régua de follow-up](/ajuda/guias/follow-up/configurar-reguas) — como a régua usa o template.

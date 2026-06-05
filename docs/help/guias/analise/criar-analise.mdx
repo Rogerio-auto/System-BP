@@ -1,0 +1,69 @@
+---
+title: Criar uma análise de crédito
+description: Como abrir uma análise a partir de um lead no estágio de simulação.
+order: 10
+keywords: [analise, análise, crédito, credito, criar analise, nova analise, simulacao, simulação, aprovação, aprovacao, parecer]
+---
+
+# Criar uma análise de crédito
+
+Use este guia quando um lead chegou ao estágio de simulação e você precisa registrar formalmente a análise para aprovação.
+
+<Callout type="info" title="Pré-requisitos">
+  O lead precisa estar no estágio **Simulação** no CRM. O módulo de Análise deve
+  estar liberado para a sua organização. Você precisa ter o papel de **agente**
+  ou **gestor**.
+</Callout>
+
+## Passo a passo
+
+<Step number={1} title="Abra a ficha do lead">
+  No CRM, clique no nome do lead. Confirme que o estágio aparece como
+  **Simulação** na barra de progresso no topo da ficha.
+</Step>
+
+<Step number={2} title="Acesse a aba Análise">
+  Dentro da ficha do lead, clique na aba **Análise**. Se a aba não aparecer,
+  o módulo pode não estar liberado — fale com o administrador.
+</Step>
+
+<Step number={3} title="Clique em Nova análise">
+  Botão no canto superior direito da aba. Um formulário de análise abre com
+  os dados do lead já preenchidos automaticamente.
+</Step>
+
+<Step number={4} title="Preencha os campos obrigatórios">
+  Verifique e complete: **Valor solicitado**, **Finalidade**, **Prazo** e
+  **Garantias** (quando aplicável). Campos com asterisco são obrigatórios
+  para enviar ao gestor.
+</Step>
+
+<Step number={5} title="Envie para análise">
+  Clique em **Enviar para aprovação**. A análise fica com status
+  **Aguardando parecer** e aparece na fila do gestor responsável.
+</Step>
+
+<Callout type="info" title="Versão imutável após parecer">
+  Depois que o gestor assina o parecer, a análise vira uma versão imutável —
+  ela não pode ser editada ou apagada. Isso garante rastreabilidade total
+  da decisão de crédito.
+</Callout>
+
+<Callout type="tip" title="Atalho">
+  No Kanban do CRM, arraste o card para a coluna **Simulação** — a aba
+  Análise abre automaticamente em destaque.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Aba "Análise" não aparece | Módulo não liberado ou papel sem permissão | Fale com o administrador |
+| Botão "Enviar para aprovação" desabilitado | Campos obrigatórios incompletos | Preencha todos os campos com asterisco |
+| Lead não está em Simulação | Estágio errado no CRM | Mova o card para a coluna correta antes de abrir a análise |
+
+## Veja também
+
+- [Versionar uma análise](/ajuda/guias/analise/versionar-analise) — entenda por que cada análise gera uma versão.
+- [Regras de aprovação automática](/ajuda/guias/analise/regras) — como o motor decide sem intervenção manual.
+- [Converter lead em cliente](/ajuda/guias/crm/converter-em-cliente) — próximo passo após análise aprovada.

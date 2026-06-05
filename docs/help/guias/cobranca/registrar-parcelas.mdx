@@ -1,0 +1,79 @@
+---
+title: Registrar e gerenciar parcelas
+description: Como uma parcela nasce no sistema, como marcar pagamento, registrar atraso e renegociar.
+order: 10
+keywords: [parcela, parcelas, cobranca, cobrança, registrar, pagar, pago, atraso, atrasado, renegociar, renegociacao, renegociação, cliente]
+---
+
+# Registrar e gerenciar parcelas
+
+As parcelas de uma operação de crédito são criadas automaticamente quando um lead é convertido em cliente. Este guia explica o ciclo de vida de uma parcela — de como ela nasce até as ações de marcação, atraso e renegociação.
+
+<Callout type="info" title="Pré-requisito">
+  O módulo de Cobrança deve estar liberado pelo administrador. Você precisa
+  ter o papel de **gestor** ou **admin** para editar parcelas.
+</Callout>
+
+## Como uma parcela nasce
+
+Quando um lead é convertido em cliente com uma análise de crédito aprovada, o sistema gera automaticamente as parcelas conforme o prazo e o valor definidos na análise. Você não precisa criar parcelas manualmente na maioria dos casos.
+
+## Passo a passo: acessar as parcelas de um cliente
+
+<Step number={1} title="Abra o CRM e localize o cliente">
+  No CRM, filtre por estágio **Cliente** ou pesquise pelo nome. Clique no
+  nome do cliente para abrir a ficha.
+</Step>
+
+<Step number={2} title="Acesse a aba Cobrança">
+  Dentro da ficha do cliente, clique na aba **Cobrança**. Você verá a lista
+  de parcelas com status, data de vencimento e valor.
+</Step>
+
+## Marcar uma parcela como paga
+
+<Step number={1} title="Localize a parcela">
+  Na aba Cobrança, encontre a parcela com status **A vencer** ou **Atrasada**.
+</Step>
+
+<Step number={2} title="Clique em Registrar pagamento">
+  Botão ao lado da parcela. Informe a **data do pagamento** e o **valor
+  recebido**. Confirme.
+</Step>
+
+## Registrar atraso
+
+O status **Atrasada** é atribuído automaticamente quando a data de vencimento
+passa sem registro de pagamento. Você não precisa fazer nada manualmente —
+o sistema já monitora e aciona a régua de cobrança, se configurada.
+
+## Renegociar uma parcela
+
+<Step number={1} title="Selecione a parcela">
+  Clique na parcela com status **Atrasada** ou **A vencer** que será renegociada.
+</Step>
+
+<Step number={2} title="Clique em Renegociar">
+  Informe o novo valor, nova data de vencimento e justificativa. A parcela
+  original é marcada como **Renegociada** e uma nova parcela é criada.
+</Step>
+
+<Callout type="warn" title="Quem pode editar">
+  Apenas **admin** e **gestor** podem marcar pagamentos e renegociar parcelas.
+  Agentes têm acesso de leitura para acompanhar o histórico, mas não podem
+  modificar status ou valores.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Aba "Cobrança" não aparece | Módulo não liberado | Administrador verifica em Módulos liberados |
+| Parcelas não foram criadas para o cliente | Conversão sem análise aprovada | Verifique a ficha — pode ser necessário criar manualmente |
+| Valor renegociado incorreto | Erro de digitação | Desfaça a renegociação (admin) e refaça com os valores corretos |
+
+## Veja também
+
+- [Configurar uma régua de cobrança](/ajuda/guias/cobranca/configurar-reguas) — automatize o lembrete de parcelas.
+- [Monitorar jobs de cobrança](/ajuda/guias/cobranca/monitorar-jobs) — acompanhe o que foi enviado ao cliente.
+- [Converter lead em cliente](/ajuda/guias/crm/converter-em-cliente) — como as parcelas são criadas.
