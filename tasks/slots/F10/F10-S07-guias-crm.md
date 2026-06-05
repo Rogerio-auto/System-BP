@@ -3,11 +3,11 @@ id: F10-S07
 title: Guias CRM — criar lead, importar, kanban, detalhe, conversão, busca
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#5
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-05T22:56:53Z
 completed_at: null
 pr_url: null
 depends_on: [F10-S06]
