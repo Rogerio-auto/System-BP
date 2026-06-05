@@ -12,6 +12,7 @@
 
 import * as React from 'react';
 
+import { HelpButton } from '../../features/help/HelpButton';
 import { ThemeToggle } from '../ui/ThemeToggle';
 
 import { UserMenu } from './UserMenu';
@@ -57,7 +58,8 @@ export function Topbar({ fullName, email, onLogout }: TopbarProps): React.JSX.El
       </div>
 
       {/* Ações à direita */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
+        <HelpButton />
         <ThemeToggle />
         <div
           className="w-px h-5 shrink-0"

@@ -131,6 +131,22 @@ function IconConfiguracoes(): React.JSX.Element {
   );
 }
 
+function IconHelp(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      <circle cx="10" cy="10" r="7.5" />
+      <path d="M7.6 7.5a2.4 2.4 0 1 1 3.6 2.07c-.7.4-1.2.85-1.2 1.68v.25" strokeLinecap="round" />
+      <circle cx="10" cy="14.6" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 function IconSimulator(): React.JSX.Element {
   return (
     <svg
@@ -166,6 +182,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   relatorios: <IconRelatorios />,
   simulator: <IconSimulator />,
   configuracoes: <IconConfiguracoes />,
+  help: <IconHelp />,
 };
 
 /** Resolve iconKey para JSX; fallback neutro se a chave não estiver no mapa. */
