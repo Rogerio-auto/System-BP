@@ -39,6 +39,13 @@ export default defineConfig({
       '@mdx-js/react': path.resolve(__dirname, 'node_modules/@mdx-js/react'),
     },
   },
+  optimizeDeps: {
+    // Pré-bundle obrigatório de @mdx-js/react. Sem isso, MDX em docs/help/ (fora
+    // do project root) só é descoberto sob demanda → Vite re-otimiza deps em
+    // tempo de navegação → emite novo hash ?v= → instâncias duplicadas de
+    // @mdx-js/react → useContext(null) → "Invalid hook call".
+    include: ['@mdx-js/react'],
+  },
   server: {
     port: 5173,
     host: true,
