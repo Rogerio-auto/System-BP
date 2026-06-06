@@ -30,6 +30,7 @@ import { dashboardRoutes } from './modules/dashboard/routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { followupRoutes } from './modules/followup/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
+import { helpRoutes } from './modules/help/routes.js';
 import { importsRoutes } from './modules/imports/routes.js';
 import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/routes.js';
 // Plugin agregador /internal/* (F3-S04): auto-registra rotas internas via @fastify/autoload.
@@ -138,6 +139,8 @@ export async function buildApp() {
           // internal_score: score interno de risco — nunca expor ao cliente
           '*.internal_score',
           'req.body.internal_score',
+          // Help feedback comment (F10-S12) - PII potencial (doc 17 sec 9)
+          'req.body.comment',
         ],
         censor: '[REDACTED]',
       },
@@ -216,6 +219,8 @@ export async function buildApp() {
   await app.register(followupRoutes);
   // Cobrança escalonada — parcelas, réguas, jobs (F5-S08)
   await app.register(billingRoutes);
+  // Central de Ajuda - telemetria views + feedback (F10-S12)
+  await app.register(helpRoutes);
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.
