@@ -10,7 +10,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ---- | ----- | --- | --- | --- | --- | --- | --- |
 | F0   | 22    | 0   | 0   | 0   | 0   | 0   | 22  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
-| F10  | 15    | 2   | 5   | 0   | 0   | 0   | 8   |
+| F10  | 15    | 1   | 5   | 0   | 1   | 0   | 8   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -81,23 +81,23 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 10 —
 
-| ID      | Título                                                                | Status       | Prioridade | Depende de       |
-| ------- | --------------------------------------------------------------------- | ------------ | ---------- | ---------------- |
-| F10-S01 | Pipeline MDX + componentes base (Callout, Step, CodeBlock)            | ✅ done      | high       | —                |
-| F10-S02 | Layout 3-pane (nav + conteúdo + TOC) + filesystem-based nav           | ✅ done      | high       | F10-S01          |
-| F10-S03 | Busca FlexSearch + Cmd+K palette global                               | ✅ done      | high       | F10-S02          |
-| F10-S04 | Entry points — botão "?" na topbar + "Ajuda" no rodapé da sidebar     | ✅ done      | high       | F10-S03          |
-| F10-S05 | Home da Central + 3 conceitos base (papéis, LGPD, módulos liberados)  | ✅ done      | high       | F10-S02          |
-| F10-S06 | Getting started por papel — admin, gestor, agente                     | ✅ done      | high       | F10-S05          |
-| F10-S07 | Guias CRM — criar lead, importar, kanban, detalhe, conversão, busca   | ✅ done      | high       | F10-S06          |
-| F10-S08 | Guias Análise + Follow-up + Cobrança + Templates                      | ✅ done      | high       | F10-S07          |
-| F10-S09 | fastify-zod-openapi + /openapi.json em todas as rotas                 | 🟢 available | high       | —                |
-| F10-S10 | UI de API Reference 3-pane Stripe-like                                | ⏸️ blocked   | medium     | F10-S09          |
-| F10-S11 | Geração de páginas MDX da API + samples curl/TS                       | ⏸️ blocked   | medium     | F10-S09, F10-S10 |
-| F10-S12 | Schema doc_views + doc_feedback + endpoints /api/help/\*              | 🟢 available | medium     | —                |
-| F10-S13 | <FeedbackWidget /> + ranking de Populares na home                     | ⏸️ blocked   | high       | F10-S12          |
-| F10-S14 | Trava docs_required no template + atualiza agents e PROTOCOL          | ⏸️ blocked   | medium     | F10-S13          |
-| F10-S15 | Template MDX canônico + meta-guia "Como escrever uma página de ajuda" | ⏸️ blocked   | low        | F10-S14          |
+| ID      | Título                                                                | Status         | Prioridade | Depende de       |
+| ------- | --------------------------------------------------------------------- | -------------- | ---------- | ---------------- |
+| F10-S01 | Pipeline MDX + componentes base (Callout, Step, CodeBlock)            | ✅ done        | high       | —                |
+| F10-S02 | Layout 3-pane (nav + conteúdo + TOC) + filesystem-based nav           | ✅ done        | high       | F10-S01          |
+| F10-S03 | Busca FlexSearch + Cmd+K palette global                               | ✅ done        | high       | F10-S02          |
+| F10-S04 | Entry points — botão "?" na topbar + "Ajuda" no rodapé da sidebar     | ✅ done        | high       | F10-S03          |
+| F10-S05 | Home da Central + 3 conceitos base (papéis, LGPD, módulos liberados)  | ✅ done        | high       | F10-S02          |
+| F10-S06 | Getting started por papel — admin, gestor, agente                     | ✅ done        | high       | F10-S05          |
+| F10-S07 | Guias CRM — criar lead, importar, kanban, detalhe, conversão, busca   | ✅ done        | high       | F10-S06          |
+| F10-S08 | Guias Análise + Follow-up + Cobrança + Templates                      | ✅ done        | high       | F10-S07          |
+| F10-S09 | fastify-zod-openapi + /openapi.json em todas as rotas                 | 🔵 in-progress | high       | —                |
+| F10-S10 | UI de API Reference 3-pane Stripe-like                                | ⏸️ blocked     | medium     | F10-S09          |
+| F10-S11 | Geração de páginas MDX da API + samples curl/TS                       | ⏸️ blocked     | medium     | F10-S09, F10-S10 |
+| F10-S12 | Schema doc_views + doc_feedback + endpoints /api/help/\*              | 🟢 available   | medium     | —                |
+| F10-S13 | <FeedbackWidget /> + ranking de Populares na home                     | ⏸️ blocked     | high       | F10-S12          |
+| F10-S14 | Trava docs_required no template + atualiza agents e PROTOCOL          | ⏸️ blocked     | medium     | F10-S13          |
+| F10-S15 | Template MDX canônico + meta-guia "Como escrever uma página de ajuda" | ⏸️ blocked     | low        | F10-S14          |
 
 ## Fase 2 — Crédito e simulação
 
