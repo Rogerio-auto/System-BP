@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
+import { useTrackView } from './api/useTrackView';
 import { DocLayout } from './DocLayout';
 import { getArticleBySlug, type Article } from './manifest';
 
@@ -43,6 +44,10 @@ export function DocPage(): React.JSX.Element {
       cancelled = true;
     };
   }, [slug]);
+
+  // F10-S13: registra view apos 1s (debounce). So dispara quando loaded.
+  // Slug vazio (home) -> noop no hook.
+  useTrackView(state.kind === 'loaded' ? slug : '');
 
   return (
     <DocLayout>

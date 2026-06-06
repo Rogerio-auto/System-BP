@@ -2,13 +2,15 @@ import { MDXProvider } from '@mdx-js/react';
 import type { MDXComponents } from 'mdx/types';
 import * as React from 'react';
 
-import { Callout, CodeBlock, Step } from './mdx-components';
+import { Callout, CodeBlock, FeedbackWidget, PopularList, Step } from './mdx-components';
 
 // Componentes default disponíveis em qualquer .mdx — sem precisar de import.
 const COMPONENTS: MDXComponents = {
   Callout,
   Step,
   CodeBlock,
+  FeedbackWidget,
+  PopularList,
 
   // Sobrescrita de tags HTML para alinhar com o DS.
   h1: (props) => (
