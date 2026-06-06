@@ -89,6 +89,7 @@ const internalCreditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/:id/credit-analyses',
     {
       schema: {
+        hide: true,
         params: CreditAnalysisHistoryParamsSchema,
         response: {
           200: CreditAnalysisHistoryResponseSchema,

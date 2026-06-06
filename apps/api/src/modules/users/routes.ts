@@ -10,7 +10,6 @@
 // LGPD: respostas nunca incluem password_hash, refresh_token_hash, totp_secret.
 // =============================================================================
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 
 import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
@@ -50,6 +49,10 @@ export const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/users',
     {
       schema: {
+        tags: ['Roles & Users'],
+        summary: 'Listar usuarios',
+        description: 'Lista usuarios da organizacao com paginacao. Requer permissao users:manage.',
+        security: [{ bearerAuth: [] }],
         querystring: listUsersQuerySchema,
         response: {
           200: listUsersResponseSchema,
@@ -66,6 +69,10 @@ export const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/users',
     {
       schema: {
+        tags: ['Roles & Users'],
+        summary: 'Criar usuario',
+        description: 'Cria um novo usuario. Requer permissao users:manage.',
+        security: [{ bearerAuth: [] }],
         body: createUserBodySchema,
         response: {
           201: createUserResponseSchema,
@@ -82,6 +89,10 @@ export const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/users/:id',
     {
       schema: {
+        tags: ['Roles & Users'],
+        summary: 'Atualizar usuario',
+        description: 'Atualiza dados de um usuario. Requer permissao users:manage.',
+        security: [{ bearerAuth: [] }],
         params: userIdParamSchema,
         body: updateUserBodySchema,
         response: {
@@ -99,10 +110,12 @@ export const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/users/:id/deactivate',
     {
       schema: {
+        tags: ['Roles & Users'],
+        summary: 'Desativar usuario',
+        description: 'Desativa (soft-delete) um usuario. Requer permissao users:manage.',
+        security: [{ bearerAuth: [] }],
         params: userIdParamSchema,
-        response: {
-          204: z.void(),
-        },
+        response: { 204: { description: 'Sem conteúdo.' } },
       },
     },
     deactivateUserController,
@@ -115,10 +128,12 @@ export const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/users/:id/reactivate',
     {
       schema: {
+        tags: ['Roles & Users'],
+        summary: 'Reativar usuario',
+        description: 'Reativa um usuario desativado. Requer permissao users:manage.',
+        security: [{ bearerAuth: [] }],
         params: userIdParamSchema,
-        response: {
-          204: z.void(),
-        },
+        response: { 204: { description: 'Sem conteúdo.' } },
       },
     },
     reactivateUserController,
@@ -131,11 +146,13 @@ export const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/users/:id/roles',
     {
       schema: {
+        tags: ['Roles & Users'],
+        summary: 'Definir papeis',
+        description: 'Substitui os papeis de um usuario. Requer permissao users:manage.',
+        security: [{ bearerAuth: [] }],
         params: userIdParamSchema,
         body: setRolesBodySchema,
-        response: {
-          204: z.void(),
-        },
+        response: { 204: { description: 'Sem conteúdo.' } },
       },
     },
     setUserRolesController,
@@ -148,11 +165,13 @@ export const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/users/:id/city-scopes',
     {
       schema: {
+        tags: ['Roles & Users'],
+        summary: 'Definir escopos de cidade',
+        description: 'Substitui os escopos de cidade de um usuario. Requer permissao users:manage.',
+        security: [{ bearerAuth: [] }],
         params: userIdParamSchema,
         body: setCityScopesBodySchema,
-        response: {
-          204: z.void(),
-        },
+        response: { 204: { description: 'Sem conteúdo.' } },
       },
     },
     setUserCityScopesController,

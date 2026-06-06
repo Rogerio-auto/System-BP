@@ -11,7 +11,6 @@
 // LGPD: cidades não contêm PII (nome de município + UF).
 // =============================================================================
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 
 import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
@@ -47,6 +46,10 @@ export const citiesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/cities',
     {
       schema: {
+        tags: ['Cities'],
+        summary: 'Listar cidades',
+        description: 'Lista cidades com paginacao e filtros. Requer permissao cities:manage.',
+        security: [{ bearerAuth: [] }],
         querystring: CityListQuerySchema,
         response: {
           200: CityListResponseSchema,
@@ -64,6 +67,10 @@ export const citiesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/cities/:id',
     {
       schema: {
+        tags: ['Cities'],
+        summary: 'Obter cidade',
+        description: 'Retorna detalhes de uma cidade pelo ID.',
+        security: [{ bearerAuth: [] }],
         params: cityIdParamSchema,
         response: {
           200: CityResponseSchema,
@@ -81,6 +88,10 @@ export const citiesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/cities',
     {
       schema: {
+        tags: ['Cities'],
+        summary: 'Criar cidade',
+        description: 'Cria uma nova cidade. Requer permissao cities:manage.',
+        security: [{ bearerAuth: [] }],
         body: CityCreateSchema,
         response: {
           201: CityResponseSchema,
@@ -98,6 +109,10 @@ export const citiesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/cities/:id',
     {
       schema: {
+        tags: ['Cities'],
+        summary: 'Atualizar cidade',
+        description: 'Atualiza dados de uma cidade.',
+        security: [{ bearerAuth: [] }],
         params: cityIdParamSchema,
         body: CityUpdateSchema,
         response: {
@@ -116,10 +131,12 @@ export const citiesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/cities/:id',
     {
       schema: {
+        tags: ['Cities'],
+        summary: 'Remover cidade',
+        description: 'Remove uma cidade (soft-delete).',
+        security: [{ bearerAuth: [] }],
         params: cityIdParamSchema,
-        response: {
-          204: z.void(),
-        },
+        response: { 204: { description: 'Sem conteúdo.' } },
       },
       preHandler: [authorize({ permissions: ADMIN_CITIES_WRITE })],
     },
@@ -141,6 +158,10 @@ export const citiesPublicRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/cities',
     {
       schema: {
+        tags: ['Cities'],
+        summary: 'Listar cidades (publico)',
+        description: 'Lista cidades ativas para selects. Qualquer usuario autenticado.',
+        security: [{ bearerAuth: [] }],
         response: {
           200: CityPublicListResponseSchema,
         },

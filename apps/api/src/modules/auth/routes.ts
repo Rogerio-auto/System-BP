@@ -18,7 +18,6 @@ import cookie from '@fastify/cookie';
 // NOTA: @fastify/rate-limit precisa ser registrado em app.ts (follow-up). A config
 // `rateLimit:` por rota abaixo só ativa quando o plugin estiver registrado globalmente.
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 
 import {
   loginController,
@@ -73,6 +72,11 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
         },
       },
       schema: {
+        tags: ['Auth'],
+        summary: 'Login',
+        description:
+          'Autentica com email e senha. Retorna access_token e refresh_token, ou challenge_token quando 2FA está ativo.',
+        security: [],
         body: loginBodySchema,
         // União de schemas: login normal OR challenge 2FA.
         // Fastify serializa conforme o discriminador status.
@@ -106,6 +110,11 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
         },
       },
       schema: {
+        tags: ['Auth'],
+        summary: 'Verificar código 2FA',
+        description:
+          'Troca challenge_token + código TOTP ou recovery code por sessão completa (access_token + refresh_token).',
+        security: [],
         body: verify2faBodySchema,
         response: {
           200: loginResponseSchema,
@@ -123,6 +132,10 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/auth/refresh',
     {
       schema: {
+        tags: ['Auth'],
+        summary: 'Renovar sessão',
+        description: 'Rotaciona o refresh token e emite novos access_token e refresh_token.',
+        security: [],
         body: refreshBodySchema,
         response: {
           200: refreshResponseSchema,
@@ -140,10 +153,12 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/auth/logout',
     {
       schema: {
+        tags: ['Auth'],
+        summary: 'Logout',
+        description: 'Revoga a sessão atual. Invalida o refresh token no banco.',
+        security: [],
         body: logoutBodySchema,
-        response: {
-          204: z.void(),
-        },
+        response: { 204: { description: 'Sem conteúdo.' } },
       },
     },
     logoutController,

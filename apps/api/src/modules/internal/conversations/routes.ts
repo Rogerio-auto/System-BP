@@ -84,6 +84,7 @@ const internalConversationsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/:id/state',
     {
       schema: {
+        hide: true,
         params: ConversationIdParamSchema,
         response: {
           200: ConversationStateResponseSchema,
@@ -160,6 +161,7 @@ const internalConversationsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/:id/state',
     {
       schema: {
+        hide: true,
         params: ConversationIdParamSchema,
         body: UpsertConversationStateBodySchema,
         response: {

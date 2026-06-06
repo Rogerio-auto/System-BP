@@ -91,7 +91,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F10-S06 | Getting started por papel — admin, gestor, agente                     | ✅ done      | high       | F10-S05          |
 | F10-S07 | Guias CRM — criar lead, importar, kanban, detalhe, conversão, busca   | ✅ done      | high       | F10-S06          |
 | F10-S08 | Guias Análise + Follow-up + Cobrança + Templates                      | ✅ done      | high       | F10-S07          |
-| F10-S09 | fastify-zod-openapi + /openapi.json em todas as rotas                 | 🟢 available | high       | —                |
+| F10-S09 | fastify-zod-openapi + /openapi.json em todas as rotas                 | 🟣 review    | high       | —                |
 | F10-S10 | UI de API Reference 3-pane Stripe-like                                | ⏸️ blocked   | medium     | F10-S09          |
 | F10-S11 | Geração de páginas MDX da API + samples curl/TS                       | ⏸️ blocked   | medium     | F10-S09, F10-S10 |
 | F10-S12 | Schema doc_views + doc_feedback + endpoints /api/help/\*              | 🟣 review    | medium     | —                |

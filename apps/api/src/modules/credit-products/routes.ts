@@ -16,7 +16,6 @@
 // LGPD: nenhum campo sensível neste módulo.
 // =============================================================================
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 
 import { featureGate } from '../../plugins/featureGate.js';
 import { authenticate } from '../auth/middlewares/authenticate.js';
@@ -58,6 +57,10 @@ export const creditProductsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-products',
     {
       schema: {
+        tags: ['Credit Products'],
+        summary: 'Listar produtos',
+        description: 'Lista produtos de credito ativos.',
+        security: [{ bearerAuth: [] }],
         querystring: CreditProductListQuerySchema,
         response: {
           200: CreditProductListResponseSchema,
@@ -75,6 +78,10 @@ export const creditProductsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-products',
     {
       schema: {
+        tags: ['Credit Products'],
+        summary: 'Criar produto',
+        description: 'Cria um novo produto de credito.',
+        security: [{ bearerAuth: [] }],
         body: CreditProductCreateSchema,
         response: {
           201: CreditProductResponseSchema,
@@ -92,6 +99,10 @@ export const creditProductsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-products/:id',
     {
       schema: {
+        tags: ['Credit Products'],
+        summary: 'Obter produto',
+        description: 'Retorna detalhes de um produto pelo ID.',
+        security: [{ bearerAuth: [] }],
         params: productIdParamSchema,
         response: {
           200: CreditProductDetailResponseSchema,
@@ -109,6 +120,10 @@ export const creditProductsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-products/:id',
     {
       schema: {
+        tags: ['Credit Products'],
+        summary: 'Atualizar produto',
+        description: 'Atualiza dados de um produto de credito.',
+        security: [{ bearerAuth: [] }],
         params: productIdParamSchema,
         body: CreditProductUpdateSchema,
         response: {
@@ -127,10 +142,12 @@ export const creditProductsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-products/:id',
     {
       schema: {
+        tags: ['Credit Products'],
+        summary: 'Remover produto',
+        description: 'Remove (soft-delete) um produto de credito.',
+        security: [{ bearerAuth: [] }],
         params: productIdParamSchema,
-        response: {
-          204: z.void(),
-        },
+        response: { 204: { description: 'Sem conteúdo.' } },
       },
       preHandler: [authorize({ permissions: WRITE_PERMS })],
     },
@@ -145,6 +162,10 @@ export const creditProductsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-products/:id/rules',
     {
       schema: {
+        tags: ['Credit Products'],
+        summary: 'Criar regra',
+        description: 'Adiciona uma nova versao de regra a um produto.',
+        security: [{ bearerAuth: [] }],
         params: productIdParamSchema,
         body: CreditProductRuleCreateSchema,
         response: {
@@ -167,6 +188,10 @@ export const creditProductsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-products/:id/rules',
     {
       schema: {
+        tags: ['Credit Products'],
+        summary: 'Listar regras',
+        description: 'Lista as regras versionadas de um produto.',
+        security: [{ bearerAuth: [] }],
         params: productIdParamSchema,
         response: {
           200: CreditProductRulesListResponseSchema,

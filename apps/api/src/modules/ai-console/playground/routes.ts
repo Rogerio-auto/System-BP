@@ -32,6 +32,10 @@ export const playgroundRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['ai_playground:run'] })],
       schema: {
+        tags: ['AI Console'],
+        summary: 'Playground dry-run',
+        description: 'Executa um dry-run no playground de IA com DLP aplicado na entrada.',
+        security: [{ bearerAuth: [] }],
         body: playgroundBodySchema,
         response: {
           200: playgroundResponseSchema,

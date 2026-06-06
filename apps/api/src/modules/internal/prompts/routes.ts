@@ -57,6 +57,7 @@ const internalPromptsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/active/:key',
     {
       schema: {
+        hide: true,
         params: InternalPromptParamsSchema,
         response: {
           200: InternalActivePromptResponseSchema,

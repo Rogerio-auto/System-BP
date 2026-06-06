@@ -34,6 +34,10 @@ export const dashboardRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/dashboard/metrics',
     {
       schema: {
+        tags: ['Dashboard'],
+        summary: 'Metricas do dashboard',
+        description: 'Retorna KPIs do dashboard para o usuario autenticado com city scope.',
+        security: [{ bearerAuth: [] }],
         querystring: DashboardMetricsQuerySchema,
         response: {
           200: DashboardMetricsResponseSchema,

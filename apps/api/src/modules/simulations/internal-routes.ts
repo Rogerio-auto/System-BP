@@ -161,6 +161,7 @@ export const internalSimulationsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/internal/simulations',
     {
       schema: {
+        hide: true,
         body: InternalSimulationCreateSchema,
         response: {
           201: InternalSimulationResponseSchema,
@@ -403,6 +404,7 @@ export const internalSimulationsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/internal/simulations/:id/sent',
     {
       schema: {
+        hide: true,
         params: z.object({
           id: z.string().uuid('id deve ser UUID'),
         }),

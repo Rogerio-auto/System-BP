@@ -60,6 +60,10 @@ export const simulationsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/simulations',
     {
       schema: {
+        tags: ['Simulations'],
+        summary: 'Criar simulacao',
+        description: 'Cria uma simulacao de credito com os parametros fornecidos.',
+        security: [{ bearerAuth: [] }],
         body: SimulationCreateSchema,
         response: {
           201: SimulationResponseSchema,
@@ -89,6 +93,10 @@ export const simulationsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/leads/:id/simulations',
     {
       schema: {
+        tags: ['Simulations'],
+        summary: 'Listar simulacoes do lead',
+        description: 'Lista todas as simulacoes de credito de um lead.',
+        security: [{ bearerAuth: [] }],
         params: z.object({ id: z.string().uuid('lead id deve ser UUID') }),
         querystring: SimulationListQuerySchema,
         response: {

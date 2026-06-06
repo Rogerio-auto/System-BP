@@ -39,6 +39,7 @@ export const internalFeatureFlagsRoutes: FastifyPluginAsyncZod = async (app) => 
     '/internal/feature-flags/check',
     {
       schema: {
+        hide: true,
         body: internalCheckBodySchema,
         response: {
           200: internalCheckResponseSchema,

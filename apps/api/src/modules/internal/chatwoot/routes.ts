@@ -74,6 +74,7 @@ const internalChatwootRoutes: FastifyPluginAsyncZod = async (app) => {
     '/notes',
     {
       schema: {
+        hide: true,
         body: CreateChatwootNoteBodySchema,
         response: {
           200: CreateChatwootNoteResponseSchema,

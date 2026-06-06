@@ -61,6 +61,10 @@ export const billingRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/billing/payment-dues',
     {
       schema: {
+        tags: ['Billing'],
+        summary: 'Listar parcelas',
+        description: 'Lista parcelas.',
+        security: [{ bearerAuth: [] }],
         querystring: PaymentDuesListQuerySchema,
         response: {
           200: PaymentDuesListResponseSchema,
@@ -78,6 +82,10 @@ export const billingRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/billing/payment-dues/:id/mark-paid',
     {
       schema: {
+        tags: ['Billing'],
+        summary: 'Marcar parcela como paga',
+        description: 'Marca uma parcela como paga.',
+        security: [{ bearerAuth: [] }],
         params: dueIdParamSchema,
         body: MarkPaidBodySchema,
         response: {
@@ -96,6 +104,10 @@ export const billingRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/billing/payment-dues/:id/renegotiate',
     {
       schema: {
+        tags: ['Billing'],
+        summary: 'Renegociar parcela',
+        description: 'Cria uma renegociacao para uma parcela em atraso.',
+        security: [{ bearerAuth: [] }],
         params: dueIdParamSchema,
         body: RenegotiateBodySchema,
         response: {
@@ -114,6 +126,10 @@ export const billingRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/billing/rules',
     {
       schema: {
+        tags: ['Billing'],
+        summary: 'Listar regras de cobranca',
+        description: 'Lista as regras de escalonamento da organizacao.',
+        security: [{ bearerAuth: [] }],
         response: {
           200: CollectionRulesListResponseSchema,
         },
@@ -130,6 +146,10 @@ export const billingRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/billing/rules',
     {
       schema: {
+        tags: ['Billing'],
+        summary: 'Criar regra de cobranca',
+        description: 'Cria uma nova regra de cobranca.',
+        security: [{ bearerAuth: [] }],
         body: CollectionRuleCreateSchema,
         response: {
           201: CollectionRuleResponseSchema,
@@ -147,6 +167,10 @@ export const billingRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/billing/rules/:id',
     {
       schema: {
+        tags: ['Billing'],
+        summary: 'Atualizar regra de cobranca',
+        description: 'Atualiza uma regra de cobranca existente.',
+        security: [{ bearerAuth: [] }],
         params: ruleIdParamSchema,
         body: CollectionRuleUpdateSchema,
         response: {
@@ -165,6 +189,10 @@ export const billingRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/billing/jobs',
     {
       schema: {
+        tags: ['Billing'],
+        summary: 'Listar jobs de cobranca',
+        description: 'Lista os jobs de cobranca com seu status.',
+        security: [{ bearerAuth: [] }],
         querystring: CollectionJobsListQuerySchema,
         response: {
           200: CollectionJobsListResponseSchema,
@@ -182,6 +210,10 @@ export const billingRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/billing/jobs/:id/cancel',
     {
       schema: {
+        tags: ['Billing'],
+        summary: 'Cancelar job de cobranca',
+        description: 'Cancela um job de cobranca pendente.',
+        security: [{ bearerAuth: [] }],
         params: jobIdParamSchema,
         response: {
           200: CollectionJobResponseSchema,

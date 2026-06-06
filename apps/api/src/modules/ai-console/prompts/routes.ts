@@ -48,6 +48,10 @@ export const promptsRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['ai_prompts:read'] })],
       schema: {
+        tags: ['AI Console'],
+        summary: 'Listar versoes de prompt',
+        description: 'Lista versoes de prompts do sistema de IA.',
+        security: [{ bearerAuth: [] }],
         response: {
           200: promptKeyListResponseSchema,
         },
@@ -64,6 +68,10 @@ export const promptsRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['ai_prompts:read'] })],
       schema: {
+        tags: ['AI Console'],
+        summary: 'Listar versoes de um prompt',
+        description: 'Lista versoes de um prompt especifico por chave.',
+        security: [{ bearerAuth: [] }],
         params: promptKeyParamSchema,
         response: {
           200: promptVersionListResponseSchema,
@@ -81,6 +89,10 @@ export const promptsRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['ai_prompts:read'] })],
       schema: {
+        tags: ['AI Console'],
+        summary: 'Obter versao de prompt',
+        description: 'Retorna uma versao especifica de um prompt.',
+        security: [{ bearerAuth: [] }],
         params: promptVersionParamsSchema,
         response: {
           200: promptVersionResponseSchema,
@@ -98,6 +110,10 @@ export const promptsRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['ai_prompts:write'] })],
       schema: {
+        tags: ['AI Console'],
+        summary: 'Criar versao de prompt',
+        description: 'Cria uma nova versao de prompt.',
+        security: [{ bearerAuth: [] }],
         params: promptKeyParamSchema,
         body: createPromptVersionBodySchema,
         response: {
@@ -122,6 +138,10 @@ export const promptsRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['ai_prompts:activate'] })],
       schema: {
+        tags: ['AI Console'],
+        summary: 'Ativar versao de prompt',
+        description: 'Ativa uma versao especifica de prompt como ativa.',
+        security: [{ bearerAuth: [] }],
         params: promptVersionParamsSchema,
         response: {
           200: activatePromptVersionResponseSchema,

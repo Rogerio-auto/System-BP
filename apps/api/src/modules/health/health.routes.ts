@@ -18,7 +18,19 @@ const healthResponseSchema = z.object({
 export const healthRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     '/health',
-    { schema: { response: { 200: healthResponseSchema, 503: healthResponseSchema } } },
+    {
+      schema: {
+        tags: ['Health'],
+        summary: 'Health check',
+        description:
+          'Verifica que o serviço está vivo e que as dependências críticas (banco de dados) estão acessíveis. Retorna 503 se o banco estiver indisponível.',
+        security: [],
+        response: {
+          200: healthResponseSchema,
+          503: healthResponseSchema,
+        },
+      },
+    },
     async (_req, reply) => {
       let dbStatus: 'ok' | 'down' = 'ok';
       try {

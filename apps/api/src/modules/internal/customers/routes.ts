@@ -108,6 +108,7 @@ const internalCustomersRoutes: FastifyPluginAsyncZod = async (app) => {
     '/:id/context',
     {
       schema: {
+        hide: true,
         params: CustomerContextParamsSchema,
         querystring: CustomerContextQuerySchema,
         response: {

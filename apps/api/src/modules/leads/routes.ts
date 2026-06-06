@@ -15,7 +15,6 @@
 // LGPD: respostas nunca incluem cpf_encrypted, cpf_hash, phone_normalized.
 // =============================================================================
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 
 import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
@@ -48,6 +47,10 @@ export const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/leads',
     {
       schema: {
+        tags: ['Leads'],
+        summary: 'Listar leads',
+        description: 'Lista leads com paginacao, filtros e city scope automatico.',
+        security: [{ bearerAuth: [] }],
         querystring: LeadListQuerySchema,
         response: {
           200: LeadListResponseSchema,
@@ -65,6 +68,10 @@ export const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/leads/:id',
     {
       schema: {
+        tags: ['Leads'],
+        summary: 'Obter lead',
+        description: 'Retorna detalhes de um lead pelo ID.',
+        security: [{ bearerAuth: [] }],
         params: leadIdParamSchema,
         response: {
           200: LeadResponseSchema,
@@ -82,6 +89,10 @@ export const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/leads',
     {
       schema: {
+        tags: ['Leads'],
+        summary: 'Criar lead',
+        description: 'Cria um novo lead com dedupe automatico por telefone.',
+        security: [{ bearerAuth: [] }],
         body: LeadCreateSchema,
         response: {
           201: LeadResponseSchema,
@@ -99,6 +110,10 @@ export const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/leads/:id',
     {
       schema: {
+        tags: ['Leads'],
+        summary: 'Atualizar lead',
+        description: 'Atualiza campos de um lead com audit log before/after.',
+        security: [{ bearerAuth: [] }],
         params: leadIdParamSchema,
         body: LeadUpdateSchema,
         response: {
@@ -117,10 +132,12 @@ export const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/leads/:id',
     {
       schema: {
+        tags: ['Leads'],
+        summary: 'Remover lead',
+        description: 'Remove (soft-delete) um lead.',
+        security: [{ bearerAuth: [] }],
         params: leadIdParamSchema,
-        response: {
-          204: z.void(),
-        },
+        response: { 204: { description: 'Sem conteúdo.' } },
       },
       preHandler: [authorize({ permissions: ['leads:write'] })],
     },
@@ -134,6 +151,10 @@ export const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/leads/:id/restore',
     {
       schema: {
+        tags: ['Leads'],
+        summary: 'Restaurar lead',
+        description: 'Desfaz o soft-delete de um lead.',
+        security: [{ bearerAuth: [] }],
         params: leadIdParamSchema,
         response: {
           200: LeadResponseSchema,

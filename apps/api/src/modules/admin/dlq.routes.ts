@@ -69,6 +69,11 @@ export const adminDlqRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['dlq:manage'] })],
       schema: {
+        tags: ['Admin'],
+        summary: 'Listar DLQ',
+        description:
+          'Lista entradas pendentes da Dead-Letter Queue (DLQ). Requer permissão dlq:manage.',
+        security: [{ bearerAuth: [] }],
         querystring: z.object({
           event_name: z.string().optional(),
           limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -129,6 +134,11 @@ export const adminDlqRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['dlq:manage'] })],
       schema: {
+        tags: ['Admin'],
+        summary: 'Reprocessar evento DLQ',
+        description:
+          'Retenta o processamento de um evento da Dead-Letter Queue. Registra audit log. Requer permissão dlq:manage.',
+        security: [{ bearerAuth: [] }],
         params: z.object({
           id: z.string().uuid(),
         }),

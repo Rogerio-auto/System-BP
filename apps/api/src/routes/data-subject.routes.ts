@@ -89,6 +89,10 @@ export const dataSubjectRoutes: FastifyPluginAsyncZod = async (app) => {
         },
       },
       schema: {
+        tags: ['Data Subject'],
+        summary: 'Confirmar identidade',
+        description: 'Confirma a identidade do titular para exercicio de direitos LGPD.',
+        security: [],
         body: dataSubjectBaseSchema,
         response: {
           200: requestResponseSchema,
@@ -118,6 +122,10 @@ export const dataSubjectRoutes: FastifyPluginAsyncZod = async (app) => {
         },
       },
       schema: {
+        tags: ['Data Subject'],
+        summary: 'Solicitar acesso',
+        description: 'Solicita acesso aos dados pessoais (Art. 18 LGPD).',
+        security: [],
         body: dataSubjectBaseSchema,
         response: {
           200: requestResponseSchema,
@@ -147,6 +155,10 @@ export const dataSubjectRoutes: FastifyPluginAsyncZod = async (app) => {
         },
       },
       schema: {
+        tags: ['Data Subject'],
+        summary: 'Solicitar portabilidade',
+        description: 'Solicita portabilidade dos dados pessoais (Art. 18 LGPD).',
+        security: [],
         body: dataSubjectBaseSchema,
         response: {
           200: requestResponseSchema,
@@ -176,6 +188,10 @@ export const dataSubjectRoutes: FastifyPluginAsyncZod = async (app) => {
         },
       },
       schema: {
+        tags: ['Data Subject'],
+        summary: 'Revogar consentimento',
+        description: 'Revoga o consentimento para tratamento de dados (Art. 8 LGPD).',
+        security: [],
         body: dataSubjectBaseSchema,
         response: {
           200: z.object({
@@ -209,6 +225,10 @@ export const dataSubjectRoutes: FastifyPluginAsyncZod = async (app) => {
         },
       },
       schema: {
+        tags: ['Data Subject'],
+        summary: 'Solicitar anonimizacao',
+        description: 'Solicita anonimizacao dos dados pessoais (Art. 18 LGPD).',
+        security: [],
         body: dataSubjectBaseSchema,
         response: {
           200: requestResponseSchema,
@@ -238,6 +258,10 @@ export const dataSubjectRoutes: FastifyPluginAsyncZod = async (app) => {
         },
       },
       schema: {
+        tags: ['Data Subject'],
+        summary: 'Solicitar exclusao',
+        description: 'Solicita exclusao dos dados pessoais (Art. 18 LGPD).',
+        security: [],
         body: dataSubjectBaseSchema,
         response: {
           200: requestResponseSchema,
@@ -267,6 +291,10 @@ export const dataSubjectRoutes: FastifyPluginAsyncZod = async (app) => {
         },
       },
       schema: {
+        tags: ['Data Subject'],
+        summary: 'Revisao de decisao IA',
+        description: 'Solicita revisao humana de decisao automatizada (Art. 20 LGPD).',
+        security: [],
         params: z.object({
           analysis_id: z.string().uuid({ message: 'analysis_id deve ser um UUID válido' }),
         }),
