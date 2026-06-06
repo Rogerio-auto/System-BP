@@ -3,12 +3,12 @@ id: F10-S09
 title: fastify-zod-openapi + /openapi.json em todas as rotas
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#8
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-06T02:40:27Z
-completed_at: null
+completed_at: 2026-06-06T03:25:48Z
 pr_url: null
 depends_on: []
 blocks: [F10-S10, F10-S11]
