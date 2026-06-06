@@ -3,12 +3,12 @@ id: F10-S13
 title: <FeedbackWidget /> + ranking de Populares na home
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#9
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-06T17:34:30Z
+completed_at: 2026-06-06T17:56:40Z
 pr_url: null
 depends_on: [F10-S12]
 blocks: [F10-S14]
@@ -150,7 +150,7 @@ Decisão sobre cobertura: widget **automático** em DocPage; em ApiReferencePage
 - [ ] `pnpm --filter @elemento/web typecheck/lint/test/build` verde
 - [ ] Manual: hard-refresh em 3 páginas, dar feedback positivo/negativo, ver na home se entra no ranking (após 31s do rate-limit ou em DB diretamente)
 
-## Comandos de validação
+## Validação
 
 ```powershell
 pnpm --filter @elemento/web typecheck

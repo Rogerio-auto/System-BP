@@ -2,7 +2,15 @@ import { MDXProvider } from '@mdx-js/react';
 import type { MDXComponents } from 'mdx/types';
 import * as React from 'react';
 
-import { Callout, CodeBlock, EndpointCard, Permission, Step } from './mdx-components';
+import {
+  Callout,
+  CodeBlock,
+  EndpointCard,
+  FeedbackWidget,
+  Permission,
+  PopularList,
+  Step,
+} from './mdx-components';
 
 // Componentes default disponÃ­veis em qualquer .mdx â€” sem precisar de import.
 const COMPONENTS: MDXComponents = {
@@ -12,6 +20,9 @@ const COMPONENTS: MDXComponents = {
   // API Reference components (F10-S10)
   EndpointCard,
   Permission,
+  // Feedback + popular (F10-S13)
+  FeedbackWidget,
+  PopularList,
 
   // Sobrescrita de tags HTML para alinhar com o DS.
   h1: (props) => (

@@ -6,3 +6,6 @@ export { CodeBlock } from './CodeBlock';
 export { EndpointCard } from './EndpointCard';
 export type { HttpMethodType } from './EndpointCard';
 export { Permission } from './Permission';
+
+export { FeedbackWidget } from './FeedbackWidget';
+export { PopularList } from './PopularList';
