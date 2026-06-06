@@ -86,3 +86,7 @@ export * from './followupJobs.js';
 export * from './paymentDues.js';
 export * from './collectionRules.js';
 export * from './collectionJobs.js';
+
+// Central de Ajuda - telemetria de views e feedback (F10-S12)
+export * from './docViews.js';
+export * from './docFeedback.js';

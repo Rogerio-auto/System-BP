@@ -58,6 +58,8 @@ export const REDACT_PATHS = [
   '*.password_hash',
   '*.refresh_token',
   '*.totp_secret',
+  // Help feedback comment (F10-S12) - texto livre com PII potencial (doc 17 sec 9)
+  'req.body.comment',
 ] as const;
 
 // Tipo derivado da lista — permite tipagem forte em código que consome os paths.

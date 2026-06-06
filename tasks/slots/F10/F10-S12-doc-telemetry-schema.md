@@ -3,12 +3,12 @@ id: F10-S12
 title: Schema doc_views + doc_feedback + endpoints /api/help/*
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#9
-status: available
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-06T02:40:51Z
+completed_at: 2026-06-06T03:04:14Z
 pr_url: null
 depends_on: []
 blocks: [F10-S13]
