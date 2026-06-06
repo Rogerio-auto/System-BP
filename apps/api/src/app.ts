@@ -10,8 +10,8 @@ import Fastify from 'fastify';
 import {
   serializerCompiler,
   validatorCompiler,
-  type ZodTypeProvider,
-} from 'fastify-type-provider-zod';
+  type FastifyZodOpenApiTypeProvider,
+} from 'fastify-zod-openapi';
 
 import { env } from './config/env.js';
 import { accountRoutes } from './modules/account/routes.js';
@@ -44,6 +44,7 @@ import { simulationsRoutes } from './modules/simulations/routes.js';
 import { templatesRoutes } from './modules/templates/index.js';
 import { usersRoutes } from './modules/users/routes.js';
 import { whatsappRoutes } from './modules/whatsapp/routes.js';
+import { openapiPlugin } from './plugins/openapi.js';
 import { dataSubjectRoutes } from './routes/data-subject.routes.js';
 import { isAppError } from './shared/errors.js';
 
@@ -145,7 +146,7 @@ export async function buildApp() {
     disableRequestLogging: false,
     genReqId: () => crypto.randomUUID(),
     trustProxy: true,
-  }).withTypeProvider<ZodTypeProvider>();
+  }).withTypeProvider<FastifyZodOpenApiTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -160,6 +161,13 @@ export async function buildApp() {
     timeWindow: '1 minute',
   });
   await app.register(sensible);
+
+  // OpenAPI 3.1 spec — exposta quando OPENAPI_PUBLIC_ENABLED=true ou fora de produção.
+  // Em produção sem a flag: plugin NÃO é registrado → /openapi.json retorna 404 (sem fingerprinting).
+  if (process.env.OPENAPI_PUBLIC_ENABLED === 'true' || env.NODE_ENV !== 'production') {
+    await app.register(openapiPlugin);
+  }
+
   await app.register(multipart, {
     limits: { fileSize: 10 * 1024 * 1024, files: 1 },
   });

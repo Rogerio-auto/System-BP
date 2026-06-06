@@ -85,6 +85,7 @@ const internalCitiesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/identify',
     {
       schema: {
+        hide: true,
         body: InternalIdentifyCityBodySchema,
         response: {
           200: InternalIdentifyCityResponseSchema,

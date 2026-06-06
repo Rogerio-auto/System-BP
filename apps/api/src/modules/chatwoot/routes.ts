@@ -97,6 +97,10 @@ export const chatwootWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
       },
 
       schema: {
+        tags: ['Chatwoot'],
+        summary: 'Webhook Chatwoot',
+        description: 'Receptor de eventos do Chatwoot. Validacao HMAC obrigatoria. Idempotente.',
+        security: [],
         // body não declarado aqui: o content parser retorna { parsed, raw }
         // e a validação Zod do payload real ocorre no service.
         response: {

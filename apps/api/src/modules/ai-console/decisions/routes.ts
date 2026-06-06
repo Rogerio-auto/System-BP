@@ -37,6 +37,10 @@ export const decisionsRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['ai_decisions:read'] })],
       schema: {
+        tags: ['AI Console'],
+        summary: 'Listar logs de decisao IA',
+        description: 'Lista logs de decisoes tomadas pelo sistema de IA (LangGraph).',
+        security: [{ bearerAuth: [] }],
         querystring: listDecisionsQuerySchema,
         response: {
           200: listDecisionsResponseSchema,
@@ -54,6 +58,10 @@ export const decisionsRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['ai_decisions:read'] })],
       schema: {
+        tags: ['AI Console'],
+        summary: 'Timeline de decisao IA',
+        description: 'Retorna a timeline de decisoes de IA para um lead especifico.',
+        security: [{ bearerAuth: [] }],
         querystring: timelineQuerySchema,
         response: {
           200: timelineResponseSchema,

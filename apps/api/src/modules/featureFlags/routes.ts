@@ -28,6 +28,10 @@ export const featureFlagsRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['flags:manage'] })],
       schema: {
+        tags: ['Feature Flags'],
+        summary: 'Listar feature flags',
+        description: 'Lista todas as feature flags do sistema. Requer permissão flags:manage.',
+        security: [{ bearerAuth: [] }],
         response: {
           200: z.array(featureFlagSchema),
         },
@@ -44,6 +48,11 @@ export const featureFlagsRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['flags:manage'] })],
       schema: {
+        tags: ['Feature Flags'],
+        summary: 'Atualizar feature flag',
+        description:
+          'Ativa, desativa ou atualiza configuração de uma feature flag. Requer permissão flags:manage.',
+        security: [{ bearerAuth: [] }],
         params: z.object({ key: z.string().min(1) }),
         body: patchFeatureFlagBodySchema,
         response: {
@@ -62,6 +71,11 @@ export const featureFlagsRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate()],
       schema: {
+        tags: ['Feature Flags'],
+        summary: 'Flags do usuário autenticado',
+        description:
+          'Retorna as feature flags ativas para o usuário autenticado, filtradas por audience (role).',
+        security: [{ bearerAuth: [] }],
         response: {
           200: myFlagsResponseSchema,
         },

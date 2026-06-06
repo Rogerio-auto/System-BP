@@ -80,6 +80,10 @@ export const whatsappRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/whatsapp/webhook',
     {
       schema: {
+        tags: ['WhatsApp'],
+        summary: 'Verificacao webhook',
+        description: 'Handshake de verificacao do webhook Meta WhatsApp Cloud API.',
+        security: [],
         querystring: webhookVerifyQuerySchema,
         response: {
           200: z.string(),
@@ -115,6 +119,10 @@ export const whatsappRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/whatsapp/webhook',
     {
       schema: {
+        tags: ['WhatsApp'],
+        summary: 'Webhook WhatsApp',
+        description: 'Receptor de eventos WhatsApp. Validacao HMAC SHA-256 obrigatoria.',
+        security: [],
         // Não declaramos `body` no schema aqui porque o body foi parsado
         // manualmente como { parsed, raw } pelo content parser.
         // A validação Zod do payload real ocorre no handler.

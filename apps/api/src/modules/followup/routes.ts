@@ -49,6 +49,10 @@ export const followupRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/followup/rules',
     {
       schema: {
+        tags: ['Follow-up'],
+        summary: 'Listar regras de follow-up',
+        description: 'Lista as regras de follow-up automatizado.',
+        security: [{ bearerAuth: [] }],
         response: {
           200: FollowupRulesListResponseSchema,
         },
@@ -65,6 +69,10 @@ export const followupRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/followup/rules',
     {
       schema: {
+        tags: ['Follow-up'],
+        summary: 'Criar regra de follow-up',
+        description: 'Cria uma nova regra de follow-up.',
+        security: [{ bearerAuth: [] }],
         body: FollowupRuleCreateSchema,
         response: {
           201: FollowupRuleResponseSchema,
@@ -82,6 +90,10 @@ export const followupRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/followup/rules/:id',
     {
       schema: {
+        tags: ['Follow-up'],
+        summary: 'Atualizar regra de follow-up',
+        description: 'Atualiza uma regra de follow-up.',
+        security: [{ bearerAuth: [] }],
         params: ruleIdParamSchema,
         body: FollowupRuleUpdateSchema,
         response: {
@@ -100,6 +112,10 @@ export const followupRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/followup/jobs',
     {
       schema: {
+        tags: ['Follow-up'],
+        summary: 'Listar jobs de follow-up',
+        description: 'Lista jobs de follow-up com seu status.',
+        security: [{ bearerAuth: [] }],
         querystring: FollowupJobsListQuerySchema,
         response: {
           200: FollowupJobsListResponseSchema,
@@ -117,6 +133,10 @@ export const followupRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/followup/jobs/:id/cancel',
     {
       schema: {
+        tags: ['Follow-up'],
+        summary: 'Cancelar job de follow-up',
+        description: 'Cancela um job de follow-up pendente.',
+        security: [{ bearerAuth: [] }],
         params: jobIdParamSchema,
         response: {
           200: FollowupJobResponseSchema,

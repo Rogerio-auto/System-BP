@@ -36,6 +36,10 @@ export const kanbanRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['leads:read'] })],
       schema: {
+        tags: ['Kanban'],
+        summary: 'Listar stages',
+        description: 'Lista os stages (colunas) do board Kanban.',
+        security: [{ bearerAuth: [] }],
         // Nota: fastify-type-provider-zod 4.x não suporta z.array() como
         // schema de resposta de top-level — apenas z.object(). Usamos
         // kanbanStagesListResponseSchema (wrapper de objeto) para serialização
@@ -58,6 +62,10 @@ export const kanbanRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['leads:read'] })],
       schema: {
+        tags: ['Kanban'],
+        summary: 'Listar cards',
+        description: 'Lista cards do Kanban com city scope e paginacao.',
+        security: [{ bearerAuth: [] }],
         querystring: listCardsQuerySchema,
         response: {
           200: kanbanCardsListResponseSchema,
@@ -75,6 +83,10 @@ export const kanbanRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       preHandler: [authenticate(), authorize({ permissions: ['kanban:move'] })],
       schema: {
+        tags: ['Kanban'],
+        summary: 'Mover card',
+        description: 'Move um card para outro stage. Requer permissao kanban:move.',
+        security: [{ bearerAuth: [] }],
         params: z.object({
           id: z.string().uuid({ message: 'Card ID deve ser um UUID válido' }),
         }),

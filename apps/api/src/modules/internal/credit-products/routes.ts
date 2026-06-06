@@ -82,6 +82,7 @@ const internalCreditProductsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/',
     {
       schema: {
+        hide: true,
         // organizationId e cityId definidos em InternalCreditProductsQuerySchema.
         // Ambos opcionais no schema Zod para comportamento gracioso:
         //   - sem organizationId → lista vazia (proteção cross-tenant).

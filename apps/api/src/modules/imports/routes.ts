@@ -45,6 +45,10 @@ export const importsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/imports/leads',
     {
       schema: {
+        tags: ['Imports'],
+        summary: 'Iniciar importacao',
+        description: 'Inicia o pipeline de importacao de leads via arquivo CSV.',
+        security: [{ bearerAuth: [] }],
         response: {
           201: UploadResponseSchema,
           200: UploadResponseSchema,
@@ -62,6 +66,10 @@ export const importsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/imports/:id',
     {
       schema: {
+        tags: ['Imports'],
+        summary: 'Status da importacao',
+        description: 'Retorna o status atual de um job de importacao.',
+        security: [{ bearerAuth: [] }],
         params: BatchIdParamSchema,
         response: {
           200: ImportBatchResponseSchema,
@@ -79,6 +87,10 @@ export const importsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/imports/:id/preview',
     {
       schema: {
+        tags: ['Imports'],
+        summary: 'Preview da importacao',
+        description: 'Retorna uma amostra dos dados antes de confirmar.',
+        security: [{ bearerAuth: [] }],
         params: BatchIdParamSchema,
         querystring: PreviewQuerySchema,
         response: {
@@ -97,6 +109,10 @@ export const importsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/imports/:id/confirm',
     {
       schema: {
+        tags: ['Imports'],
+        summary: 'Confirmar importacao',
+        description: 'Confirma e executa o pipeline de importacao de leads.',
+        security: [{ bearerAuth: [] }],
         params: BatchIdParamSchema,
         response: {
           200: z.object({ id: z.string().uuid(), status: z.string(), message: z.string() }),
@@ -114,6 +130,10 @@ export const importsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/imports/:id/cancel',
     {
       schema: {
+        tags: ['Imports'],
+        summary: 'Cancelar importacao',
+        description: 'Cancela um job de importacao pendente.',
+        security: [{ bearerAuth: [] }],
         params: BatchIdParamSchema,
         response: {
           200: z.object({ id: z.string().uuid(), status: z.string(), message: z.string() }),

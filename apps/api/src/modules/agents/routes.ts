@@ -54,6 +54,11 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/agents',
     {
       schema: {
+        tags: ['Agents'],
+        summary: 'Listar agentes',
+        description:
+          'Lista agentes de credito com paginacao e filtros. Requer permissao agents:manage.',
+        security: [{ bearerAuth: [] }],
         querystring: AgentListQuerySchema,
         response: {
           200: AgentListResponseSchema,
@@ -71,6 +76,11 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/agents',
     {
       schema: {
+        tags: ['Agents'],
+        summary: 'Criar agente',
+        description:
+          'Cria um agente de credito com vinculos de cidade. Requer permissao agents:manage.',
+        security: [{ bearerAuth: [] }],
         body: AgentCreateSchema,
         response: {
           201: AgentResponseSchema,
@@ -88,6 +98,10 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/agents/:id',
     {
       schema: {
+        tags: ['Agents'],
+        summary: 'Atualizar agente',
+        description: 'Atualiza dados de um agente. Requer permissao agents:manage.',
+        security: [{ bearerAuth: [] }],
         params: agentIdParamSchema,
         body: AgentUpdateSchema,
         response: {
@@ -106,6 +120,10 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/agents/:id/deactivate',
     {
       schema: {
+        tags: ['Agents'],
+        summary: 'Desativar agente',
+        description: 'Desativa um agente. Requer permissao agents:manage.',
+        security: [{ bearerAuth: [] }],
         params: agentIdParamSchema,
         response: {
           200: AgentResponseSchema,
@@ -123,6 +141,10 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/agents/:id/reactivate',
     {
       schema: {
+        tags: ['Agents'],
+        summary: 'Reativar agente',
+        description: 'Reativa um agente desativado. Requer permissao agents:manage.',
+        security: [{ bearerAuth: [] }],
         params: agentIdParamSchema,
         response: {
           200: AgentResponseSchema,
@@ -140,6 +162,10 @@ export const agentsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/agents/:id/cities',
     {
       schema: {
+        tags: ['Agents'],
+        summary: 'Definir cidades do agente',
+        description: 'Substitui atomicamente as cidades atribuidas a um agente.',
+        security: [{ bearerAuth: [] }],
         params: agentIdParamSchema,
         body: AgentSetCitiesSchema,
         response: {

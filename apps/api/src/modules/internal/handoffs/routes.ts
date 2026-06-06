@@ -63,6 +63,7 @@ const internalHandoffsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/',
     {
       schema: {
+        hide: true,
         body: InternalHandoffBodySchema,
         response: {
           200: InternalHandoffResponseSchema,

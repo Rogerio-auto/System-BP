@@ -16,7 +16,6 @@
 //   POST  /api/account/2fa/disable    — desativa 2FA (exige código TOTP ou recovery code)
 // =============================================================================
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 
 import { authenticate } from '../auth/middlewares/authenticate.js';
 
@@ -52,6 +51,10 @@ export const accountRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/account/profile',
     {
       schema: {
+        tags: ['Account'],
+        summary: 'Obter perfil',
+        description: 'Retorna dados do perfil do usuário autenticado.',
+        security: [{ bearerAuth: [] }],
         response: {
           200: profileResponseSchema,
         },
@@ -67,6 +70,10 @@ export const accountRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/account/profile',
     {
       schema: {
+        tags: ['Account'],
+        summary: 'Atualizar perfil',
+        description: 'Atualiza o nome completo do usuário. Email é imutável via self-service.',
+        security: [{ bearerAuth: [] }],
         body: updateProfileBodySchema,
         response: {
           200: profileResponseSchema,
@@ -89,10 +96,12 @@ export const accountRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/account/password',
     {
       schema: {
+        tags: ['Account'],
+        summary: 'Trocar senha',
+        description: 'Troca a senha do usuário e revoga todas as outras sessões ativas.',
+        security: [{ bearerAuth: [] }],
         body: changePasswordBodySchema,
-        response: {
-          204: z.void(),
-        },
+        response: { 204: { description: 'Sem conteúdo.' } },
       },
     },
     changePasswordController,
@@ -105,6 +114,10 @@ export const accountRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/account/2fa/status',
     {
       schema: {
+        tags: ['Account'],
+        summary: 'Status do 2FA',
+        description: 'Retorna se o 2FA está ativo para o usuário autenticado.',
+        security: [{ bearerAuth: [] }],
         response: {
           200: twoFactorStatusResponseSchema,
         },
@@ -126,6 +139,11 @@ export const accountRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/account/2fa/enroll',
     {
       schema: {
+        tags: ['Account'],
+        summary: 'Iniciar ativação do 2FA',
+        description:
+          'Gera um secret TOTP pendente e retorna o URI otpauth para exibição do QR code.',
+        security: [{ bearerAuth: [] }],
         response: {
           200: twoFactorEnrollResponseSchema,
         },
@@ -145,6 +163,11 @@ export const accountRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/account/2fa/activate',
     {
       schema: {
+        tags: ['Account'],
+        summary: 'Ativar 2FA',
+        description:
+          'Confirma o código TOTP e ativa o 2FA. Retorna recovery codes (exibir uma única vez).',
+        security: [{ bearerAuth: [] }],
         body: twoFactorActivateBodySchema,
         response: {
           200: twoFactorActivateResponseSchema,
@@ -165,10 +188,12 @@ export const accountRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/account/2fa/disable',
     {
       schema: {
+        tags: ['Account'],
+        summary: 'Desativar 2FA',
+        description: 'Desativa o 2FA exigindo código TOTP válido ou recovery code.',
+        security: [{ bearerAuth: [] }],
         body: twoFactorDisableBodySchema,
-        response: {
-          204: z.void(),
-        },
+        response: { 204: { description: 'Sem conteúdo.' } },
       },
     },
     disable2faController,

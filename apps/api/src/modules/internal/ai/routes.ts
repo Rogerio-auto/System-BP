@@ -117,6 +117,7 @@ const internalAiRoutes: FastifyPluginAsyncZod = async (app) => {
     '/decisions',
     {
       schema: {
+        hide: true,
         body: LogAiDecisionBodySchema,
         response: {
           200: LogAiDecisionResponseSchema,

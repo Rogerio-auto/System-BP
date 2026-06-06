@@ -64,6 +64,11 @@ export const creditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-analyses',
     {
       schema: {
+        tags: ['Credit Analyses'],
+        summary: 'Listar analises de credito',
+        description:
+          'Lista analises de credito com filtros e paginacao. Requer permissao credit:read.',
+        security: [{ bearerAuth: [] }],
         querystring: CreditAnalysisListQuerySchema,
         response: {
           200: CreditAnalysisListResponseSchema,
@@ -81,6 +86,10 @@ export const creditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-analyses/:id',
     {
       schema: {
+        tags: ['Credit Analyses'],
+        summary: 'Obter analise de credito',
+        description: 'Retorna detalhes de uma analise de credito pelo ID.',
+        security: [{ bearerAuth: [] }],
         params: analysisIdParamSchema,
         response: {
           200: CreditAnalysisResponseSchema,
@@ -98,6 +107,10 @@ export const creditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/leads/:leadId/credit-analyses',
     {
       schema: {
+        tags: ['Credit Analyses'],
+        summary: 'Listar analises de um lead',
+        description: 'Lista analises de credito de um lead especifico.',
+        security: [{ bearerAuth: [] }],
         params: leadIdParamSchema,
         querystring: CreditAnalysisListQuerySchema,
         response: {
@@ -116,6 +129,11 @@ export const creditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-analyses',
     {
       schema: {
+        tags: ['Credit Analyses'],
+        summary: 'Criar analise de credito',
+        description:
+          'Cria uma nova analise de credito para um lead. Requer permissao credit:write.',
+        security: [{ bearerAuth: [] }],
         body: CreditAnalysisCreateSchema,
         response: {
           201: CreditAnalysisResponseSchema,
@@ -133,6 +151,10 @@ export const creditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-analyses/:id/versions',
     {
       schema: {
+        tags: ['Credit Analyses'],
+        summary: 'Adicionar versao a analise',
+        description: 'Adiciona uma nova versao a uma analise de credito existente.',
+        security: [{ bearerAuth: [] }],
         params: analysisIdParamSchema,
         body: CreditAnalysisVersionCreateSchema,
         response: {
@@ -154,6 +176,10 @@ export const creditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-analyses/:id/decide',
     {
       schema: {
+        tags: ['Credit Analyses'],
+        summary: 'Registrar decisao de credito',
+        description: 'Registra a decisao final (aprovar/rejeitar) de uma analise. Art. 20 LGPD.',
+        security: [{ bearerAuth: [] }],
         params: analysisIdParamSchema,
         body: CreditAnalysisDecideSchema,
         response: {
@@ -175,6 +201,10 @@ export const creditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-analyses/:id/request-review',
     {
       schema: {
+        tags: ['Credit Analyses'],
+        summary: 'Solicitar revisao',
+        description: 'Solicita revisao humana de uma analise de credito.',
+        security: [{ bearerAuth: [] }],
         params: analysisIdParamSchema,
         body: CreditAnalysisRequestReviewSchema,
         response: {
@@ -193,6 +223,10 @@ export const creditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/credit-analyses/:id/versions',
     {
       schema: {
+        tags: ['Credit Analyses'],
+        summary: 'Listar versoes da analise',
+        description: 'Lista todas as versoes de uma analise de credito.',
+        security: [{ bearerAuth: [] }],
         params: analysisIdParamSchema,
         response: {
           405: z.object({ error: z.string(), message: z.string() }),

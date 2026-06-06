@@ -59,6 +59,10 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/templates',
     {
       schema: {
+        tags: ['Templates'],
+        summary: 'Listar templates',
+        description: 'Lista templates WhatsApp Meta da organizacao.',
+        security: [{ bearerAuth: [] }],
         querystring: TemplateListQuerySchema,
         response: { 200: TemplateListResponseSchema },
       },
@@ -78,6 +82,10 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/templates/:id',
     {
       schema: {
+        tags: ['Templates'],
+        summary: 'Obter template',
+        description: 'Retorna detalhes de um template WhatsApp pelo ID.',
+        security: [{ bearerAuth: [] }],
         params: TemplateIdParamSchema,
         response: { 200: TemplateResponseSchema },
       },
@@ -93,6 +101,10 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/templates',
     {
       schema: {
+        tags: ['Templates'],
+        summary: 'Criar template',
+        description: 'Cria um novo template WhatsApp Meta.',
+        security: [{ bearerAuth: [] }],
         body: TemplateCreateSchema,
         response: { 201: TemplateResponseSchema },
       },
@@ -108,6 +120,10 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/templates/:id',
     {
       schema: {
+        tags: ['Templates'],
+        summary: 'Atualizar template',
+        description: 'Atualiza um template WhatsApp Meta.',
+        security: [{ bearerAuth: [] }],
         params: TemplateIdParamSchema,
         body: TemplateUpdateSchema,
         response: { 200: TemplateResponseSchema },
@@ -124,6 +140,10 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/templates/:id',
     {
       schema: {
+        tags: ['Templates'],
+        summary: 'Remover template',
+        description: 'Remove um template WhatsApp Meta.',
+        security: [{ bearerAuth: [] }],
         params: TemplateIdParamSchema,
         response: { 200: TemplateResponseSchema },
       },
@@ -141,6 +161,10 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/templates/sync-all',
     {
       schema: {
+        tags: ['Templates'],
+        summary: 'Sincronizar todos os templates',
+        description: 'Sincroniza todos os templates com a Meta API.',
+        security: [{ bearerAuth: [] }],
         response: {
           200: z.object({
             synced: z.number().int().nonnegative(),
@@ -161,6 +185,10 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/templates/:id/sync',
     {
       schema: {
+        tags: ['Templates'],
+        summary: 'Sincronizar template',
+        description: 'Sincroniza um template especifico com a Meta API.',
+        security: [{ bearerAuth: [] }],
         params: TemplateIdParamSchema,
         response: { 200: TemplateResponseSchema },
       },

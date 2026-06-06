@@ -80,6 +80,7 @@ const internalLeadsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/get-or-create',
     {
       schema: {
+        hide: true,
         body: InternalGetOrCreateLeadBodySchema,
         response: {
           200: InternalGetOrCreateLeadResponseSchema,
@@ -170,6 +171,7 @@ const internalLeadsRoutes: FastifyPluginAsyncZod = async (app) => {
     '/:id',
     {
       schema: {
+        hide: true,
         params: InternalLeadParamsSchema,
         body: InternalUpdateLeadBodySchema,
         response: {

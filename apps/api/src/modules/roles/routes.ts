@@ -24,6 +24,11 @@ export const rolesRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/admin/roles',
     {
       schema: {
+        tags: ['Roles & Users'],
+        summary: 'Listar papeis',
+        description:
+          'Lista todos os papeis (roles) disponiveis na organizacao. Requer permissao users:manage.',
+        security: [{ bearerAuth: [] }],
         response: {
           200: listRolesResponseSchema,
         },
