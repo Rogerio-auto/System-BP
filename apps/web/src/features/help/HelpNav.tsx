@@ -14,7 +14,7 @@ export function HelpNav({ manifest }: HelpNavProps): React.JSX.Element {
   const isHome = location.pathname === '/ajuda' || location.pathname === '/ajuda/';
 
   return (
-    <nav aria-label="Navegação da Central de Ajuda" className="flex flex-col gap-6 py-4 pr-4">
+    <nav aria-label="Navegação da Central de Ajuda" className="flex flex-col gap-6 pt-4 pb-8 pr-4">
       {/* Home link */}
       <NavLink
         to="/ajuda"
