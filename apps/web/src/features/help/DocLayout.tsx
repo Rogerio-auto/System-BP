@@ -44,17 +44,26 @@ export function DocLayout({ children }: DocLayoutProps): React.JSX.Element {
     window.scrollTo({ top: 0 });
   }, [location.pathname]);
 
+  // Sidebar + TOC vivem dentro do <main> do AppLayout, que tem seu próprio
+  // scroll (overflow-auto). Por isso o sticky usa top: 1.5rem (= padding-top
+  // do <main>, p-6) — não 4rem da topbar global — e a altura é
+  // calc(100vh - 3.5rem - 3rem) (viewport menos topbar 3.5rem menos
+  // padding vertical do main 2 * 1.5rem). Sem isso a última entrada do nav
+  // ficava cortada quando o scroll do main avança.
+  const stickyTop = '1.5rem';
+  const stickyHeight = 'calc(100vh - 3.5rem - 3rem)';
+
   return (
-    <div className="flex gap-6">
+    <div className="mx-auto flex w-full max-w-[1240px] gap-6">
       {/* Nav esquerda */}
       <aside
-        className="hidden md:block shrink-0"
+        className="hidden shrink-0 md:block"
         style={{
           width: 240,
           position: 'sticky',
-          top: '4rem',
+          top: stickyTop,
           alignSelf: 'flex-start',
-          height: 'calc(100vh - 5rem)',
+          height: stickyHeight,
           overflowY: 'auto',
           borderRight: '1px solid var(--border)',
         }}
@@ -73,13 +82,13 @@ export function DocLayout({ children }: DocLayoutProps): React.JSX.Element {
 
       {/* TOC direita */}
       <aside
-        className="hidden lg:block shrink-0"
+        className="hidden shrink-0 lg:block"
         style={{
           width: 200,
           position: 'sticky',
-          top: '4rem',
+          top: stickyTop,
           alignSelf: 'flex-start',
-          height: 'calc(100vh - 5rem)',
+          height: stickyHeight,
           overflowY: 'auto',
         }}
       >
