@@ -1,11 +1,11 @@
 // =============================================================================
-// App.tsx — Roteador raiz e providers de infraestrutura.
+// App.tsx â€” Roteador raiz e providers de infraestrutura.
 //
 // Estrutura de rotas:
-//   /login          → público
-//   /               → protegido (AuthGuard > AppLayout > DashboardPage)
-//   /leads etc.     → protegido (placeholder)
-//   *               → redireciona /login
+//   /login          â†’ pÃºblico
+//   /               â†’ protegido (AuthGuard > AppLayout > DashboardPage)
+//   /leads etc.     â†’ protegido (placeholder)
+//   *               â†’ redireciona /login
 //
 // QueryClient: staleTime 30s, sem refetchOnWindowFocus, retry 1x.
 // =============================================================================
@@ -45,6 +45,14 @@ import { ProductsPage } from './pages/admin/Products';
 import { UsersPage } from './pages/admin/Users';
 import { SimulatorPage } from './pages/simulator/SimulatorPage';
 
+// Code-split: ApiReferencePage não está no main bundle — só carregado quando
+// o usuário acessa /ajuda/api. Economiza ~15-20 KB gzipped no main chunk.
+const ApiReferencePage = React.lazy(() =>
+  import('./features/help/api-reference/ApiReferencePage').then((m) => ({
+    default: m.ApiReferencePage,
+  })),
+);
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -55,7 +63,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// Placeholder genérico para rotas ainda não implementadas
+// Placeholder genÃ©rico para rotas ainda nÃ£o implementadas
 function PlaceholderPage({ title }: { title: string }): React.JSX.Element {
   return (
     <div className="flex flex-col gap-4">
@@ -87,10 +95,10 @@ export function App(): React.JSX.Element {
 function AppRoutes(): React.JSX.Element {
   return (
     <Routes>
-      {/* ── Pública ─────────────────────────────────────────────────── */}
+      {/* â”€â”€ PÃºblica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* ── Protegidas (AuthGuard > AppLayout) ──────────────────────── */}
+      {/* â”€â”€ Protegidas (AuthGuard > AppLayout) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <Route
         element={
           <AuthGuard>
@@ -99,20 +107,20 @@ function AppRoutes(): React.JSX.Element {
         }
       >
         <Route index element={<DashboardPage />} />
-        {/* Legacy redirects — bookmarks antigos preservados */}
+        {/* Legacy redirects â€” bookmarks antigos preservados */}
         <Route path="/kanban" element={<Navigate to="/crm?view=kanban" replace />} />
         <Route path="/leads" element={<Navigate to="/crm" replace />} />
         <Route path="/crm" element={<CrmListPage />} />
         <Route path="/crm/:id" element={<CrmDetailPage />} />
         <Route path="/imports/leads/new" element={<ImportWizardPage />} />
         <Route path="/simulator" element={<SimulatorPage />} />
-        {/* Legacy redirect — /analise era placeholder; a rota real é /credit-analyses (F4-S03) */}
+        {/* Legacy redirect â€” /analise era placeholder; a rota real Ã© /credit-analyses (F4-S03) */}
         <Route path="/analise" element={<Navigate to="/credit-analyses" replace />} />
-        {/* F4-S03: Análise de crédito */}
+        {/* F4-S03: AnÃ¡lise de crÃ©dito */}
         <Route path="/credit-analyses" element={<CreditAnalysesListPage />} />
         <Route path="/credit-analyses/:id" element={<CreditAnalysisDetailPage />} />
         <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
-        <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
+        <Route path="/relatorios" element={<PlaceholderPage title="RelatÃ³rios" />} />
         <Route path="/configuracoes" element={<ConfiguracoesPage />} />
         <Route path="/configuracoes/ia/prompts" element={<PromptsListPage />} />
         <Route path="/configuracoes/ia/prompts/:key" element={<PromptDetailPage />} />
@@ -128,10 +136,10 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/admin/products/:id" element={<ProductDetailPage />} />
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/agents" element={<AgentsPage />} />
-        {/* F5-S05: Follow-up — réguas e jobs */}
+        {/* F5-S05: Follow-up â€” rÃ©guas e jobs */}
         <Route path="/admin/followup/rules" element={<FollowupRulesPage />} />
         <Route path="/admin/followup/jobs" element={<FollowupJobsPage />} />
-        {/* F5-S08: Cobrança — parcelas, réguas, jobs */}
+        {/* F5-S08: CobranÃ§a â€” parcelas, rÃ©guas, jobs */}
         <Route path="/admin/billing/dues" element={<PaymentDuesPage />} />
         <Route path="/admin/billing/rules" element={<CollectionRulesPage />} />
         <Route path="/admin/billing/jobs" element={<CollectionJobsPage />} />
@@ -141,10 +149,19 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
         {/* F10-S02: Central de Ajuda */}
         <Route path="/ajuda" element={<HelpHomePage />} />
+        {/* F10-S10: API Reference — ANTES do wildcard /ajuda/* */}
+        <Route
+          path="/ajuda/api/:resource?"
+          element={
+            <React.Suspense fallback={null}>
+              <ApiReferencePage />
+            </React.Suspense>
+          }
+        />
         <Route path="/ajuda/*" element={<DocPage />} />
       </Route>
 
-      {/* ── Catch-all ────────────────────────────────────────────────── */}
+      {/* â”€â”€ Catch-all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
