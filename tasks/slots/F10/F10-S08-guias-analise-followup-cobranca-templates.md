@@ -3,13 +3,13 @@ id: F10-S08
 title: Guias Análise + Follow-up + Cobrança + Templates
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#5
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-05T23:16:33Z
 completed_at: 2026-06-05T23:47:27Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/191
 depends_on: [F10-S07]
 blocks: []
 source_docs:
