@@ -3,11 +3,11 @@ id: F10-S10
 title: UI de API Reference 3-pane Stripe-like
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#8
-status: available
+status: in-progress
 priority: medium
 estimated_size: L
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-06T17:34:12Z
 completed_at: null
 pr_url: null
 depends_on: [F10-S09]
