@@ -3,7 +3,7 @@ id: F10-S13
 title: <FeedbackWidget /> + ranking de Populares na home
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#9
-status: blocked
+status: available
 priority: high
 estimated_size: S
 agent_id: null

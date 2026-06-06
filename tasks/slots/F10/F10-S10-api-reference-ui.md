@@ -3,7 +3,7 @@ id: F10-S10
 title: UI de API Reference 3-pane Stripe-like
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#8
-status: blocked
+status: available
 priority: medium
 estimated_size: L
 agent_id: null
