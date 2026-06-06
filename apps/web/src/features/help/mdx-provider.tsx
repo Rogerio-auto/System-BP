@@ -2,13 +2,25 @@ import { MDXProvider } from '@mdx-js/react';
 import type { MDXComponents } from 'mdx/types';
 import * as React from 'react';
 
-import { Callout, CodeBlock, FeedbackWidget, PopularList, Step } from './mdx-components';
+import {
+  Callout,
+  CodeBlock,
+  EndpointCard,
+  FeedbackWidget,
+  Permission,
+  PopularList,
+  Step,
+} from './mdx-components';
 
-// Componentes default disponíveis em qualquer .mdx — sem precisar de import.
+// Componentes default disponÃ­veis em qualquer .mdx â€” sem precisar de import.
 const COMPONENTS: MDXComponents = {
   Callout,
   Step,
   CodeBlock,
+  // API Reference components (F10-S10)
+  EndpointCard,
+  Permission,
+  // Feedback + popular (F10-S13)
   FeedbackWidget,
   PopularList,
 
@@ -134,7 +146,7 @@ const COMPONENTS: MDXComponents = {
     />
   ),
   // `<pre><code>` produzido pelo MDX para blocos sem componente custom.
-  // Para syntax highlight + título + copy, autor deve usar <CodeBlock>.
+  // Para syntax highlight + tÃ­tulo + copy, autor deve usar <CodeBlock>.
   pre: (props) => (
     <pre
       className="font-mono overflow-x-auto rounded-md my-4"
@@ -168,8 +180,8 @@ interface HelpMDXProviderProps {
 }
 
 /**
- * Wrapper do MDXProvider — injeta os componentes canônicos da Central de Ajuda
- * em todo arquivo `.mdx` filho. Qualquer página de ajuda deve estar dentro deste
+ * Wrapper do MDXProvider â€” injeta os componentes canÃ´nicos da Central de Ajuda
+ * em todo arquivo `.mdx` filho. Qualquer pÃ¡gina de ajuda deve estar dentro deste
  * provider.
  */
 export function HelpMDXProvider({ children }: HelpMDXProviderProps): React.JSX.Element {
