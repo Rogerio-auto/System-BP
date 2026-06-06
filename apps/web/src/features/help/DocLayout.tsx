@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 
 import { HelpNav } from './HelpNav';
 import { getHelpManifest, type HelpManifest } from './manifest';
+import { FeedbackWidget } from './mdx-components';
 import { HelpMDXProvider } from './mdx-provider';
 import { Toc } from './Toc';
 
@@ -78,6 +79,11 @@ export function DocLayout({ children }: DocLayoutProps): React.JSX.Element {
         style={{ paddingTop: '1.5rem', paddingBottom: '4rem' }}
       >
         <HelpMDXProvider>{children}</HelpMDXProvider>
+        {/* F10-S13: FeedbackWidget injection -- all /ajuda/* except home and API root */}
+        {location.pathname !== '/ajuda' &&
+          location.pathname !== '/ajuda/' &&
+          !location.pathname.startsWith('/ajuda/api') &&
+          location.pathname.replace(/\/+$/, '') !== '/ajuda' && <FeedbackWidget />}
       </article>
 
       {/* TOC direita */}

@@ -150,7 +150,7 @@ Decisão sobre cobertura: widget **automático** em DocPage; em ApiReferencePage
 - [ ] `pnpm --filter @elemento/web typecheck/lint/test/build` verde
 - [ ] Manual: hard-refresh em 3 páginas, dar feedback positivo/negativo, ver na home se entra no ranking (após 31s do rate-limit ou em DB diretamente)
 
-## Comandos de validação
+## Validação
 
 ```powershell
 pnpm --filter @elemento/web typecheck
