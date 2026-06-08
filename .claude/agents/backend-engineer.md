@@ -113,6 +113,7 @@ Push da branch sim. **NÃO** abrir PR — o Rogério abre via `gh` ou via fluxo 
 ## Documentação como contrato (norma §10, desde F10-S14)
 
 Endpoints públicos requerem instrumentação `fastify-zod-openapi`:
+
 - `schema: { tags, summary, description, request/response refs }`
 - Schemas Zod com `.describe()` em campos não-óbvios + >=1 `.openapi({ example })` por payload.
 - Endpoints `internal/*` recebem `schema: { hide: true }`.

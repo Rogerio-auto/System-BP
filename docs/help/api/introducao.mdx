@@ -1,0 +1,29 @@
+---
+title: "Introdução à API"
+description: "Como começar a usar a API REST do Manager."
+order: 5
+keywords:
+  - "api"
+  - "introdução"
+  - "autenticação"
+  - "token"
+  - "bearer"
+---
+
+# Introdução à API
+
+A API REST do Manager permite integrar sistemas externos, automatizar fluxos e construir ferramentas sobre a plataforma.
+
+## Autenticação
+
+Todos os endpoints (exceto `/api/auth/login`) requerem um token JWT:
+
+```
+Authorization: Bearer <token>
+```
+
+Obtenha o token via `POST /api/auth/login` com email e senha.
+
+## Próximos passos
+
+Explore a **[referência interativa da API](/ajuda/api)** para ver todos os endpoints com exemplos.

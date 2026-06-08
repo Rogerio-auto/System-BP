@@ -153,6 +153,7 @@ pnpm --filter @elemento/web build
 Ao implementar feature visível ao usuário, **obrigatório** produzir página MDX em `docs/help/guias/<modulo>/<feature>.mdx`. Estrutura: o que é, quando usar, passo a passo com Step + Callout, erros comuns, Veja também. Frontmatter com title/description/order/keywords. Sem isso, o slot não fecha — `scripts/slot.py finish` recusa com mensagem `[block]`.
 
 Componentes:
+
 - `<FeedbackWidget />` é injetado automaticamente pelo DocLayout — **não** duplicar inline.
 - `<Permission>` obrigatório em fluxos que exigem permissão específica.
 - `<Step>` + `<Callout>` para passo a passo.

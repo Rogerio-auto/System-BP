@@ -19,6 +19,7 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
+
 # F10-S14 — Regra cultural: docs como artefato de DoD
 
 ## Objetivo

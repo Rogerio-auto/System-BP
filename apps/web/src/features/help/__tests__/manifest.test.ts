@@ -144,3 +144,17 @@ describe('help manifest', () => {
     expect(article).toBeNull();
   });
 });
+
+// F10-S11: api section
+it('resolve slug api/introducao via getArticleBySlug', async () => {
+  const article = await getArticleBySlug('api/introducao');
+  expect(article).not.toBeNull();
+  expect(article?.slug).toBe('api/introducao');
+});
+
+it('secao api aparece no manifest com pelo menos 1 artigo', async () => {
+  const m = await getHelpManifest();
+  const api = m.sections.find((s) => s.slug === 'api');
+  expect(api).toBeDefined();
+  expect(api?.articles.length).toBeGreaterThanOrEqual(1);
+});

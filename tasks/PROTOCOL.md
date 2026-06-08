@@ -339,7 +339,6 @@ assumiram que `finish` commitava o código — não commita. O fluxo canônico d
 - `worktree-clean` é ferramenta **pós-merge**. Nunca rodar com worktrees não-mergeados
   ativos sem antes confirmar que todo o trabalho está commitado **e** pushado.
 
-
 ## 8. Regra cultural: documentação como artefato (desde F10-S14)
 
 > Norma de referência: `docs/20-central-de-ajuda.md` §10. Esta regra é inviolável e vence qualquer slot individual.

@@ -27,6 +27,7 @@ import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
 import { creditAnalysesRoutes } from './modules/credit-analyses/index.js';
 import { creditProductsRoutes } from './modules/credit-products/routes.js';
 import { dashboardRoutes } from './modules/dashboard/routes.js';
+import { devRoutes } from './modules/dev/routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
 import { followupRoutes } from './modules/followup/routes.js';
 import { healthRoutes } from './modules/health/health.routes.js';
@@ -229,6 +230,11 @@ export async function buildApp() {
   await app.register(billingRoutes);
   // Central de Ajuda - telemetria views + feedback (F10-S12)
   await app.register(helpRoutes);
+
+  // Dev-only endpoints (schema-examples, etc.) — NOT registered in production (F10-S11)
+  if (process.env['NODE_ENV'] !== 'production') {
+    await app.register(devRoutes);
+  }
 
   // ---------------------------------------------------------------------------
   // Error handler centralizado.

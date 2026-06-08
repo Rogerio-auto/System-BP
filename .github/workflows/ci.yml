@@ -47,6 +47,19 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # docs-prebuild: generate API docs before web:build (F10-S11)
+      # continue-on-error because these scripts need a live API; in CI the API
+      # is not serving HTTP — the scripts use app.inject() internally.
+      # If they fail (e.g. env mismatch), the build continues with empty generated files.
+      - name: Generate schema-examples.json
+        run: pnpm --filter @elemento/api openapi:examples
+        continue-on-error: true
+      - name: Pre-render OpenAPI spec
+        run: pnpm --filter @elemento/web docs:openapi
+        continue-on-error: true
+      - name: Generate MDX API pages
+        run: pnpm --filter @elemento/web docs:api
+        continue-on-error: true
       - run: pnpm turbo run lint typecheck test build
 
   python:

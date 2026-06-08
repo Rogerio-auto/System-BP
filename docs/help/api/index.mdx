@@ -1,0 +1,32 @@
+---
+title: "API REST"
+description: "Documentação completa dos endpoints da API do Manager — Banco do Povo."
+order: 1
+keywords:
+  - "api"
+  - "rest"
+  - "endpoints"
+  - "integração"
+  - "developer"
+---
+
+# API REST
+
+O Manager expõe uma API REST completa para integração com sistemas externos e automações.
+
+A documentação interativa — com exemplos cURL, TypeScript e schemas de request/response — está disponível na **[referência interativa da API](/ajuda/api)**.
+
+## Recursos disponíveis
+
+Os endpoints estão organizados por recurso: autenticação, leads, análises de crédito, usuários, entre outros.
+Acesse a referência interativa para explorar todos os recursos com exemplos reais.
+
+## Autenticação
+
+Todos os endpoints (exceto `/api/auth/login`) requerem um token JWT no header:
+
+```
+Authorization: Bearer <token>
+```
+
+Obtenha o token via `POST /api/auth/login`.
