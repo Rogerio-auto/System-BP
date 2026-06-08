@@ -3,13 +3,13 @@ id: F10-S11
 title: Geração de páginas MDX da API + samples curl/TS
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#8
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-08T22:33:47Z
 completed_at: 2026-06-08T23:01:27Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/199
 depends_on: [F10-S09, F10-S10]
 blocks: []
 source_docs:

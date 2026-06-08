@@ -3,13 +3,13 @@ id: F10-S14
 title: Trava docs_required no template + atualiza agents e PROTOCOL
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#10
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-08T22:34:06Z
 completed_at: 2026-06-08T22:52:50Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/198
 depends_on: [F10-S13]
 blocks: [F10-S15]
 source_docs:
