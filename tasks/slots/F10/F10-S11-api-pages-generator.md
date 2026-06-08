@@ -3,11 +3,11 @@ id: F10-S11
 title: Geração de páginas MDX da API + samples curl/TS
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#8
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-08T22:33:47Z
 completed_at: null
 pr_url: null
 depends_on: [F10-S09, F10-S10]
