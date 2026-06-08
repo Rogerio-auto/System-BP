@@ -26,7 +26,8 @@
     "worker:followup": "tsx --env-file-if-exists=../../.env src/workers/followup-scheduler.ts",
     "db:check-migrations": "node scripts/check-migration-journal.mjs",
     "db:check-drift": "tsx --env-file-if-exists=../../.env scripts/check-schema-drift.ts",
-    "openapi:validate": "tsx --env-file-if-exists=../../.env scripts/validate-openapi.ts"
+    "openapi:validate": "tsx --env-file-if-exists=../../.env scripts/validate-openapi.ts",
+    "openapi:examples": "tsx --env-file-if-exists=../../.env scripts/generate-schema-examples.ts"
   },
   "dependencies": {
     "@elemento/shared-schemas": "workspace:*",

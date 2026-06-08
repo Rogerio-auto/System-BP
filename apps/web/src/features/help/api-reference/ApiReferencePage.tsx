@@ -1,4 +1,4 @@
-// =============================================================================
+﻿// =============================================================================
 // api-reference/ApiReferencePage.tsx — UI API Reference 3-pane Stripe-like
 // Layout: sidebar de recursos | endpoint detail | code panel (curl / TS)
 // URL state: /ajuda/api/:resource#operationId
@@ -22,6 +22,7 @@ import type {
   ResourceGroup,
 } from './types';
 import { useOpenApi } from './useOpenApi';
+import { useSchemaExamples } from './useSchemaExamples';
 
 const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'];
 
@@ -489,9 +490,11 @@ type CodeTab = 'curl' | 'typescript';
 function CodePanel({
   endpoint,
   componentSchemas,
+  schemaExamples,
 }: {
   endpoint: EndpointEntry;
   componentSchemas?: Record<string, OpenApiSchema> | undefined;
+  schemaExamples?: Record<string, { ts: string; json: unknown }> | undefined;
 }): React.JSX.Element {
   const [activeTab, setActiveTab] = React.useState<CodeTab>('curl');
   const curlSnippet = React.useMemo(
@@ -560,20 +563,48 @@ function CodePanel({
             <code>{curlSnippet}</code>
           </pre>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 py-8">
-            <span
-              className="font-sans"
-              style={{ fontSize: 'var(--text-sm)', color: 'var(--text-3)' }}
-            >
-              Em breve
-            </span>
-            <span
-              className="font-sans"
-              style={{ fontSize: 'var(--text-xs)', color: 'var(--text-4)' }}
-            >
-              Helper TypeScript disponível em F10-S11
-            </span>
-          </div>
+          (() => {
+            const routeKey = `${endpoint.method} ${endpoint.path}`;
+            const example = schemaExamples?.[routeKey];
+            if (example?.ts) {
+              return (
+                <pre
+                  className="font-mono overflow-x-auto"
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--text)',
+                    lineHeight: 1.65,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                    margin: 0,
+                  }}
+                >
+                  <code>{example.ts}</code>
+                </pre>
+              );
+            }
+            return (
+              <div className="flex flex-col items-start gap-1 py-4">
+                <span
+                  className="font-sans"
+                  style={{ fontSize: 'var(--text-sm)', color: 'var(--text-3)' }}
+                >
+                  Exemplo indisponível — rode{' '}
+                  <code
+                    className="font-mono"
+                    style={{
+                      fontSize: 'var(--text-xs)',
+                      background: 'var(--surface-muted)',
+                      padding: '0.1em 0.35em',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    pnpm docs:api
+                  </code>
+                </span>
+              </div>
+            );
+          })()
         )}
       </div>
     </div>
@@ -702,9 +733,11 @@ function EndpointDetail({
 function ResourcePage({
   group,
   spec,
+  schemaExamples,
 }: {
   group: ResourceGroup;
   spec: OpenApiSpec;
+  schemaExamples?: Record<string, { ts: string; json: unknown }> | undefined;
 }): React.JSX.Element {
   const initialOpId =
     typeof window !== 'undefined' && window.location.hash
@@ -775,7 +808,11 @@ function ResourcePage({
           paddingTop: '1.5rem',
         }}
       >
-        <CodePanel endpoint={activeEndpoint} componentSchemas={componentSchemas} />
+        <CodePanel
+          endpoint={activeEndpoint}
+          componentSchemas={componentSchemas}
+          {...(schemaExamples !== undefined ? { schemaExamples } : {})}
+        />
       </aside>
     </div>
   );
@@ -954,9 +991,11 @@ function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }): 
 function ApiReferenceInner({
   resources,
   spec,
+  schemaExamples,
 }: {
   resources: ResourceGroup[];
   spec: OpenApiSpec;
+  schemaExamples?: Record<string, { ts: string; json: unknown }> | undefined;
 }): React.JSX.Element {
   const { resource } = useParams<{ resource?: string }>();
   const activeGroup = resource
@@ -986,7 +1025,11 @@ function ApiReferenceInner({
       </aside>
       <div className="min-w-0 flex-1">
         {activeGroup ? (
-          <ResourcePage group={activeGroup} spec={spec} />
+          <ResourcePage
+            group={activeGroup}
+            spec={spec}
+            {...(schemaExamples !== undefined ? { schemaExamples } : {})}
+          />
         ) : (
           <OverviewPage resources={resources} spec={spec} />
         )}
@@ -1003,12 +1046,19 @@ function ApiReferenceInner({
  */
 export function ApiReferencePage(): React.JSX.Element {
   const { spec, isLoading, isError, error, refetch } = useOpenApi();
+  const { schemaExamples } = useSchemaExamples();
   const resources = React.useMemo(() => (spec ? parseSpec(spec) : []), [spec]);
   return (
     <DocLayout>
       {isLoading && <LoadingSkeleton />}
       {isError && error && <ErrorState error={error} onRetry={refetch} />}
-      {!isLoading && !isError && spec && <ApiReferenceInner resources={resources} spec={spec} />}
+      {!isLoading && !isError && spec && (
+        <ApiReferenceInner
+          resources={resources}
+          spec={spec}
+          {...(schemaExamples !== undefined ? { schemaExamples } : {})}
+        />
+      )}
     </DocLayout>
   );
 }

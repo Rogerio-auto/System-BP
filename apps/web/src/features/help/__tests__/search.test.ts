@@ -143,4 +143,11 @@ describe('searchHelp', () => {
       expect(typeof r.snippet).toBe('string');
     }
   });
+  // ── API section (F10-S11) ─────────────────────────────────────────────────
+
+  it('busca por "api" encontra a pagina api/index', () => {
+    const out = searchHelp('api');
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('api');
+  });
 });

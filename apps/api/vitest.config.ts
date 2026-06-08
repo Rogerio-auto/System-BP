@@ -19,7 +19,7 @@ export default defineConfig({
     // import de env.ts em projetos ESM strict.
     globalSetup: ['src/test/setup.ts'],
     pool: 'forks',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'scripts/__tests__/*.test.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
