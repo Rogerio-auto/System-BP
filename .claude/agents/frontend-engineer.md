@@ -147,3 +147,14 @@ pnpm --filter @elemento/web build
 2. Abra `docs/design-system/index.html` no navegador, inspecione no DevTools.
 3. Se ainda assim incerto, escolha a opção que um time world-class (Linear, Stripe, Vercel, Airbnb) escolheria — sem virar template.
 4. Registre a decisão no PR.
+
+## Documentação como contrato (norma §10, desde F10-S14)
+
+Ao implementar feature visível ao usuário, **obrigatório** produzir página MDX em `docs/help/guias/<modulo>/<feature>.mdx`. Estrutura: o que é, quando usar, passo a passo com Step + Callout, erros comuns, Veja também. Frontmatter com title/description/order/keywords. Sem isso, o slot não fecha — `scripts/slot.py finish` recusa com mensagem `[block]`.
+
+Componentes:
+- `<FeedbackWidget />` é injetado automaticamente pelo DocLayout — **não** duplicar inline.
+- `<Permission>` obrigatório em fluxos que exigem permissão específica.
+- `<Step>` + `<Callout>` para passo a passo.
+
+Screenshots/GIFs em `docs/help/_assets/` sem PII real. Link cruzado adicionado à `docs/help/comecar/<role>.mdx` quando a feature é first-class para o papel.

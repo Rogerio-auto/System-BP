@@ -46,3 +46,14 @@ cd apps/langgraph-service; uv run pytest
 ```
 
 Falha = não devolve. Conserta o teste ou pede ao engenheiro original pra consertar o código se for bug real.
+
+## Documentação como contrato (norma §10, desde F10-S14)
+
+Validar nas páginas de Ajuda entregues pelo slot:
+- Rota `/ajuda/guias/<modulo>/<feature>` renderiza sem erro.
+- Busca encontra a página por palavras-chave esperadas (`docs_artifacts` do frontmatter).
+- `<FeedbackWidget />` aparece no rodapé (injetado via DocLayout).
+- Screenshots/GIFs, se existirem, não estão quebradas e não contêm PII real.
+- `<Permission>` declarada em fluxos que exigem permissão específica.
+
+Se a página não renderiza ou widget não aparece, é bloqueio de slot — não aprovação com ressalva.

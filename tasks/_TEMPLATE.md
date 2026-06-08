@@ -14,15 +14,15 @@ depends_on: []      # lista de IDs de slots
 blocks: []          # IDs que este slot desbloqueia (informativo)
 source_docs:
   - docs/12-tasks-tecnicas.md#TX.X
-# ─── Documentação (a partir de F10-S14) ──────────────────────────────────────
-# Slots que produzem feature visível ao usuário ou endpoint público devem
-# entregar documentação como artefato de DoD. Ver docs/20-central-de-ajuda.md §10.
+# Campo obrigatório no frontmatter. docs_required: true é o default; só false para
+# refactor/infra invisível ao usuário. slot.py finish recusa se docs_required: true
+# e docs_artifacts não listados/não existentes. Ver docs/20-central-de-ajuda.md §10.
 docs_required: true       # default true; só false para refactor/infra invisível
 docs_audience:            # personas que precisam aprender
   - operador              # agente, agente_admin, gestor_cidade
   - gestor                # gestor_geral, admin
   - dev                   # API/integração
-docs_artifacts:           # arquivos esperados ao final do slot
+docs_artifacts:           # arquivos que DEVEM existir ao fechar o slot (slot.py finish valida)
   - docs/help/guias/<modulo>/<feature>.mdx
 ---
 
@@ -30,7 +30,7 @@ docs_artifacts:           # arquivos esperados ao final do slot
 
 ## Objetivo
 
-Uma frase clara explicando o resultado pretendido em termos de capacidade entregue (não em termos de "criar arquivo X").
+Uma frase clara explicando o resultado pretendido em termos de capacidade entregue.
 
 ## Contexto
 
@@ -53,17 +53,17 @@ Caminhos que este slot pode criar ou modificar.
 
 ## Arquivos proibidos (`files_forbidden`)
 
-Caminhos que NÃO podem ser tocados (mesmo se "fizer sentido").
+Caminhos que NÃO podem ser tocados.
 
 - `apps/api/src/db/schema/index.ts` (outro slot é dono)
 
 ## Contratos de entrada
 
-O que precisa existir antes (já garantido por `depends_on`, mas explicite o contrato concreto).
+O que precisa existir antes (já garantido por `depends_on`).
 
 ## Contratos de saída
 
-O que este slot DEVE entregar para os dependentes consumirem (assinaturas de funções, schemas, endpoints, eventos).
+O que este slot DEVE entregar para os dependentes consumirem.
 
 ## Definition of Done
 
@@ -76,10 +76,11 @@ O que este slot DEVE entregar para os dependentes consumirem (assinaturas de fun
 - [ ] Audit log aplicado — se aplicável
 - [ ] Feature flag respeitada nas 4 camadas — se aplicável
 - [ ] Logs com correlation_id — se aplicável
-- [ ] **Documentação criada/atualizada em `docs/help/...` conforme `docs_audience`** — se `docs_required: true`
-- [ ] **Screenshots/GIFs em `docs/help/_assets/`** sem PII real — se aplicável
-- [ ] **`<FeedbackWidget />` incluído na página de ajuda** — se aplicável
-- [ ] **Link cruzado adicionado à `docs/help/comecar/<role>.mdx`** quando a feature é first-class
+- [ ] **Documentação criada/atualizada em `docs/help/...` conforme `docs_audience`** (obrigatório quando `docs_required: true`)
+- [ ] **`docs_artifacts` listados no frontmatter existem no PR** (`slot.py finish` valida automaticamente)
+- [ ] **Screenshots/GIFs em `docs/help/_assets/`** sem PII real (quando relevante para compreensão)
+- [ ] **`<FeedbackWidget />` presente no rodapé da página de ajuda** (injetado via DocLayout — confirmar)
+- [ ] **Link cruzado adicionado à `docs/help/comecar/<role>.mdx`** (quando a feature é first-class para o papel)
 - [ ] PR aberto com checklist preenchida e link para o slot
 
 ## Comandos de validação

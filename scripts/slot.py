@@ -15,9 +15,11 @@ Subcomandos
       Atômico: valida main limpo, cria branch feat/<slot-id-lc>, atualiza
       frontmatter + STATUS.md, commita chore. Rejeita claim duplicado.
 
-  finish <slot-id> [--no-commit]
+  finish <slot-id> [--no-commit] [--skip-docs]
       Marca slot review: atualiza frontmatter (status, completed_at),
       atualiza STATUS.md, commita chore.
+      Valida docs_required: se true e docs_artifacts vazio ou inexistentes, BLOQUEIA.
+      --skip-docs: bypass para hotfixes; registra em tasks/_skip-docs.log.
 
   validate <slot-id>
       Parseia o bloco "Validação" do slot e roda cada comando.
@@ -896,8 +898,122 @@ def _fetch_merged_prs_by_slot_id(limit: int = 200) -> dict[str, dict]:
 
 
 # -----------------------------------------------------------------------------
-# Subcommand: finish
+# Subcommand: finish -- docs_required validation (F10-S14)
 # -----------------------------------------------------------------------------
+#
+# Cenarios cobertos pela validacao (F10-S14):
+#
+# 1. Slot ok (docs_required: false OU artefatos existem):
+#    validate_docs_required retorna None -> finish prossegue normalmente.
+#
+# 2. Slot com docs_required: true mas docs_artifacts vazio ou artefatos nao existem:
+#    validate_docs_required retorna mensagem [block] -> finish sai com codigo 1.
+#    O frontmatter NAO e alterado (slot permanece in-progress).
+#
+# 3. Slot com docs_required: true mas --skip-docs passado (hotfix emergencial):
+#    validate_docs_required retorna None -> finish prossegue; warning impresso e
+#    uso registrado em tasks/_skip-docs.log (auditavel).
+
+_SKIP_DOCS_LOG = REPO_ROOT / "tasks" / "_skip-docs.log"
+
+
+def _parse_frontmatter_multiline_list(fm_text: str, key: str) -> list[str]:
+    """Parseia lista YAML multilinha ou inline de um bloco de frontmatter.
+
+    Suporta:
+      inline:     docs_artifacts: []
+      inline:     docs_artifacts: [path/a.mdx, path/b.mdx]
+      multilinha: docs_artifacts:
+                    - path/a.mdx
+                    - path/b.mdx
+    """
+    result: list[str] = []
+    in_list = False
+    for line in fm_text.splitlines():
+        if line.startswith(f"{key}:"):
+            _, _, value = line.partition(":")
+            value = value.strip()
+            if value and value not in ("[]", "~", "null"):
+                if value.startswith("[") and value.endswith("]"):
+                    inner = value[1:-1].strip()
+                    if inner:
+                        result = [x.strip().strip("\x27\x22") for x in inner.split(",") if x.strip()]
+                else:
+                    result = [value]
+            in_list = True
+        elif in_list:
+            stripped = line.strip()
+            if stripped.startswith("- "):
+                result.append(stripped[2:].strip())
+            elif not stripped or stripped.startswith("#"):
+                continue
+            elif not line.startswith((" ", "\t")):
+                break  # nova chave top-level -- fim da lista
+    return result
+
+
+def validate_docs_required(
+    slot_path: Path,
+    skip_docs: bool = False,
+    skip_reason: str = "",
+    slot_id: str = "",
+) -> "str | None":
+    """Valida regra docs_required antes de marcar slot como review (F10-S14).
+
+    Retorna None se ok, ou string de mensagem de erro se deve bloquear.
+    Se skip_docs=True, registra o bypass em tasks/_skip-docs.log e retorna None.
+    """
+    text = slot_path.read_text(encoding="utf-8")
+    m = _FRONTMATTER_RE.match(text)
+    if not m:
+        return None  # sem frontmatter nao podemos validar
+
+    fm_text = m.group(1)
+    fm = _parse_yaml_subset(fm_text)
+
+    docs_required_raw = fm.get("docs_required", "true").strip().lower()
+    # Default true conforme norma S10 -- se o campo nao existir, trata como true.
+    docs_required = docs_required_raw not in ("false", "no", "0")
+    if not docs_required:
+        return None  # sem restricao
+
+    artifacts = _parse_frontmatter_multiline_list(fm_text, "docs_artifacts")
+
+    if skip_docs:
+        # Bypass autorizado -- registrar no log de auditoria
+        timestamp = now_iso()
+        sid = slot_id or fm.get("id", slot_path.stem)
+        reason = skip_reason or "(sem razao informada)"
+        try:
+            _SKIP_DOCS_LOG.parent.mkdir(parents=True, exist_ok=True)
+            with _SKIP_DOCS_LOG.open("a", encoding="utf-8") as f:
+                f.write(f"{timestamp}\t{sid}\t{reason}\n")
+        except OSError as exc:
+            warn(f"[skip-docs] Nao foi possivel registrar em {_SKIP_DOCS_LOG}: {exc}")
+        warn(
+            f"[skip-docs] AVISO: docs_required=true ignorado para {sid}. "
+            f"Razao: {reason}. Registrado em {_SKIP_DOCS_LOG}"
+        )
+        return None
+
+    if not artifacts:
+        sid = slot_id or fm.get("id", slot_path.stem)
+        return (
+            f"[block] {sid} docs_required=true mas docs_artifacts esta vazio. "
+            "Liste os caminhos MDX esperados no frontmatter antes de fechar o slot."
+        )
+
+    missing = [p for p in artifacts if not (REPO_ROOT / p).exists()]
+    if missing:
+        sid = slot_id or fm.get("id", slot_path.stem)
+        missing_fmt = ", ".join(missing)
+        return (
+            f"[block] {sid} docs_required=true mas docs_artifacts nao foram criados: "
+            f"[{missing_fmt}]. Crie os arquivos ou use --skip-docs com razao."
+        )
+
+    return None
+
 
 def cmd_finish(args: argparse.Namespace) -> int:
     slot_id = args.slot_id
@@ -909,8 +1025,21 @@ def cmd_finish(args: argparse.Namespace) -> int:
         die(f"Not on branch {branch} (current: {current_branch()}). Use --force to override.")
 
     if slot.status == "review":
-        info(f"[slot] {slot_id} already in review — nothing to do")
+        info(f"[slot] {slot_id} already in review -- nothing to do")
         return 0
+
+    # Validacao docs_required (norma S10, implementada em F10-S14).
+    # Roda ANTES de qualquer write para nao deixar frontmatter parcialmente atualizado.
+    skip_reason = getattr(args, "skip_docs_reason", "") or ""
+    err = validate_docs_required(
+        path,
+        skip_docs=getattr(args, "skip_docs", False),
+        skip_reason=skip_reason,
+        slot_id=slot_id,
+    )
+    if err:
+        print(err, file=sys.stderr)
+        return 1
 
     update_frontmatter_fields(path, {
         "status": "review",
@@ -920,7 +1049,7 @@ def cmd_finish(args: argparse.Namespace) -> int:
 
     if not args.no_commit:
         run_git(["add", str(path.relative_to(REPO_ROOT)), str(STATUS_FILE.relative_to(REPO_ROOT))])
-        # Slot ID em lowercase para passar subject-case do commitlint (§7.5 do PROTOCOL.md)
+        # Slot ID em lowercase para passar subject-case do commitlint (S7.5 do PROTOCOL.md)
         # run_git_commit augmenta PATH para hooks pnpm em worktrees
         run_git_commit(f"chore(tasks): {slot_id.lower()} review")
         info(f"[slot] {slot_id} marked review (commit {_short_sha()})")
@@ -928,7 +1057,6 @@ def cmd_finish(args: argparse.Namespace) -> int:
         info(f"[slot] {slot_id} marked review (no commit; files staged via sync)")
 
     return 0
-
 
 # -----------------------------------------------------------------------------
 # Subcommand: validate
@@ -2027,6 +2155,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("slot_id")
     s.add_argument("--no-commit", action="store_true")
     s.add_argument("--force", action="store_true")
+    s.add_argument("--skip-docs", dest="skip_docs", action="store_true",
+                   help="Bypass docs_required para hotfixes (auditado em tasks/_skip-docs.log)")
+    s.add_argument("--skip-docs-reason", dest="skip_docs_reason", default="",
+                   help="Razao do bypass (obrigatorio ao usar --skip-docs em producao)")
     s.set_defaults(func=cmd_finish)
 
     s = sub.add_parser("validate", help="Roda comandos do bloco Validação do slot")

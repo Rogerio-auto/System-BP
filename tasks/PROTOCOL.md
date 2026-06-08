@@ -338,3 +338,23 @@ assumiram que `finish` commitava o código — não commita. O fluxo canônico d
 - Os 4 arquivos `.claude/agents/*-engineer.md` receberam o mesmo aviso no bloco de scripts.
 - `worktree-clean` é ferramenta **pós-merge**. Nunca rodar com worktrees não-mergeados
   ativos sem antes confirmar que todo o trabalho está commitado **e** pushado.
+
+
+## 8. Regra cultural: documentação como artefato (desde F10-S14)
+
+> Norma de referência: `docs/20-central-de-ajuda.md` §10. Esta regra é inviolável e vence qualquer slot individual.
+
+Todo slot que entrega feature visível ao usuário ou endpoint público **deve** entregar documentação como artefato de DoD. As 4 consequências:
+
+1. **Frontmatter precisa de `docs_required`.** Default `true`. Só `false` para refactor/infra completamente invisível ao usuário final.
+2. **Quando `true`, `docs_artifacts` precisa listar >=1 caminho** em `docs/help/**/*.mdx`. Lista vazia = bloqueio.
+3. **`slot.py finish` valida que os artefatos existem** antes de marcar `review`. Falha com mensagem `[block] <ID> docs_required=true mas docs_artifacts não foram criados`. Slot permanece `in-progress`.
+4. **Slot novo sem doc visível ao usuário não fecha.** Não é opt-in — é contrato de entrega.
+
+### Bypass (`--skip-docs`)
+
+Para hotfixes emergenciais: `python scripts/slot.py finish <ID> --skip-docs --skip-docs-reason "<razão>"`. Auditado em `tasks/_skip-docs.log`. Não usar como hábito.
+
+### Backfill
+
+**Não se aplica.** Slots já em `done` antes de F10-S14 não regridem. A regra vale para slots criados após o merge deste slot.

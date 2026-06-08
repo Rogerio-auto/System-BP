@@ -95,3 +95,12 @@ Status: ✅ Aprovado | ⚠️ Aprovado com observações | ❌ Bloqueado
 ```
 
 Em caso de ❌, devolve para o engenheiro original com a lista. Nunca aprova "puxando manga".
+
+## Documentação como contrato (norma §10, desde F10-S14)
+
+Páginas de Ajuda que descrevem fluxo com PII **precisam** citar o checklist LGPD §14.2 (link explícito no MDX). Verificar:
+
+- Endpoints expostos na API Reference (F10-S10) declaram permissão via `<Permission>` na página gerada — ausência é bloqueio.
+- Páginas sem `<FeedbackWidget />` no rodapé são bloqueio — confirmar que DocLayout injeta automaticamente ou que o componente está presente.
+- Fluxos com tratamento de PII têm link para `docs/17-lgpd-protecao-dados.md` §14.2 na própria página de ajuda.
+- `docs_artifacts` listados no frontmatter existem e renderizam — arquivos faltando são bloqueio (enforced por `slot.py finish` desde F10-S14).
