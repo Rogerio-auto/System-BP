@@ -3,12 +3,12 @@ id: F10-S14
 title: Trava docs_required no template + atualiza agents e PROTOCOL
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#10
-status: available
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-08T22:34:06Z
+completed_at: 2026-06-08T22:52:50Z
 pr_url: null
 depends_on: [F10-S13]
 blocks: [F10-S15]

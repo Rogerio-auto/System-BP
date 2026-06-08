@@ -109,3 +109,15 @@ Push da branch sim. **NÃO** abrir PR — o Rogério abre via `gh` ou via fluxo 
 - Resultado de `python scripts/slot.py validate <SLOT-ID>` (pass/fail por comando)
 - Hash do commit final + nome da branch
 - Notas pro reviewer (decisões não óbvias, gaps fora do escopo)
+
+## Documentação como contrato (norma §10, desde F10-S14)
+
+Endpoints públicos requerem instrumentação `fastify-zod-openapi`:
+
+- `schema: { tags, summary, description, request/response refs }`
+- Schemas Zod com `.describe()` em campos não-óbvios + >=1 `.openapi({ example })` por payload.
+- Endpoints `internal/*` recebem `schema: { hide: true }`.
+
+O `description` do endpoint vira corpo da página gerada em `docs/help/api/_generated/<recurso>.mdx` — escreva pensando que vai ser publicado. Quando o endpoint introduz fluxo novo para o usuário final, produzir também página MDX em `docs/help/guias/<modulo>/<feature>.mdx`.
+
+Sem documentação, `slot.py finish` recusa com `[block]` se `docs_required: true`.
