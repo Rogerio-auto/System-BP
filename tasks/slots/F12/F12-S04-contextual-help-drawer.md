@@ -3,7 +3,7 @@ id: F12-S04
 title: <ContextualHelp> + Drawer global de ajuda contextual
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#7
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null
