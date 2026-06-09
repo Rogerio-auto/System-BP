@@ -58,7 +58,9 @@ const mockDb = {
 vi.mock('../../client.js', () => ({
   db: mockDb,
   pool: {
-    connect: vi.fn().mockResolvedValue({ query: vi.fn().mockResolvedValue({ rows: [] }), release: vi.fn() }),
+    connect: vi
+      .fn()
+      .mockResolvedValue({ query: vi.fn().mockResolvedValue({ rows: [] }), release: vi.fn() }),
     end: vi.fn(),
     on: vi.fn(),
   },
@@ -113,9 +115,7 @@ describe('feature_tutorials — schema e constraints', () => {
   it('duplicate feature_key ativo: simula UNIQUE violation (índice parcial)', async () => {
     // uq_feature_tutorials_key_active bloqueia dois registros ativos com a mesma key.
     mockInsertValues.mockRejectedValueOnce(
-      new Error(
-        'duplicate key value violates unique constraint "uq_feature_tutorials_key_active"',
-      ),
+      new Error('duplicate key value violates unique constraint "uq_feature_tutorials_key_active"'),
     );
 
     const newTutorial = makeNewTutorial();

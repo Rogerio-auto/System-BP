@@ -3,12 +3,12 @@ id: F12-S03
 title: Componente <VideoTutorial> provider-aware + registro no MDX
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#6
-status: available
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-09T15:01:23Z
+completed_at: 2026-06-09T15:06:10Z
 pr_url: null
 depends_on: []
 blocks: [F12-S04, F12-S05]
