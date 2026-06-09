@@ -3,12 +3,12 @@ id: F12-S01
 title: Schema feature_tutorials + migration + catálogo de feature_key
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#4
-status: available
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-09T15:00:44Z
+completed_at: 2026-06-09T15:12:33Z
 pr_url: null
 depends_on: []
 blocks: [F12-S02]
@@ -20,7 +20,6 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
-
 # F12-S01 — Schema feature_tutorials + catálogo de feature_key
 
 ## Objetivo
@@ -86,6 +85,14 @@ Norma 21 §4 define o modelo de dados. O registro é global de produto (`organiz
 - [ ] `pnpm --filter @elemento/api test` verde
 
 ## Comandos de validação
+
+```powershell
+python scripts/slot.py check-migrations
+pnpm --filter @elemento/api typecheck
+pnpm --filter @elemento/api test
+```
+
+## Validação
 
 ```powershell
 python scripts/slot.py check-migrations
