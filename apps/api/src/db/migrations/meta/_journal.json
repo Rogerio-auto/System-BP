@@ -295,6 +295,20 @@
       "when": 1748736003000,
       "tag": "0045_enable_followup_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1748736004000,
+      "tag": "0046_doc_telemetry",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1749427200000,
+      "tag": "0047_feature_tutorials",
+      "breakpoints": true
     }
   ]
 }

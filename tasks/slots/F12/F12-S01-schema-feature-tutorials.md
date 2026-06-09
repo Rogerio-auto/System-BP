@@ -93,6 +93,14 @@ pnpm --filter @elemento/api typecheck
 pnpm --filter @elemento/api test
 ```
 
+## Validação
+
+```powershell
+python scripts/slot.py check-migrations
+pnpm --filter @elemento/api typecheck
+pnpm --filter @elemento/api test
+```
+
 ## Notas para o agente
 
 - `feature_key` é `unique` global (parcial em `deleted_at IS NULL`).

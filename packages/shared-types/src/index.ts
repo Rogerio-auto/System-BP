@@ -23,3 +23,6 @@ export const ROLES = [
   'leitura',
 ] as const;
 export type Role = (typeof ROLES)[number];
+
+// Feature keys — catálogo fechado de funcionalidades com tutorial (F12-S01)
+export { FEATURE_KEYS, type FeatureKey } from './featureKeys.js';
