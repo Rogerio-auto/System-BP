@@ -32,6 +32,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useFeatureFlags } from '../../hooks/useFeatureFlag';
 import { useAuth } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
+import { ContextualHelp } from '../help/contextual';
 
 import { ContaSection } from './ContaSection';
 
@@ -603,17 +604,25 @@ export function ConfiguracoesPage(): React.JSX.Element {
     <div className="flex flex-col gap-6 pb-12">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div>
-        <h1
-          className="font-display font-bold text-ink"
-          style={{
-            fontSize: 'var(--text-3xl)',
-            letterSpacing: '-0.04em',
-            lineHeight: '1',
-            fontVariationSettings: "'opsz' 32",
-          }}
-        >
-          Configurações
-        </h1>
+        <div className="flex items-center gap-1">
+          <h1
+            className="font-display font-bold text-ink"
+            style={{
+              fontSize: 'var(--text-3xl)',
+              letterSpacing: '-0.04em',
+              lineHeight: '1',
+              fontVariationSettings: "'opsz' 32",
+            }}
+          >
+            Configurações
+          </h1>
+          {/* ⓘ tutorial de configurações — norma 21 §7 */}
+          <ContextualHelp
+            featureKey="settings.organization.edit"
+            permission="users:manage"
+            className="ml-0.5"
+          />
+        </div>
         <p className="mt-1.5 font-sans text-ink-3" style={{ fontSize: 'var(--text-sm)' }}>
           Gerencie sua conta e as configurações administrativas da plataforma.
         </p>

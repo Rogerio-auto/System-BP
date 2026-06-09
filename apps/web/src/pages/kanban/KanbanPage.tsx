@@ -36,6 +36,7 @@ import { KanbanColumn } from '../../components/kanban/KanbanColumn';
 import { KanbanDetailModal } from '../../components/kanban/KanbanDetailModal';
 import { KanbanFiltersBar } from '../../components/kanban/KanbanFilters';
 import { KanbanToastContainer, useKanbanToasts } from '../../components/kanban/KanbanToast';
+import { ContextualHelp } from '../../features/help/contextual';
 import type { KanbanCard as KanbanCardType, KanbanFilters } from '../../hooks/kanban/types';
 import { useKanbanCards } from '../../hooks/kanban/useKanbanCards';
 import { useKanbanStages } from '../../hooks/kanban/useKanbanStages';
@@ -182,17 +183,21 @@ export function KanbanPage({ hideHeader = false }: KanbanPageProps): React.JSX.E
       {/* Cabeçalho da página — ocultado quando embutido no CRM */}
       {!hideHeader && (
         <div style={{ animation: 'fade-up var(--dur-slow) var(--ease-out)' }}>
-          <h1
-            className="font-display font-bold text-ink"
-            style={{
-              fontSize: 'var(--text-3xl)',
-              letterSpacing: '-0.045em',
-              fontVariationSettings: "'opsz' 48",
-              lineHeight: 1,
-            }}
-          >
-            Kanban
-          </h1>
+          <div className="flex items-center gap-1">
+            <h1
+              className="font-display font-bold text-ink"
+              style={{
+                fontSize: 'var(--text-3xl)',
+                letterSpacing: '-0.045em',
+                fontVariationSettings: "'opsz' 48",
+                lineHeight: 1,
+              }}
+            >
+              Kanban
+            </h1>
+            {/* ⓘ tutorial de visualização e movimentação de cards — norma 21 §7 */}
+            <ContextualHelp featureKey="crm.kanban.view" className="ml-0.5" />
+          </div>
           <p className="font-sans text-sm text-ink-3 mt-1">
             Gerencie leads por etapa com drag-and-drop.
           </p>

@@ -17,6 +17,7 @@
 import * as React from 'react';
 import { Navigate } from 'react-router-dom';
 
+import { ContextualHelp } from '../../features/help/contextual';
 import { SimulatorForm } from '../../features/simulator/SimulatorForm';
 import { SimulatorResult } from '../../features/simulator/SimulatorResult';
 import type { LeadResponse } from '../../hooks/crm/types';
@@ -73,16 +74,20 @@ export function SimulatorPage(): React.JSX.Element {
     >
       {/* Page header */}
       <div>
-        <h1
-          className="font-display font-bold text-ink leading-tight"
-          style={{
-            fontSize: 'var(--text-3xl)',
-            letterSpacing: '-0.04em',
-            fontVariationSettings: "'opsz' 36",
-          }}
-        >
-          Simulador de crédito
-        </h1>
+        <div className="flex items-center gap-1">
+          <h1
+            className="font-display font-bold text-ink leading-tight"
+            style={{
+              fontSize: 'var(--text-3xl)',
+              letterSpacing: '-0.04em',
+              fontVariationSettings: "'opsz' 36",
+            }}
+          >
+            Simulador de crédito
+          </h1>
+          {/* ⓘ tutorial do simulador — norma 21 §7 */}
+          <ContextualHelp featureKey="simulator.run" className="ml-0.5" />
+        </div>
         <p className="font-sans text-sm text-ink-3 mt-1">
           Calcule parcela, total e tabela de amortização antes de formalizar.
         </p>
