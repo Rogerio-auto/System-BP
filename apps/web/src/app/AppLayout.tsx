@@ -19,6 +19,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { Sidebar } from '../components/layout/Sidebar';
 import { Topbar } from '../components/layout/Topbar';
 import { useAuth } from '../features/auth/useAuth';
+import { ContextualHelpDrawer } from '../features/help/contextual';
 import { SearchPalette } from '../features/help/SearchPalette';
 
 // ─── Zustand: estado da sidebar ───────────────────────────────────────────────
@@ -90,6 +91,9 @@ export function AppLayout(): React.JSX.Element {
 
       {/* Palette global de busca da Central de Ajuda — Cmd+K / Ctrl+K */}
       <SearchPalette />
+
+      {/* Drawer global de ajuda contextual — singleton, controlado via Zustand */}
+      <ContextualHelpDrawer />
     </div>
   );
 }

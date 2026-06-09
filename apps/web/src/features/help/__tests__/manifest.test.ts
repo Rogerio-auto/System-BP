@@ -40,7 +40,7 @@ describe('help manifest', () => {
     expect(article?.title).toBe('Módulos liberados');
   });
 
-  it('seção conceitos respeita a ordem da frontmatter (10, 20, 30, 40)', async () => {
+  it('seção conceitos respeita a ordem da frontmatter (10, 20, 30, 35, 40)', async () => {
     const m = await getHelpManifest();
     const conceitos = m.sections.find((s) => s.slug === 'conceitos');
     expect(conceitos).toBeDefined();
@@ -49,6 +49,7 @@ describe('help manifest', () => {
       'conceitos/papeis-e-cidades',
       'conceitos/lgpd',
       'conceitos/modulos-liberados',
+      'conceitos/tutoriais-e-ajuda-contextual',
       'conceitos/como-escrever-uma-pagina',
     ]);
   });
