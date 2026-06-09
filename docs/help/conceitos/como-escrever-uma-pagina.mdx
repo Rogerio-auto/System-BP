@@ -1,0 +1,148 @@
+---
+title: Como escrever uma página de ajuda
+description: Cinco princípios e um molde para criar páginas da Central de Ajuda que realmente funcionam.
+order: 40
+keywords: [autor, guia, template, molde, escrever, pagina, ajuda, documentacao, dev]
+---
+
+# Como escrever uma página de ajuda
+
+Toda página da Central nasce de um molde — e esse molde existe por boas razões. Veja por quê seguir a estrutura economiza tempo, melhora a busca e mantém a experiência do usuário consistente.
+
+## Os 5 princípios
+
+### 1. Resposta em menos de 500 palavras
+
+O leitor está com um problema aberto e quer resolver. Não quer um whitepaper. Se a explicação precisar de mais de 500 palavras, divida em duas páginas ou extraia os conceitos para `/ajuda/conceitos/`.
+
+**Exemplo:** "Como criar um lead" tem no máximo 5 passos concretos. "O que é um lead e como ele se encaixa no funil" vai para Conceitos.
+
+### 2. Tom direto, segunda pessoa, imperativo
+
+Escreva como se estivesse guiando alguém ao lado. "Você vai…" é sempre melhor do que "O usuário deverá proceder a…". Use verbos no imperativo nos títulos de passo: "Clique em", "Preencha", "Confirme".
+
+**Não escreva:** "É conveniente que o operador acesse a seção de leads."
+**Escreva:** "Abra o CRM e clique em **Novo lead**."
+
+### 3. Vocabulário canônico (norma §14)
+
+A Central tem um glossário oficial. Fora dele, o leitor se perde.
+
+| Use | Não use |
+|---|---|
+| Módulo liberado | Feature flag, toggle, feature |
+| Papel | RBAC, role, permissão (quando se refere ao papel) |
+| Régua | Regra de automação, workflow |
+| Job | Task, processo agendado |
+| Escopo de cidade | Multi-tenant, org scope |
+
+Termos proibidos no corpo das páginas de ajuda: **"feature flag"**, **"RBAC"**, **"UUID"**, **"outbox"**, **"idempotência"**. Esses termos existem em Conceitos e na API Reference — não nos guias do operador.
+
+### 4. Zero PII — use sempre personas fictícias
+
+Screenshots e exemplos nunca devem conter dados reais. Use as personas canônicas da norma §12: **Ana Paula** (agente) e **Carlos Eduardo** (gestor). Se reproduzir tela com dados, mascare com `***`.
+
+**Não use:** CPF `123.456.789-00`, telefone `(69) 99999-1234`, e-mail `joao@empresa.com`.
+**Use:** "Ana Paula abriu o cadastro e viu o telefone mascarado como `(69) ••••-1234`."
+
+### 5. Links sempre por URL relativa `/ajuda/...`
+
+Nunca linkar para paths de arquivo (`docs/help/conceitos/lgpd.mdx`). A URL canônica é sempre relativa ao app: `/ajuda/conceitos/lgpd`.
+
+---
+
+## Estrutura padrão
+
+Toda página segue o mesmo esqueleto. O molde completo está em `docs/help/_template.mdx` — copie e edite.
+
+| Bloco | Obrigatório | O que fazer |
+|---|---|---|
+| **Abertura** | Sim | 1–2 frases: "Use este guia quando você precisar de X" |
+| **Pré-requisitos** | Não | `<Callout type="info">` com papel e módulo necessários |
+| **Passos** | Sim | Um `<Step number={N}>` por ação. Máximo 7 passos |
+| **Erros comuns** | Não | 2–4 erros frequentes com causa + correção |
+| **Veja também** | Sim | 2–4 links `/ajuda/...` para páginas relacionadas |
+| **FeedbackWidget** | Automático | **Não inclua inline.** O DocLayout injeta no rodapé |
+
+---
+
+## Componentes MDX
+
+Use somente o conjunto canônico (§6 da norma). Não invente componentes.
+
+| Componente | Quando usar |
+|---|---|
+| `<Callout type="info\|tip\|warn\|danger">` | Aviso em destaque. Máximo 1 por seção |
+| `<Step number={N}>` | Cada passo de um tutorial |
+| `<CodeBlock lang="ts\|bash\|json" title="..." copy>` | Código — somente em guias técnicos e API |
+| `<EndpointCard method="POST" path="/api/...">` | Card de endpoint na API Reference |
+| `<Permission requires="modulo:acao">` | Indica permissão necessária antes de um passo |
+| `<Screenshot src="_assets/nome.png" alt="..." caption="...">` | Imagem com legenda |
+| `<FeedbackWidget />` | **Automático — não incluir inline** |
+
+Referência completa dos componentes: `apps/web/src/features/help/mdx-components/`.
+
+---
+
+## Como criar uma página
+
+<Step number={1}>
+  **Copie o molde canônico**
+
+  ```bash
+  cp docs/help/_template.mdx docs/help/guias/<modulo>/<feature>.mdx
+  ```
+
+  O arquivo começa com `draft: true` — ele não aparece no nav até você remover esse campo.
+</Step>
+
+<Step number={2}>
+  **Adapte o frontmatter**
+
+  Defina `title`, `description` e `order`. Adicione `keywords` com os termos que o usuário
+  digitaria na busca. Remova `draft: true` quando a página estiver pronta para publicar.
+
+  <Callout type="warn" title="Sem keywords proibidas">
+    Não coloque termos técnicos internos em `keywords`: "uuid", "outbox", "idempotência".
+    Eles confundem o usuário e poluem a busca.
+  </Callout>
+</Step>
+
+<Step number={3}>
+  **Escreva o conteúdo nas seções**
+
+  Siga a estrutura do molde: abertura → pré-requisitos → passos → erros comuns → veja também.
+  Apague os comentários `{/* ... */}` conforme for escrevendo.
+</Step>
+
+<Step number={4}>
+  **Valide localmente**
+
+  ```bash
+  pnpm --filter @elemento/web dev
+  ```
+
+  Abra `/ajuda/conceitos/<sua-pagina>` ou `/ajuda/guias/<modulo>/<feature>` no navegador.
+  Confirme que o título aparece no nav, a busca encontra a página e os componentes renderizam.
+</Step>
+
+<Step number={5}>
+  **Registre no frontmatter do slot**
+
+  Adicione o arquivo ao campo `docs_artifacts` do slot correspondente em `tasks/slots/`:
+
+  ```yaml
+  docs_artifacts:
+    - docs/help/guias/<modulo>/<feature>.mdx
+  ```
+
+  Sem isso, `python scripts/slot.py finish <SLOT-ID>` recusa com `[block]`.
+</Step>
+
+---
+
+## Veja também
+
+- [Papéis e cidades](/ajuda/conceitos/papeis-e-cidades) — quem pode acessar cada módulo.
+- [LGPD no Banco do Povo](/ajuda/conceitos/lgpd) — como lidar com dados em screenshots e exemplos.
+- [Módulos liberados](/ajuda/conceitos/modulos-liberados) — o que é um módulo e como ativá-lo.
