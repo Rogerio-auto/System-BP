@@ -3,11 +3,11 @@ id: F12-S01
 title: Schema feature_tutorials + migration + catálogo de feature_key
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#4
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-09T15:00:44Z
 completed_at: null
 pr_url: null
 depends_on: []
