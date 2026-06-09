@@ -23,6 +23,9 @@ COPY --from=deps /repo/apps/api/node_modules ./apps/api/node_modules
 # inside packages/shared-schemas/src/*.ts when building @elemento/api, because
 # module resolution walks up from the file's directory — not from apps/api.
 COPY --from=deps /repo/packages/shared-schemas/node_modules ./packages/shared-schemas/node_modules
+# shared-types build (tsc) resolves `@elemento/tsconfig/node.json` + typescript
+# from its own node_modules — module resolution walks from the package dir.
+COPY --from=deps /repo/packages/shared-types/node_modules ./packages/shared-types/node_modules
 COPY . .
 # Build workspace libs first so their dist/ exists before api tsc runs.
 # turbo dependsOn ["^build"] handles ordering in monorepo, but Docker does not
