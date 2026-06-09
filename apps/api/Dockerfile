@@ -24,9 +24,11 @@ COPY --from=deps /repo/apps/api/node_modules ./apps/api/node_modules
 # module resolution walks up from the file's directory — not from apps/api.
 COPY --from=deps /repo/packages/shared-schemas/node_modules ./packages/shared-schemas/node_modules
 COPY . .
-# Build shared-schemas first so dist/ exists before api tsc runs.
+# Build workspace libs first so their dist/ exists before api tsc runs.
 # turbo dependsOn ["^build"] handles ordering in monorepo, but Docker does not
 # run turbo here — we invoke pnpm --filter directly and must respect the order.
+# shared-types must build before shared-schemas/api (both consume its dist).
+RUN pnpm --filter @elemento/shared-types build
 RUN pnpm --filter @elemento/shared-schemas build
 RUN pnpm --filter @elemento/api build
 RUN pnpm --filter @elemento/api deploy --prod /out
