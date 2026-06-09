@@ -74,17 +74,7 @@ export const FOOTER_NAV: NavItem[] = [
 // (grupo Gestão do AdminSection), com permissão + flag conforme billing/routes.ts
 // e templates/routes.ts.
 
-/**
- * Item de navegação para a página de tutoriais em vídeo (F12-S05).
- * Visível somente com permissão `tutorials:manage` e flag `tutorials.enabled`.
- *
- * Não plugado em APP_NAV — o gating é feito diretamente em ConfiguracoesPage.tsx
- * (grupo Gestão do AdminSection), seguindo o mesmo padrão de billing/templates.
- */
-export const TUTORIAIS_NAV_ITEM: NavItem = {
-  href: '/admin/tutoriais',
-  label: 'Tutoriais',
-  iconKey: 'play',
-  permission: 'tutorials:manage',
-  featureFlag: 'tutorials.enabled',
-};
+// Nota F12-S10: TUTORIAIS_NAV_ITEM removido (dead code do F12-S05).
+// O gating de tutoriais é feito em ConfiguracoesPage.tsx (grupo Adm. técnica do AdminSection),
+// com hasPermission('tutorials:manage') && flagEnabled('tutorials.enabled').
+// A rota /admin/tutoriais está registrada em App.tsx (roteador real).

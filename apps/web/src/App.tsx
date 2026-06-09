@@ -42,6 +42,7 @@ import { CitiesPage } from './pages/admin/Cities';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
 import { ProductDetailPage } from './pages/admin/ProductDetail';
 import { ProductsPage } from './pages/admin/Products';
+import { TutoriaisPage } from './pages/admin/Tutoriais';
 import { UsersPage } from './pages/admin/Users';
 import { SimulatorPage } from './pages/simulator/SimulatorPage';
 
@@ -136,6 +137,8 @@ function AppRoutes(): React.JSX.Element {
         <Route path="/admin/products/:id" element={<ProductDetailPage />} />
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/agents" element={<AgentsPage />} />
+        {/* F12-S10: Tutoriais em vídeo */}
+        <Route path="/admin/tutoriais" element={<TutoriaisPage />} />
         {/* F5-S05: Follow-up â€” rÃ©guas e jobs */}
         <Route path="/admin/followup/rules" element={<FollowupRulesPage />} />
         <Route path="/admin/followup/jobs" element={<FollowupJobsPage />} />

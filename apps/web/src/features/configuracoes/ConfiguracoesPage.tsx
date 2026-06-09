@@ -210,6 +210,23 @@ function IconBillingJobs(): React.JSX.Element {
   );
 }
 
+// Tutoriais em vídeo: play em círculo
+function IconTutoriais(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M10 8.5l6 3.5-6 3.5V8.5Z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // Templates WhatsApp: balão de fala com linhas de texto
 function IconTemplates(): React.JSX.Element {
   return (
@@ -490,6 +507,17 @@ function AdminSection(): React.JSX.Element {
             description: 'Ativar e desativar funcionalidades da plataforma em tempo real.',
             icon: <IconFeatureFlags />,
             href: '/admin/feature-flags',
+          },
+        ]
+      : []),
+    // Tutoriais em vídeo: tutorials:manage + flag tutorials.enabled (F12-S10)
+    ...(hasPermission('tutorials:manage') && flagEnabled('tutorials.enabled')
+      ? [
+          {
+            title: 'Tutoriais em vídeo',
+            description: 'Gerencie tutoriais em vídeo exibidos na Central de Ajuda da plataforma.',
+            icon: <IconTutoriais />,
+            href: '/admin/tutoriais',
           },
         ]
       : []),

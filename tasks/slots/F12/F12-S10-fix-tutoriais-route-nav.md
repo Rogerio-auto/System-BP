@@ -3,12 +3,12 @@ id: F12-S10
 title: Fix — wirar rota /admin/tutoriais e card na ConfiguracoesPage (regressão F12-S05)
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#8
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-09T22:40:12Z
+completed_at: 2026-06-09T22:48:15Z
 pr_url: null
 depends_on: [F12-S05]
 blocks: []
