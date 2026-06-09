@@ -3,11 +3,11 @@ id: F10-S15
 title: Template MDX canônico + meta-guia "Como escrever uma página de ajuda"
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#10
-status: available
+status: in-progress
 priority: low
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-09T13:01:52Z
 completed_at: null
 pr_url: null
 depends_on: [F10-S14]
