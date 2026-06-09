@@ -3,13 +3,13 @@ id: F10-S15
 title: Template MDX canônico + meta-guia "Como escrever uma página de ajuda"
 phase: F10
 task_ref: docs/20-central-de-ajuda.md#10
-status: review
+status: done
 priority: low
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-09T13:01:52Z
 completed_at: 2026-06-09T13:09:27Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/200
 depends_on: [F10-S14]
 blocks: []
 source_docs:
