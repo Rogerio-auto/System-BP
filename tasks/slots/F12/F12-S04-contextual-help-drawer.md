@@ -3,13 +3,13 @@ id: F12-S04
 title: <ContextualHelp> + Drawer global de ajuda contextual
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#7
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-09T19:44:09Z
 completed_at: 2026-06-09T19:58:37Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/204
 depends_on: [F12-S02, F12-S03]
 blocks: [F12-S06]
 source_docs:
