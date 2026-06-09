@@ -16,7 +16,6 @@ import { Route } from 'react-router-dom';
 import { CollectionJobsPage, CollectionRulesPage, PaymentDuesPage } from '../features/billing';
 import { CreditAnalysesListPage, CreditAnalysisDetailPage } from '../features/credit-analyses';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from '../features/templates';
-import { TutoriaisPage } from '../pages/admin/Tutoriais';
 
 /**
  * Rotas do módulo de análise de crédito.
@@ -64,16 +63,5 @@ export function BillingRoutes(): React.JSX.Element {
   );
 }
 
-/**
- * Rotas do módulo de tutoriais em vídeo (F12-S05).
- * Inserir dentro de <Routes> protegidas (AuthGuard > AppLayout).
- *
- * Permissão mínima: tutorials:manage (checada internamente pelo componente).
- */
-export function TutoriaisRoutes(): React.JSX.Element {
-  return (
-    <>
-      <Route path="/admin/tutoriais" element={<TutoriaisPage />} />
-    </>
-  );
-}
+// F12-S10: TutoriaisRoutes removido (dead code do F12-S05 — router.tsx é órfão,
+// ninguém o importa). A rota /admin/tutoriais está em App.tsx (roteador real).

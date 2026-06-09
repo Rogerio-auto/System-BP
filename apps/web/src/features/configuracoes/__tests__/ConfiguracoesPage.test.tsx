@@ -13,6 +13,7 @@
 //   6. Contrato das permissões: chaves exatas confirmadas nas páginas-alvo
 //   7. Cobrança: billing:read + flag billing.enabled (F8-S18)
 //   8. Templates WhatsApp: templates:read (F8-S18)
+//   9. Tutoriais em vídeo: tutorials:manage + flag tutorials.enabled (F12-S10)
 // =============================================================================
 
 import { describe, expect, it } from 'vitest';
@@ -90,6 +91,10 @@ function buildAdminGroups(permissions: string[], flags: FeatureFlagsMap = {}): C
       : []),
     ...(hasPermission('flags:manage')
       ? [{ title: 'Feature Flags', href: '/admin/feature-flags' }]
+      : []),
+    // Tutoriais em vídeo: tutorials:manage + flag tutorials.enabled (F12-S10)
+    ...(hasPermission('tutorials:manage') && flagEnabled('tutorials.enabled')
+      ? [{ title: 'Tutoriais em vídeo', href: '/admin/tutoriais' }]
       : []),
   ];
 
@@ -334,6 +339,81 @@ describe('ConfiguracoesPage — Templates WhatsApp — gating por permissão', (
   });
 });
 
+// ─── Tutoriais em vídeo — gating por permissão + feature flag (F12-S10) ──────
+
+describe('ConfiguracoesPage — Tutoriais em vídeo (F12-S10) — gating permissão + flag', () => {
+  it('Tutoriais em vídeo: aparece com tutorials:manage + flag tutorials.enabled=enabled', () => {
+    const grupos = buildAdminGroups(['tutorials:manage'], { 'tutorials.enabled': 'enabled' });
+    const tecnica = grupos.find((g) => g.heading === 'Administração técnica')!;
+    expect(tecnica).toBeDefined();
+    expect(tecnica.cards.map((c) => c.title)).toContain('Tutoriais em vídeo');
+    expect(tecnica.cards.find((c) => c.title === 'Tutoriais em vídeo')?.href).toBe(
+      '/admin/tutoriais',
+    );
+  });
+
+  it('Tutoriais em vídeo: aparece com tutorials:manage + flag tutorials.enabled=internal_only', () => {
+    const grupos = buildAdminGroups(['tutorials:manage'], { 'tutorials.enabled': 'internal_only' });
+    const tecnica = grupos.find((g) => g.heading === 'Administração técnica')!;
+    expect(tecnica.cards.map((c) => c.title)).toContain('Tutoriais em vídeo');
+  });
+
+  it('Tutoriais em vídeo: NÃO aparece sem tutorials:manage (flag ativa)', () => {
+    const grupos = buildAdminGroups([], { 'tutorials.enabled': 'enabled' });
+    // O grupo tecnica não renderiza se não há nenhuma permissão técnica
+    const tecnica = grupos.find((g) => g.heading === 'Administração técnica');
+    if (tecnica) {
+      expect(tecnica.cards.map((c) => c.title)).not.toContain('Tutoriais em vídeo');
+    } else {
+      expect(tecnica).toBeUndefined();
+    }
+  });
+
+  it('Tutoriais em vídeo: NÃO aparece sem flag tutorials.enabled (permissão ativa)', () => {
+    const grupos = buildAdminGroups(['tutorials:manage'], { 'tutorials.enabled': 'disabled' });
+    // Grupo tecnica não renderiza (tutoriais é o único card e está bloqueado)
+    const tecnica = grupos.find((g) => g.heading === 'Administração técnica');
+    if (tecnica) {
+      expect(tecnica.cards.map((c) => c.title)).not.toContain('Tutoriais em vídeo');
+    } else {
+      expect(tecnica).toBeUndefined();
+    }
+  });
+
+  it('Tutoriais em vídeo: NÃO aparece com flag ausente do mapa (fail-closed)', () => {
+    const grupos = buildAdminGroups(['tutorials:manage']); // flags = {}
+    const tecnica = grupos.find((g) => g.heading === 'Administração técnica');
+    if (tecnica) {
+      expect(tecnica.cards.map((c) => c.title)).not.toContain('Tutoriais em vídeo');
+    } else {
+      expect(tecnica).toBeUndefined();
+    }
+  });
+
+  it('admin técnico completo (users:manage + flags:manage + tutorials:manage + flag) → todos os 3 cards técnicos', () => {
+    const grupos = buildAdminGroups(['users:manage', 'flags:manage', 'tutorials:manage'], {
+      'tutorials.enabled': 'enabled',
+    });
+    const tecnica = grupos.find((g) => g.heading === 'Administração técnica')!;
+    const titles = tecnica.cards.map((c) => c.title);
+    expect(titles).toContain('Usuários & Papéis');
+    expect(titles).toContain('Feature Flags');
+    expect(titles).toContain('Tutoriais em vídeo');
+  });
+
+  it('ordem dos cards técnicos: Usuários, Feature Flags, Tutoriais em vídeo', () => {
+    const grupos = buildAdminGroups(['users:manage', 'flags:manage', 'tutorials:manage'], {
+      'tutorials.enabled': 'enabled',
+    });
+    const tecnica = grupos.find((g) => g.heading === 'Administração técnica')!;
+    expect(tecnica.cards.map((c) => c.title)).toEqual([
+      'Usuários & Papéis',
+      'Feature Flags',
+      'Tutoriais em vídeo',
+    ]);
+  });
+});
+
 // ─── Contrato de permissões (documentação verificável) ───────────────────────
 
 describe('ConfiguracoesPage — chaves de permissão (contrato)', () => {
@@ -351,6 +431,7 @@ describe('ConfiguracoesPage — chaves de permissão (contrato)', () => {
    *   - billing:read         → billing/routes.ts L69, L121, L173
    *   - billing:write        → billing/routes.ts L138, L156
    *   - templates:read       → templates/routes.ts L47
+   *   - tutorials:manage     → Tutoriais.tsx + docs/21-tutoriais-em-video.md §12 (F12-S10)
    */
   it('chaves de permissão formam um conjunto fechado e documentado', () => {
     const PERMISSION_KEYS = {
@@ -362,6 +443,7 @@ describe('ConfiguracoesPage — chaves de permissão (contrato)', () => {
       billingRead: 'billing:read',
       billingWrite: 'billing:write',
       templatesRead: 'templates:read',
+      tutoriaisManage: 'tutorials:manage',
     } as const;
 
     // Garante que as chaves não são strings vazias ou undefined por acidente
@@ -373,14 +455,16 @@ describe('ConfiguracoesPage — chaves de permissão (contrato)', () => {
     expect(PERMISSION_KEYS.billingRead).toBe('billing:read');
     expect(PERMISSION_KEYS.billingWrite).toBe('billing:write');
     expect(PERMISSION_KEYS.templatesRead).toBe('templates:read');
+    expect(PERMISSION_KEYS.tutoriaisManage).toBe('tutorials:manage');
   });
 
-  it('feature flag de cobrança usa chave billing.enabled (mesma do BILLING_NAV_ITEM removido)', () => {
-    // Confirma que a flag key é consistente com o que o backend registra
+  it('feature flags usam as chaves corretas (consistentes com o que o backend registra)', () => {
     const FLAG_KEYS = {
       billing: 'billing.enabled',
+      tutorials: 'tutorials.enabled',
     } as const;
 
     expect(FLAG_KEYS.billing).toBe('billing.enabled');
+    expect(FLAG_KEYS.tutorials).toBe('tutorials.enabled');
   });
 });
