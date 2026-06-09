@@ -3,11 +3,11 @@ id: F12-S05
 title: Admin /admin/tutoriais (CRUD de tutoriais)
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#8
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-09T19:44:16Z
 completed_at: null
 pr_url: null
 depends_on: [F12-S02, F12-S03]
