@@ -215,6 +215,7 @@ describe('tipos Drizzle — compilação sem any', () => {
       videoRef: 'dQw4w9WgXcQ',
       videoHash: null,
       articleSlug: 'crm/lead-create',
+      durationSeconds: null,
       isActive: true,
       createdBy: USER_ID,
       createdAt: new Date(),

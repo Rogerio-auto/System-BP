@@ -43,6 +43,7 @@ import {
   boolean,
   foreignKey,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -136,6 +137,14 @@ export const featureTutorials = pgTable(
      * Referência por slug (não FK) — artigos são conteúdo MDX estático.
      */
     articleSlug: text('article_slug'),
+
+    /**
+     * Duração do vídeo em segundos.
+     * Exibido como badge no ⓘ e no drawer (ex: "2:34").
+     * null = duração não informada (campo opcional; não bloqueia publicação).
+     * Adicionado em F12-S08 (gap do data model original).
+     */
+    durationSeconds: integer('duration_seconds'),
 
     /**
      * Controla visibilidade na UI.
