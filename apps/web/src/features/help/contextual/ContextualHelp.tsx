@@ -100,21 +100,23 @@ export function ContextualHelp({
   // Verificação RBAC — se permission foi fornecida, o usuário precisa tê-la.
   if (permission && !hasPermission(permission)) return null;
 
+  // Construído no escopo já narrowed (tutorial != undefined). A narrowing de
+  // `tutorial` não atravessa a fronteira do closure handleClick, então o objeto
+  // é montado aqui e apenas referenciado dentro do handler.
+  const drawerTutorial: DrawerTutorial = {
+    id: tutorial.id,
+    title: tutorial.title,
+    description: tutorial.description,
+    provider: tutorial.provider,
+    videoRef: tutorial.videoRef,
+    hash: tutorial.hash ?? undefined,
+    articleSlug: tutorial.articleSlug,
+    featureKey: tutorial.featureKey,
+  };
+
   function handleClick(e: React.MouseEvent<HTMLButtonElement>): void {
     // Evitar propagação para o elemento pai (ex.: botão de ação primária).
     e.stopPropagation();
-
-    const drawerTutorial: DrawerTutorial = {
-      id: tutorial.id,
-      title: tutorial.title,
-      description: tutorial.description,
-      provider: tutorial.provider,
-      videoRef: tutorial.videoRef,
-      hash: tutorial.hash ?? undefined,
-      articleSlug: tutorial.articleSlug,
-      featureKey: tutorial.featureKey,
-    };
-
     openDrawer(drawerTutorial);
   }
 

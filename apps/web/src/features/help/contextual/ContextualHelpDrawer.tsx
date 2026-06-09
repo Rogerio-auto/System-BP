@@ -337,7 +337,7 @@ export function ContextualHelpDrawer(): React.JSX.Element {
             <VideoTutorial
               provider={activeTutorial.provider}
               videoRef={activeTutorial.videoRef}
-              hash={activeTutorial.hash}
+              {...(activeTutorial.hash ? { hash: activeTutorial.hash } : {})}
               title={activeTutorial.title}
               eager
             />
