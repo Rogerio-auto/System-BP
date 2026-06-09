@@ -25,6 +25,7 @@ import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
 import { useAuthStore } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
+import { ContextualHelp } from '../help/contextual';
 
 import { CreditAnalysisModal } from './components/CreditAnalysisForm';
 import { CreditAnalysisStatusBadge } from './components/CreditAnalysisStatusBadge';
@@ -286,16 +287,20 @@ export function CreditAnalysesListPage(): React.JSX.Element {
         {/* Header da página */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1
-              className="font-display font-bold text-ink"
-              style={{
-                fontSize: 'var(--text-3xl)',
-                letterSpacing: '-0.04em',
-                fontVariationSettings: "'opsz' 48",
-              }}
-            >
-              Análises de crédito
-            </h1>
+            <div className="flex items-center gap-1">
+              <h1
+                className="font-display font-bold text-ink"
+                style={{
+                  fontSize: 'var(--text-3xl)',
+                  letterSpacing: '-0.04em',
+                  fontVariationSettings: "'opsz' 48",
+                }}
+              >
+                Análises de crédito
+              </h1>
+              {/* ⓘ tutorial de análise de crédito — norma 21 §7 */}
+              <ContextualHelp featureKey="credit.analysis.create" className="ml-0.5" />
+            </div>
             <p className="font-sans text-sm text-ink-3 mt-1">
               Gerencie pareceres e decisões de crédito
             </p>

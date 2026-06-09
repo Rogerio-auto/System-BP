@@ -38,6 +38,7 @@ import {
 import { useLeads } from '../../hooks/crm/useLeads';
 import { cn } from '../../lib/cn';
 import { KanbanPage } from '../../pages/kanban/KanbanPage';
+import { ContextualHelp } from '../help/contextual';
 
 import { NewLeadModal } from './NewLeadModal';
 
@@ -337,59 +338,71 @@ export function CrmListPage(): React.JSX.Element {
 
           {/* Ações: Importar + Novo Lead */}
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/imports/leads/new')}
-              leftIcon={
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.8}
-                  className="w-4 h-4"
-                  aria-hidden="true"
-                >
-                  <path d="M8 2v8" />
-                  <path d="M5 7l3 3 3-3" />
-                  <path d="M2 12v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1" />
-                </svg>
-              }
-            >
-              Importar leads
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => setModalOpen(true)}
-              leftIcon={
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  className="w-4 h-4"
-                  aria-hidden="true"
-                >
-                  <path d="M8 2v12M2 8h12" />
-                </svg>
-              }
-            >
-              Novo lead
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/imports/leads/new')}
+                leftIcon={
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                    className="w-4 h-4"
+                    aria-hidden="true"
+                  >
+                    <path d="M8 2v8" />
+                    <path d="M5 7l3 3 3-3" />
+                    <path d="M2 12v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1" />
+                  </svg>
+                }
+              >
+                Importar leads
+              </Button>
+              {/* ⓘ tutorial de importação — norma 21 §7 */}
+              <ContextualHelp featureKey="crm.lead.import" permission="leads:write" />
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="primary"
+                onClick={() => setModalOpen(true)}
+                leftIcon={
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    className="w-4 h-4"
+                    aria-hidden="true"
+                  >
+                    <path d="M8 2v12M2 8h12" />
+                  </svg>
+                }
+              >
+                Novo lead
+              </Button>
+              {/* ⓘ tutorial de criação de lead — norma 21 §7 */}
+              <ContextualHelp featureKey="crm.lead.create" permission="leads:write" />
+            </div>
           </div>
         </div>
 
         {/* ── Título da página ──────────────────────────────────────────────── */}
         <div className="-mt-2">
-          <h1
-            className="font-display font-bold text-ink"
-            style={{
-              fontSize: 'var(--text-3xl)',
-              letterSpacing: '-0.04em',
-              fontVariationSettings: "'opsz' 48",
-            }}
-          >
-            CRM
-          </h1>
+          <div className="flex items-center gap-1">
+            <h1
+              className="font-display font-bold text-ink"
+              style={{
+                fontSize: 'var(--text-3xl)',
+                letterSpacing: '-0.04em',
+                fontVariationSettings: "'opsz' 48",
+              }}
+            >
+              CRM
+            </h1>
+            {/* ⓘ ajuda contextual — norma 21 §7 */}
+            <ContextualHelp featureKey="crm.lead.qualify" className="ml-0.5" />
+          </div>
           <p className="font-sans text-sm text-ink-3 mt-1">Gerencie seus leads</p>
         </div>
 

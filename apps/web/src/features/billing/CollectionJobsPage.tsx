@@ -30,6 +30,7 @@ import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useAuthStore } from '../../lib/auth-store';
+import { ContextualHelp } from '../help/contextual';
 
 import { BillingGatedBanner } from './components/BillingGatedBanner';
 import { useCancelCollectionJob, useCollectionJobs } from './hooks/useBilling';
@@ -307,16 +308,24 @@ export function CollectionJobsPage(): React.JSX.Element {
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1
-              className="font-display font-bold text-ink"
-              style={{
-                fontSize: 'var(--text-3xl)',
-                letterSpacing: '-0.04em',
-                fontVariationSettings: "'opsz' 48",
-              }}
-            >
-              Jobs de Cobrança
-            </h1>
+            <div className="flex items-center gap-1">
+              <h1
+                className="font-display font-bold text-ink"
+                style={{
+                  fontSize: 'var(--text-3xl)',
+                  letterSpacing: '-0.04em',
+                  fontVariationSettings: "'opsz' 48",
+                }}
+              >
+                Jobs de Cobrança
+              </h1>
+              {/* ⓘ tutorial de jobs de cobrança — norma 21 §7 */}
+              <ContextualHelp
+                featureKey="billing.due.mark_paid"
+                permission="billing:read"
+                className="ml-0.5"
+              />
+            </div>
             <p className="font-sans text-ink-3 mt-1" style={{ fontSize: 'var(--text-sm)' }}>
               Monitorar e gerenciar envios de cobrança pendentes e históricos.
             </p>

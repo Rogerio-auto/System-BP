@@ -3,12 +3,12 @@ id: F12-S06
 title: Instrumentar telas do app com <ContextualHelp featureKey>
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#7
-status: available
+status: review
 priority: low
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-09T22:11:46Z
+completed_at: 2026-06-09T22:24:29Z
 pr_url: null
 depends_on: [F12-S04, F12-S05]
 blocks: []

@@ -18,6 +18,7 @@ import { Link } from 'react-router-dom';
 
 import { useAuth } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
+import { ContextualHelp } from '../help/contextual';
 
 import { TemplateStatusBadge } from './components/TemplateStatusBadge';
 import { useTemplates, useSyncAllTemplates } from './hooks/useTemplates';
@@ -219,18 +220,26 @@ export function TemplatesListPage(): React.JSX.Element {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1
-            className="font-display font-bold"
-            style={{
-              fontSize: 'var(--text-3xl)',
-              letterSpacing: '-0.04em',
-              lineHeight: '1',
-              color: 'var(--text)',
-              fontVariationSettings: "'opsz' 32",
-            }}
-          >
-            Templates WhatsApp
-          </h1>
+          <div className="flex items-center gap-1">
+            <h1
+              className="font-display font-bold"
+              style={{
+                fontSize: 'var(--text-3xl)',
+                letterSpacing: '-0.04em',
+                lineHeight: '1',
+                color: 'var(--text)',
+                fontVariationSettings: "'opsz' 32",
+              }}
+            >
+              Templates WhatsApp
+            </h1>
+            {/* ⓘ tutorial de templates — norma 21 §7 */}
+            <ContextualHelp
+              featureKey="templates.create"
+              permission="templates:read"
+              className="ml-0.5"
+            />
+          </div>
           <p
             className="mt-1.5 font-sans"
             style={{ fontSize: 'var(--text-sm)', color: 'var(--text-3)' }}
