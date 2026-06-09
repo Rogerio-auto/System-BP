@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 22    | 0   | 0   | 0   | 0   | 0   | 22  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F10  | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
-| F12  | 9     | 0   | 1   | 0   | 0   | 0   | 8   |
+| F12  | 10    | 1   | 1   | 0   | 0   | 0   | 8   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -102,17 +102,18 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 12 —
 
-| ID      | Título                                                             | Status     | Prioridade | Depende de       |
-| ------- | ------------------------------------------------------------------ | ---------- | ---------- | ---------------- |
-| F12-S01 | Schema feature_tutorials + migration + catálogo de feature_key     | ✅ done    | medium     | —                |
-| F12-S02 | API /api/help/tutorials + /api/admin/tutorials CRUD + RBAC         | ✅ done    | medium     | F12-S01          |
-| F12-S03 | Componente <VideoTutorial> provider-aware + registro no MDX        | ✅ done    | medium     | —                |
-| F12-S04 | <ContextualHelp> + Drawer global de ajuda contextual               | ✅ done    | medium     | F12-S02, F12-S03 |
-| F12-S05 | Admin /admin/tutoriais (CRUD de tutoriais)                         | ✅ done    | medium     | F12-S02, F12-S03 |
-| F12-S06 | Instrumentar telas do app com <ContextualHelp featureKey>          | ✅ done    | low        | F12-S04, F12-S05 |
-| F12-S07 | Telemetria de adoção de tutoriais (opened/completed) — fase 2      | ⏸️ blocked | low        | F12-S02          |
-| F12-S08 | Completar data model — duration_seconds (schema + migration + API) | ✅ done    | low        | F12-S01, F12-S02 |
-| F12-S09 | Semear feature flag tutorials.enabled                              | ✅ done    | medium     | F12-S02          |
+| ID      | Título                                                                            | Status       | Prioridade | Depende de       |
+| ------- | --------------------------------------------------------------------------------- | ------------ | ---------- | ---------------- |
+| F12-S01 | Schema feature_tutorials + migration + catálogo de feature_key                    | ✅ done      | medium     | —                |
+| F12-S02 | API /api/help/tutorials + /api/admin/tutorials CRUD + RBAC                        | ✅ done      | medium     | F12-S01          |
+| F12-S03 | Componente <VideoTutorial> provider-aware + registro no MDX                       | ✅ done      | medium     | —                |
+| F12-S04 | <ContextualHelp> + Drawer global de ajuda contextual                              | ✅ done      | medium     | F12-S02, F12-S03 |
+| F12-S05 | Admin /admin/tutoriais (CRUD de tutoriais)                                        | ✅ done      | medium     | F12-S02, F12-S03 |
+| F12-S06 | Instrumentar telas do app com <ContextualHelp featureKey>                         | ✅ done      | low        | F12-S04, F12-S05 |
+| F12-S07 | Telemetria de adoção de tutoriais (opened/completed) — fase 2                     | ⏸️ blocked   | low        | F12-S02          |
+| F12-S08 | Completar data model — duration_seconds (schema + migration + API)                | ✅ done      | low        | F12-S01, F12-S02 |
+| F12-S09 | Semear feature flag tutorials.enabled                                             | ✅ done      | medium     | F12-S02          |
+| F12-S10 | Fix — wirar rota /admin/tutoriais e card na ConfiguracoesPage (regressão F12-S05) | 🟢 available | high       | F12-S05          |
 
 ## Fase 2 — Crédito e simulação
 
