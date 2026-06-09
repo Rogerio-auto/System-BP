@@ -3,13 +3,13 @@ id: F12-S09
 title: Semear feature flag tutorials.enabled
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#12
-status: review
+status: done
 priority: medium
 estimated_size: XS
 agent_id: null
 claimed_at: 2026-06-09T22:12:32Z
 completed_at: 2026-06-09T22:15:57Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/208
 depends_on: [F12-S02]
 blocks: []
 source_docs:
