@@ -16,6 +16,7 @@ import { Route } from 'react-router-dom';
 import { CollectionJobsPage, CollectionRulesPage, PaymentDuesPage } from '../features/billing';
 import { CreditAnalysesListPage, CreditAnalysisDetailPage } from '../features/credit-analyses';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from '../features/templates';
+import { TutoriaisPage } from '../pages/admin/Tutoriais';
 
 /**
  * Rotas do módulo de análise de crédito.
@@ -59,6 +60,20 @@ export function BillingRoutes(): React.JSX.Element {
       <Route path="/admin/billing/dues" element={<PaymentDuesPage />} />
       <Route path="/admin/billing/rules" element={<CollectionRulesPage />} />
       <Route path="/admin/billing/jobs" element={<CollectionJobsPage />} />
+    </>
+  );
+}
+
+/**
+ * Rotas do módulo de tutoriais em vídeo (F12-S05).
+ * Inserir dentro de <Routes> protegidas (AuthGuard > AppLayout).
+ *
+ * Permissão mínima: tutorials:manage (checada internamente pelo componente).
+ */
+export function TutoriaisRoutes(): React.JSX.Element {
+  return (
+    <>
+      <Route path="/admin/tutoriais" element={<TutoriaisPage />} />
     </>
   );
 }
