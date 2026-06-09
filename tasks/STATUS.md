@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 22    | 0   | 0   | 0   | 0   | 0   | 22  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F10  | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
-| F12  | 7     | 0   | 4   | 0   | 0   | 1   | 2   |
+| F12  | 7     | 0   | 4   | 0   | 0   | 0   | 3   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -105,7 +105,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ID      | Título                                                         | Status     | Prioridade | Depende de       |
 | ------- | -------------------------------------------------------------- | ---------- | ---------- | ---------------- |
 | F12-S01 | Schema feature_tutorials + migration + catálogo de feature_key | ✅ done    | medium     | —                |
-| F12-S02 | API /api/help/tutorials + /api/admin/tutorials CRUD + RBAC     | 🟣 review  | medium     | F12-S01          |
+| F12-S02 | API /api/help/tutorials + /api/admin/tutorials CRUD + RBAC     | ✅ done    | medium     | F12-S01          |
 | F12-S03 | Componente <VideoTutorial> provider-aware + registro no MDX    | ✅ done    | medium     | —                |
 | F12-S04 | <ContextualHelp> + Drawer global de ajuda contextual           | ⏸️ blocked | medium     | F12-S02, F12-S03 |
 | F12-S05 | Admin /admin/tutoriais (CRUD de tutoriais)                     | ⏸️ blocked | medium     | F12-S02, F12-S03 |
