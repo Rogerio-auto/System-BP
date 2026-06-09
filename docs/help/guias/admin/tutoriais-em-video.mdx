@@ -1,0 +1,137 @@
+---
+title: Como cadastrar um tutorial em vídeo
+description: Passo a passo para criar, editar, ativar e remover tutoriais de funcionalidades no painel admin — sem precisar de deploy.
+order: 10
+keywords: [tutorial, video, tutoriais, admin, feature_key, youtube, cadastrar tutorial, gestão de tutoriais]
+---
+
+# Como cadastrar um tutorial em vídeo
+
+<Permission required="tutorials:manage">
+  Esta seção é exclusiva para administradores com a permissão **tutorials:manage**.
+  Se você não vê o menu **Tutoriais** em Configurações, fale com o responsável pelo sistema.
+</Permission>
+
+O painel de tutoriais em vídeo permite associar um vídeo explicativo a cada funcionalidade do sistema. O vídeo aparece para os usuários em um drawer lateral ao clicar no ícone de ajuda contextual **ⓘ** — sem sair da tela onde estão.
+
+Você não precisa de deploy para publicar um tutorial. Tudo é gerenciado nesta tela.
+
+<Callout type="info" title="Boas práticas de gravação">
+  Grave sempre com **dados fictícios** — nunca use CPFs, nomes ou telefones reais.
+  Use personas como "Ana Paula" ou "Carlos Eduardo". Um tutorial com PII real viola
+  a política de proteção de dados (norma LGPD) e precisará ser substituído imediatamente.
+</Callout>
+
+## Passo a passo
+
+<Step number={1} title="Acesse o painel de tutoriais">
+  No menu lateral, vá em **Configurações** e clique em **Tutoriais**. Você verá a
+  lista de todos os tutoriais cadastrados (ativos e inativos).
+</Step>
+
+<Step number={2} title="Clique em Novo tutorial">
+  Botão azul no canto superior direito. Um painel lateral se abre com o formulário
+  de cadastro.
+</Step>
+
+<Step number={3} title="Selecione a Feature key">
+  O campo **Feature key** é um dropdown com o catálogo fechado de funcionalidades
+  do sistema (ex.: `crm.lead.create`, `credit.analysis.create`). Nunca é texto livre.
+
+  Se a funcionalidade que você quer não aparece na lista, ela precisa ser adicionada
+  ao catálogo por um desenvolvedor (arquivo `packages/shared-types/src/featureKeys.ts`).
+</Step>
+
+<Step number={4} title="Preencha título e descrição">
+  - **Título**: nome curto exibido no drawer (ex.: "Como criar um lead no CRM").
+  - **Descrição**: resumo de 2-3 linhas que aparece abaixo do vídeo no drawer.
+    Seja objetivo — o usuário está na tela tentando executar algo.
+</Step>
+
+<Step number={5} title="Escolha o provider e cole o ID do vídeo">
+  - **YouTube** (padrão): use vídeos "Não listados". Cole apenas o ID do vídeo
+    (a parte após `watch?v=`), não a URL completa. Exemplo: `dQw4w9WgXcQ`.
+  - **Vimeo**: cole o ID numérico e o hash de privacidade (parâmetro `h` da URL
+    de incorporação). Ambos são obrigatórios para vídeos Vimeo privados.
+  - **MP4 (VPS)**: cole a URL absoluta do arquivo no servidor (`/videos/criar-lead.mp4`).
+
+  Ao colar o ID/URL, um **preview do player** aparece automaticamente no formulário
+  — confirme que o vídeo correto está carregando antes de salvar.
+</Step>
+
+<Step number={6} title="(Opcional) Associe um artigo da Central de Ajuda">
+  O campo **Artigo relacionado** aceita um slug relativo à Central de Ajuda
+  (ex.: `guias/crm/criar-lead`). Quando preenchido, o drawer exibe um botão
+  "Ver guia completo" que leva o usuário ao artigo detalhado.
+
+  Digite parte do slug ou do título para ver sugestões automáticas dos artigos
+  disponíveis no manifest do help center.
+</Step>
+
+<Step number={7} title="(Opcional) Informe a duração">
+  O campo **Duração (segundos)** é exibido como um badge discreto no drawer
+  para dar ao usuário uma expectativa de tempo. Ex.: `120` para 2 minutos.
+  Deixe vazio se não souber.
+</Step>
+
+<Step number={8} title="Ative ou deixe como rascunho">
+  O toggle **Publicado** controla se o tutorial é exibido para os usuários.
+  - **Ativo**: o ícone ⓘ aparece na tela da funcionalidade para usuários que
+    têm permissão naquela funcionalidade.
+  - **Inativo**: o tutorial existe no banco mas fica invisível — útil para preparar
+    um tutorial antes de publicar.
+</Step>
+
+<Step number={9} title="Salve e confirme">
+  Clique em **Criar tutorial**. A lista atualiza automaticamente.
+  Para editar depois, clique no título do tutorial ou no menu de ações (**⋮**).
+</Step>
+
+## Editar um tutorial existente
+
+<Step number={1} title="Abra o menu de ações">
+  Na lista, clique no ícone **⋮** (kebab menu) na linha do tutorial.
+  Selecione **Editar**.
+</Step>
+
+<Step number={2} title="Altere os campos necessários">
+  O formulário abre pré-preenchido com os dados atuais.
+  Para trocar o vídeo, basta colar o novo ID — o preview atualiza na hora.
+</Step>
+
+<Step number={3} title="Salve as alterações">
+  Clique em **Salvar alterações**. A mudança entra em vigor imediatamente para
+  todos os usuários — sem necessidade de reload ou deploy.
+</Step>
+
+## Ativar ou desativar um tutorial
+
+No menu **⋮** da linha do tutorial, clique em **Ativar** ou **Desativar**.
+Um tutorial desativado some do drawer dos usuários mas continua na lista do admin.
+Use isso para despublicar temporariamente sem perder o cadastro.
+
+## Remover um tutorial
+
+No menu **⋮**, clique em **Remover**. Uma confirmação será solicitada.
+A remoção é um soft-delete — o registro é preservado no banco para fins de auditoria,
+mas não aparece mais na lista nem para os usuários.
+
+<Callout type="warning" title="Remoção é irreversível na UI">
+  Após remover, o tutorial não aparece mais na lista do admin. Para restaurar,
+  é necessário criar um novo tutorial ou acionar o suporte técnico.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| "feature_key já cadastrado" | Já existe um tutorial ativo com essa feature_key | Edite o existente em vez de criar um novo, ou desative o antigo primeiro |
+| Preview não carrega | ID do YouTube/Vimeo incorreto ou vídeo privado | Verifique que o vídeo é "Não listado" (YouTube) e que o ID está correto |
+| Hash obrigatório (Vimeo) | Vídeos Vimeo privados exigem o parâmetro `h` | Copie o hash da URL de incorporação do Vimeo (parâmetro `h=...`) |
+| Feature key não aparece no dropdown | A funcionalidade ainda não foi adicionada ao catálogo | Solicite ao time de desenvolvimento que adicione em `featureKeys.ts` |
+| Tutorial ativo mas ⓘ não aparece | Feature flag `tutorials.enabled` desativada ou usuário sem permissão na funcionalidade | Verifique as feature flags em Configurações ou o papel do usuário |
+
+## Veja também
+
+- [Central de Ajuda — visão geral](/ajuda) — onde os artigos de texto ficam.
+- [Guias do CRM](/ajuda/guias/crm/criar-lead) — exemplo de artigo associável via `article_slug`.

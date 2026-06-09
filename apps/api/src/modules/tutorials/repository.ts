@@ -48,6 +48,7 @@ function toPublicItem(row: DbRow): TutorialPublicItem {
     videoRef: row.videoRef,
     videoHash: row.videoHash ?? null,
     articleSlug: row.articleSlug ?? null,
+    durationSeconds: row.durationSeconds ?? null,
   };
 }
 
@@ -66,6 +67,7 @@ function toAdminItem(row: DbRow): TutorialAdminItem {
     videoRef: row.videoRef,
     videoHash: row.videoHash ?? null,
     articleSlug: row.articleSlug ?? null,
+    durationSeconds: row.durationSeconds ?? null,
     isActive: row.isActive,
     createdBy: row.createdBy ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -174,6 +176,7 @@ export async function createTutorial(
       videoRef: input.videoRef,
       videoHash: input.videoHash ?? null,
       articleSlug: input.articleSlug ?? null,
+      durationSeconds: input.durationSeconds ?? null,
       isActive: input.isActive,
       createdBy,
     })
@@ -219,6 +222,9 @@ export async function updateTutorial(
   }
   if ('articleSlug' in input && input.articleSlug !== undefined) {
     updateValues.articleSlug = input.articleSlug;
+  }
+  if ('durationSeconds' in input && input.durationSeconds !== undefined) {
+    updateValues.durationSeconds = input.durationSeconds;
   }
 
   const rows = await db

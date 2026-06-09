@@ -1,4 +1,4 @@
-// tutorials/__tests__/tutorials.test.ts — Testes das rotas de tutoriais (F12-S02).
+// tutorials/__tests__/tutorials.test.ts — Testes das rotas de tutoriais (F12-S02 + F12-S08).
 //
 // Cobre:
 //   1.  GET /api/help/tutorials — retorna lista de ativos (200)
@@ -14,6 +14,10 @@
 //   11. DELETE /api/admin/tutorials/:id — 404 quando não encontrado
 //   12. GET /api/admin/feature-keys — retorna catálogo (200)
 //   13. GET /api/admin/feature-keys — rejeita sem permissão (403)
+//   14. POST /api/admin/tutorials — persiste durationSeconds quando fornecido (F12-S08)
+//   15. POST /api/admin/tutorials — durationSeconds ausente resulta em null na resposta (F12-S08)
+//   16. PATCH /api/admin/tutorials/:id — atualiza durationSeconds via PATCH (F12-S08)
+//   17. GET /api/help/tutorials — durationSeconds aparece na resposta pública (F12-S08)
 
 import type { FastifyInstance } from 'fastify';
 import Fastify from 'fastify';
@@ -133,6 +137,7 @@ const tutorialPublicFixture = {
   videoRef: 'dQw4w9WgXcQ',
   videoHash: null,
   articleSlug: 'crm/criar-lead',
+  durationSeconds: 154,
 };
 
 const tutorialAdminFixture = {
@@ -143,6 +148,12 @@ const tutorialAdminFixture = {
   createdAt: '2026-06-09T12:00:00.000Z',
   updatedAt: '2026-06-09T12:00:00.000Z',
   deletedAt: null,
+};
+
+// Fixture sem durationSeconds (campo omitido no body → null na resposta)
+const tutorialAdminFixtureNoDuration = {
+  ...tutorialAdminFixture,
+  durationSeconds: null,
 };
 
 type UserPayload = {
@@ -481,5 +492,106 @@ describe('GET /api/admin/feature-keys', () => {
     const res = await app.inject({ method: 'GET', url: '/api/admin/feature-keys' });
 
     expect(res.statusCode).toBe(403);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Testes: durationSeconds (F12-S08)
+// ---------------------------------------------------------------------------
+
+describe('durationSeconds — F12-S08', () => {
+  let app: FastifyInstance;
+
+  const validBody = {
+    featureKey: 'crm.lead.create',
+    title: 'Como criar um lead',
+    description: 'Aprenda a criar um lead.',
+    provider: 'youtube',
+    videoRef: 'dQw4w9WgXcQ',
+    isActive: true,
+    idempotencyKey: 'tutorial-crm-lead-create-v1',
+  };
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  afterEach(() => {
+    vi.clearAllMocks();
+    featureGateShouldFail = false;
+    authorizeShouldFail = false;
+  });
+
+  it('14. POST persiste durationSeconds quando fornecido', async () => {
+    mockFindActiveByFeatureKey.mockResolvedValue(null);
+    mockCreateTutorial.mockResolvedValue(tutorialAdminFixture); // tem durationSeconds: 154
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tutorials',
+      payload: { ...validBody, durationSeconds: 154 },
+    });
+
+    expect(res.statusCode).toBe(201);
+    type Body = typeof tutorialAdminFixture;
+    const body = res.json() as Body;
+    expect(body.durationSeconds).toBe(154);
+    // Verifica que createTutorial recebeu o campo
+    expect(mockCreateTutorial).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ durationSeconds: 154 }),
+      USER_ID,
+    );
+  });
+
+  it('15. POST sem durationSeconds resulta em null na resposta', async () => {
+    mockFindActiveByFeatureKey.mockResolvedValue(null);
+    mockCreateTutorial.mockResolvedValue(tutorialAdminFixtureNoDuration);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/tutorials',
+      payload: validBody,
+    });
+
+    expect(res.statusCode).toBe(201);
+    type Body = typeof tutorialAdminFixtureNoDuration;
+    const body = res.json() as Body;
+    expect(body.durationSeconds).toBeNull();
+  });
+
+  it('16. PATCH atualiza durationSeconds', async () => {
+    const updated = { ...tutorialAdminFixture, durationSeconds: 210 };
+    mockFindTutorialById.mockResolvedValue(tutorialAdminFixture);
+    mockUpdateTutorial.mockResolvedValue(updated);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/tutorials/${TUTORIAL_ID}`,
+      payload: { durationSeconds: 210 },
+    });
+
+    expect(res.statusCode).toBe(200);
+    type Body = typeof updated;
+    const body = res.json() as Body;
+    expect(body.durationSeconds).toBe(210);
+    expect(mockUpdateTutorial).toHaveBeenCalledWith(
+      expect.anything(),
+      TUTORIAL_ID,
+      expect.objectContaining({ durationSeconds: 210 }),
+    );
+  });
+
+  it('17. GET /api/help/tutorials inclui durationSeconds na resposta pública', async () => {
+    mockListActiveTutorials.mockResolvedValue([tutorialPublicFixture]);
+
+    const res = await app.inject({ method: 'GET', url: '/api/help/tutorials' });
+
+    expect(res.statusCode).toBe(200);
+    type Body = { data: (typeof tutorialPublicFixture)[] };
+    const body = res.json() as Body;
+    expect(body.data[0]).toHaveProperty('durationSeconds', 154);
   });
 });
