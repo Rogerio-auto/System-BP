@@ -44,6 +44,7 @@ import { rolesRoutes } from './modules/roles/routes.js';
 import { internalSimulationsRoutes } from './modules/simulations/internal-routes.js';
 import { simulationsRoutes } from './modules/simulations/routes.js';
 import { templatesRoutes } from './modules/templates/index.js';
+import { tutorialsRoutes } from './modules/tutorials/routes.js';
 import { usersRoutes } from './modules/users/routes.js';
 import { whatsappRoutes } from './modules/whatsapp/routes.js';
 import { openapiPlugin } from './plugins/openapi.js';
@@ -230,6 +231,8 @@ export async function buildApp() {
   await app.register(billingRoutes);
   // Central de Ajuda - telemetria views + feedback (F10-S12)
   await app.register(helpRoutes);
+  // Tutoriais em vídeo — leitura pública + CRUD admin (F12-S02)
+  await app.register(tutorialsRoutes);
 
   // Dev-only endpoints (schema-examples, etc.) — NOT registered in production (F10-S11)
   if (process.env['NODE_ENV'] !== 'production') {

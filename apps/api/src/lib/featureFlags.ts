@@ -1,6 +1,15 @@
 // =============================================================================
 // lib/featureFlags.ts — Helper de worker para feature flags (F1-S23).
 //
+// Flag keys canônicas registradas por módulo (para referência e IntelliSense):
+//   followup.enabled        — Régua de follow-up automático (F5)
+//   credit_simulation.enabled — Simulação de crédito (F2)
+//   tutorials.enabled       — Tutoriais em vídeo (F12-S02): esconde ⓘ/admin na UI,
+//                             recusa rotas /api/help/tutorials e /api/admin/tutorials.
+//
+// A flag `tutorials.enabled` é semeada via migration (0047_feature_tutorials.sql
+// não inclui — adicionar em migration dedicada antes do go-live de F12).
+//
 // Uso em workers/jobs:
 //   if (await requireFlag(db, 'followup.enabled', logger)) {
 //     // executa job
