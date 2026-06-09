@@ -2,13 +2,16 @@
 // features/admin/tutoriais/TutoriaisForm.tsx — Drawer create/edit de tutorial.
 //
 // DS §9 (Drawer = elev-5, slide-in-right, z-[160]).
-// Form: React Hook Form + Zod espelhando a API.
-// Campos: feature_key (dropdown catálogo), provider, video_ref, hash (Vimeo),
-//         description, article_slug (autocomplete manifest), is_active, duration.
-// Preview: <VideoTutorial eager> ao colar video_ref.
+// Form: React Hook Form + Zod espelhando a API (camelCase, F12-S12).
+// Campos: featureKey (dropdown catálogo), provider, videoRef, hash (Vimeo),
+//         description, articleSlug (autocomplete manifest), isActive, duration.
+// Preview: <VideoTutorial eager> ao colar videoRef.
 //
 // Norma 21 §8 — acesso restrito a tutorials:manage.
 // LGPD: sem PII no payload (título/descrição são textos editoriais).
+//
+// F12-S12: alinhado ao contrato camelCase da API — sem snake_case.
+//          POST envia idempotencyKey gerado por crypto.randomUUID() por submit.
 // =============================================================================
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,46 +34,46 @@ import { cn } from '../../../lib/cn';
 import { getHelpManifest } from '../../help/manifest';
 import { VideoTutorial } from '../../help/mdx-components/VideoTutorial';
 
-// ─── Schema Zod — espelha exatamente a API (norma 21 §9) ─────────────────────
+// ─── Schema Zod — espelha exatamente a API (norma 21 §9, camelCase) ──────────
 
 export const TutorialFormSchema = z
   .object({
-    feature_key: z.string().min(1, 'Selecione uma feature_key'),
-    title: z.string().min(1, 'Título obrigatório').max(255),
-    description: z.string().min(1, 'Descrição obrigatória').max(1000),
+    featureKey: z.string().min(1, 'Selecione uma feature_key'),
+    title: z.string().min(1, 'Título obrigatório').max(120),
+    description: z.string().min(1, 'Descrição obrigatória').max(2000),
     provider: z.enum(['youtube', 'vimeo', 'mp4'], {
       errorMap: () => ({ message: 'Selecione o provider' }),
     }),
-    video_ref: z.string().min(1, 'ID/URL do vídeo obrigatório').max(500),
-    video_hash: z.string().max(100).optional(),
-    article_slug: z.string().max(255).optional(),
-    duration_seconds: z
+    videoRef: z.string().min(1, 'ID/URL do vídeo obrigatório').max(500),
+    videoHash: z.string().max(256).optional(),
+    articleSlug: z.string().max(300).optional(),
+    durationSeconds: z
       .string()
       .optional()
       .transform((v) => (v && v.trim() !== '' ? parseInt(v, 10) : undefined))
       .pipe(z.number().int().positive().optional()),
-    is_active: z.boolean().default(true),
+    isActive: z.boolean().default(true),
   })
   .refine(
     (d) => {
       // hash obrigatório para Vimeo
-      if (d.provider === 'vimeo' && !d.video_hash) return false;
+      if (d.provider === 'vimeo' && !d.videoHash) return false;
       return true;
     },
-    { message: 'Hash é obrigatório para vídeos Vimeo', path: ['video_hash'] },
+    { message: 'Hash é obrigatório para vídeos Vimeo', path: ['videoHash'] },
   );
 
-// Tipo do form antes da coerção do duration_seconds
+// Tipo do form antes da coerção do durationSeconds
 const TutorialFormRawSchema = z.object({
-  feature_key: z.string().min(1, 'Selecione uma feature_key'),
-  title: z.string().min(1, 'Título obrigatório').max(255),
-  description: z.string().min(1, 'Descrição obrigatória').max(1000),
+  featureKey: z.string().min(1, 'Selecione uma feature_key'),
+  title: z.string().min(1, 'Título obrigatório').max(120),
+  description: z.string().min(1, 'Descrição obrigatória').max(2000),
   provider: z.enum(['youtube', 'vimeo', 'mp4']),
-  video_ref: z.string().min(1, 'ID/URL do vídeo obrigatório').max(500),
-  video_hash: z.string().max(100).optional(),
-  article_slug: z.string().max(255).optional(),
-  duration_seconds: z.string().optional(),
-  is_active: z.boolean().default(true),
+  videoRef: z.string().min(1, 'ID/URL do vídeo obrigatório').max(500),
+  videoHash: z.string().max(256).optional(),
+  articleSlug: z.string().max(300).optional(),
+  durationSeconds: z.string().optional(),
+  isActive: z.boolean().default(true),
 });
 
 export type TutorialFormValues = z.infer<typeof TutorialFormRawSchema>;
@@ -143,7 +146,7 @@ function ArticleSlugAutocomplete({
     <div ref={wrapRef} className="relative">
       <Input
         id="tutorial-article-slug"
-        label="Artigo relacionado (article_slug)"
+        label="Artigo relacionado (articleSlug)"
         placeholder="guias/crm/criar-lead"
         hint="Slug relativo à Central de Ajuda. Digite para sugestões do manifest."
         value={value}
@@ -178,7 +181,7 @@ function ArticleSlugAutocomplete({
   );
 }
 
-// ─── VideoPreview — preview do player ao digitar video_ref ───────────────────
+// ─── VideoPreview — preview do player ao digitar videoRef ────────────────────
 
 interface VideoPreviewProps {
   provider: 'youtube' | 'vimeo' | 'mp4';
@@ -239,30 +242,30 @@ function TutorialFormBody({
   } = useForm<TutorialFormValues>({
     resolver: zodResolver(TutorialFormRawSchema),
     defaultValues: {
-      feature_key: '',
+      featureKey: '',
       title: '',
       description: '',
       provider: 'youtube',
-      video_ref: '',
-      video_hash: '',
-      article_slug: '',
-      duration_seconds: '',
-      is_active: true,
+      videoRef: '',
+      videoHash: '',
+      articleSlug: '',
+      durationSeconds: '',
+      isActive: true,
       ...defaultValues,
     },
   });
 
-  // Propagar conflito de feature_key do hook
+  // Propagar conflito de featureKey do hook
   React.useEffect(() => {
     if (conflictError) {
-      setError('feature_key', { type: 'manual', message: conflictError });
+      setError('featureKey', { type: 'manual', message: conflictError });
     }
   }, [conflictError, setError]);
 
   const provider = useWatch({ control, name: 'provider' });
-  const videoRef = useWatch({ control, name: 'video_ref' });
-  const videoHash = useWatch({ control, name: 'video_hash' });
-  const isActive = useWatch({ control, name: 'is_active' });
+  const videoRef = useWatch({ control, name: 'videoRef' });
+  const videoHash = useWatch({ control, name: 'videoHash' });
+  const isActive = useWatch({ control, name: 'isActive' });
 
   const featureKeyOptions = [
     { value: '', label: 'Selecione uma feature_key' },
@@ -277,7 +280,7 @@ function TutorialFormBody({
       noValidate
       className="flex flex-col gap-5 px-6 py-6"
     >
-      {/* feature_key dropdown */}
+      {/* featureKey dropdown */}
       {featureKeysLoading ? (
         <div
           className="h-12 rounded-sm animate-pulse"
@@ -286,7 +289,7 @@ function TutorialFormBody({
         />
       ) : (
         <Controller
-          name="feature_key"
+          name="featureKey"
           control={control}
           render={({ field }) => (
             <Select
@@ -296,7 +299,7 @@ function TutorialFormBody({
               options={featureKeyOptions}
               value={field.value}
               onChange={(e) => field.onChange(e.target.value)}
-              error={errors.feature_key?.message}
+              error={errors.featureKey?.message}
               hint="Identificador da funcionalidade (catálogo fechado — nunca texto livre)"
             />
           )}
@@ -374,7 +377,7 @@ function TutorialFormBody({
         )}
       />
 
-      {/* video_ref */}
+      {/* videoRef */}
       <Input
         id="tutorial-video-ref"
         label={
@@ -397,11 +400,11 @@ function TutorialFormBody({
             ? 'Use "Não listado" no YouTube — o "Privado" não embeda externamente.'
             : undefined
         }
-        error={errors.video_ref?.message}
-        {...register('video_ref')}
+        error={errors.videoRef?.message}
+        {...register('videoRef')}
       />
 
-      {/* hash (Vimeo apenas) */}
+      {/* videoHash (Vimeo apenas) */}
       {provider === 'vimeo' && (
         <Input
           id="tutorial-video-hash"
@@ -409,40 +412,40 @@ function TutorialFormBody({
           placeholder="abc123xyz"
           required
           hint="Parâmetro `h` do Vimeo para vídeos com privacy=hide-from-vimeo."
-          error={errors.video_hash?.message}
-          {...register('video_hash')}
+          error={errors.videoHash?.message}
+          {...register('videoHash')}
         />
       )}
 
       {/* Preview do player */}
       <VideoPreview provider={provider} videoRef={videoRef ?? ''} hash={videoHash} />
 
-      {/* article_slug autocomplete */}
+      {/* articleSlug autocomplete */}
       <Controller
-        name="article_slug"
+        name="articleSlug"
         control={control}
         render={({ field }) => (
           <ArticleSlugAutocomplete
             value={field.value ?? ''}
             onChange={field.onChange}
-            error={errors.article_slug?.message}
+            error={errors.articleSlug?.message}
           />
         )}
       />
 
-      {/* duration_seconds */}
+      {/* durationSeconds */}
       <Input
         id="tutorial-duration"
         type="number"
         label="Duração (segundos)"
         placeholder="120"
         hint="Exibida como badge no drawer. Deixe vazio se desconhecida."
-        error={errors.duration_seconds?.message}
+        error={errors.durationSeconds?.message}
         min={1}
-        {...register('duration_seconds')}
+        {...register('durationSeconds')}
       />
 
-      {/* is_active toggle */}
+      {/* isActive toggle */}
       <div className="flex items-center justify-between py-2">
         <div>
           <p className="font-sans text-sm font-semibold text-ink">Publicado</p>
@@ -451,7 +454,7 @@ function TutorialFormBody({
           </p>
         </div>
         <Controller
-          name="is_active"
+          name="isActive"
           control={control}
           render={({ field }) => (
             <button
@@ -525,18 +528,20 @@ function CreateTutorialForm({ onClose, onCreated }: CreateFormProps): React.JSX.
   function handleSubmit(data: TutorialFormValues): void {
     setConflictError(undefined);
     doCreate({
-      feature_key: data.feature_key,
+      featureKey: data.featureKey,
       title: data.title,
       description: data.description,
       provider: data.provider,
-      video_ref: data.video_ref,
-      video_hash: data.video_hash || undefined,
-      article_slug: data.article_slug || undefined,
-      duration_seconds:
-        data.duration_seconds && data.duration_seconds.trim() !== ''
-          ? parseInt(data.duration_seconds, 10)
+      videoRef: data.videoRef,
+      videoHash: data.videoHash || undefined,
+      articleSlug: data.articleSlug || undefined,
+      durationSeconds:
+        data.durationSeconds && data.durationSeconds.trim() !== ''
+          ? parseInt(data.durationSeconds, 10)
           : undefined,
-      is_active: data.is_active,
+      isActive: data.isActive,
+      // Gera idempotencyKey único por submit para deduplicação de retry.
+      idempotencyKey: crypto.randomUUID(),
     });
   }
 
@@ -574,36 +579,35 @@ function EditTutorialForm({ tutorial, onClose }: EditFormProps): React.JSX.Eleme
   function handleSubmit(data: TutorialFormValues): void {
     setConflictError(undefined);
     doUpdate(tutorial.id, {
-      feature_key: data.feature_key,
       title: data.title,
       description: data.description,
       provider: data.provider,
-      video_ref: data.video_ref,
-      video_hash: data.video_hash || undefined,
-      article_slug: data.article_slug || undefined,
-      duration_seconds:
-        data.duration_seconds && data.duration_seconds.trim() !== ''
-          ? parseInt(data.duration_seconds, 10)
+      videoRef: data.videoRef,
+      videoHash: data.videoHash || undefined,
+      articleSlug: data.articleSlug || undefined,
+      durationSeconds:
+        data.durationSeconds && data.durationSeconds.trim() !== ''
+          ? parseInt(data.durationSeconds, 10)
           : undefined,
-      is_active: data.is_active,
+      isActive: data.isActive,
     });
   }
 
   return (
     <TutorialFormBody
       defaultValues={{
-        feature_key: tutorial.feature_key,
+        featureKey: tutorial.featureKey,
         title: tutorial.title,
         description: tutorial.description,
         provider: tutorial.provider,
-        video_ref: tutorial.video_ref,
-        video_hash: tutorial.video_hash ?? '',
-        article_slug: tutorial.article_slug ?? '',
-        duration_seconds:
-          tutorial.duration_seconds !== null && tutorial.duration_seconds !== undefined
-            ? String(tutorial.duration_seconds)
+        videoRef: tutorial.videoRef,
+        videoHash: tutorial.videoHash ?? '',
+        articleSlug: tutorial.articleSlug ?? '',
+        durationSeconds:
+          tutorial.durationSeconds !== null && tutorial.durationSeconds !== undefined
+            ? String(tutorial.durationSeconds)
             : '',
-        is_active: tutorial.is_active,
+        isActive: tutorial.isActive,
       }}
       onSubmit={handleSubmit}
       onClose={onClose}
