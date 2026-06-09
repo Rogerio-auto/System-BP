@@ -10,6 +10,7 @@ import {
   Permission,
   PopularList,
   Step,
+  VideoTutorial,
 } from './mdx-components';
 
 // Componentes default disponÃ­veis em qualquer .mdx â€” sem precisar de import.
@@ -23,6 +24,8 @@ const COMPONENTS: MDXComponents = {
   // Feedback + popular (F10-S13)
   FeedbackWidget,
   PopularList,
+  // Tutoriais em vídeo provider-aware (F12-S03)
+  VideoTutorial,
 
   // Sobrescrita de tags HTML para alinhar com o DS.
   h1: (props) => (

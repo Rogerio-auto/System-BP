@@ -90,3 +90,6 @@ export * from './collectionJobs.js';
 // Central de Ajuda - telemetria de views e feedback (F10-S12)
 export * from './docViews.js';
 export * from './docFeedback.js';
+
+// Tutoriais em vídeo — registro global feature_key → vídeo + artigo (F12-S01)
+export * from './featureTutorials.js';
