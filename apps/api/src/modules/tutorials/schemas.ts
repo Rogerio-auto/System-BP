@@ -3,8 +3,8 @@
 //
 // Norma de referência: docs/21-tutoriais-em-video.md §4 e §9.
 //
-// Nota: duration_seconds não está na migration/schema DB de F12-S01; portanto
-// este módulo não expõe esse campo. Adicionado quando S01 for revisado.
+// Alteração F12-S08: adicionado campo durationSeconds (nullable) em todos os
+// schemas (public, admin, create, patch) conforme norma §4 — gap do data model.
 //
 // Convenções:
 //   - Todos os schemas usam .describe() nos campos não óbvios.
@@ -86,6 +86,15 @@ export const TutorialPublicItemSchema = z
         'Slug do artigo relacionado na Central de Ajuda' +
           ' (ex: crm/lead-create). null = tutorial sem artigo associado.',
       ),
+    durationSeconds: z
+      .number()
+      .int()
+      .positive()
+      .nullable()
+      .describe(
+        'Duração do vídeo em segundos. Exibido como badge no ⓘ e no drawer' +
+          ' (ex: 154 → "2:34"). null = duração não informada.',
+      ),
   })
   .openapi({
     example: {
@@ -99,6 +108,7 @@ export const TutorialPublicItemSchema = z
       videoRef: 'dQw4w9WgXcQ',
       videoHash: null,
       articleSlug: 'crm/criar-lead',
+      durationSeconds: 154,
     },
   });
 
@@ -136,6 +146,15 @@ export const TutorialAdminItemSchema = z
       .string()
       .nullable()
       .describe('Slug do artigo relacionado na Central. null se não houver.'),
+    durationSeconds: z
+      .number()
+      .int()
+      .positive()
+      .nullable()
+      .describe(
+        'Duração do vídeo em segundos. Exibido como badge no ⓘ/drawer.' +
+          ' null = duração não informada.',
+      ),
     isActive: z.boolean().describe('Visível no ⓘ. false = inativo/rascunho; true = publicado.'),
     createdBy: z
       .string()
@@ -166,6 +185,7 @@ export const TutorialAdminItemSchema = z
       videoRef: 'dQw4w9WgXcQ',
       videoHash: null,
       articleSlug: 'crm/criar-lead',
+      durationSeconds: 154,
       isActive: true,
       createdBy: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
       createdAt: '2026-06-09T12:00:00.000Z',
@@ -219,6 +239,15 @@ export const CreateTutorialBodySchema = z
         'Slug do artigo relacionado na Central de Ajuda' +
           ' (ex: crm/criar-lead). Omitir se não houver artigo associado.',
       ),
+    durationSeconds: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        'Duração do vídeo em segundos (ex: 154 para 2min 34s).' +
+          ' Opcional — omitir se não souber a duração no momento da criação.',
+      ),
     isActive: z
       .boolean()
       .default(true)
@@ -271,11 +300,18 @@ export const PatchTutorialBodySchema = z
       .max(300)
       .nullish()
       .describe('Novo slug do artigo. null para remover. Omitir para não alterar.'),
+    durationSeconds: z
+      .number()
+      .int()
+      .positive()
+      .nullish()
+      .describe('Nova duração em segundos. null para remover. Omitir para não alterar.'),
     isActive: z.boolean().optional().describe('Alterar visibilidade do tutorial.'),
   })
   .openapi({
     example: {
       title: 'Como criar um lead (v2)',
+      durationSeconds: 210,
       isActive: false,
     },
   });
