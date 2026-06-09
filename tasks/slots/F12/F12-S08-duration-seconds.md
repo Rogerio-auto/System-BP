@@ -3,12 +3,12 @@ id: F12-S08
 title: Completar data model — duration_seconds (schema + migration + API)
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#4
-status: in-progress
+status: review
 priority: low
 estimated_size: XS
 agent_id: null
 claimed_at: 2026-06-09T19:44:29Z
-completed_at: null
+completed_at: 2026-06-09T19:56:06Z
 pr_url: null
 depends_on: [F12-S01, F12-S02]
 blocks: []
