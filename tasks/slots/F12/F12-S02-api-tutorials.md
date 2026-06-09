@@ -3,7 +3,7 @@ id: F12-S02
 title: API /api/help/tutorials + /api/admin/tutorials CRUD + RBAC
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#9
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null
