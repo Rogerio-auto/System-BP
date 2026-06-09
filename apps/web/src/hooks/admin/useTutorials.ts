@@ -3,17 +3,14 @@
 //
 // Norma 21 §8. Acesso restrito a tutorials:manage.
 // Padrão de query key factory alinhado ao useCities.ts.
+//
+// Contratos alinhados ao F12-S12: camelCase, sem paginação, idempotencyKey.
 // =============================================================================
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { ApiError } from '../../lib/api';
-import type {
-  TutorialCreate,
-  TutorialListParams,
-  TutorialResponse,
-  TutorialUpdate,
-} from '../../lib/api/tutorials';
+import type { TutorialCreate, TutorialResponse, TutorialUpdate } from '../../lib/api/tutorials';
 import {
   createTutorial,
   deleteTutorial,
@@ -24,8 +21,7 @@ import {
 
 // ─── Query keys ──────────────────────────────────────────────────────────────
 
-export const TUTORIALS_QUERY_KEY = (params: TutorialListParams = {}) =>
-  ['admin', 'tutorials', params] as const;
+export const TUTORIALS_QUERY_KEY = () => ['admin', 'tutorials'] as const;
 
 export const FEATURE_KEYS_QUERY_KEY = () => ['admin', 'feature-keys'] as const;
 
@@ -33,18 +29,22 @@ export const FEATURE_KEYS_QUERY_KEY = () => ['admin', 'feature-keys'] as const;
 
 /**
  * Lista completa de tutoriais (inclui inativos).
- * Cache staleTime: 30s (mesmos defaults de listCities).
+ * A API não pagina — retorna { data: TutorialAdminItem[] } diretamente.
+ * Cache staleTime: 30s.
  */
-export function useTutorials(params: TutorialListParams = {}): {
-  data: Awaited<ReturnType<typeof listTutorials>> | undefined;
+export function useTutorials(): {
+  data: TutorialResponse[] | undefined;
   isLoading: boolean;
   isError: boolean;
   error: Error | null;
   refetch: () => void;
 } {
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: TUTORIALS_QUERY_KEY(params),
-    queryFn: () => listTutorials(params),
+    queryKey: TUTORIALS_QUERY_KEY(),
+    queryFn: async () => {
+      const result = await listTutorials();
+      return result.data;
+    },
     staleTime: 30_000,
     placeholderData: (prev) => prev,
   });
@@ -87,6 +87,7 @@ interface CreateOptions {
 
 /**
  * Cria um tutorial. Invalida a lista ao concluir.
+ * O caller deve incluir idempotencyKey no body (gerado via crypto.randomUUID()).
  */
 export function useCreateTutorial(opts: CreateOptions = {}): {
   createTutorial: (body: TutorialCreate) => void;
@@ -174,7 +175,7 @@ export function useDeleteTutorial(opts: DeleteOptions = {}): {
 }
 
 /**
- * Toggle rápido de is_active (ativar/desativar).
+ * Toggle rápido de isActive (ativar/desativar).
  * Wraps useUpdateTutorial com payload mínimo.
  */
 export function useToggleTutorialActive(opts: { onSuccess?: () => void } = {}): {
@@ -185,7 +186,7 @@ export function useToggleTutorialActive(opts: { onSuccess?: () => void } = {}): 
 
   const mutation = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
-      updateTutorial(id, { is_active: active }),
+      updateTutorial(id, { isActive: active }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['admin', 'tutorials'] });
       opts.onSuccess?.();

@@ -3,10 +3,13 @@
 //
 // DS §9.7 — tabela canônica:
 //   - elev-2, th caption-style, hover de linha (Lift).
-//   - JetBrains Mono para feature_key, datas.
+//   - JetBrains Mono para featureKey, datas.
 //   - Badge para ativo/inativo.
 //   - Kebab menu: editar, ativar/desativar, remover.
 //   - Loading: skeleton 4 linhas. Empty: CTA. Error: retry.
+//
+// F12-S12: alinhado ao contrato camelCase da API. Sem paginação server-side
+//          (API não pagina — filtro client-side apenas).
 // =============================================================================
 
 import * as React from 'react';
@@ -188,7 +191,7 @@ function KebabMenu({ tutorial, onEdit }: KebabMenuProps): React.JSX.Element {
 
   function handleToggle(): void {
     setOpen(false);
-    doToggle(tutorial.id, tutorial.is_active);
+    doToggle(tutorial.id, tutorial.isActive);
   }
 
   function handleDelete(): void {
@@ -255,10 +258,10 @@ function KebabMenu({ tutorial, onEdit }: KebabMenuProps): React.JSX.Element {
               'font-sans text-sm',
               'hover:bg-surface-hover transition-colors duration-fast',
               'disabled:opacity-40 disabled:cursor-not-allowed',
-              tutorial.is_active ? 'text-warning' : 'text-ink-2 hover:text-ink',
+              tutorial.isActive ? 'text-warning' : 'text-ink-2 hover:text-ink',
             )}
           >
-            {tutorial.is_active ? (
+            {tutorial.isActive ? (
               <>
                 <svg
                   viewBox="0 0 16 16"
@@ -365,19 +368,13 @@ interface TutoriaisListProps {
   onEdit: (tutorial: TutorialResponse) => void;
   search: string;
   onSearchChange: (v: string) => void;
-  pagination?:
-    | {
-        page: number;
-        limit: number;
-        total: number;
-        totalPages: number;
-      }
-    | undefined;
+  /** onPageChange mantido na interface por compatibilidade com o container mas é no-op. */
   onPageChange: (page: number) => void;
 }
 
 /**
- * Tabela de tutoriais com filtro de busca e paginação.
+ * Tabela de tutoriais com filtro de busca client-side.
+ * A API não pagina — sem controles de paginação server-side.
  */
 export function TutoriaisList({
   tutorials,
@@ -388,16 +385,13 @@ export function TutoriaisList({
   onEdit,
   search,
   onSearchChange,
-  pagination,
-  onPageChange,
 }: TutoriaisListProps): React.JSX.Element {
-  // Filtro client-side por título/feature_key (complementa busca server quando
-  // a API ainda não suporta full-text)
+  // Filtro client-side por título/featureKey
   const filtered = React.useMemo(() => {
     if (!search) return tutorials;
     const q = search.toLowerCase();
     return tutorials.filter(
-      (t) => t.title.toLowerCase().includes(q) || t.feature_key.toLowerCase().includes(q),
+      (t) => t.title.toLowerCase().includes(q) || t.featureKey.toLowerCase().includes(q),
     );
   }, [tutorials, search]);
 
@@ -521,20 +515,20 @@ export function TutoriaisList({
                       </span>
                     </td>
 
-                    {/* feature_key — JetBrains Mono */}
+                    {/* featureKey — JetBrains Mono */}
                     <td className="px-4 py-4 hidden sm:table-cell">
                       <code
                         className="font-mono text-xs"
                         style={{ color: 'var(--text-3)', letterSpacing: '-0.01em' }}
                       >
-                        {tutorial.feature_key}
+                        {tutorial.featureKey}
                       </code>
                     </td>
 
                     {/* Status badge */}
                     <td className="px-4 py-4">
-                      <Badge variant={tutorial.is_active ? 'success' : 'neutral'}>
-                        {tutorial.is_active ? 'Ativo' : 'Inativo'}
+                      <Badge variant={tutorial.isActive ? 'success' : 'neutral'}>
+                        {tutorial.isActive ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </td>
 
@@ -548,47 +542,6 @@ export function TutoriaisList({
             </tbody>
           </table>
         </div>
-
-        {/* Paginação server-side */}
-        {pagination && pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-border-subtle">
-            <p className="font-sans text-xs text-ink-3">
-              {(pagination.page - 1) * pagination.limit + 1}–
-              {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total}{' '}
-              tutorial{pagination.total !== 1 ? 'is' : ''}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={pagination.page <= 1}
-                onClick={() => onPageChange(pagination.page - 1)}
-                className={cn(
-                  'px-3 py-1.5 rounded-sm font-sans text-xs font-medium',
-                  'border border-border transition-all duration-fast',
-                  'hover:bg-surface-hover hover:border-border-strong',
-                  'disabled:opacity-40 disabled:cursor-not-allowed',
-                  'focus-visible:ring-2 focus-visible:ring-azul/20',
-                )}
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                disabled={pagination.page >= pagination.totalPages}
-                onClick={() => onPageChange(pagination.page + 1)}
-                className={cn(
-                  'px-3 py-1.5 rounded-sm font-sans text-xs font-medium',
-                  'border border-border transition-all duration-fast',
-                  'hover:bg-surface-hover hover:border-border-strong',
-                  'disabled:opacity-40 disabled:cursor-not-allowed',
-                  'focus-visible:ring-2 focus-visible:ring-azul/20',
-                )}
-              >
-                Próxima
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

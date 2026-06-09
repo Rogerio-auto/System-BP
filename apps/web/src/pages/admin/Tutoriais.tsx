@@ -9,6 +9,8 @@
 //   - Stats row: total, ativos, inativos
 //   - Tabela (TutoriaisList)
 //   - Drawer create/edit (TutoriaisDrawer)
+//
+// F12-S12: atualizado para camelCase + sem paginação server-side.
 // =============================================================================
 
 import * as React from 'react';
@@ -70,19 +72,17 @@ export function TutoriaisPage(): React.JSX.Element {
   const { hasPermission } = useAuth();
   const canManage = hasPermission('tutorials:manage');
 
-  const [page, setPage] = React.useState(1);
   const [search, setSearch] = React.useState('');
 
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editTutorial, setEditTutorial] = React.useState<TutorialResponse | undefined>(undefined);
 
-  const { data, isLoading, isError, refetch } = useTutorials({ page, limit: 20 });
+  // A API não pagina — retorna TutorialResponse[] diretamente (F12-S12).
+  const { data: tutorials, isLoading, isError, refetch } = useTutorials();
 
-  const tutorials = data?.data ?? [];
-  const pagination = data?.pagination;
-
-  const totalAtivos = tutorials.filter((t) => t.is_active).length;
-  const totalInativos = tutorials.filter((t) => !t.is_active).length;
+  const tutorialList = tutorials ?? [];
+  const totalAtivos = tutorialList.filter((t) => t.isActive).length;
+  const totalInativos = tutorialList.filter((t) => !t.isActive).length;
 
   function openCreate(): void {
     setEditTutorial(undefined);
@@ -158,7 +158,7 @@ export function TutoriaisPage(): React.JSX.Element {
         >
           <StatCard
             label="Total"
-            value={isLoading ? '—' : (pagination?.total ?? tutorials.length)}
+            value={isLoading ? '—' : tutorialList.length}
             sub="tutoriais cadastrados"
             isLoading={isLoading}
           />
@@ -179,7 +179,7 @@ export function TutoriaisPage(): React.JSX.Element {
         {/* ── Tabela ───────────────────────────────────────────────────────── */}
         <div style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.1s both' }}>
           <TutoriaisList
-            tutorials={tutorials}
+            tutorials={tutorialList}
             isLoading={isLoading}
             isError={isError}
             onRefetch={() => void refetch()}
@@ -188,10 +188,10 @@ export function TutoriaisPage(): React.JSX.Element {
             search={search}
             onSearchChange={(v) => {
               setSearch(v);
-              setPage(1);
             }}
-            pagination={pagination}
-            onPageChange={(p) => setPage(p)}
+            onPageChange={() => {
+              // no-op: API não pagina (F12-S12)
+            }}
           />
         </div>
       </div>

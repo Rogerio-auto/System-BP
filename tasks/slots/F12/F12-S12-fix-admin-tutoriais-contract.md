@@ -3,12 +3,12 @@ id: F12-S12
 title: Fix — alinhar cliente admin de tutoriais ao contrato real da API (400/erro ao carregar)
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#9
-status: available
+status: review
 priority: critical
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-09T23:29:57Z
+completed_at: 2026-06-09T23:39:51Z
 pr_url: null
 depends_on: [F12-S05]
 blocks: []
