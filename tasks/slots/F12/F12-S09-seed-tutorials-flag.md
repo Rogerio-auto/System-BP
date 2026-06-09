@@ -3,11 +3,11 @@ id: F12-S09
 title: Semear feature flag tutorials.enabled
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#12
-status: available
+status: in-progress
 priority: medium
 estimated_size: XS
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-09T22:12:32Z
 completed_at: null
 pr_url: null
 depends_on: [F12-S02]
