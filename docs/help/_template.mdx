@@ -1,0 +1,148 @@
+---
+title: "Template — copie e edite"
+description: "Molde canônico para páginas da Central de Ajuda"
+draft: true
+---
+
+{/*
+  ╔══════════════════════════════════════════════════════════════════════════════╗
+  ║  MOLDE CANÔNICO — CENTRAL DE AJUDA                                           ║
+  ║  Leia primeiro: /ajuda/conceitos/como-escrever-uma-pagina                    ║
+  ║                                                                              ║
+  ║  Como usar:                                                                  ║
+  ║  1. Copie este arquivo para docs/help/guias/<modulo>/<feature>.mdx           ║
+  ║     ou docs/help/conceitos/<conceito>.mdx                                    ║
+  ║  2. Remova o draft: true do frontmatter antes de publicar.                   ║
+  ║  3. Apague os comentários {/* ... */} após entender cada bloco.              ║
+  ║  4. O FeedbackWidget é injetado pelo DocLayout automaticamente —             ║
+  ║     nunca o inclua inline.                                                   ║
+  ╚══════════════════════════════════════════════════════════════════════════════╝
+*/}
+
+{/*
+  ── FRONTMATTER ─────────────────────────────────────────────────────────────────
+  Campos obrigatórios: title, description, order.
+  Campos opcionais: keywords (melhora busca), draft (true = não publicado).
+
+  Regras:
+  - title: em pt-BR, sem ponto final, até 60 caracteres. Aparece no nav e na
+    <title> da página.
+  - description: 1 frase que resume o que a página ensina. Aparece na busca.
+  - order: número que define posição na seção (10, 20, 30…). Múltiplos de 10.
+  - keywords: termos de busca em português (sem acento forçado — o tokenizer
+    normaliza). NÃO inclua termos do glossário proibido: "feature flag", "RBAC",
+    "UUID", "outbox", "idempotência".
+  - draft: remova ou defina false antes de publicar.
+*/}
+
+{/*
+  ── ABERTURA ────────────────────────────────────────────────────────────────────
+  1–2 frases que respondem: "Quando devo usar esta página?".
+  Padrão: "Use este guia quando você precisar de…" ou "Entenda o que é X e por quê…".
+  Não comece com "Neste artigo veremos" ou "Este documento explica" — redundante.
+  Máximo: 3 linhas de texto corrido. Se precisar de mais, está complexo demais.
+*/}
+
+# Título da página
+
+Abertura direta: o que o leitor vai conseguir fazer ao terminar esta página.
+Use este guia quando você precisar de [ação concreta] em [contexto concreto].
+
+{/*
+  ── PRÉ-REQUISITOS (opcional) ───────────────────────────────────────────────────
+  Callout de aviso para listar o que o leitor precisa ter feito antes.
+  Se não há pré-requisitos, apague este bloco.
+  Callouts aceitos: info | tip | warn | danger — somente esses 4 tipos.
+*/}
+
+<Callout type="info" title="Antes de começar">
+  Para seguir este guia você precisa:
+
+  - Ter o papel de **[papel]** ou superior.
+  - Ter o módulo **[módulo liberado]** ativo na sua organização.
+</Callout>
+
+{/*
+  ── PASSOS ──────────────────────────────────────────────────────────────────────
+  Use <Step number={N}> para cada passo numerado.
+  Cada Step deve conter: título imperativo + descrição breve.
+  Máximo recomendado: 7 passos. Se precisar de mais, divida em duas seções h2.
+
+  Componentes aceitos dentro de um Step:
+  - <Callout> para avisos pontuais.
+  - <CodeBlock> para código (somente em guias técnicos ou API).
+  - <Screenshot src="_assets/nome.png" alt="…" caption="…"> para imagens.
+  - <Permission requires="modulo:acao"> para sinalizar permissão necessária.
+
+  Personas fictícias canônicas (norma §12): Ana Paula, Carlos Eduardo.
+  Nunca use dados reais: CPF, telefone, e-mail, nome completo real.
+*/}
+
+## Passo a passo
+
+<Step number={1}>
+  **Título do primeiro passo**
+
+  Descreva a ação de forma direta: "Clique em …" ou "Abra …". Uma ação por passo.
+  Se o passo exige permissão específica, sinalize:
+
+  <Permission requires="leads:write" />
+</Step>
+
+<Step number={2}>
+  **Título do segundo passo**
+
+  Continue com o mesmo padrão. Adicione callout de aviso se necessário:
+
+  <Callout type="warn" title="Atenção">
+    Descreva aqui algo que o usuário pode fazer errado e como evitar.
+  </Callout>
+</Step>
+
+<Step number={3}>
+  **Título do terceiro passo**
+
+  Descreva o resultado esperado ao final. Ex.: "Ao confirmar, o sistema exibe
+  uma mensagem de sucesso e o [item] aparece na lista."
+</Step>
+
+{/*
+  ── ERROS COMUNS ────────────────────────────────────────────────────────────────
+  Seção h2 com os 2–4 problemas mais frequentes.
+  Formato: causa + sintoma + correção. Uma subseção h3 por erro.
+  Se não há erros documentados, omita a seção.
+*/}
+
+## Erros comuns
+
+### [Sintoma do erro — ex.: "Botão desabilitado"]
+
+**Causa:** descrição da causa raiz em 1 frase.
+
+**Solução:** ação concreta que o usuário deve tomar.
+
+### [Outro sintoma]
+
+**Causa:** …
+
+**Solução:** …
+
+{/*
+  ── VEJA TAMBÉM ─────────────────────────────────────────────────────────────────
+  2–4 links para páginas relacionadas.
+  SEMPRE URL relativa /ajuda/… — nunca path de arquivo (docs/help/…).
+  Nunca linkar para arquivos fora de /ajuda.
+*/}
+
+## Veja também
+
+- [Papéis e cidades](/ajuda/conceitos/papeis-e-cidades) — entenda quem pode fazer o quê.
+- [Outro artigo relacionado](/ajuda/guias/<modulo>/<feature>) — descrição breve.
+
+{/*
+  ── FEEDBACKWIDGET ──────────────────────────────────────────────────────────────
+  NÃO inclua <FeedbackWidget /> inline. O DocLayout o injeta automaticamente
+  no rodapé de toda página publicada (draft: false ou sem draft).
+  Incluir inline causaria duplicidade — o widget apareceria duas vezes.
+  Referência: apps/web/src/features/help/DocLayout.tsx (implementado em F10-S13).
+*/}

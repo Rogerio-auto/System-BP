@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { getIndexSize, searchHelp } from '../search';
 
 describe('searchHelp', () => {
-  it('indexa pelo menos 24 artigos (home + 3 conceitos + 3 trilhas + 6 guias CRM + 11 guias novos)', () => {
-    expect(getIndexSize()).toBeGreaterThanOrEqual(24);
+  it('indexa pelo menos 26 artigos (home + 4 conceitos + _template + 3 trilhas + 6 guias CRM + 11 guias novos + api)', () => {
+    expect(getIndexSize()).toBeGreaterThanOrEqual(26);
   });
 
   it('query vazia retorna lista vazia', () => {
@@ -149,5 +149,22 @@ describe('searchHelp', () => {
     const out = searchHelp('api');
     const slugs = out.map((r) => r.slug);
     expect(slugs).toContain('api');
+  });
+
+  // ── Meta-guia e molde canônico (F10-S15) ──────────────────────────────────────
+
+  it('busca por "como escrever" devolve o meta-guia no top-3', () => {
+    const out = searchHelp('como escrever', 3);
+    const slugs = out.map((r) => r.slug);
+    expect(slugs).toContain('conceitos/como-escrever-uma-pagina');
+  });
+
+  it('busca por "template" continua encontrando guias de templates (regressao)', () => {
+    // Nota: _template também é retornado (title contém "Template"). Excluir drafts
+    // do índice requer mudança em search.ts — planejado como hardening futuro.
+    // Esta assertion garante que os guias de uso do operador continuam acessíveis.
+    const out = searchHelp('template', 8);
+    const slugs = out.map((r) => r.slug);
+    expect(slugs.some((s) => s.startsWith('guias/templates/'))).toBe(true);
   });
 });

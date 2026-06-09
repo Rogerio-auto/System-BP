@@ -40,7 +40,7 @@ describe('help manifest', () => {
     expect(article?.title).toBe('Módulos liberados');
   });
 
-  it('seção conceitos respeita a ordem da frontmatter (10, 20, 30)', async () => {
+  it('seção conceitos respeita a ordem da frontmatter (10, 20, 30, 40)', async () => {
     const m = await getHelpManifest();
     const conceitos = m.sections.find((s) => s.slug === 'conceitos');
     expect(conceitos).toBeDefined();
@@ -49,6 +49,7 @@ describe('help manifest', () => {
       'conceitos/papeis-e-cidades',
       'conceitos/lgpd',
       'conceitos/modulos-liberados',
+      'conceitos/como-escrever-uma-pagina',
     ]);
   });
 
@@ -143,6 +144,19 @@ describe('help manifest', () => {
     const article = await getArticleBySlug('nao/existe');
     expect(article).toBeNull();
   });
+});
+
+// F10-S15: template + meta-guia
+it('resolve slug conceitos/como-escrever-uma-pagina via getArticleBySlug', async () => {
+  const article = await getArticleBySlug('conceitos/como-escrever-uma-pagina');
+  expect(article).not.toBeNull();
+  expect(article?.slug).toBe('conceitos/como-escrever-uma-pagina');
+});
+
+it('_template tem slug top-level e não aparece em nenhuma section do manifest', async () => {
+  const m = await getHelpManifest();
+  const allSlugs = m.sections.flatMap((s) => s.articles.map((a) => a.slug));
+  expect(allSlugs).not.toContain('_template');
 });
 
 // F10-S11: api section
