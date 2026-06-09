@@ -3,13 +3,13 @@ id: F12-S01
 title: Schema feature_tutorials + migration + catálogo de feature_key
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#4
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-09T15:00:44Z
 completed_at: 2026-06-09T15:12:33Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/201
 depends_on: []
 blocks: [F12-S02]
 source_docs:
@@ -20,6 +20,7 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
+
 # F12-S01 — Schema feature_tutorials + catálogo de feature_key
 
 ## Objetivo
