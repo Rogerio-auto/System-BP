@@ -29,6 +29,7 @@ import { useToast } from '../../components/ui/Toast';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useAuthStore } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
+import { ContextualHelp } from '../help/contextual';
 import { buildTemplateOptions } from '../templates/buildTemplateOptions';
 import { useTemplates } from '../templates/hooks/useTemplates';
 
@@ -488,16 +489,24 @@ export function CollectionRulesPage(): React.JSX.Element {
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1
-              className="font-display font-bold text-ink"
-              style={{
-                fontSize: 'var(--text-3xl)',
-                letterSpacing: '-0.04em',
-                fontVariationSettings: "'opsz' 48",
-              }}
-            >
-              Réguas de Cobrança
-            </h1>
+            <div className="flex items-center gap-1">
+              <h1
+                className="font-display font-bold text-ink"
+                style={{
+                  fontSize: 'var(--text-3xl)',
+                  letterSpacing: '-0.04em',
+                  fontVariationSettings: "'opsz' 48",
+                }}
+              >
+                Réguas de Cobrança
+              </h1>
+              {/* ⓘ tutorial de réguas de cobrança — norma 21 §7 */}
+              <ContextualHelp
+                featureKey="billing.rule.create"
+                permission="billing:write"
+                className="ml-0.5"
+              />
+            </div>
             <p className="font-sans text-ink-3 mt-1" style={{ fontSize: 'var(--text-sm)' }}>
               Configure quando e como cobrar parcelas vencidas automaticamente via WhatsApp.
             </p>

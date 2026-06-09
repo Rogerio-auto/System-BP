@@ -26,6 +26,7 @@ import { useImportBatch } from '../../hooks/imports/useImportBatch';
 import { useImportPreview } from '../../hooks/imports/useImportPreview';
 import { uploadLeadsFile } from '../../lib/api/imports';
 import { cn } from '../../lib/cn';
+import { ContextualHelp } from '../help/contextual';
 
 import { ImportStepper } from './components/ImportStepper';
 import type { WizardStep } from './components/ImportStepper';
@@ -218,16 +219,24 @@ export function ImportWizardPage(): React.JSX.Element {
           </svg>
           Voltar
         </button>
-        <h1
-          className="font-display font-extrabold text-ink"
-          style={{
-            fontSize: 'var(--text-2xl)',
-            letterSpacing: '-0.04em',
-            fontVariationSettings: "'opsz' 32",
-          }}
-        >
-          Importar leads
-        </h1>
+        <div className="flex items-center gap-1">
+          <h1
+            className="font-display font-extrabold text-ink"
+            style={{
+              fontSize: 'var(--text-2xl)',
+              letterSpacing: '-0.04em',
+              fontVariationSettings: "'opsz' 32",
+            }}
+          >
+            Importar leads
+          </h1>
+          {/* ⓘ tutorial de importação de leads — norma 21 §7 */}
+          <ContextualHelp
+            featureKey="crm.lead.import"
+            permission="leads:write"
+            className="ml-0.5"
+          />
+        </div>
       </div>
 
       {/* L1: aviso de batchId inválido na URL */}

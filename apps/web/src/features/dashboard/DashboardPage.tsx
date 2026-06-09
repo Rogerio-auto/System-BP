@@ -13,6 +13,7 @@ import * as React from 'react';
 import type { Range } from '../../hooks/dashboard/types';
 import { useDashboardMetrics } from '../../hooks/dashboard/useDashboardMetrics';
 import { useAuth } from '../auth/useAuth';
+import { ContextualHelp } from '../help/contextual';
 
 import { ChannelBars, ChannelBarsSkeleton } from './components/ChannelBars';
 import { CityList, CityListSkeleton } from './components/CityList';
@@ -68,16 +69,20 @@ export function DashboardPage(): React.JSX.Element {
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1
-            className="font-display font-bold text-ink"
-            style={{
-              fontSize: 'var(--text-3xl)',
-              letterSpacing: '-0.04em',
-              fontVariationSettings: "'opsz' 48",
-            }}
-          >
-            Dashboard
-          </h1>
+          <div className="flex items-center gap-1">
+            <h1
+              className="font-display font-bold text-ink"
+              style={{
+                fontSize: 'var(--text-3xl)',
+                letterSpacing: '-0.04em',
+                fontVariationSettings: "'opsz' 48",
+              }}
+            >
+              Dashboard
+            </h1>
+            {/* ⓘ tutorial do dashboard — norma 21 §7 */}
+            <ContextualHelp featureKey="dashboard.view" className="ml-0.5" />
+          </div>
           <p className="font-sans text-sm mt-1" style={{ color: 'var(--text-3)' }}>
             {data?.range.label ?? 'Carregando...'} — bem-vindo, {user?.fullName ?? 'Agente'}.
           </p>
