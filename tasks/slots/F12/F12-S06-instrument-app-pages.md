@@ -3,13 +3,13 @@ id: F12-S06
 title: Instrumentar telas do app com <ContextualHelp featureKey>
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#7
-status: review
+status: done
 priority: low
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-09T22:11:46Z
 completed_at: 2026-06-09T22:24:29Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/207
 depends_on: [F12-S04, F12-S05]
 blocks: []
 source_docs:
