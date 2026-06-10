@@ -71,7 +71,14 @@ const CONFIG: Record<
 };
 
 export function Callout({ type = 'info', title, children }: CalloutProps): React.JSX.Element {
-  const cfg = CONFIG[type];
+  // MDX authors may use strings not type-checked at build time (e.g. "warning" instead of "warn").
+  // Fall back to "info" so an unknown type never crashes the page.
+  const cfg = CONFIG[type as CalloutType] ?? CONFIG.info;
+  if (!(type in CONFIG)) {
+    console.warn(
+      `[Callout] type="${type}" is not valid. Valid types: ${Object.keys(CONFIG).join(', ')}. Falling back to "info".`,
+    );
+  }
   return (
     <aside
       role="note"
