@@ -52,6 +52,49 @@ Toda chamada exige `Idempotency-Key`. Resposta do WhatsApp persistida com `wa_me
 - Após falha definitiva → evento `whatsapp.message_failed`, alerta operacional.
 - Status callbacks (`sent`, `delivered`, `read`) atualizam `whatsapp_messages.status`.
 
+### 1.6 Mídia em template e boleto na cobrança {#midia-boleto}
+
+> Materializado em F5-S10..S16. Gated por `templates.media.enabled` e `billing.boleto.enabled`.
+
+Para enviar **boleto** (ou qualquer documento/imagem) numa mensagem **proativa** — fora da janela
+de 24h — a Cloud API exige um **template aprovado com header de mídia**. Mensagem de mídia avulsa
+(free-form) só é permitida **dentro** da janela de 24h; por isso a cobrança usa template.
+
+**Catálogo (submissão do template).** Um template de mídia declara um componente `HEADER` com
+`format: DOCUMENT | IMAGE | VIDEO`. A Meta exige um `example.header_handle` — obtido subindo uma
+**amostra** via _resumable upload_ (`POST /{app_id}/uploads` → `POST /{upload_id}`). O handle fica
+em `whatsapp_templates.header_handle`. Campos de header em `whatsapp_templates`: `header_type`
+(`none|text|document|image|video`), `header_text` (só para `text`), `header_handle`.
+
+**Envio.** No `POST /{phone_number_id}/messages`, o template carrega um componente de header com
+parâmetro de mídia:
+
+```jsonc
+{
+  "type": "header",
+  "parameters": [
+    { "type": "document", "document": { "id": "<media_id>", "filename": "boleto-....pdf" } },
+    // OU: { "type": "document", "document": { "link": "<url-assinada>", "filename": "..." } }
+  ],
+}
+```
+
+Duas formas de referenciar o documento (XOR):
+
+- **`id`** — obtido via `POST /{phone_number_id}/media` (upload do arquivo, expira ~30 dias).
+  **Caminho preferido por LGPD** — não expõe URL pública. O boleto vive em `payment_dues.boleto_media_id`.
+- **`link`** — URL pública/assinada que a Meta busca server-side. Só usar URL **controlada/assinada**
+  (allowlist de host). Vive em `payment_dues.boleto_url`.
+
+**Origem do boleto.** Decisão de produto (2026-06-10): boleto é **importado/anexado** (gerado pelo
+sistema do Banco do Povo) — **sem integração bancária/PSP**. Guardamos apenas a referência, nunca os
+bytes do PDF (boleto contém PII — ver doc 17 §8.3 e inventário de PII).
+
+**Worker de cobrança (F5-S14).** O `collection-sender` anexa o header de boleto quando o template é
+de mídia e a parcela tem boleto: prefere `boleto_media_id` válido; se expirado, re-faz upload a partir
+de `boleto_url`; se nada → falha `boleto_missing` (não cai para texto silenciosamente). Gated por
+`billing.boleto.enabled`. Logs só com IDs + `has_boleto`.
+
 ---
 
 ## 2. Chatwoot

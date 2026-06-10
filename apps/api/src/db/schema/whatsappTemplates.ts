@@ -93,6 +93,38 @@ export const whatsappTemplates = pgTable(
     body: text('body').notNull(),
 
     /**
+     * Tipo do header (cabeçalho) do template, no padrão da Meta Cloud API.
+     * 'none'     → template sem header (comportamento histórico — só body).
+     * 'text'     → header de texto; conteúdo em `header_text` (1 variável permitida).
+     * 'document' → header de documento (PDF) — preenchido no ENVIO com link/media id.
+     * 'image'    → header de imagem — idem.
+     * 'video'    → header de vídeo — incluído por completude do contrato Meta (não exercitado no MVP).
+     *
+     * Caso de uso central (F5-S10..S14): cobrança com 'document' para anexar o boleto.
+     */
+    headerType: text('header_type', {
+      enum: ['none', 'text', 'document', 'image', 'video'],
+    })
+      .notNull()
+      .default('none'),
+
+    /**
+     * Conteúdo do header quando `header_type='text'` (aceita placeholder {{1}}).
+     * NULL para os demais tipos. Não armazenar PII — apenas texto estrutural.
+     */
+    headerText: text('header_text'),
+
+    /**
+     * Media handle retornado pela Meta no upload da AMOSTRA durante a submissão
+     * de um template com header de mídia (`POST /message_templates` exige
+     * `example.header_handle`). NULL para 'none'/'text'. Preenchido por F5-S12.
+     *
+     * Não confundir com o media id do boleto real do cliente (esse vive em
+     * payment_dues.boleto_media_id e é resolvido no envio pelo sender).
+     */
+    headerHandle: text('header_handle'),
+
+    /**
      * Nomes semânticos das variáveis em ordem posicional ({{1}}, {{2}}, ...).
      * Ex: ["nome_lead", "link_simulacao"]
      * Permite ao worker mapear campos do lead para as variáveis sem hardcode.
@@ -144,6 +176,17 @@ export const whatsappTemplates = pgTable(
     chkLanguage: check(
       'chk_whatsapp_templates_language_format',
       sql`${table.language} ~ '^[a-z]{2}_[A-Z]{2}$'`,
+    ),
+
+    /**
+     * header_text só faz sentido quando header_type='text'.
+     * Para 'none' e headers de mídia, header_text deve ser NULL.
+     * A validação semântica completa (ex: mídia exige header_handle na submissão)
+     * fica no Zod do módulo templates (F5-S12), não no banco.
+     */
+    chkHeaderText: check(
+      'chk_whatsapp_templates_header_text',
+      sql`(${table.headerType} = 'text' AND ${table.headerText} IS NOT NULL) OR (${table.headerType} <> 'text' AND ${table.headerText} IS NULL)`,
     ),
 
     // -------------------------------------------------------------------------

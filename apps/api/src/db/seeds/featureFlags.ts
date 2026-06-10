@@ -186,6 +186,28 @@ const FLAGS: SeedFlag[] = [
     audience: {},
   },
   {
+    key: 'templates.media.enabled',
+    status: 'disabled',
+    visible: true,
+    uiLabel: 'Templates com mídia',
+    // Gate de templates com header de mídia (documento/imagem) — F5-S10..S12.
+    // Pré-requisito para enviar boleto na cobrança (billing.boleto.enabled).
+    description:
+      'Templates de WhatsApp com header de mídia (documento/imagem). Pré-requisito para boleto na cobrança.',
+    audience: {},
+  },
+  {
+    key: 'billing.boleto.enabled',
+    status: 'disabled',
+    visible: true,
+    uiLabel: 'Boleto na cobrança',
+    // Gate de anexar/enviar boleto na cobrança — F5-S13/S14.
+    // Operacional: só habilitar após billing.enabled E templates.media.enabled.
+    description:
+      'Anexar e enviar boleto (documento) nas mensagens de cobrança. Requer billing.enabled e templates.media.enabled.',
+    audience: {},
+  },
+  {
     key: 'dashboard.by_agent.enabled',
     status: 'disabled',
     visible: true,

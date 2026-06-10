@@ -217,6 +217,10 @@ function makeCtx(
       body: 'Olá {{1}}, sua proposta de crédito de {{2}} está aguardando.',
       variables: overrides.templateVariables ?? ['customer_name', 'simulation_amount'],
       status: (overrides.templateStatus ?? 'approved') as 'approved',
+      // F5-S10: colunas de header de mídia (template só-texto por default).
+      headerType: 'none',
+      headerText: null,
+      headerHandle: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
