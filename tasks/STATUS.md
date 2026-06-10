@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
-| F5   | 16    | 6   | 0   | 0   | 0   | 1   | 9   |
+| F5   | 16    | 6   | 0   | 0   | 0   | 0   | 10  |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -202,7 +202,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F5-S07 | Workers collection-scheduler + collection-sender (gated)                                      | ✅ done      | medium     | F5-S06, F5-S03, F1-S15                         |
 | F5-S08 | Frontend cobrança + importação payment_dues + marcação manual                                 | ✅ done      | medium     | F5-S06, F5-S07, F1-S08, F1-S17, F8-S08         |
 | F5-S09 | Frontend templates WhatsApp + sync Meta Cloud + webhook de status                             | ✅ done      | medium     | F5-S01, F5-S03, F1-S08, F1-S20, F8-S08         |
-| F5-S10 | Schema — header de mídia em whatsapp_templates + campos de boleto em payment_dues + flags     | 🟣 review    | high       | F5-S01, F5-S06                                 |
+| F5-S10 | Schema — header de mídia em whatsapp_templates + campos de boleto em payment_dues + flags     | ✅ done      | high       | F5-S01, F5-S06                                 |
 | F5-S11 | Cliente Meta — parâmetro de mídia no envio + upload /media + header de mídia no catálogo      | 🟢 available | high       | F5-S03, F5-S09, F5-S10                         |
 | F5-S12 | Módulo templates — header_type (texto/documento/imagem) no CRUD + submit de header de mídia   | 🟢 available | high       | F5-S10, F5-S11                                 |
 | F5-S13 | Cobrança — anexar boleto à parcela (endpoint + import) com RBAC, auditoria e LGPD             | 🟢 available | high       | F5-S10, F5-S11, F5-S08                         |
