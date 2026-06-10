@@ -216,9 +216,9 @@ Os controles abaixo são **invioláveis**. Violação detectada em PR bloqueia m
 
 ### 8.3 Mascaramento e logging seguro
 
-- **Pino redact obrigatório** com lista global de campos: `cpf`, `document_number`, `password`, `password_hash`, `refresh_token`, `totp_secret`, `email`, `primary_phone`, `phone`, `birth_date`, `authorization`, `cookie`, `set-cookie`, `boleto_url`, `boleto_digitable_line`, `pix_copia_cola`.
+- **Pino redact obrigatório** com lista global de campos: `cpf`, `document_number`, `password`, `password_hash`, `refresh_token`, `totp_secret`, `email`, `primary_phone`, `phone`, `birth_date`, `authorization`, `cookie`, `set-cookie`, `boleto_url`, `boleto_digitable_line`, `pix_copia_cola`, `boleto_filename`.
 - Implementação canônica em `apps/api/src/lib/logger.ts`. Cada serviço importa esse logger; criar logger paralelo sem redact é proibido.
-  - **Boleto (F5-S10):** os campos `boleto_url`, `boleto_digitable_line` e `pix_copia_cola` (parcela com boleto) entram na lista canônica acima. O schema (esta migration) não loga esses campos; a **implementação no `logger.ts`** acompanha os slots que introduzem o logging — anexo (F5-S13) e envio (F5-S14). Logs desses fluxos usam apenas IDs + flag `has_boleto`.
+  - **Boleto (F5-S10):** os campos `boleto_url`, `boleto_digitable_line`, `pix_copia_cola` e `boleto_filename` (parcela com boleto) entram na lista canônica acima — o filename pode embutir CPF/nome. O schema (esta migration) não loga esses campos; a **implementação no `logger.ts`** acompanha os slots que introduzem o logging — anexo (F5-S13) e envio (F5-S14). Logs desses fluxos usam apenas IDs + flag `has_boleto`.
 - Listagem em UI: CPF como `***.***.***-12`, telefone como `(69) 9****-1234`.
 - Detalhe completo só com permissão explícita (`customers:read_full`) e a leitura é auditada (linha em `audit_logs` action=`pii.unmask`).
 
