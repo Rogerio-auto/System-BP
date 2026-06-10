@@ -3,11 +3,11 @@ id: F5-S10
 title: Schema — header de mídia em whatsapp_templates + campos de boleto em payment_dues + flags
 phase: F5
 task_ref: docs/07-integracoes-whatsapp-chatwoot.md#midia-boleto
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-10T12:41:28Z
 completed_at: null
 pr_url: null
 depends_on: [F5-S01, F5-S06]
