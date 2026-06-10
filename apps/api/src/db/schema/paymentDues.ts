@@ -138,6 +138,61 @@ export const paymentDues = pgTable(
      */
     createdBy: uuid('created_by'),
 
+    // -------------------------------------------------------------------------
+    // Boleto (F5-S10) — referência para envio na cobrança via WhatsApp.
+    //
+    // Decisão de produto (2026-06-10): boleto é IMPORTADO/ANEXADO (gerado pelo
+    // sistema do Banco do Povo), nunca gerado por nós — sem integração bancária.
+    // Armazenamos apenas a REFERÊNCIA, não os bytes do PDF.
+    //
+    // LGPD (doc 17): o boleto contém PII (nome, CPF, endereço). Por isso:
+    //   - boleto_url deve ser controlada/assinada pelo controlador (nunca pública permanente).
+    //   - boleto_url / boleto_digitable_line / pix_copia_cola entram no pino.redact.
+    //   - outbox jamais carrega esses campos; só IDs.
+    //   - retenção alinhada à da parcela (5 anos).
+    // -------------------------------------------------------------------------
+
+    /**
+     * URL do PDF do boleto. Usada como `document.link` no envio Meta.
+     * DEVE ser controlada/assinada pelo controlador (Banco do Povo) — host validado
+     * por allowlist no anexo (F5-S13). Nunca uma URL pública permanente com PII.
+     */
+    boletoUrl: text('boleto_url'),
+
+    /**
+     * Media id da Meta quando o arquivo foi enviado via `POST /media`
+     * (caminho LGPD-preferido — evita expor URL). Preenchido por F5-S13/S14.
+     */
+    boletoMediaId: text('boleto_media_id'),
+
+    /**
+     * Validade do `boleto_media_id` (a Meta expira media em ~30 dias).
+     * O sender (F5-S14) re-faz upload a partir de boleto_url quando expirado.
+     */
+    boletoMediaExpiresAt: timestamp('boleto_media_expires_at', { withTimezone: true }),
+
+    /**
+     * Linha digitável (código de barras) do boleto. Dado financeiro;
+     * pode ser enviado como texto no body como fallback. Vai no pino.redact.
+     */
+    boletoDigitableLine: text('boleto_digitable_line'),
+
+    /**
+     * Payload PIX copia-e-cola (BR Code). Idem boleto_digitable_line.
+     */
+    pixCopiaCola: text('pix_copia_cola'),
+
+    /**
+     * Nome amigável exibido no WhatsApp (ex: "boleto-parcela-3.pdf").
+     * Nunca incluir CPF no filename.
+     */
+    boletoFilename: text('boleto_filename'),
+
+    /**
+     * Quando o boleto foi anexado (auditoria). NULL = sem boleto.
+     */
+    boletoAttachedAt: timestamp('boleto_attached_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -221,6 +276,14 @@ export const paymentDues = pgTable(
      * Suporta: ficha do cliente em F5-S08, relatório de inadimplência.
      */
     idxCustomerDue: index('idx_payment_dues_customer').on(table.customerId, table.dueDate),
+
+    /**
+     * Scanner do collection-sender para parcelas que possuem boleto anexado.
+     * Índice PARCIAL `WHERE boleto_url IS NOT NULL OR boleto_media_id IS NOT NULL`
+     * — definido na migration SQL (Drizzle não expressa o WHERE nativamente,
+     * mesmo padrão de idx_payment_dues_status_due).
+     */
+    idxWithBoleto: index('idx_payment_dues_with_boleto').on(table.status, table.dueDate),
   }),
 );
 

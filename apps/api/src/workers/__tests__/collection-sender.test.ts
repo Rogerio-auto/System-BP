@@ -224,6 +224,10 @@ function makeCtx(
       ],
       metaTemplateId: 'meta-tpl-id',
       body: 'Olá {{1}}, sua parcela {{2}} de {{3}} vence em {{4}}. Contrato {{5}}.',
+      // F5-S10: colunas de header de mídia (template só-texto por default).
+      headerType: 'none',
+      headerText: null,
+      headerHandle: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
