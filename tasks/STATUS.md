@@ -11,7 +11,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 22    | 0   | 0   | 0   | 0   | 0   | 22  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F10  | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
-| F12  | 13    | 1   | 1   | 0   | 0   | 1   | 10  |
+| F12  | 13    | 1   | 1   | 0   | 0   | 0   | 11  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -116,7 +116,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F12-S10 | Fix — wirar rota /admin/tutoriais e card na ConfiguracoesPage (regressão F12-S05)       | ✅ done      | high       | F12-S05          |
 | F12-S11 | Fix CRÍTICO — runner de migrations pula migrations em DB existente (go-live blocker)    | 🟢 available | critical   | —                |
 | F12-S12 | Fix — alinhar cliente admin de tutoriais ao contrato real da API (400/erro ao carregar) | ✅ done      | critical   | F12-S05          |
-| F12-S13 | Fix — Callout crasha a página com type inválido (white-screen no help)                  | 🟣 review    | high       | —                |
+| F12-S13 | Fix — Callout crasha a página com type inválido (white-screen no help)                  | ✅ done      | high       | —                |
 
 ## Fase 2 — Crédito e simulação
 
