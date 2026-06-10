@@ -3,12 +3,12 @@ id: F12-S13
 title: Fix — Callout crasha a página com type inválido (white-screen no help)
 phase: F12
 task_ref: docs/20-central-de-ajuda.md#6
-status: in-progress
+status: review
 priority: high
 estimated_size: XS
 agent_id: null
 claimed_at: 2026-06-10T00:25:38Z
-completed_at: null
+completed_at: 2026-06-10T00:31:13Z
 pr_url: null
 depends_on: []
 blocks: []
