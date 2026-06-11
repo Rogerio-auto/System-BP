@@ -39,6 +39,15 @@ const envSchema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('30d'),
 
+  // ---- Rate-limit de autenticação (brute-force, doc 10 §2.1) ---------------
+  // Desativa o rate-limit estrito de /login e /verify-2fa (5 req / 15min / IP).
+  // APENAS para conveniência em dev/demo — NUNCA habilitar em produção.
+  // Default 'false': proteção ativa. Habilita com AUTH_RATE_LIMIT_DISABLED=true.
+  AUTH_RATE_LIMIT_DISABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+
   CORS_ALLOWED_ORIGINS: z
     .string()
     .transform((v) =>
