@@ -3,12 +3,12 @@ id: F14-S06
 title: Frontend — botão "Enviar simulação ao cliente"
 phase: F14
 task_ref: null
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-11T21:30:08Z
-completed_at: null
+completed_at: 2026-06-11T21:40:24Z
 pr_url: null
 depends_on: [F14-S05]
 blocks: []
@@ -70,6 +70,14 @@ Item 2 / Épico B. Depende do backend F14-S05 (`POST /api/simulations/:id/send` 
 - [ ] Guia criado
 
 ## Comandos de validação
+
+```powershell
+pnpm --filter @elemento/web typecheck
+pnpm --filter @elemento/web lint
+pnpm --filter @elemento/web test -- simulator
+```
+
+## Validação
 
 ```powershell
 pnpm --filter @elemento/web typecheck
