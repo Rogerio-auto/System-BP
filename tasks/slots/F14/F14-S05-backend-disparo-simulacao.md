@@ -3,13 +3,13 @@ id: F14-S05
 title: Backend — disparo de simulação por WhatsApp
 phase: F14
 task_ref: null
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-11T20:00:16Z
 completed_at: 2026-06-11T20:23:56Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/216
 depends_on: []
 blocks: [F14-S06]
 labels: []

@@ -3,13 +3,13 @@ id: F14-S01
 title: Schema — lead PJ (CNPJ/razão social) + índice único de email
 phase: F14
 task_ref: null
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-11T19:57:04Z
 completed_at: 2026-06-11T20:02:15Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/215
 depends_on: []
 blocks: [F14-S02]
 labels: []
