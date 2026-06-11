@@ -480,17 +480,18 @@ describe('IMUTABILIDADE DE REGRAS', () => {
     expect(editFunctions).toHaveLength(0);
   });
 
-  it('as únicas funções de mutação de regras são publishRule e listRules', async () => {
+  it('funções de regra são publishRule, listRules e activateRuleVersion (clone, não edita)', async () => {
     const serviceModule = await import('../service.js');
     const exports = Object.keys(serviceModule);
 
     const ruleFunctions = exports.filter((name) => name.toLowerCase().includes('rule'));
 
-    // Apenas publishRule e listRules
+    // activateRuleVersion respeita a imutabilidade: clona a versão escolhida numa
+    // NOVA versão ativa (não altera campos numéricos de regra existente — F13-S06).
+    const allowed = ['publishRule', 'listRules', 'activateRuleVersion'];
     expect(ruleFunctions.sort()).toEqual(expect.arrayContaining(['publishRule', 'listRules']));
-    // Não deve haver outras funções de regra além dessas
     ruleFunctions.forEach((fn) => {
-      expect(['publishRule', 'listRules']).toContain(fn);
+      expect(allowed).toContain(fn);
     });
   });
 });
