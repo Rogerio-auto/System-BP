@@ -3,11 +3,11 @@ id: F14-S06
 title: Frontend — botão "Enviar simulação ao cliente"
 phase: F14
 task_ref: null
-status: blocked
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-11T21:30:08Z
 completed_at: null
 pr_url: null
 depends_on: [F14-S05]
