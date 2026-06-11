@@ -13,7 +13,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F10  | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F12  | 13    | 1   | 1   | 0   | 0   | 0   | 11  |
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
-| F14  | 6     | 0   | 3   | 0   | 0   | 1   | 2   |
+| F14  | 6     | 0   | 2   | 0   | 0   | 0   | 4   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -138,11 +138,11 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ID      | Título                                                                         | Status     | Prioridade | Depende de |
 | ------- | ------------------------------------------------------------------------------ | ---------- | ---------- | ---------- |
 | F14-S01 | Schema — lead PJ (CNPJ/razão social) + índice único de email                   | ✅ done    | high       | —          |
-| F14-S02 | Backend — lead PJ + email obrigatório no manual + unicidade + bloqueio interno | 🟣 review  | high       | F14-S01    |
+| F14-S02 | Backend — lead PJ + email obrigatório no manual + unicidade + bloqueio interno | ✅ done    | high       | F14-S01    |
 | F14-S03 | Frontend — NewLeadModal com PJ + email obrigatório                             | ⏸️ blocked | high       | F14-S02    |
 | F14-S04 | Email pessoal do agente no 1º login + bloqueio estendido                       | ⏸️ blocked | medium     | F14-S02    |
 | F14-S05 | Backend — disparo de simulação por WhatsApp                                    | ✅ done    | high       | —          |
-| F14-S06 | Frontend — botão "Enviar simulação ao cliente"                                 | 🟣 review  | high       | F14-S05    |
+| F14-S06 | Frontend — botão "Enviar simulação ao cliente"                                 | ✅ done    | high       | F14-S05    |
 
 ## Fase 2 — Crédito e simulação
 

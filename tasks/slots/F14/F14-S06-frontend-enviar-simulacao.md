@@ -3,13 +3,13 @@ id: F14-S06
 title: Frontend — botão "Enviar simulação ao cliente"
 phase: F14
 task_ref: null
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-11T21:30:08Z
 completed_at: 2026-06-11T21:40:24Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/218
 depends_on: [F14-S05]
 blocks: []
 labels: []
