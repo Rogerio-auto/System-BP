@@ -30,7 +30,7 @@ const VALID_PAYLOAD = {
   city_id: 'a1b2c3d4-0000-0000-0000-000000000001',
   source: 'manual' as const,
   status: 'new' as const,
-  email: null,
+  email: 'ana.paula@exemplo.com.br',
   cpf: null,
   notes: null,
   metadata: {},
@@ -113,10 +113,10 @@ describe('LeadCreateSchema — phone_e164 E.164', () => {
   });
 });
 
-// ─── email — opcional com validação ──────────────────────────────────────────
+// ─── email — obrigatório no manual, opcional nas demais origens (F14-S02) ─────
 
-describe('LeadCreateSchema — email (opcional)', () => {
-  it('email válido é aceito', () => {
+describe('LeadCreateSchema — email (obrigatório no manual)', () => {
+  it('email válido é aceito (manual)', () => {
     const result = LeadCreateSchema.safeParse({ ...VALID_PAYLOAD, email: 'test@exemplo.com.br' });
     expect(result.success).toBe(true);
   });
@@ -126,14 +126,29 @@ describe('LeadCreateSchema — email (opcional)', () => {
     expect(result.success).toBe(false);
   });
 
-  it('email null é aceito', () => {
+  it('email null falha quando source=manual', () => {
     const result = LeadCreateSchema.safeParse({ ...VALID_PAYLOAD, email: null });
+    expect(result.success).toBe(false);
+  });
+
+  it('email ausente falha quando source=manual', () => {
+    const { email: _e, ...rest } = VALID_PAYLOAD;
+    const result = LeadCreateSchema.safeParse(rest);
+    expect(result.success).toBe(false);
+  });
+
+  it('email null é aceito quando source ≠ manual (ex: whatsapp)', () => {
+    const result = LeadCreateSchema.safeParse({
+      ...VALID_PAYLOAD,
+      source: 'whatsapp' as const,
+      email: null,
+    });
     expect(result.success).toBe(true);
   });
 
-  it('email undefined é aceito (opcional)', () => {
+  it('email ausente é aceito quando source ≠ manual (ex: whatsapp)', () => {
     const { email: _e, ...rest } = VALID_PAYLOAD;
-    const result = LeadCreateSchema.safeParse(rest);
+    const result = LeadCreateSchema.safeParse({ ...rest, source: 'whatsapp' as const });
     expect(result.success).toBe(true);
   });
 });
