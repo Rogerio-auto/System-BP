@@ -19,13 +19,85 @@
 //   - Queries nunca retornam cpf_encrypted nem cpf_hash.
 //   - O select explícito exclui esses campos da resposta.
 // =============================================================================
-import { type SQL, and, count, eq, ilike, inArray, isNull, isNotNull, or, sql } from 'drizzle-orm';
+import {
+  type SQL,
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  isNotNull,
+  or,
+  sql,
+} from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
+import { cities } from '../../db/schema/cities.js';
+import { interactions } from '../../db/schema/interactions.js';
+import { kanbanCards } from '../../db/schema/kanbanCards.js';
+import { kanbanStages } from '../../db/schema/kanbanStages.js';
 import { leads } from '../../db/schema/leads.js';
 import type { Lead } from '../../db/schema/leads.js';
 
 import type { LeadListQuery } from './schemas.js';
+
+// ---------------------------------------------------------------------------
+// Enriquecimento para o CRM (cidade + estágio de Kanban) — F13-S03
+// ---------------------------------------------------------------------------
+
+/** Mapa cityId → name para um conjunto de cidades. */
+export async function findCityNamesByIds(
+  db: Database,
+  cityIds: string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(cityIds)];
+  if (unique.length === 0) return new Map();
+  const rows = await db
+    .select({ id: cities.id, name: cities.name })
+    .from(cities)
+    .where(inArray(cities.id, unique));
+  return new Map(rows.map((r) => [r.id, r.name]));
+}
+
+/**
+ * Mapa leadId → { cardId, stage } do Kanban atual, para um conjunto de leads.
+ * cardId permite mudar o estágio a partir do CRM (reusa o move do board — F13-S03).
+ */
+export async function findCurrentStagesByLeadIds(
+  db: Database,
+  leadIds: string[],
+): Promise<Map<string, { cardId: string; stage: { id: string; name: string } }>> {
+  const unique = [...new Set(leadIds)];
+  if (unique.length === 0) return new Map();
+  const rows = await db
+    .select({
+      leadId: kanbanCards.leadId,
+      cardId: kanbanCards.id,
+      stageId: kanbanStages.id,
+      stageName: kanbanStages.name,
+    })
+    .from(kanbanCards)
+    .innerJoin(kanbanStages, eq(kanbanCards.stageId, kanbanStages.id))
+    .where(inArray(kanbanCards.leadId, unique));
+  return new Map(
+    rows.map((r) => [r.leadId, { cardId: r.cardId, stage: { id: r.stageId, name: r.stageName } }]),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Interação (timeline) — projeção mínima usada pelo service (F13-S07)
+// ---------------------------------------------------------------------------
+
+export interface LeadInteractionRow {
+  id: string;
+  leadId: string;
+  channel: 'whatsapp' | 'phone' | 'email' | 'in_person' | 'chatwoot';
+  direction: 'inbound' | 'outbound';
+  content: string;
+  createdAt: Date;
+}
 
 // ---------------------------------------------------------------------------
 // Tipos internos
@@ -216,6 +288,34 @@ export async function findLeadById(
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+/**
+ * Lista as interações de um lead (timeline), mais recentes primeiro.
+ * Não aplica city-scope aqui — o service verifica o acesso ao lead antes
+ * (findLeadById com cityScopeIds) e só então chama esta função.
+ *
+ * LGPD (doc 17 §8.5): `content` pode conter PII — retornado apenas para
+ * exibição ao agente autorizado; nunca logar sem pino.redact.
+ */
+export async function findInteractionsByLead(
+  db: Database,
+  leadId: string,
+  limit = 200,
+): Promise<LeadInteractionRow[]> {
+  return db
+    .select({
+      id: interactions.id,
+      leadId: interactions.leadId,
+      channel: interactions.channel,
+      direction: interactions.direction,
+      content: interactions.content,
+      createdAt: interactions.createdAt,
+    })
+    .from(interactions)
+    .where(eq(interactions.leadId, leadId))
+    .orderBy(desc(interactions.createdAt))
+    .limit(limit);
 }
 
 /**

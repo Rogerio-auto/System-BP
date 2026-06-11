@@ -29,6 +29,8 @@ export interface KanbanCard {
   position: number;
   lastNote: string | null;
   updatedAt: string;
+  /** Nome da cidade do lead — chip no card (F13-S03). null = sem cidade. */
+  cityName: string | null;
 }
 
 export interface KanbanStageHistory {

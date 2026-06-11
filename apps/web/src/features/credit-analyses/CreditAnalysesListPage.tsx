@@ -188,17 +188,16 @@ function AnalysisRow({
       className="group border-t border-border-subtle transition-colors duration-fast hover:bg-surface-hover"
       style={{ animationDelay: `${idx * 25}ms` }}
     >
-      {/* ID opaco com link */}
+      {/* Cliente (nome do lead) com link para a análise */}
       <td className="px-4 py-3.5">
         <Link
           to={`/credit-analyses/${analysis.id}`}
-          className="font-mono text-sm text-azul hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20 rounded-xs"
-          style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
+          className="font-sans text-sm font-semibold text-azul hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20 rounded-xs"
           title={`Ver análise ${analysis.id}`}
         >
-          {analysis.id.slice(0, 8)}…
+          {analysis.lead_name ?? 'Cliente'}
         </Link>
-        <p className="font-sans text-xs text-ink-4 mt-0.5">Lead: {analysis.lead_id.slice(0, 8)}…</p>
+        <p className="font-sans text-xs text-ink-4 mt-0.5">Análise: {analysis.id.slice(0, 8)}…</p>
       </td>
 
       {/* Status */}

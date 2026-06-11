@@ -19,6 +19,7 @@ import { useFieldArray, useForm } from 'react-hook-form';
 import { LeadCombobox } from '../../../components/comboboxes/LeadCombobox';
 import { SimulationSelect } from '../../../components/comboboxes/SimulationSelect';
 import { Button } from '../../../components/ui/Button';
+import { CurrencyInput } from '../../../components/ui/CurrencyInput';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { cn } from '../../../lib/cn';
@@ -605,6 +606,7 @@ export function DecideModal({
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
     reset,
   } = useForm<CreditAnalysisDecideForm>({
@@ -619,6 +621,7 @@ export function DecideModal({
   });
 
   const decision = watch('decision');
+  const watchedApprovedAmount = watch('approved_amount');
 
   const { decide, isPending } = useDecideAnalysis(analysisId, {
     onSuccess: (data) => {
@@ -663,17 +666,21 @@ export function DecideModal({
             >
               Dados da aprovação
             </p>
-            <Input
+            {/* Valor — máscara de moeda (centavos progressivo, estilo banco/PIX) */}
+            <CurrencyInput
               id="decide-amount"
               label="Valor aprovado (R$)"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Ex: 10000.00"
+              value={
+                watchedApprovedAmount === null || watchedApprovedAmount === undefined
+                  ? null
+                  : Math.round(watchedApprovedAmount * 100)
+              }
+              onChange={(cents) =>
+                setValue('approved_amount', cents === null ? null : cents / 100, {
+                  shouldValidate: true,
+                })
+              }
               error={errors.approved_amount?.message}
-              {...register('approved_amount', {
-                setValueAs: (v: string) => (v ? parseFloat(v) : null),
-              })}
             />
             <Input
               id="decide-term"
@@ -687,17 +694,20 @@ export function DecideModal({
                 setValueAs: (v: string) => (v ? parseInt(v, 10) : null),
               })}
             />
+            {/* Taxa em % a.m. — usuário digita o percentual (ex: 2,5); convertemos
+                para decimal (0.025) no envio. Evita a confusão do campo "decimal". */}
             <Input
               id="decide-rate"
-              label="Taxa mensal (decimal, ex: 0.02 = 2%)"
+              label="Taxa mensal (% a.m.)"
               type="number"
-              min="0.001"
-              max="1"
-              step="0.001"
-              placeholder="Ex: 0.02"
+              min="0.01"
+              max="100"
+              step="0.01"
+              placeholder="Ex: 2.5"
+              hint="Informe o percentual ao mês. Ex: 2,5 = 2,5% a.m."
               error={errors.approved_rate_monthly?.message}
               {...register('approved_rate_monthly', {
-                setValueAs: (v: string) => (v ? parseFloat(v) : null),
+                setValueAs: (v: string) => (v ? parseFloat(v) / 100 : null),
               })}
             />
           </div>

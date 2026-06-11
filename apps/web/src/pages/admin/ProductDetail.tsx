@@ -13,17 +13,20 @@
 //   - Loading: skeleton full-page. Erro: card retry.
 // =============================================================================
 
+import { useMutation } from '@tanstack/react-query';
 import * as React from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { useToast } from '../../components/ui/Toast';
 import { ProductDrawer } from '../../features/admin/products/ProductDrawer';
 import { PublishRuleDrawer } from '../../features/admin/products/PublishRuleDrawer';
 import { RuleTimeline } from '../../features/admin/products/RuleTimeline';
 import { useProduct } from '../../hooks/admin/useProducts';
 import { useCitiesList } from '../../hooks/useCitiesList';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { activateRuleVersion } from '../../lib/api/credit-products';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -232,6 +235,22 @@ export function ProductDetailPage(): React.JSX.Element {
   const { data: product, isLoading, isError, refetch } = useProduct(id);
   const { cities } = useCitiesList();
   const { enabled: simulationEnabled } = useFeatureFlag('credit_simulation.enabled');
+  const { toast } = useToast();
+
+  // Ativar/usar uma versão de regra (F13-S06) — confirmação + clone.
+  const [confirmVersion, setConfirmVersion] = React.useState<number | null>(null);
+  const activateMutation = useMutation({
+    mutationFn: (version: number) => activateRuleVersion(id ?? '', version),
+    onSuccess: () => {
+      setConfirmVersion(null);
+      void refetch();
+      toast('Versão ativada com sucesso!', 'success');
+    },
+    onError: (err: Error) => {
+      setConfirmVersion(null);
+      toast(err.message ?? 'Erro ao ativar versão.', 'danger');
+    },
+  });
 
   // Map cityId → name para a timeline
   const citiesMap = React.useMemo(() => {
@@ -430,7 +449,13 @@ export function ProductDetailPage(): React.JSX.Element {
 
               {/* Timeline */}
               <div className="px-4 py-4">
-                <RuleTimeline rules={product.rules} citiesMap={citiesMap} />
+                <RuleTimeline
+                  rules={product.rules}
+                  citiesMap={citiesMap}
+                  onActivateVersion={(v) => setConfirmVersion(v)}
+                  activatingVersion={activateMutation.isPending ? confirmVersion : null}
+                  canActivate={simulationEnabled}
+                />
               </div>
             </div>
           </div>
@@ -451,6 +476,49 @@ export function ProductDetailPage(): React.JSX.Element {
         productName={product.name}
         currentVersion={currentVersion}
       />
+
+      {/* ── Confirmação de ativar/usar versão (F13-S06) ───────────────────────── */}
+      {confirmVersion !== null && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirmar ativação de versão"
+        >
+          <div
+            className="w-full max-w-md rounded-lg border border-border bg-surface-1 p-6 flex flex-col gap-4"
+            style={{ boxShadow: 'var(--elev-5)' }}
+          >
+            <h3
+              className="font-display font-bold text-ink"
+              style={{ fontSize: 'var(--text-lg)', letterSpacing: '-0.03em' }}
+            >
+              Usar a versão v{confirmVersion}?
+            </h3>
+            <p className="font-sans text-sm text-ink-2">
+              Isso cria uma cópia da v{confirmVersion} como nova versão vigente e passa a valer para{' '}
+              <strong>novas simulações</strong>. Simulações já feitas não mudam.
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <Button
+                variant="ghost"
+                onClick={() => setConfirmVersion(null)}
+                disabled={activateMutation.isPending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => activateMutation.mutate(confirmVersion)}
+                disabled={activateMutation.isPending}
+              >
+                {activateMutation.isPending ? 'Ativando…' : 'Confirmar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

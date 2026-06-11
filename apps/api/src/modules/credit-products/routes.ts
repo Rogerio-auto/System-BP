@@ -22,6 +22,7 @@ import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
 
 import {
+  activateRuleVersionController,
   createProductController,
   deleteProductController,
   getProductController,
@@ -41,6 +42,7 @@ import {
   CreditProductRulesListResponseSchema,
   CreditProductUpdateSchema,
   productIdParamSchema,
+  productRuleVersionParamSchema,
 } from './schemas.js';
 
 const READ_PERMS: [string, ...string[]] = ['credit_products:read'];
@@ -178,6 +180,32 @@ export const creditProductsRoutes: FastifyPluginAsyncZod = async (app) => {
       ],
     },
     publishRuleController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/credit-products/:id/rules/:version/activate — usar/ativar versão
+  // Clona a versão escolhida como nova versão ativa (D6). Feature flag gate.
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/credit-products/:id/rules/:version/activate',
+    {
+      schema: {
+        tags: ['Credit Products'],
+        summary: 'Ativar versão de regra',
+        description:
+          'Define a versão de regra escolhida como vigente, clonando-a numa nova versão ativa.',
+        security: [{ bearerAuth: [] }],
+        params: productRuleVersionParamSchema,
+        response: {
+          200: CreditProductRuleResponseSchema,
+        },
+      },
+      preHandler: [
+        authorize({ permissions: WRITE_PERMS }),
+        featureGate('credit_simulation.enabled'),
+      ],
+    },
+    activateRuleVersionController,
   );
 
   // ---------------------------------------------------------------------------

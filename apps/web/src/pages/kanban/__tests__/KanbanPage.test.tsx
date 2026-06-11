@@ -64,6 +64,7 @@ const MOCK_CARDS: KanbanCard[] = [
     position: 1,
     lastNote: 'Documentação pendente',
     updatedAt: new Date().toISOString(),
+    cityName: 'Porto Velho',
   },
   {
     id: 'card-2',
@@ -77,6 +78,7 @@ const MOCK_CARDS: KanbanCard[] = [
     position: 2,
     lastNote: null,
     updatedAt: new Date().toISOString(),
+    cityName: 'Porto Velho',
   },
   {
     id: 'card-3',
@@ -90,6 +92,7 @@ const MOCK_CARDS: KanbanCard[] = [
     position: 1,
     lastNote: null,
     updatedAt: new Date().toISOString(),
+    cityName: 'Porto Velho',
   },
 ];
 

@@ -223,6 +223,7 @@ const mockCards = [
     position: 0,
     lastNote: null,
     updatedAt: new Date('2026-05-12T10:00:00Z').toISOString(),
+    cityName: 'Porto Velho',
   },
 ];
 

@@ -132,6 +132,12 @@ export const LeadResponseSchema = z.object({
    * O nó identify_city preenche posteriormente via PATCH /internal/leads/:id.
    */
   city_id: z.string().uuid().nullable(),
+  /** Nome da cidade (derivado via join no service). null = sem cidade. (F13-S03) */
+  city_name: z.string().nullable(),
+  /** ID do card no Kanban — permite mudar o estágio pelo CRM. null = sem card. (F13-S03) */
+  kanban_card_id: z.string().uuid().nullable(),
+  /** Estágio atual no Kanban (gestão interna). null = sem card no board. (F13-S03) */
+  kanban_stage: z.object({ id: z.string().uuid(), name: z.string() }).nullable(),
   agent_id: z.string().uuid().nullable(),
   name: z.string(),
   /** LGPD: PII — sempre presente para uso do frontend. Coberto por pino.redact. */

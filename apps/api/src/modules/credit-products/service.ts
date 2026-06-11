@@ -30,6 +30,7 @@ import {
   findProductById,
   findProductByKey,
   findProducts,
+  findRuleByProductAndVersion,
   findRulesByProduct,
   getMaxRuleVersion,
   insertProduct,
@@ -466,6 +467,111 @@ export async function publishRule(
       organizationId: actor.organizationId,
       actor: buildAuditActor(actor),
       action: 'credit_product_rule.publish',
+      resource: { type: 'credit_product_rule', id: inserted.id },
+      before: previousRule
+        ? (toRuleResponse(previousRule) as unknown as Record<string, unknown>)
+        : null,
+      after: toRuleResponse(inserted) as unknown as Record<string, unknown>,
+    });
+
+    return inserted;
+  });
+
+  return toRuleResponse(newRule);
+}
+
+// ---------------------------------------------------------------------------
+// Rule: Activate version (clone — D6) — atomic
+// ---------------------------------------------------------------------------
+
+/**
+ * "Usar/ativar" uma versão de regra existente.
+ *
+ * Decisão D6: NÃO reativamos a linha antiga (campos numéricos são imutáveis e a
+ * versão é linear). Em vez disso, CLONAMOS a versão escolhida como uma nova
+ * versão (version+1) com is_active=true, desativando a anterior — preservando a
+ * auditoria e a linearidade documentada no schema.
+ *
+ * Idempotente: se a versão escolhida já é a ativa, devolve-a sem criar clone.
+ * Simulações antigas não mudam (capturam rule_version_id imutável).
+ */
+export async function activateRuleVersion(
+  db: Database,
+  actor: ActorContext,
+  productId: string,
+  version: number,
+): Promise<CreditProductRuleResponse> {
+  const product = await findProductById(db, productId, actor.organizationId);
+  if (!product) throw new NotFoundError('Produto de crédito não encontrado');
+
+  const source = await findRuleByProductAndVersion(db, productId, version);
+  if (!source) throw new NotFoundError('Versão de regra não encontrada');
+
+  const newRule = await db.transaction(async (tx) => {
+    const txDb = tx as unknown as Database;
+
+    const previousRule = await findActiveRule(txDb, productId);
+
+    // No-op idempotente: a versão escolhida já é a vigente.
+    if (previousRule && previousRule.id === source.id) {
+      return previousRule;
+    }
+
+    const maxVersion = await getMaxRuleVersion(txDb, productId);
+    const nextVersion = maxVersion + 1;
+
+    // Clona os parâmetros da versão escolhida numa nova versão ativa.
+    const inserted = await insertRule(txDb, {
+      productId,
+      version: nextVersion,
+      minAmount: source.minAmount,
+      maxAmount: source.maxAmount,
+      minTermMonths: source.minTermMonths,
+      maxTermMonths: source.maxTermMonths,
+      monthlyRate: source.monthlyRate,
+      ...(source.iofRate !== null ? { iofRate: source.iofRate } : {}),
+      amortization: source.amortization as 'price' | 'sac',
+      ...(source.cityScope !== null ? { cityScope: source.cityScope } : {}),
+      effectiveFrom: new Date(),
+      createdBy: actor.userId,
+    });
+
+    if (previousRule) {
+      await deactivateRule(txDb, previousRule.id);
+    }
+
+    const ruleSnapshot = {
+      rule_id: inserted.id,
+      version: inserted.version,
+      min_amount: inserted.minAmount,
+      max_amount: inserted.maxAmount,
+      min_term_months: inserted.minTermMonths,
+      max_term_months: inserted.maxTermMonths,
+      monthly_rate: inserted.monthlyRate,
+      iof_rate: inserted.iofRate ?? null,
+      amortization: inserted.amortization,
+      city_scope: inserted.cityScope ?? null,
+      effective_from: inserted.effectiveFrom.toISOString(),
+      cloned_from_version: source.version,
+    };
+
+    await emit(tx as unknown as Parameters<typeof emit>[0], {
+      eventName: 'credit.rule_published',
+      aggregateType: 'credit_product_rule',
+      aggregateId: inserted.id,
+      organizationId: actor.organizationId,
+      actor: { kind: 'user', id: actor.userId, ip: actor.ip ?? null },
+      idempotencyKey: `credit.rule_published:${inserted.id}`,
+      data: {
+        product_id: productId,
+        rule_snapshot: ruleSnapshot,
+      },
+    });
+
+    await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
+      organizationId: actor.organizationId,
+      actor: buildAuditActor(actor),
+      action: 'credit_product_rule.activate_version',
       resource: { type: 'credit_product_rule', id: inserted.id },
       before: previousRule
         ? (toRuleResponse(previousRule) as unknown as Record<string, unknown>)

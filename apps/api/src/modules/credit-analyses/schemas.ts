@@ -281,6 +281,11 @@ export const CreditAnalysisResponseSchema = z.object({
   organization_id: z.string().uuid(),
   /** lead_id: UUID opaco. PII indireta — pino.redact não cobre UUIDs. */
   lead_id: z.string().uuid(),
+  /**
+   * Nome do lead (PII) — exibido ao analista autorizado (credit_analyses:read).
+   * Resolvido via JOIN com leads no service; null se o lead não for encontrado.
+   */
+  lead_name: z.string().nullable(),
   customer_id: z.string().uuid().nullable(),
   simulation_id: z.string().uuid().nullable(),
   current_version_id: z.string().uuid().nullable(),

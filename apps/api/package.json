@@ -20,6 +20,7 @@
     "db:seed-cities": "tsx --env-file-if-exists=../../.env scripts/seed-cities.ts",
     "db:seed:all": "pnpm db:seed && pnpm db:seed-cities",
     "db:seed-fake": "tsx --env-file-if-exists=../../.env src/db/seed-fake.ts",
+    "db:seed-demo": "tsx --env-file-if-exists=../../.env src/db/seed-demo.ts",
     "db:studio": "node --env-file-if-exists=../../.env node_modules/drizzle-kit/bin.cjs studio",
     "worker:outbox": "tsx --env-file-if-exists=../../.env src/workers/outbox-publisher.ts",
     "worker:import": "tsx --env-file-if-exists=../../.env src/workers/import-processor.ts",

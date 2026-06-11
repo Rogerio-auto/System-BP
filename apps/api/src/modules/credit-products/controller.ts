@@ -20,9 +20,11 @@ import type {
   CreditProductRuleCreate,
   CreditProductUpdate,
   ProductIdParam,
+  ProductRuleVersionParam,
 } from './schemas.js';
 import type { ActorContext } from './service.js';
 import {
+  activateRuleVersion,
   createProduct,
   deleteProductService,
   getProductById,
@@ -142,6 +144,20 @@ export async function publishRuleController(
     typedBody<CreditProductRuleCreate>(request),
   );
   return reply.status(201).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/credit-products/:id/rules/:version/activate
+// ---------------------------------------------------------------------------
+
+export async function activateRuleVersionController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const params = typedParams<ProductRuleVersionParam>(request);
+  const result = await activateRuleVersion(db, actor, params.id, params.version);
+  return reply.status(200).send(result);
 }
 
 // ---------------------------------------------------------------------------

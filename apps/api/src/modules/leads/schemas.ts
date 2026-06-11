@@ -41,3 +41,24 @@ export const leadIdParamSchema = z.object({
 });
 
 export type LeadIdParam = z.infer<typeof leadIdParamSchema>;
+
+// ---------------------------------------------------------------------------
+// Timeline de interações (F13-S07)
+//
+// Shape consumido pelo front (apps/web/src/hooks/crm/types.ts → LeadInteraction).
+// LGPD: `content` pode conter PII de conversa — exibido apenas ao agente
+// autorizado (city-scope no service); coberto por pino.redact nos logs (app.ts).
+// ---------------------------------------------------------------------------
+
+export const LeadInteractionResponseSchema = z.object({
+  id: z.string().uuid(),
+  leadId: z.string().uuid(),
+  type: z.enum(['note', 'status_change', 'call', 'whatsapp', 'system']),
+  content: z.string(),
+  actorName: z.string(),
+  createdAt: z.string().datetime(),
+});
+
+export const LeadInteractionsResponseSchema = z.array(LeadInteractionResponseSchema);
+
+export type LeadInteractionResponse = z.infer<typeof LeadInteractionResponseSchema>;

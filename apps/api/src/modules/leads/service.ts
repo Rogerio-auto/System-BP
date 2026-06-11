@@ -38,6 +38,9 @@ import { AppError, NotFoundError } from '../../shared/errors.js';
 import { findInitialStage, insertCard, insertHistory } from '../kanban/repository.js';
 
 import {
+  findCityNamesByIds,
+  findCurrentStagesByLeadIds,
+  findInteractionsByLead,
   findLeadById,
   findLeadByPhoneInOrg,
   findLeadByPhoneInOrgExcluding,
@@ -47,8 +50,10 @@ import {
   softDeleteLead,
   updateLead,
 } from './repository.js';
+import type { LeadInteractionRow } from './repository.js';
 import type {
   LeadCreate,
+  LeadInteractionResponse,
   LeadListQuery,
   LeadListResponse,
   LeadResponse,
@@ -114,12 +119,22 @@ function redactLeadPii(obj: Record<string, unknown>): Record<string, unknown> {
 // Serialização do Lead para resposta HTTP
 // ---------------------------------------------------------------------------
 
-function toLeadResponse(lead: Lead): LeadResponse {
+interface LeadResponseExtras {
+  cityName?: string | null;
+  cardId?: string | null;
+  stage?: { id: string; name: string } | null;
+}
+
+function toLeadResponse(lead: Lead, extras?: LeadResponseExtras): LeadResponse {
   return {
     id: lead.id,
     organization_id: lead.organizationId,
     // cityId nullable (F3-S01): agente IA cria lead antes de identificar a cidade
     city_id: lead.cityId ?? null,
+    // city_name / kanban_*: enriquecidos na lista/detalhe (F13-S03); null nos demais fluxos.
+    city_name: extras?.cityName ?? null,
+    kanban_card_id: extras?.cardId ?? null,
+    kanban_stage: extras?.stage ?? null,
     agent_id: lead.agentId ?? null,
     name: lead.name,
     phone_e164: lead.phoneE164,
@@ -146,8 +161,27 @@ export async function listLeads(
 ): Promise<LeadListResponse> {
   const { data, total } = await findLeads(db, actor.organizationId, actor.cityScopeIds, query);
 
+  // Enriquecimento em lote (cidade + estágio de Kanban) — sem N+1 (F13-S03).
+  const cityIds = data
+    .map((l) => l.cityId)
+    .filter((id): id is string => id !== null && id !== undefined);
+  const [cityNames, stages] = await Promise.all([
+    findCityNamesByIds(db, cityIds),
+    findCurrentStagesByLeadIds(
+      db,
+      data.map((l) => l.id),
+    ),
+  ]);
+
   return {
-    data: data.map(toLeadResponse),
+    data: data.map((l) => {
+      const info = stages.get(l.id);
+      return toLeadResponse(l, {
+        cityName: l.cityId ? (cityNames.get(l.cityId) ?? null) : null,
+        cardId: info?.cardId ?? null,
+        stage: info?.stage ?? null,
+      });
+    }),
     pagination: {
       page: query.page,
       limit: query.limit,
@@ -169,7 +203,64 @@ export async function getLeadById(
   const lead = await findLeadById(db, leadId, actor.organizationId, actor.cityScopeIds);
   if (!lead) throw new NotFoundError('Lead não encontrado');
 
-  return toLeadResponse(lead);
+  // Enriquecimento cidade + estágio de Kanban (F13-S03).
+  const [cityNames, stages] = await Promise.all([
+    lead.cityId
+      ? findCityNamesByIds(db, [lead.cityId])
+      : Promise.resolve(new Map<string, string>()),
+    findCurrentStagesByLeadIds(db, [lead.id]),
+  ]);
+
+  const info = stages.get(lead.id);
+  return toLeadResponse(lead, {
+    cityName: lead.cityId ? (cityNames.get(lead.cityId) ?? null) : null,
+    cardId: info?.cardId ?? null,
+    stage: info?.stage ?? null,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Timeline de interações (F13-S07)
+// ---------------------------------------------------------------------------
+
+/** Mapeia o canal da interação para o `type` esperado pelo front. */
+const CHANNEL_TO_TYPE: Record<LeadInteractionRow['channel'], LeadInteractionResponse['type']> = {
+  whatsapp: 'whatsapp',
+  chatwoot: 'whatsapp',
+  phone: 'call',
+  email: 'note',
+  in_person: 'note',
+};
+
+/**
+ * Lista a timeline de interações de um lead.
+ *
+ * Segurança: valida o acesso ao lead via findLeadById (city-scope RBAC) ANTES
+ * de buscar as interações — 404 se fora do escopo (não vaza existência).
+ *
+ * LGPD (doc 17 §8.5): `content` é exibido ao agente autorizado (finalidade de
+ * atendimento). Não há mascaramento aqui — é o canal de leitura do próprio
+ * atendente; logs são cobertos por pino.redact no app.ts.
+ */
+export async function listLeadInteractions(
+  db: Database,
+  actor: ActorContext,
+  leadId: string,
+): Promise<LeadInteractionResponse[]> {
+  const lead = await findLeadById(db, leadId, actor.organizationId, actor.cityScopeIds);
+  if (!lead) throw new NotFoundError('Lead não encontrado');
+
+  const rows = await findInteractionsByLead(db, leadId);
+
+  return rows.map((r) => ({
+    id: r.id,
+    leadId: r.leadId,
+    type: CHANNEL_TO_TYPE[r.channel] ?? 'note',
+    content: r.content,
+    // interactions não tem actor_user_id — derivamos do sentido da mensagem.
+    actorName: r.direction === 'inbound' ? 'Cliente' : 'Equipe',
+    createdAt: r.createdAt.toISOString(),
+  }));
 }
 
 // ---------------------------------------------------------------------------

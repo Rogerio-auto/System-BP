@@ -210,6 +210,17 @@ export function KanbanCard({
         </span>
       </div>
 
+      {/* Cidade — chip discreto (F13-S03) */}
+      {card.cityName && (
+        <span
+          className="inline-flex items-center self-start font-sans text-[10px] px-1.5 py-0.5 rounded-pill relative z-10 truncate max-w-full"
+          style={{ background: 'var(--surface-muted)', color: 'var(--text-2)' }}
+          title={`Cidade: ${card.cityName}`}
+        >
+          {card.cityName}
+        </span>
+      )}
+
       {/* Valor do empréstimo */}
       {card.loanAmountCents !== null && (
         <p

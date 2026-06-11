@@ -89,7 +89,7 @@ interface HistorySectionProps {
 
 function HistorySection({ cardId }: HistorySectionProps): React.JSX.Element {
   const [expanded, setExpanded] = React.useState(false);
-  const { history, isLoading } = useKanbanHistory(expanded ? cardId : null);
+  const { history, isLoading, isError } = useKanbanHistory(expanded ? cardId : null);
 
   return (
     <div className="flex flex-col gap-3">
@@ -135,6 +135,10 @@ function HistorySection({ cardId }: HistorySectionProps): React.JSX.Element {
                 </div>
               ))}
             </div>
+          ) : isError ? (
+            <p className="font-sans text-xs text-danger py-2">
+              Não foi possível carregar o histórico.
+            </p>
           ) : history.length === 0 ? (
             <p className="font-sans text-xs text-ink-4 py-2">Nenhum histórico disponível.</p>
           ) : (

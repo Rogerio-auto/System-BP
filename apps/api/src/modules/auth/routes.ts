@@ -19,6 +19,8 @@ import cookie from '@fastify/cookie';
 // `rateLimit:` por rota abaixo só ativa quando o plugin estiver registrado globalmente.
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
+import { env } from '../../config/env.js';
+
 import {
   loginController,
   refreshController,
@@ -34,6 +36,26 @@ import {
   loginChallenge2faResponseSchema,
   verify2faBodySchema,
 } from './schemas.js';
+
+// Rate-limit estrito anti-brute-force (doc 10 §2.1): 5 tentativas / 15min / IP.
+// Pode ser desligado em dev/demo via AUTH_RATE_LIMIT_DISABLED=true — JAMAIS em
+// produção (o gate ignora a flag se NODE_ENV === 'production', por segurança).
+// `false` desativa o limiter para a rota (cai no global brando de app.ts).
+const authRateLimitDisabled = env.AUTH_RATE_LIMIT_DISABLED && env.NODE_ENV !== 'production';
+
+const strictAuthRateLimit = authRateLimitDisabled
+  ? (false as const)
+  : {
+      max: 5,
+      timeWindow: '15 minutes',
+      errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
+        const err = Object.assign(new Error('Muitas tentativas. Aguarde 15 minutos.'), {
+          statusCode: context.statusCode,
+          code: 'RATE_LIMITED',
+        });
+        return err;
+      },
+    };
 
 export const authRoutes: FastifyPluginAsyncZod = async (app) => {
   // Registrar @fastify/cookie neste escopo.
@@ -56,20 +78,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/auth/login',
     {
       config: {
-        rateLimit: {
-          max: 5,
-          timeWindow: '15 minutes',
-          errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
-            const err = Object.assign(
-              new Error('Muitas tentativas de login. Aguarde 15 minutos.'),
-              {
-                statusCode: context.statusCode,
-                code: 'RATE_LIMITED',
-              },
-            );
-            return err;
-          },
-        },
+        rateLimit: strictAuthRateLimit,
       },
       schema: {
         tags: ['Auth'],
@@ -97,17 +106,7 @@ export const authRoutes: FastifyPluginAsyncZod = async (app) => {
     '/api/auth/verify-2fa',
     {
       config: {
-        rateLimit: {
-          max: 5,
-          timeWindow: '15 minutes',
-          errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
-            const err = Object.assign(new Error('Muitas tentativas. Aguarde 15 minutos.'), {
-              statusCode: context.statusCode,
-              code: 'RATE_LIMITED',
-            });
-            return err;
-          },
-        },
+        rateLimit: strictAuthRateLimit,
       },
       schema: {
         tags: ['Auth'],

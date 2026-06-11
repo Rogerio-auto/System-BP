@@ -1,20 +1,25 @@
 // =============================================================================
-// features/dashboard/components/KanbanBars.tsx — Barras verticais de cards
-// no Kanban por estágio.
+// features/dashboard/components/KanbanAvgDays.tsx — Tempo médio (dias) que os
+// cards passam em cada estágio do Kanban (F13-S05).
 //
-// SVG manual (sem dep). Barras verticais com labels abaixo.
-// Cores tokens DS por índice. Tooltip nativo via <title>.
+// Métrica de gestão interna (gargalos do fluxo). O backend já calcula
+// `kanban.avgDaysInStage`; aqui apenas exibimos. SVG manual (sem dep), no mesmo
+// padrão visual de KanbanBars / ChannelBars.
 // =============================================================================
 
 import * as React from 'react';
 
-import type { KanbanCardsByStageItem } from '../../../hooks/dashboard/types';
-
-interface KanbanBarsProps {
-  data: KanbanCardsByStageItem[];
+export interface KanbanAvgDaysItem {
+  stageId: string;
+  stageName: string;
+  days: number;
 }
 
-// Paleta cíclica de tokens DS para os stages
+interface KanbanAvgDaysProps {
+  data: KanbanAvgDaysItem[];
+}
+
+// Paleta cíclica de tokens DS por estágio (mesma ordem de KanbanBars).
 const STAGE_COLORS = [
   'var(--brand-azul)',
   'var(--brand-verde)',
@@ -25,19 +30,18 @@ const STAGE_COLORS = [
 ];
 
 /**
- * Barras verticais SVG de cards por estágio do Kanban.
- * Ordenado pela ordem de entrada (preserva ordem dos stages).
+ * Barras verticais SVG do tempo médio (dias) por estágio do Kanban.
+ * Ordem preservada conforme recebida (ordem dos stages).
  */
-export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
-  const isEmpty = data.length === 0 || data.every((d) => d.count === 0);
-  const max = Math.max(...data.map((d) => d.count), 1);
+export function KanbanAvgDays({ data }: KanbanAvgDaysProps): React.JSX.Element {
+  const isEmpty = data.length === 0 || data.every((d) => d.days === 0);
+  const max = Math.max(...data.map((d) => d.days), 1);
 
-  // Trunca nome do stage para caber no label
   function truncate(name: string, maxLen = 10): string {
     return name.length > maxLen ? name.slice(0, maxLen - 1) + '…' : name;
   }
 
-  const BAR_HEIGHT = 100; // altura máxima das barras em px (proporcional)
+  const BAR_HEIGHT = 100;
   const BAR_WIDTH = 28;
   const GAP = 12;
   const totalWidth = data.length * (BAR_WIDTH + GAP);
@@ -51,18 +55,12 @@ export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
         className="font-sans font-semibold uppercase mb-4"
         style={{ fontSize: '0.7rem', letterSpacing: '0.12em', color: 'var(--text-3)' }}
       >
-        Cards no kanban por estágio
+        Tempo médio por estágio (dias)
       </p>
 
       {isEmpty ? (
-        <div
-          className="flex flex-col items-center justify-center gap-1 py-8 text-center"
-          style={{ color: 'var(--text-3)' }}
-        >
-          <p className="font-sans text-sm">Nenhum card no board ainda.</p>
-          <p className="font-sans text-xs" style={{ color: 'var(--text-4)' }}>
-            Os leads aparecem aqui conforme entram no Kanban.
-          </p>
+        <div className="flex items-center justify-center py-8" style={{ color: 'var(--text-3)' }}>
+          <p className="font-sans text-sm">Sem dados de permanência no Kanban ainda.</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -70,12 +68,12 @@ export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
             width={Math.max(totalWidth, 200)}
             height={BAR_HEIGHT + 52}
             role="img"
-            aria-label="Gráfico de barras verticais — cards por estágio do Kanban"
+            aria-label="Gráfico de barras — tempo médio em dias por estágio do Kanban"
             style={{ display: 'block', margin: '0 auto' }}
           >
             {data.map((stage, idx) => {
               const barH =
-                max > 0 ? Math.max((stage.count / max) * BAR_HEIGHT, stage.count > 0 ? 4 : 0) : 0;
+                max > 0 ? Math.max((stage.days / max) * BAR_HEIGHT, stage.days > 0 ? 4 : 0) : 0;
               const x = idx * (BAR_WIDTH + GAP);
               const y = BAR_HEIGHT - barH;
               const color = STAGE_COLORS[idx % STAGE_COLORS.length] ?? 'var(--brand-azul)';
@@ -83,7 +81,6 @@ export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
 
               return (
                 <g key={stage.stageId}>
-                  {/* Barra */}
                   <rect
                     x={x}
                     y={y}
@@ -94,11 +91,10 @@ export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
                     opacity={0.9}
                     style={{ transition: 'opacity 150ms ease' }}
                   >
-                    <title>{`${stage.stageName}: ${stage.count.toLocaleString('pt-BR')} card${stage.count !== 1 ? 's' : ''}`}</title>
+                    <title>{`${stage.stageName}: ${stage.days.toLocaleString('pt-BR')} dia${stage.days !== 1 ? 's' : ''} em média`}</title>
                   </rect>
 
-                  {/* Valor acima da barra */}
-                  {stage.count > 0 && (
+                  {stage.days > 0 && (
                     <text
                       x={x + BAR_WIDTH / 2}
                       y={y - 4}
@@ -110,11 +106,10 @@ export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
                         fill: 'var(--text-2)',
                       }}
                     >
-                      {stage.count}
+                      {stage.days}d
                     </text>
                   )}
 
-                  {/* Label abaixo */}
                   <text
                     x={x + BAR_WIDTH / 2}
                     y={BAR_HEIGHT + 14}
@@ -132,7 +127,6 @@ export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
               );
             })}
 
-            {/* Linha de base */}
             <line
               x1={0}
               y1={BAR_HEIGHT}
@@ -152,14 +146,14 @@ export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
 // Skeleton
 // ---------------------------------------------------------------------------
 
-export function KanbanBarsSkeleton(): React.JSX.Element {
+export function KanbanAvgDaysSkeleton(): React.JSX.Element {
   return (
     <div
       className="rounded-md border border-border bg-surface-1 p-5"
       style={{ boxShadow: 'var(--elev-2)', minHeight: '200px' }}
     >
       <div
-        className="mb-4 h-2.5 w-44 rounded-pill animate-pulse"
+        className="mb-4 h-2.5 w-48 rounded-pill animate-pulse"
         style={{ background: 'var(--surface-muted)' }}
       />
       <div className="flex items-end justify-center gap-3 px-4">
@@ -167,10 +161,7 @@ export function KanbanBarsSkeleton(): React.JSX.Element {
           <div key={i} className="flex flex-col items-center gap-2">
             <div
               className="w-7 rounded-xs animate-pulse"
-              style={{
-                background: 'var(--surface-muted)',
-                height: `${50 + i * 12}px`,
-              }}
+              style={{ background: 'var(--surface-muted)', height: `${40 + i * 14}px` }}
             />
             <div
               className="h-2 w-10 rounded-pill animate-pulse"

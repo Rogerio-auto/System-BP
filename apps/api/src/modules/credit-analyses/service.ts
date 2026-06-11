@@ -41,6 +41,8 @@ import {
   findAnalysisById,
   findAnalyses,
   findCurrentVersion,
+  findLeadName,
+  findLeadNamesByIds,
   insertAnalysis,
   insertVersion,
   nextVersionNumber,
@@ -56,6 +58,36 @@ import type {
   CreditAnalysisVersionCreate,
   CreditAnalysisVersionResponse,
 } from './schemas.js';
+
+// ---------------------------------------------------------------------------
+// Erro tipado: já existe análise ativa para o lead
+//
+// O índice único parcial `uq_credit_analyses_org_lead_active` garante no máximo
+// 1 análise ativa (em_analise/pendente) por lead na org. Ao tentar criar uma
+// segunda, o Postgres lança 23505 — mapeamos para 409 (não 500) com mensagem
+// clara, espelhando o padrão de LeadPhoneDuplicateError do módulo de leads.
+// ---------------------------------------------------------------------------
+
+export class AnalysisActiveExistsError extends AppError {
+  constructor() {
+    super(
+      409,
+      'CONFLICT',
+      'Já existe uma análise de crédito ativa para este lead. Conclua ou cancele a análise atual antes de abrir uma nova.',
+      { code: 'CREDIT_ANALYSIS_ACTIVE_EXISTS' },
+    );
+    this.name = 'AnalysisActiveExistsError';
+  }
+}
+
+/** Detecta violação de unique constraint do Postgres (code 23505), opcionalmente por nome. */
+function isUniqueViolation(err: unknown, constraint?: string): boolean {
+  if (err === null || typeof err !== 'object') return false;
+  const e = err as { code?: unknown; constraint?: unknown };
+  if (e.code !== '23505') return false;
+  if (constraint !== undefined && e.constraint !== constraint) return false;
+  return true;
+}
 
 // ---------------------------------------------------------------------------
 // Actor context
@@ -102,6 +134,7 @@ function truncateParecer(text: string, maxLen = 200): string {
 async function toAnalysisResponse(
   db: Database,
   analysis: CreditAnalysis,
+  leadName: string | null,
 ): Promise<CreditAnalysisResponse> {
   let currentVersion: CreditAnalysisVersionResponse | null = null;
 
@@ -116,6 +149,7 @@ async function toAnalysisResponse(
     id: analysis.id,
     organization_id: analysis.organizationId,
     lead_id: analysis.leadId,
+    lead_name: leadName,
     customer_id: analysis.customerId ?? null,
     simulation_id: analysis.simulationId ?? null,
     current_version_id: analysis.currentVersionId ?? null,
@@ -169,7 +203,13 @@ export async function listAnalyses(
 ): Promise<CreditAnalysisListResponse> {
   const { data, total } = await findAnalyses(db, actor.organizationId, actor.cityScopeIds, query);
 
-  const items = await Promise.all(data.map((a) => toAnalysisResponse(db, a)));
+  const leadNames = await findLeadNamesByIds(
+    db,
+    data.map((a) => a.leadId),
+  );
+  const items = await Promise.all(
+    data.map((a) => toAnalysisResponse(db, a, leadNames.get(a.leadId) ?? null)),
+  );
 
   return {
     data: items,
@@ -194,7 +234,7 @@ export async function getAnalysisById(
   const analysis = await findAnalysisById(db, analysisId, actor.organizationId, actor.cityScopeIds);
   if (!analysis) throw new NotFoundError('Análise de crédito não encontrada');
 
-  return toAnalysisResponse(db, analysis);
+  return toAnalysisResponse(db, analysis, await findLeadName(db, analysis.leadId));
 }
 
 // ---------------------------------------------------------------------------
@@ -215,7 +255,13 @@ export async function listAnalysesByLead(
     query,
   );
 
-  const items = await Promise.all(data.map((a) => toAnalysisResponse(db, a)));
+  const leadNames = await findLeadNamesByIds(
+    db,
+    data.map((a) => a.leadId),
+  );
+  const items = await Promise.all(
+    data.map((a) => toAnalysisResponse(db, a, leadNames.get(a.leadId) ?? null)),
+  );
 
   return {
     data: items,
@@ -241,15 +287,25 @@ export async function createAnalysis(
     const txDb = tx as unknown as Database;
 
     // 1. Inserir análise de crédito (sem versão ainda)
-    const created = await insertAnalysis(txDb, {
-      organizationId: actor.organizationId,
-      leadId: body.lead_id,
-      customerId: body.customer_id ?? null,
-      simulationId: body.simulation_id ?? null,
-      analystUserId: body.analyst_user_id ?? actor.userId,
-      status: body.status,
-      origin: body.origin,
-    });
+    // Race/duplicata: o índice único parcial uq_credit_analyses_org_lead_active
+    // impede 2 análises ativas por lead — mapeamos 23505 para 409 (não 500).
+    let created: CreditAnalysis;
+    try {
+      created = await insertAnalysis(txDb, {
+        organizationId: actor.organizationId,
+        leadId: body.lead_id,
+        customerId: body.customer_id ?? null,
+        simulationId: body.simulation_id ?? null,
+        analystUserId: body.analyst_user_id ?? actor.userId,
+        status: body.status,
+        origin: body.origin,
+      });
+    } catch (err: unknown) {
+      if (isUniqueViolation(err, 'uq_credit_analyses_org_lead_active')) {
+        throw new AnalysisActiveExistsError();
+      }
+      throw err;
+    }
 
     // 2. Inserir 1ª versão (parecer inicial)
     const version = await insertVersion(txDb, {
@@ -317,7 +373,7 @@ export async function createAnalysis(
     return updated;
   });
 
-  return toAnalysisResponse(db, analysis);
+  return toAnalysisResponse(db, analysis, await findLeadName(db, analysis.leadId));
 }
 
 // ---------------------------------------------------------------------------
@@ -424,7 +480,7 @@ export async function addVersion(
     return result;
   });
 
-  return toAnalysisResponse(db, updated);
+  return toAnalysisResponse(db, updated, await findLeadName(db, updated.leadId));
 }
 
 // ---------------------------------------------------------------------------
@@ -558,7 +614,7 @@ export async function decideAnalysis(
     return result;
   });
 
-  return toAnalysisResponse(db, updated);
+  return toAnalysisResponse(db, updated, await findLeadName(db, updated.leadId));
 }
 
 // ---------------------------------------------------------------------------
@@ -691,7 +747,7 @@ export async function requestReview(
     return result;
   });
 
-  return toAnalysisResponse(db, updated);
+  return toAnalysisResponse(db, updated, await findLeadName(db, updated.leadId));
 }
 
 // ---------------------------------------------------------------------------

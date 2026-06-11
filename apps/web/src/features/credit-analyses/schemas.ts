@@ -148,6 +148,8 @@ export interface CreditAnalysisResponse {
   id: string;
   organization_id: string;
   lead_id: string;
+  /** Nome do lead (PII) — exibido ao analista autorizado. null se não encontrado. */
+  lead_name: string | null;
   customer_id: string | null;
   simulation_id: string | null;
   current_version_id: string | null;

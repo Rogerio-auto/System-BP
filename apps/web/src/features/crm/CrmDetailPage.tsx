@@ -17,6 +17,7 @@
 //   - Sem console.log(lead)
 // =============================================================================
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { Link, useParams } from 'react-router-dom';
 
@@ -34,8 +35,10 @@ import {
   formatDate,
   formatRelativeDate,
 } from '../../hooks/crm/types';
-import { useLead, useLeadInteractions } from '../../hooks/crm/useLead';
+import { LEAD_QUERY_KEY, useLead, useLeadInteractions } from '../../hooks/crm/useLead';
 import { useUpdateLead } from '../../hooks/crm/useUpdateLead';
+import { useKanbanStages } from '../../hooks/kanban/useKanbanStages';
+import { api, ApiError } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import { LeadCreditAnalysisTab } from '../leads/components/LeadCreditAnalysisTab';
 
@@ -339,6 +342,26 @@ export function CrmDetailPage(): React.JSX.Element {
   const { interactions, isLoading: loadingInteractions } = useLeadInteractions(leadId);
   const [editOpen, setEditOpen] = React.useState(false);
 
+  // Mudança de estágio de Kanban a partir da ficha (F13-S03) — reusa o move do board.
+  const { stages: kanbanStages } = useKanbanStages();
+  const { toast: detailToast } = useToast();
+  const queryClient = useQueryClient();
+  const moveStageMutation = useMutation({
+    mutationFn: ({ cardId, toStageId }: { cardId: string; toStageId: string }) =>
+      api.post(`/api/kanban/cards/${cardId}/move`, { toStageId }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: LEAD_QUERY_KEY(leadId) });
+      detailToast('Estágio atualizado.', 'success');
+    },
+    onError: (err: Error) => {
+      const msg =
+        err instanceof ApiError && err.status === 422
+          ? 'Transição de estágio não permitida.'
+          : 'Erro ao mudar o estágio.';
+      detailToast(msg, 'danger');
+    },
+  });
+
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
@@ -493,15 +516,55 @@ export function CrmDetailPage(): React.JSX.Element {
                     </p>
                   </div>
 
-                  {/* Status */}
+                  {/* Status de atendimento */}
                   <div>
                     <p
                       className="font-sans font-semibold text-ink-3 uppercase mb-1"
                       style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
                     >
-                      Status
+                      Status de atendimento
                     </p>
                     {statusMeta && <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>}
+                  </div>
+
+                  {/* Cidade (F13-S03) */}
+                  <div>
+                    <p
+                      className="font-sans font-semibold text-ink-3 uppercase mb-1"
+                      style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+                    >
+                      Cidade
+                    </p>
+                    <p className="font-sans text-sm text-ink-2">
+                      {lead.city_name ?? <span className="text-ink-4">—</span>}
+                    </p>
+                  </div>
+
+                  {/* Estágio de Kanban — gestão interna, editável pela ficha (F13-S03) */}
+                  <div>
+                    <p
+                      className="font-sans font-semibold text-ink-3 uppercase mb-1"
+                      style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+                    >
+                      Estágio (Kanban)
+                    </p>
+                    {lead.kanban_card_id ? (
+                      <Select
+                        id="lead-kanban-stage"
+                        value={lead.kanban_stage?.id ?? ''}
+                        options={kanbanStages.map((s) => ({ value: s.id, label: s.name }))}
+                        disabled={moveStageMutation.isPending}
+                        onChange={(e) => {
+                          const toStageId = e.target.value;
+                          const cardId = lead.kanban_card_id;
+                          if (cardId && toStageId && toStageId !== lead.kanban_stage?.id) {
+                            moveStageMutation.mutate({ cardId, toStageId });
+                          }
+                        }}
+                      />
+                    ) : (
+                      <p className="font-sans text-sm text-ink-4">Sem card no board</p>
+                    )}
                   </div>
 
                   {/* Canal */}
