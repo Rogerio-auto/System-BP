@@ -8,6 +8,7 @@
 // LGPD (doc 17 §8.1):
 //   phone_e164 e email são PII — cobertos por pino.redact na API.
 //   cpf bruto NUNCA é armazenado em texto puro — apenas cpf_hash (HMAC).
+//   cnpj é dado de PJ — texto claro, tratado com cuidado em logs (F14-S01 D1).
 //
 // Enums canônicos definidos aqui para evitar duplicação entre api e web.
 // =============================================================================
@@ -49,7 +50,13 @@ export function normalizePhone(phoneE164: string): string {
 // Create
 // ---------------------------------------------------------------------------
 
-export const LeadCreateSchema = z.object({
+/**
+ * Schema base de create — objeto Zod puro sem refinamentos.
+ * Exportado para permitir que LeadUpdateSchema reutilize via .omit().partial()
+ * sem herdar o superRefine de email-obrigatório-no-manual (que não se aplica
+ * a updates parciais, onde source pode não ser informado).
+ */
+export const LeadCreateBaseSchema = z.object({
   /** Nome completo do lead. LGPD: PII. */
   name: z.string({ required_error: 'name é obrigatório' }).min(1).max(255),
 
@@ -65,7 +72,7 @@ export const LeadCreateSchema = z.object({
   /** Status inicial. Default: new. */
   status: LeadStatusSchema.optional().default('new'),
 
-  /** Email opcional. LGPD: PII. */
+  /** Email opcional na maioria das origens. Obrigatório quando source='manual'. LGPD: PII. */
   email: z
     .string()
     .email('Email inválido')
@@ -97,6 +104,48 @@ export const LeadCreateSchema = z.object({
 
   /** Agente responsável pelo atendimento. Opcional no create. */
   agent_id: z.string().uuid('agent_id deve ser UUID').optional().nullable(),
+
+  /**
+   * CNPJ da empresa (lead pessoa jurídica).
+   * Aceita formato com máscara (00.000.000/0000-00) ou somente dígitos (14).
+   * Validação de dígito verificador não é realizada (D1: texto claro no DB).
+   * null = lead pessoa física ou CNPJ não informado.
+   */
+  cnpj: z
+    .string()
+    .regex(
+      /^(\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2})$/,
+      'CNPJ inválido — use 14 dígitos ou formato 00.000.000/0000-00',
+    )
+    .optional()
+    .nullable(),
+
+  /**
+   * Razão social da empresa (lead pessoa jurídica).
+   * null = lead pessoa física ou razão social não informada.
+   */
+  legal_name: z.string().min(1).max(255).optional().nullable(),
+});
+
+/**
+ * Schema de create com regras de negócio cross-field.
+ * Adiciona superRefine: email obrigatório quando source='manual' (D2 F14-S02).
+ *
+ * Canal interno (getOrCreateLead / LangGraph) NÃO usa este schema — opera via
+ * GetOrCreateLeadInput (service.ts), que nunca tem source='manual'. O superRefine
+ * não o afeta mesmo que alguém tentasse construir um LeadCreate manual para ele.
+ */
+export const LeadCreateSchema = LeadCreateBaseSchema.superRefine((data, ctx) => {
+  // Email obrigatório no cadastro manual (D2 F14-S02).
+  // Origens automáticas (whatsapp, import, chatwoot, api) coletam o email
+  // progressivamente ao longo do atendimento — pode ser null no primeiro contato.
+  if (data.source === 'manual' && (data.email === null || data.email === undefined)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['email'],
+      message: 'Email é obrigatório para cadastro manual',
+    });
+  }
 });
 
 export type LeadCreate = z.infer<typeof LeadCreateSchema>;
@@ -105,7 +154,7 @@ export type LeadCreate = z.infer<typeof LeadCreateSchema>;
 // Update (partial)
 // ---------------------------------------------------------------------------
 
-export const LeadUpdateSchema = LeadCreateSchema.omit({
+export const LeadUpdateSchema = LeadCreateBaseSchema.omit({
   // phone_e164 não muda após criação — muda através de dedupe
   phone_e164: true,
   // city_id pode ser atualizado (transferência de cidade)
@@ -147,6 +196,10 @@ export const LeadResponseSchema = z.object({
   email: z.string().nullable(),
   notes: z.string().nullable(),
   metadata: z.record(z.unknown()),
+  /** CNPJ da empresa (lead PJ). null = lead PF ou CNPJ não informado. */
+  cnpj: z.string().nullable(),
+  /** Razão social da empresa (lead PJ). null = lead PF ou não informada. */
+  legal_name: z.string().nullable(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
   deleted_at: z.string().datetime().nullable(),

@@ -40,6 +40,7 @@ import { kanbanCards } from '../../db/schema/kanbanCards.js';
 import { kanbanStages } from '../../db/schema/kanbanStages.js';
 import { leads } from '../../db/schema/leads.js';
 import type { Lead } from '../../db/schema/leads.js';
+import { users } from '../../db/schema/users.js';
 
 import type { LeadListQuery } from './schemas.js';
 
@@ -125,6 +126,10 @@ export interface CreateLeadInput {
   cpfHash?: string | null;
   notes?: string | null;
   metadata?: Record<string, unknown>;
+  /** CNPJ da empresa (lead PJ). Texto claro (D1). null = lead PF. */
+  cnpj?: string | null;
+  /** Razão social da empresa (lead PJ). null = lead PF. */
+  legalName?: string | null;
 }
 
 export interface UpdateLeadInput {
@@ -136,6 +141,10 @@ export interface UpdateLeadInput {
   email?: string | null;
   notes?: string | null;
   metadata?: Record<string, unknown>;
+  /** CNPJ da empresa (lead PJ). Texto claro (D1). */
+  cnpj?: string | null;
+  /** Razão social da empresa (lead PJ). */
+  legalName?: string | null;
   updatedAt: Date;
 }
 
@@ -394,6 +403,8 @@ export async function insertLead(db: Database, input: CreateLeadInput): Promise<
       cpfHash: input.cpfHash ?? null,
       notes: input.notes ?? null,
       metadata: input.metadata ?? {},
+      cnpj: input.cnpj ?? null,
+      legalName: input.legalName ?? null,
     })
     .returning();
 
@@ -465,6 +476,43 @@ export async function softDeleteLead(
     .returning();
 
   return rows[0] ?? null;
+}
+
+/**
+ * Verifica se o email fornecido pertence a algum usuário interno da organização.
+ *
+ * Segurança (F14-S02 D3): bloquear que um agente cadastre seu próprio email
+ * (ou de outro colega) como email de contato do lead — evita confusão de
+ * identidade e exposição de emails internos no CRM.
+ *
+ * A comparação usa citext (case-insensitive) via lower() na query, garantindo
+ * que "Agente@BDP.gov.br" bate com "agente@bdp.gov.br".
+ *
+ * Considera soft-delete de users: usuários deletados não bloqueiam o cadastro
+ * (se o agente saiu da organização, o email já pode ser reutilizado pelo lead).
+ *
+ * @returns true se o email é de um usuário ativo/pendente/disabled da org.
+ */
+export async function isInternalEmail(
+  db: Database,
+  orgId: string,
+  email: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(
+        eq(users.organizationId, orgId),
+        // lower() no lado direito garante comparação case-insensitive mesmo fora do citext
+        // (o tipo citext já é case-insensitive, mas sql`` torna a intenção explícita).
+        sql`lower(${users.email}) = lower(${email})`,
+        isNull(users.deletedAt),
+      ),
+    )
+    .limit(1);
+
+  return rows.length > 0;
 }
 
 /**

@@ -11,6 +11,7 @@
 
 // Re-exporta os schemas públicos (usados pelo frontend também)
 export {
+  LeadCreateBaseSchema,
   LeadCreateSchema,
   LeadUpdateSchema,
   LeadResponseSchema,
