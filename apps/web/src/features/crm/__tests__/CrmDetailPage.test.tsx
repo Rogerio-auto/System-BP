@@ -41,6 +41,8 @@ const MOCK_LEAD: LeadResponse = {
   source: 'whatsapp',
   status: 'qualifying',
   email: 'anapaula.ferreira@gmail.com',
+  cnpj: null,
+  legal_name: null,
   notes: 'Interessada em microcrédito para capital de giro. Atendida na filial Porto Velho.',
   metadata: {},
   created_at: new Date(Date.now() - 5 * 86_400_000).toISOString(),
