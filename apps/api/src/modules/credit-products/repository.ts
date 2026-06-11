@@ -316,9 +316,6 @@ export async function findActiveRule(
 }
 
 /**
- * Retorna o max version atual de um produto (0 se não houver regras).
- */
-/**
  * Busca uma regra específica de um produto pela versão.
  * Usado para "ativar/usar uma versão" (clone) — F13-S06.
  */
@@ -340,6 +337,9 @@ export async function findRuleByProductAndVersion(
   return rows[0] ?? null;
 }
 
+/**
+ * Retorna o max version atual de um produto (0 se não houver regras).
+ */
 export async function getMaxRuleVersion(db: Database, productId: string): Promise<number> {
   const rows = await db
     .select({ maxVersion: max(creditProductRules.version) })

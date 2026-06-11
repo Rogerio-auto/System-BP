@@ -42,6 +42,7 @@ import {
   findAnalyses,
   findCurrentVersion,
   findLeadName,
+  findLeadNamesByIds,
   insertAnalysis,
   insertVersion,
   nextVersionNumber,
@@ -133,6 +134,7 @@ function truncateParecer(text: string, maxLen = 200): string {
 async function toAnalysisResponse(
   db: Database,
   analysis: CreditAnalysis,
+  leadName: string | null,
 ): Promise<CreditAnalysisResponse> {
   let currentVersion: CreditAnalysisVersionResponse | null = null;
 
@@ -142,9 +144,6 @@ async function toAnalysisResponse(
       currentVersion = toVersionResponse(version);
     }
   }
-
-  // Nome do lead para exibição (PII — RBAC já validado no acesso à análise).
-  const leadName = await findLeadName(db, analysis.leadId);
 
   return {
     id: analysis.id,
@@ -204,7 +203,13 @@ export async function listAnalyses(
 ): Promise<CreditAnalysisListResponse> {
   const { data, total } = await findAnalyses(db, actor.organizationId, actor.cityScopeIds, query);
 
-  const items = await Promise.all(data.map((a) => toAnalysisResponse(db, a)));
+  const leadNames = await findLeadNamesByIds(
+    db,
+    data.map((a) => a.leadId),
+  );
+  const items = await Promise.all(
+    data.map((a) => toAnalysisResponse(db, a, leadNames.get(a.leadId) ?? null)),
+  );
 
   return {
     data: items,
@@ -229,7 +234,7 @@ export async function getAnalysisById(
   const analysis = await findAnalysisById(db, analysisId, actor.organizationId, actor.cityScopeIds);
   if (!analysis) throw new NotFoundError('Análise de crédito não encontrada');
 
-  return toAnalysisResponse(db, analysis);
+  return toAnalysisResponse(db, analysis, await findLeadName(db, analysis.leadId));
 }
 
 // ---------------------------------------------------------------------------
@@ -250,7 +255,13 @@ export async function listAnalysesByLead(
     query,
   );
 
-  const items = await Promise.all(data.map((a) => toAnalysisResponse(db, a)));
+  const leadNames = await findLeadNamesByIds(
+    db,
+    data.map((a) => a.leadId),
+  );
+  const items = await Promise.all(
+    data.map((a) => toAnalysisResponse(db, a, leadNames.get(a.leadId) ?? null)),
+  );
 
   return {
     data: items,
@@ -362,7 +373,7 @@ export async function createAnalysis(
     return updated;
   });
 
-  return toAnalysisResponse(db, analysis);
+  return toAnalysisResponse(db, analysis, await findLeadName(db, analysis.leadId));
 }
 
 // ---------------------------------------------------------------------------
@@ -469,7 +480,7 @@ export async function addVersion(
     return result;
   });
 
-  return toAnalysisResponse(db, updated);
+  return toAnalysisResponse(db, updated, await findLeadName(db, updated.leadId));
 }
 
 // ---------------------------------------------------------------------------
@@ -603,7 +614,7 @@ export async function decideAnalysis(
     return result;
   });
 
-  return toAnalysisResponse(db, updated);
+  return toAnalysisResponse(db, updated, await findLeadName(db, updated.leadId));
 }
 
 // ---------------------------------------------------------------------------
@@ -736,7 +747,7 @@ export async function requestReview(
     return result;
   });
 
-  return toAnalysisResponse(db, updated);
+  return toAnalysisResponse(db, updated, await findLeadName(db, updated.leadId));
 }
 
 // ---------------------------------------------------------------------------

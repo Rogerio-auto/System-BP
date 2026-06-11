@@ -234,6 +234,23 @@ export async function findLeadName(db: Database, leadId: string): Promise<string
   return rows[0]?.name ?? null;
 }
 
+/**
+ * Mapa leadId → name para um conjunto de leads (batch — evita N+1 na listagem).
+ * PII — exibido apenas ao analista autorizado; acesso já validado antes.
+ */
+export async function findLeadNamesByIds(
+  db: Database,
+  leadIds: string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(leadIds)];
+  if (unique.length === 0) return new Map();
+  const rows = await db
+    .select({ id: leads.id, name: leads.name })
+    .from(leads)
+    .where(inArray(leads.id, unique));
+  return new Map(rows.map((r) => [r.id, r.name]));
+}
+
 // ---------------------------------------------------------------------------
 // Histórico por lead
 // ---------------------------------------------------------------------------

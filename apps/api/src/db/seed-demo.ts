@@ -266,6 +266,14 @@ async function wipe(orgId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  // Guard de segurança: NUNCA rodar o seed de demonstração em produção.
+  // Recria o domínio (wipe) e injeta credenciais fracas de demo — proibido em prod.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'db:seed-demo é proibido em produção (NODE_ENV=production). Operação abortada.',
+    );
+  }
+
   faker.seed(2026);
 
   client = await pool.connect();

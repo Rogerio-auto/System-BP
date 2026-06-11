@@ -126,6 +126,8 @@ export async function buildApp() {
           // Chatwoot PII (F1-S20) — LGPD §8.3
           // *.content pode conter texto livre do cidadão (mensagens, notas internas)
           '*.content',
+          // Nome do lead exposto em responses do CRM/análise (F13) — PII (LGPD §8.3)
+          '*.lead_name',
           // Playground (F9-S04) — LGPD §8.4
           // *.message pode conter mensagem do operador (PII potencial antes de DLP)
           '*.message',
