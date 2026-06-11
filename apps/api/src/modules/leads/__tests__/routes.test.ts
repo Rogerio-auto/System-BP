@@ -107,6 +107,8 @@ function makeLeadResponse(overrides: Record<string, unknown> = {}) {
     email: null,
     notes: null,
     metadata: {},
+    cnpj: null,
+    legal_name: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     deleted_at: null,
@@ -120,6 +122,8 @@ const CREATE_PAYLOAD = {
   city_id: FIXTURE_CITY_ID,
   source: 'manual',
   status: 'new',
+  // email obrigatório no source=manual (F14-S02)
+  email: 'joao@example.com',
 };
 
 // ---------------------------------------------------------------------------

@@ -67,6 +67,7 @@ const mockInsertLead = vi.fn();
 const mockUpdateLead = vi.fn();
 const mockSoftDeleteLead = vi.fn();
 const mockRestoreLead = vi.fn();
+const mockIsInternalEmail = vi.fn();
 
 vi.mock('../repository.js', () => ({
   findLeads: (...args: unknown[]) => mockFindLeads(...args),
@@ -77,6 +78,7 @@ vi.mock('../repository.js', () => ({
   updateLead: (...args: unknown[]) => mockUpdateLead(...args),
   softDeleteLead: (...args: unknown[]) => mockSoftDeleteLead(...args),
   restoreLead: (...args: unknown[]) => mockRestoreLead(...args),
+  isInternalEmail: (...args: unknown[]) => mockIsInternalEmail(...args),
   // F13-S03/S07: enriquecimento CRM — mocks retornam vazio (não afetam asserts existentes).
   findCityNamesByIds: () => Promise.resolve(new Map()),
   findCurrentStagesByLeadIds: () => Promise.resolve(new Map()),
@@ -189,7 +191,12 @@ function makeLead(overrides: Record<string, unknown> = {}) {
     cpfHash: null,
     notes: null,
     lastSimulationId: null,
+    lastAnalysisId: null,
     metadata: {},
+    cnpj: null,
+    legalName: null,
+    notionPageId: null,
+    anonymizedAt: null,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
     deletedAt: null,
@@ -218,6 +225,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   mockEmit.mockResolvedValue('mock-event-id');
   mockAuditLog.mockResolvedValue('mock-audit-id');
+  // Default: email não é interno — a maioria dos testes não testa esse caminho.
+  mockIsInternalEmail.mockResolvedValue(false);
   // Stage inicial padrão para testes — createLead em sucesso cria card.
   mockFindInitialStage.mockResolvedValue({
     id: 'stage-pre-atendimento',
@@ -441,6 +450,126 @@ describe('createLead', () => {
     expect(after['phone_e164']).toBe('[redacted]');
     expect(after['email']).toBe('[redacted]');
     expect(after['name']).toBe('[redacted]');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 1b: F14-S02 — Lead PJ + email rules (novos cenários)
+// ---------------------------------------------------------------------------
+
+describe('F14-S02 — email e CNPJ', () => {
+  it('create com CNPJ e razão social → persistidos e no response', async () => {
+    const newLead = makeLead({
+      id: 'pj-lead-id',
+      cnpj: '11.222.333/0001-81',
+      legalName: 'Empresa Teste LTDA',
+      email: 'contato@empresa.com',
+    });
+
+    mockFindLeadByPhoneInOrg.mockResolvedValueOnce(null);
+    mockIsInternalEmail.mockResolvedValueOnce(false);
+    mockInsertLead.mockResolvedValueOnce(newLead);
+
+    const { createLead } = await import('../service.js');
+    const body = { ...CREATE_BODY, cnpj: '11.222.333/0001-81', legal_name: 'Empresa Teste LTDA' };
+    const result = await createLead(
+      mockDb as unknown as Parameters<typeof createLead>[0],
+      ACTOR,
+      body,
+    );
+
+    expect(result.cnpj).toBe('11.222.333/0001-81');
+    expect(result.legal_name).toBe('Empresa Teste LTDA');
+
+    // cnpj e legalName devem ter sido passados ao insertLead
+    const insertArg = (mockInsertLead.mock.calls[0] as unknown[])[1] as Record<string, unknown>;
+    expect(insertArg['cnpj']).toBe('11.222.333/0001-81');
+    expect(insertArg['legalName']).toBe('Empresa Teste LTDA');
+  });
+
+  it('create manual sem email → 422 (superRefine)', async () => {
+    const { LeadCreateSchema } = await import('@elemento/shared-schemas');
+
+    const result = LeadCreateSchema.safeParse({
+      name: 'João',
+      phone_e164: '+5569987654321',
+      city_id: CITY_A,
+      source: 'manual',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const emailIssue = result.error.issues.find((i) => i.path.includes('email'));
+      expect(emailIssue).toBeDefined();
+      expect(emailIssue?.message).toMatch(/obrigatório/i);
+    }
+  });
+
+  it('create whatsapp sem email → ok (email não obrigatório fora do manual)', async () => {
+    const { LeadCreateSchema } = await import('@elemento/shared-schemas');
+
+    const result = LeadCreateSchema.safeParse({
+      name: 'João',
+      phone_e164: '+5569987654321',
+      city_id: CITY_A,
+      source: 'whatsapp',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('create com email duplicado (23505 uq_leads_org_email_active) → 409 LeadEmailDuplicateError', async () => {
+    mockFindLeadByPhoneInOrg.mockResolvedValueOnce(null);
+    mockIsInternalEmail.mockResolvedValueOnce(false);
+
+    const pgError = Object.assign(new Error('unique violation'), {
+      code: '23505',
+      constraint: 'uq_leads_org_email_active',
+    });
+    mockInsertLead.mockRejectedValueOnce(pgError);
+
+    const { createLead, LeadEmailDuplicateError } = await import('../service.js');
+
+    await expect(
+      createLead(mockDb as unknown as Parameters<typeof createLead>[0], ACTOR, CREATE_BODY),
+    ).rejects.toBeInstanceOf(LeadEmailDuplicateError);
+  });
+
+  it('create com email interno → 422 LeadEmailInternalError', async () => {
+    mockFindLeadByPhoneInOrg.mockResolvedValueOnce(null);
+    mockIsInternalEmail.mockResolvedValueOnce(true); // email é interno
+
+    const { createLead, LeadEmailInternalError } = await import('../service.js');
+
+    await expect(
+      createLead(mockDb as unknown as Parameters<typeof createLead>[0], ACTOR, CREATE_BODY),
+    ).rejects.toBeInstanceOf(LeadEmailInternalError);
+
+    // Não deve ter chegado ao insertLead
+    expect(mockInsertLead).not.toHaveBeenCalled();
+  });
+
+  it('create positivo PJ — lead_response inclui cnpj e legal_name não-nulos', async () => {
+    const newLead = makeLead({
+      id: 'pj-lead-resp',
+      cnpj: '12345678000195',
+      legalName: 'PJ Teste ME',
+      email: 'financeiro@pjteste.com',
+    });
+
+    mockFindLeadByPhoneInOrg.mockResolvedValueOnce(null);
+    mockIsInternalEmail.mockResolvedValueOnce(false);
+    mockInsertLead.mockResolvedValueOnce(newLead);
+
+    const { createLead } = await import('../service.js');
+    const result = await createLead(
+      mockDb as unknown as Parameters<typeof createLead>[0],
+      ACTOR,
+      CREATE_BODY,
+    );
+
+    expect(result.cnpj).toBe('12345678000195');
+    expect(result.legal_name).toBe('PJ Teste ME');
   });
 });
 

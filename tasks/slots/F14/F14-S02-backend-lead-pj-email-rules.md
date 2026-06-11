@@ -3,12 +3,12 @@ id: F14-S02
 title: Backend — lead PJ + email obrigatório no manual + unicidade + bloqueio interno
 phase: F14
 task_ref: null
-status: blocked
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-11T21:28:29Z
+completed_at: 2026-06-11T21:41:47Z
 pr_url: null
 depends_on: [F14-S01]
 blocks: [F14-S03, F14-S04]

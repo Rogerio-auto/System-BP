@@ -46,6 +46,7 @@ import {
   findLeadByPhoneInOrgExcluding,
   findLeads,
   insertLead,
+  isInternalEmail,
   restoreLead,
   softDeleteLead,
   updateLead,
@@ -72,6 +73,37 @@ export class LeadPhoneDuplicateError extends AppError {
       ...(phone !== undefined ? { phone_e164: '[redacted]' } : {}),
     });
     this.name = 'LeadPhoneDuplicateError';
+  }
+}
+
+/**
+ * Erro de unicidade de email por organização.
+ * Lançado quando um email ativo já está associado a outro lead na mesma org.
+ * HTTP 409 para que o frontend possa exibir mensagem específica sem 500.
+ *
+ * LGPD §8.5: email não é logado — apenas o código de erro.
+ */
+export class LeadEmailDuplicateError extends AppError {
+  constructor() {
+    super(409, 'CONFLICT', 'Este email já está cadastrado nesta organização', {
+      code: 'LEAD_EMAIL_DUPLICATE',
+    });
+    this.name = 'LeadEmailDuplicateError';
+  }
+}
+
+/**
+ * Erro de tentativa de usar email interno (de usuário da plataforma) como email de lead.
+ * HTTP 422 porque é um erro semântico: o dado fornecido é inválido para este contexto.
+ *
+ * D3 (F14-S02): evita confusão de identidade e exposição de emails internos no CRM.
+ */
+export class LeadEmailInternalError extends AppError {
+  constructor() {
+    super(422, 'VALIDATION_ERROR', 'Use o email do cliente, não um email interno', {
+      code: 'LEAD_EMAIL_INTERNAL',
+    });
+    this.name = 'LeadEmailInternalError';
   }
 }
 
@@ -112,6 +144,9 @@ function redactLeadPii(obj: Record<string, unknown>): Record<string, unknown> {
     ...(obj['cpfHash'] !== undefined ? { cpfHash: '[redacted]' } : {}),
     // name é PII (identificação direta da pessoa)
     ...(obj['name'] !== undefined ? { name: '[redacted]' } : {}),
+    // cnpj: dado de PJ — fora do escopo estrito de PF (LGPD art. 5 I), mas
+    // redactado em audit_log por precaução (pode revelar intenção de crédito).
+    ...(obj['cnpj'] !== undefined ? { cnpj: '[redacted]' } : {}),
   };
 }
 
@@ -144,6 +179,8 @@ function toLeadResponse(lead: Lead, extras?: LeadResponseExtras): LeadResponse {
     notes: lead.notes ?? null,
     // `as` justificado: metadata é JSONB — Drizzle retorna Record<string,unknown>
     metadata: (lead.metadata as Record<string, unknown>) ?? {},
+    cnpj: lead.cnpj ?? null,
+    legal_name: lead.legalName ?? null,
     created_at: lead.createdAt.toISOString(),
     updated_at: lead.updatedAt.toISOString(),
     deleted_at: lead.deletedAt?.toISOString() ?? null,
@@ -281,7 +318,17 @@ export async function createLead(
     throw new LeadPhoneDuplicateError(body.phone_e164);
   }
 
-  // 3. Derivar cpf_hash se CPF fornecido
+  // 3. Bloqueio de email interno (D3 F14-S02):
+  // Se o email informado pertence a um usuário ativo da org → 422.
+  // LGPD §8.5: não logamos o email aqui — apenas o código de erro.
+  if (body.email !== null && body.email !== undefined) {
+    const internal = await isInternalEmail(db, actor.organizationId, body.email);
+    if (internal) {
+      throw new LeadEmailInternalError();
+    }
+  }
+
+  // 4. Derivar cpf_hash se CPF fornecido
   // LGPD: cpf bruto nunca é persistido — hashDocument usa HMAC-SHA256 com pepper.
   let cpfHash: string | null = null;
   if (body.cpf !== null && body.cpf !== undefined && body.cpf.length > 0) {
@@ -290,7 +337,7 @@ export async function createLead(
     cpfHash = hashDocument(cpfNormalized);
   }
 
-  // 4. Criar em transação (lead + outbox + audit)
+  // 5. Criar em transação (lead + outbox + audit)
   const lead = await db.transaction(async (tx) => {
     let created: Lead;
     try {
@@ -307,10 +354,16 @@ export async function createLead(
         cpfHash,
         notes: body.notes ?? null,
         metadata: body.metadata ?? {},
+        cnpj: body.cnpj ?? null,
+        legalName: body.legal_name ?? null,
       });
     } catch (err: unknown) {
       // Race condition: unique constraint parcial da DB
       // pg error code 23505 = unique_violation
+      // Distinguimos pelo nome da constraint para mapear ao erro correto.
+      if (isUniqueViolation(err, 'uq_leads_org_email_active')) {
+        throw new LeadEmailDuplicateError();
+      }
       if (isPgUniqueViolation(err)) {
         throw new LeadPhoneDuplicateError(body.phone_e164);
       }
@@ -410,7 +463,16 @@ export async function updateLeadService(
   const before = await findLeadById(db, leadId, actor.organizationId, actor.cityScopeIds);
   if (!before) throw new NotFoundError('Lead não encontrado');
 
-  // 2. Derivar cpf_hash se CPF fornecido na atualização
+  // 2. Bloqueio de email interno (D3 F14-S02):
+  // Se o email está sendo alterado e pertence a um usuário ativo da org → 422.
+  if (body.email !== null && body.email !== undefined && body.email !== before.email) {
+    const internal = await isInternalEmail(db, actor.organizationId, body.email);
+    if (internal) {
+      throw new LeadEmailInternalError();
+    }
+  }
+
+  // 3. Derivar cpf_hash se CPF fornecido na atualização
   // LGPD: cpf bruto nunca é persistido
   let cpfHash: string | null | undefined;
   if (body.cpf !== null && body.cpf !== undefined && body.cpf.length > 0) {
@@ -421,7 +483,7 @@ export async function updateLeadService(
   }
   // undefined = não alterar
 
-  // 3. Determinar campos alterados (para o outbox event)
+  // 4. Determinar campos alterados (para o outbox event)
   const changedFields: string[] = [];
   if (body.name !== undefined && body.name !== before.name) changedFields.push('name');
   if (body.city_id !== undefined && body.city_id !== before.cityId) changedFields.push('city_id');
@@ -432,26 +494,39 @@ export async function updateLeadService(
   if (body.email !== undefined && body.email !== before.email) changedFields.push('email');
   if (body.notes !== undefined && body.notes !== before.notes) changedFields.push('notes');
   if (body.metadata !== undefined) changedFields.push('metadata');
+  if (body.cnpj !== undefined && body.cnpj !== before.cnpj) changedFields.push('cnpj');
+  if (body.legal_name !== undefined && body.legal_name !== before.legalName)
+    changedFields.push('legal_name');
 
   const after = await db.transaction(async (tx) => {
-    const updated = await updateLead(
-      tx as unknown as Database,
-      leadId,
-      actor.organizationId,
-      actor.cityScopeIds,
-      {
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.city_id !== undefined ? { cityId: body.city_id } : {}),
-        ...(body.agent_id !== undefined ? { agentId: body.agent_id } : {}),
-        ...(body.source !== undefined ? { source: body.source } : {}),
-        ...(body.status !== undefined ? { status: body.status } : {}),
-        ...(body.email !== undefined ? { email: body.email } : {}),
-        ...(body.notes !== undefined ? { notes: body.notes } : {}),
-        ...(body.metadata !== undefined ? { metadata: body.metadata } : {}),
-        ...(cpfHash !== undefined ? { cpfHash } : {}),
-        updatedAt: new Date(),
-      },
-    );
+    let updated: Lead | null = null;
+    try {
+      updated = await updateLead(
+        tx as unknown as Database,
+        leadId,
+        actor.organizationId,
+        actor.cityScopeIds,
+        {
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.city_id !== undefined ? { cityId: body.city_id } : {}),
+          ...(body.agent_id !== undefined ? { agentId: body.agent_id } : {}),
+          ...(body.source !== undefined ? { source: body.source } : {}),
+          ...(body.status !== undefined ? { status: body.status } : {}),
+          ...(body.email !== undefined ? { email: body.email } : {}),
+          ...(body.notes !== undefined ? { notes: body.notes } : {}),
+          ...(body.metadata !== undefined ? { metadata: body.metadata } : {}),
+          ...(cpfHash !== undefined ? { cpfHash } : {}),
+          ...(body.cnpj !== undefined ? { cnpj: body.cnpj } : {}),
+          ...(body.legal_name !== undefined ? { legalName: body.legal_name } : {}),
+          updatedAt: new Date(),
+        },
+      );
+    } catch (err: unknown) {
+      if (isUniqueViolation(err, 'uq_leads_org_email_active')) {
+        throw new LeadEmailDuplicateError();
+      }
+      throw err;
+    }
 
     if (!updated) throw new NotFoundError('Lead não encontrado');
 
@@ -969,4 +1044,17 @@ function isPgUniqueViolation(err: unknown): boolean {
   const code = 'code' in err ? (err as { code: unknown }).code : undefined;
 
   return code === '23505';
+}
+
+/**
+ * Verifica se um erro é violação de unique constraint do PostgreSQL (code 23505),
+ * opcionalmente filtrando pelo nome da constraint.
+ * Usado para distinguir entre violações de phone vs email no createLead.
+ */
+function isUniqueViolation(err: unknown, constraint?: string): boolean {
+  if (err === null || typeof err !== 'object') return false;
+  const e = err as { code?: unknown; constraint?: unknown };
+  if (e.code !== '23505') return false;
+  if (constraint !== undefined && e.constraint !== constraint) return false;
+  return true;
 }
