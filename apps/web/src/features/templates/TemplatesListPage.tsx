@@ -16,6 +16,7 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 
+import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
 import { ContextualHelp } from '../help/contextual';
@@ -182,9 +183,21 @@ export function TemplatesListPage(): React.JSX.Element {
   const { hasPermission } = useAuth();
   const [filters, setFilters] = React.useState<TemplateFilters>({ page: 1, limit: 20 });
 
+  const { toast } = useToast();
   const { data, isLoading, isError, error, refetch } = useTemplates(filters);
   const { syncAll, isPending: isSyncing } = useSyncAllTemplates({
-    onSuccess: () => void refetch(),
+    onSuccess: () => {
+      void refetch();
+      toast('Templates sincronizados com a Meta.', 'success');
+    },
+    onError: (msg) => {
+      // O sync chama a Meta (WhatsApp Cloud API). 502 = integração não configurada
+      // ou indisponível neste ambiente — mostramos mensagem clara em vez de erro cru.
+      toast(
+        `Não foi possível sincronizar com a Meta. Verifique a configuração da integração WhatsApp. (${msg})`,
+        'danger',
+      );
+    },
   });
 
   // TODO: ler feature flag followup.enabled — por ora mostra banner como MVP

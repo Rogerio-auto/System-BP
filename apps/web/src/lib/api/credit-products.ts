@@ -202,6 +202,22 @@ export async function publishRule(
 }
 
 /**
+ * POST /api/credit-products/:id/rules/:version/activate
+ * "Usar/ativar" uma versão de regra existente — clona-a numa nova versão ativa (D6).
+ * Requer feature flag credit_simulation.enabled.
+ */
+export async function activateRuleVersion(
+  productId: string,
+  version: number,
+): Promise<CreditProductRuleResponse> {
+  const raw = await api.post(
+    `/api/credit-products/${encodeURIComponent(productId)}/rules/${version}/activate`,
+    {},
+  );
+  return CreditProductRuleResponseSchema.parse(raw);
+}
+
+/**
  * GET /api/credit-products/:id/rules
  * Timeline completa de regras (todas as versões, DESC).
  * Requer feature flag credit_simulation.enabled.

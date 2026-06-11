@@ -27,6 +27,14 @@ export const productIdParamSchema = z.object({
 
 export type ProductIdParam = z.infer<typeof productIdParamSchema>;
 
+/** Param de ativar/usar uma versão de regra: produto + número da versão. */
+export const productRuleVersionParamSchema = z.object({
+  id: z.string().uuid('id deve ser UUID'),
+  version: z.coerce.number().int().positive('version deve ser inteiro positivo'),
+});
+
+export type ProductRuleVersionParam = z.infer<typeof productRuleVersionParamSchema>;
+
 // ---------------------------------------------------------------------------
 // Product schemas
 // ---------------------------------------------------------------------------

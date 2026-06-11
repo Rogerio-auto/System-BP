@@ -7,7 +7,7 @@ import { NotFoundError } from '../../shared/errors.js';
 import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
 import type { MoveCardBody, ListCardsQuery } from './schemas.js';
-import { listKanbanCards, listKanbanStages, moveCard } from './service.js';
+import { listCardHistory, listKanbanCards, listKanbanStages, moveCard } from './service.js';
 
 // ---------------------------------------------------------------------------
 // POST /api/kanban/cards/:id/move
@@ -67,6 +67,28 @@ export async function listStagesController(
   });
 
   await reply.status(200).send({ stages });
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/kanban/cards/:id/history
+// ---------------------------------------------------------------------------
+
+export async function listCardHistoryController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  if (!request.user) {
+    throw new NotFoundError('Usuário não encontrado no contexto');
+  }
+
+  const { id: cardId } = typedParams<{ id: string }>(request);
+
+  const history = await listCardHistory(cardId, {
+    orgId: request.user.organizationId,
+    cityScopeIds: request.user.cityScopeIds,
+  });
+
+  await reply.status(200).send(history);
 }
 
 // ---------------------------------------------------------------------------

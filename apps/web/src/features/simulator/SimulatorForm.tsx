@@ -18,6 +18,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '../../components/ui/Button';
+import { CurrencyInput } from '../../components/ui/CurrencyInput';
 import { Input } from '../../components/ui/Input';
 import type { LeadResponse } from '../../hooks/crm/types';
 import type {
@@ -125,6 +126,7 @@ export function SimulatorForm({
 
   const watchedLeadId = watch('leadId');
   const watchedProductId = watch('productId');
+  const watchedAmount = watch('amount');
 
   // Re-valida campos de valor e prazo quando produto muda (limites mudam)
   React.useEffect(() => {
@@ -198,57 +200,23 @@ export function SimulatorForm({
           disabled={isPending}
         />
 
-        {/* Valor — input numérico direto (sem digit-shift) */}
-        <div className="flex flex-col gap-2">
-          <label
-            htmlFor="amount-input"
-            className="font-sans text-xs font-semibold uppercase tracking-[0.08em] text-ink-3"
-          >
-            Valor solicitado (R$)
-            <span className="ml-1 text-danger" aria-hidden="true">
-              *
-            </span>
-          </label>
-          <input
-            id="amount-input"
-            type="number"
-            inputMode="numeric"
-            step="1"
-            min={rule?.min_amount ?? 1}
-            max={rule?.max_amount}
-            disabled={isPending}
-            placeholder={rule ? String(rule.min_amount) : '10000'}
-            aria-describedby={errors.amount ? 'amount-error' : rule ? 'amount-hint' : undefined}
-            aria-invalid={Boolean(errors.amount) || undefined}
-            className={cn(
-              'w-full font-sans text-sm font-medium text-ink',
-              'bg-surface-1 rounded-sm px-[14px] py-[11px]',
-              'border border-border-strong',
-              'shadow-[inset_0_1px_2px_var(--border-inner-dark)]',
-              'transition-[border-color,box-shadow,background] duration-fast ease',
-              'placeholder:text-ink-4',
-              'hover:border-ink-3 hover:bg-surface-hover',
-              'focus:outline-none focus:border-azul',
-              'focus:shadow-[0_0_0_3px_rgba(27,58,140,0.15),inset_0_1px_2px_var(--border-inner-dark)]',
-              'focus:bg-surface-1',
-              errors.amount &&
-                'border-danger focus:border-danger focus:shadow-[0_0_0_3px_rgba(200,52,31,0.15),inset_0_1px_2px_var(--border-inner-dark)]',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              // Remove spinners nativos do browser — layout limpo
-              '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
-            )}
-            {...register('amount', { valueAsNumber: true })}
-          />
-          {errors.amount ? (
-            <span id="amount-error" role="alert" className="text-xs text-danger">
-              {errors.amount.message}
-            </span>
-          ) : rule ? (
-            <span id="amount-hint" className="text-xs text-ink-3">
-              Faixa: {formatBRL(rule.min_amount)} – {formatBRL(rule.max_amount)}
-            </span>
-          ) : null}
-        </div>
+        {/* Valor — máscara de moeda (centavos progressivo, estilo banco/PIX) */}
+        <CurrencyInput
+          id="amount-input"
+          label="Valor solicitado (R$)"
+          required
+          disabled={isPending}
+          value={Number.isNaN(watchedAmount) ? null : Math.round(watchedAmount * 100)}
+          onChange={(cents) =>
+            setValue('amount', cents === null ? NaN : cents / 100, { shouldValidate: true })
+          }
+          error={errors.amount?.message}
+          hint={
+            rule
+              ? `Faixa: ${formatBRL(rule.min_amount)} – ${formatBRL(rule.max_amount)}`
+              : undefined
+          }
+        />
 
         {/* Prazo */}
         <Input

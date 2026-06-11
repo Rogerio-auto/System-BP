@@ -113,6 +113,8 @@ export const kanbanCardEnrichedSchema = z.object({
   position: z.number().int(),
   lastNote: z.string().nullable(),
   updatedAt: z.string().datetime(),
+  /** Nome da cidade do lead — chip no card (F13-S03). null = sem cidade. */
+  cityName: z.string().nullable(),
 });
 
 export type KanbanCardEnriched = z.infer<typeof kanbanCardEnrichedSchema>;
@@ -121,3 +123,26 @@ export const kanbanCardsListResponseSchema = z.object({
   cards: z.array(kanbanCardEnrichedSchema),
   total: z.number().int(),
 });
+
+// ---------------------------------------------------------------------------
+// Response: histórico de transições de um card (GET /api/kanban/cards/:id/history)
+//
+// Alinhado com KanbanStageHistory em apps/web/src/hooks/kanban/types.ts.
+// LGPD: nenhuma PII — apenas nomes de stage e do ator interno.
+// ---------------------------------------------------------------------------
+
+export const kanbanStageHistoryEntrySchema = z.object({
+  id: z.string().uuid(),
+  cardId: z.string().uuid(),
+  fromStageId: z.string().uuid().nullable(),
+  toStageId: z.string().uuid(),
+  fromStageName: z.string().nullable(),
+  toStageName: z.string(),
+  actorName: z.string(),
+  note: z.string().nullable(),
+  createdAt: z.string().datetime(),
+});
+
+export type KanbanStageHistoryEntryResponse = z.infer<typeof kanbanStageHistoryEntrySchema>;
+
+export const kanbanHistoryListResponseSchema = z.array(kanbanStageHistoryEntrySchema);

@@ -77,6 +77,10 @@ vi.mock('../repository.js', () => ({
   updateLead: (...args: unknown[]) => mockUpdateLead(...args),
   softDeleteLead: (...args: unknown[]) => mockSoftDeleteLead(...args),
   restoreLead: (...args: unknown[]) => mockRestoreLead(...args),
+  // F13-S03/S07: enriquecimento CRM — mocks retornam vazio (não afetam asserts existentes).
+  findCityNamesByIds: () => Promise.resolve(new Map()),
+  findCurrentStagesByLeadIds: () => Promise.resolve(new Map()),
+  findInteractionsByLead: () => Promise.resolve([]),
 }));
 
 // ---------------------------------------------------------------------------

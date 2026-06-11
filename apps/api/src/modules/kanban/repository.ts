@@ -8,9 +8,11 @@
 // insertHistory() — nunca update ou delete. Ver kanbanStageHistory.ts.
 // =============================================================================
 import { and, asc, count, desc, eq, isNull } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 import type { Database } from '../../db/client.js';
 import {
+  cities,
   kanbanCards,
   kanbanStages,
   kanbanStageHistory,
@@ -56,6 +58,8 @@ export interface KanbanCardRow {
   updatedAt: Date;
   /** city_id nullable no schema (F3-S01): lead pode não ter cidade ainda (agente IA). */
   cityId: string | null;
+  /** Nome da cidade (join cities) — para o chip no card (F13-S03). null = sem cidade. */
+  cityName: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,11 +243,14 @@ export async function listCards(
       notes: kanbanCards.notes,
       updatedAt: kanbanCards.updatedAt,
       cityId: leads.cityId,
+      cityName: cities.name,
     })
     .from(kanbanCards)
     .innerJoin(leads, eq(kanbanCards.leadId, leads.id))
     // LEFT JOIN em users para obter o nome do assignee sem descartar cards sem assignee
     .leftJoin(users, eq(kanbanCards.assigneeUserId, users.id))
+    // LEFT JOIN em cities para o nome da cidade (chip no card)
+    .leftJoin(cities, eq(leads.cityId, cities.id))
     .where(whereClause)
     // Ordenar por priority DESC (maior prioridade primeiro), depois por updatedAt DESC
     .orderBy(desc(kanbanCards.priority), desc(kanbanCards.updatedAt))
@@ -263,6 +270,7 @@ export async function listCards(
       notes: r.notes ?? null,
       updatedAt: r.updatedAt,
       cityId: r.cityId,
+      cityName: r.cityName ?? null,
     })),
     total,
   };
@@ -350,4 +358,92 @@ export async function insertHistory(
   // exatamente 1 linha quando não há erro. O undefined só ocorreria se o
   // banco falhasse (exception propagada pelo Drizzle antes deste ponto).
   return (row as { id: string }).id;
+}
+
+// ---------------------------------------------------------------------------
+// History — leitura (F13-S07)
+// ---------------------------------------------------------------------------
+
+export interface CardHistoryRow {
+  id: string;
+  cardId: string;
+  fromStageId: string | null;
+  toStageId: string;
+  fromStageName: string | null;
+  toStageName: string;
+  actorName: string | null;
+  metadata: Record<string, unknown>;
+  transitionedAt: Date;
+}
+
+/**
+ * Verifica se um card é acessível pelo ator: pertence à org E o lead do card
+ * está dentro do city-scope. Retorna { id } se acessível, undefined caso
+ * contrário (o service lança 404 — não vaza existência fora do escopo).
+ */
+export async function findCardInScope(
+  db: Database,
+  cardId: string,
+  organizationId: string,
+  userCtx: UserScopeCtx,
+): Promise<{ id: string } | undefined> {
+  const scopeCond = applyCityScope(userCtx, leads.cityId);
+  const conditions = [
+    eq(kanbanCards.id, cardId),
+    eq(kanbanCards.organizationId, organizationId),
+    ...(scopeCond !== undefined ? [scopeCond] : []),
+  ];
+
+  const [row] = await db
+    .select({ id: kanbanCards.id })
+    .from(kanbanCards)
+    .innerJoin(leads, eq(kanbanCards.leadId, leads.id))
+    .where(and(...conditions))
+    .limit(1);
+
+  return row;
+}
+
+/**
+ * Histórico de transições de stage de um card (append-only), mais recentes
+ * primeiro. Não aplica city-scope — o service valida o acesso via
+ * findCardInScope ANTES de chamar esta função.
+ *
+ * Usa aliases de kanban_stages (from/to) para resolver os nomes dos stages
+ * e LEFT JOIN em users para o nome do ator (null = transição automática).
+ */
+export async function findCardHistory(db: Database, cardId: string): Promise<CardHistoryRow[]> {
+  const fromStage = alias(kanbanStages, 'from_stage');
+  const toStage = alias(kanbanStages, 'to_stage');
+
+  const rows = await db
+    .select({
+      id: kanbanStageHistory.id,
+      cardId: kanbanStageHistory.cardId,
+      fromStageId: kanbanStageHistory.fromStageId,
+      toStageId: kanbanStageHistory.toStageId,
+      fromStageName: fromStage.name,
+      toStageName: toStage.name,
+      actorName: users.fullName,
+      metadata: kanbanStageHistory.metadata,
+      transitionedAt: kanbanStageHistory.transitionedAt,
+    })
+    .from(kanbanStageHistory)
+    .leftJoin(fromStage, eq(kanbanStageHistory.fromStageId, fromStage.id))
+    .innerJoin(toStage, eq(kanbanStageHistory.toStageId, toStage.id))
+    .leftJoin(users, eq(kanbanStageHistory.actorUserId, users.id))
+    .where(eq(kanbanStageHistory.cardId, cardId))
+    .orderBy(desc(kanbanStageHistory.transitionedAt));
+
+  return rows.map((r) => ({
+    id: r.id,
+    cardId: r.cardId,
+    fromStageId: r.fromStageId,
+    toStageId: r.toStageId,
+    fromStageName: r.fromStageName,
+    toStageName: r.toStageName,
+    actorName: r.actorName,
+    metadata: (r.metadata as Record<string, unknown>) ?? {},
+    transitionedAt: r.transitionedAt,
+  }));
 }

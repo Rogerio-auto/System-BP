@@ -23,12 +23,14 @@ import {
   createLeadController,
   deleteLeadController,
   getLeadController,
+  listLeadInteractionsController,
   listLeadsController,
   restoreLeadController,
   updateLeadController,
 } from './controller.js';
 import {
   LeadCreateSchema,
+  LeadInteractionsResponseSchema,
   LeadListQuerySchema,
   LeadListResponseSchema,
   LeadResponseSchema,
@@ -80,6 +82,27 @@ export const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: ['leads:read'] })],
     },
     getLeadController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // GET /api/leads/:id/interactions — timeline de interações do lead
+  // ---------------------------------------------------------------------------
+  app.get(
+    '/api/leads/:id/interactions',
+    {
+      schema: {
+        tags: ['Leads'],
+        summary: 'Timeline de interações do lead',
+        description: 'Lista as interações (mensagens/contatos) de um lead, mais recentes primeiro.',
+        security: [{ bearerAuth: [] }],
+        params: leadIdParamSchema,
+        response: {
+          200: LeadInteractionsResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['leads:read'] })],
+    },
+    listLeadInteractionsController,
   );
 
   // ---------------------------------------------------------------------------

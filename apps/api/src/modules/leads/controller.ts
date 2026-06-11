@@ -21,6 +21,7 @@ import {
   createLead,
   deleteLeadService,
   getLeadById,
+  listLeadInteractions,
   listLeads,
   restoreLeadService,
   updateLeadService,
@@ -75,6 +76,20 @@ export async function getLeadController(
   const actor = getActorContext(request);
   const params = typedParams<LeadIdParam>(request);
   const result = await getLeadById(db, actor, params.id);
+  return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/leads/:id/interactions
+// ---------------------------------------------------------------------------
+
+export async function listLeadInteractionsController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const params = typedParams<LeadIdParam>(request);
+  const result = await listLeadInteractions(db, actor, params.id);
   return reply.status(200).send(result);
 }
 

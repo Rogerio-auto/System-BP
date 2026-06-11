@@ -332,14 +332,14 @@ export function CreditAnalysisDetailPage(): React.JSX.Element {
                     }
                   />
                   <MetaRow
-                    label="Lead"
+                    label="Cliente"
                     value={
                       <Link
                         to={`/crm/${analysis.lead_id}`}
                         className="font-sans text-sm text-azul hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20 rounded-xs"
                         title="Ver ficha do lead"
                       >
-                        {analysis.lead_id.slice(0, 8)}… ↗
+                        {analysis.lead_name ?? 'Ver ficha'} ↗
                       </Link>
                     }
                   />

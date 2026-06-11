@@ -17,6 +17,7 @@ import { ContextualHelp } from '../help/contextual';
 
 import { ChannelBars, ChannelBarsSkeleton } from './components/ChannelBars';
 import { CityList, CityListSkeleton } from './components/CityList';
+import { KanbanAvgDays, KanbanAvgDaysSkeleton } from './components/KanbanAvgDays';
 import { KanbanBars, KanbanBarsSkeleton } from './components/KanbanBars';
 import { StaleBanner } from './components/StaleBanner';
 import { StatsRow, StatsRowSkeleton } from './components/StatsRow';
@@ -265,6 +266,20 @@ export function DashboardPage(): React.JSX.Element {
           <KanbanBarsSkeleton />
         ) : data ? (
           <KanbanBars data={data.kanban.cardsByStage} />
+        ) : null}
+
+        {/* Tempo médio por estágio (gestão interna) */}
+        {isLoading ? (
+          <KanbanAvgDaysSkeleton />
+        ) : data ? (
+          <KanbanAvgDays
+            data={data.kanban.avgDaysInStage.map((a) => ({
+              stageId: a.stageId,
+              stageName:
+                data.kanban.cardsByStage.find((c) => c.stageId === a.stageId)?.stageName ?? '—',
+              days: a.days,
+            }))}
+          />
         ) : null}
       </div>
 

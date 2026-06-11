@@ -26,6 +26,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
+import { useKanbanStages } from '../../hooks/kanban/useKanbanStages';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useAuthStore } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
@@ -148,6 +149,16 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
   const templateOptions = React.useMemo(
     () => buildTemplateOptions(templatesData?.data ?? []),
     [templatesData],
+  );
+
+  // Estágios do Kanban para o filtro de segmentação (applies_to_stage casa pelo nome).
+  const { stages } = useKanbanStages();
+  const stageOptions = React.useMemo(
+    () => [
+      { value: '', label: 'Qualquer estágio' },
+      ...stages.map((s) => ({ value: s.name, label: s.name })),
+    ],
+    [stages],
   );
 
   const [formData, setFormData] = React.useState<FollowupRuleForm>({
@@ -327,11 +338,13 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
             required
           />
 
+          {/* Segmentação (F13-S04): estágio do Kanban + outcome */}
           <div className="grid grid-cols-2 gap-4">
-            <Input
+            <Select
               id="rule-stage"
               label="Aplicar ao estágio (opcional)"
-              placeholder="qualifying"
+              placeholder="Qualquer estágio"
+              options={stageOptions}
               value={formData.applies_to_stage ?? ''}
               onChange={(e) =>
                 setFormData((f) => ({
@@ -339,21 +352,35 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
                   applies_to_stage: e.target.value || null,
                 }))
               }
-              hint="Vazio = todos os estágios"
+              hint="Só dispara para leads neste estágio do Kanban"
             />
             <Input
-              id="rule-max-attempts"
-              label="Máx. tentativas"
-              type="number"
-              min={1}
-              max={10}
-              value={formData.max_attempts ?? 3}
+              id="rule-outcome"
+              label="Aplicar ao outcome (opcional)"
+              placeholder="Ex: pending_docs"
+              value={formData.applies_to_outcome ?? ''}
               onChange={(e) =>
-                setFormData((f) => ({ ...f, max_attempts: parseInt(e.target.value, 10) || 3 }))
+                setFormData((f) => ({
+                  ...f,
+                  applies_to_outcome: e.target.value || null,
+                }))
               }
-              error={errors.max_attempts}
+              hint="Filtra por resultado do lead (vazio = qualquer)"
             />
           </div>
+
+          <Input
+            id="rule-max-attempts"
+            label="Máx. tentativas"
+            type="number"
+            min={1}
+            max={10}
+            value={formData.max_attempts ?? 3}
+            onChange={(e) =>
+              setFormData((f) => ({ ...f, max_attempts: parseInt(e.target.value, 10) || 3 }))
+            }
+            error={errors.max_attempts}
+          />
 
           {/* Toggle is_active */}
           <label className="flex items-center gap-3 cursor-pointer">

@@ -47,6 +47,8 @@ import type { ErrorCode } from '../../shared/errors.js';
 
 import {
   findCardById,
+  findCardHistory,
+  findCardInScope,
   findStageById,
   insertHistory,
   listCards,
@@ -54,7 +56,11 @@ import {
   updateCardStage,
 } from './repository.js';
 import type { KanbanTx } from './repository.js';
-import type { KanbanCardEnriched, KanbanStageResponse } from './schemas.js';
+import type {
+  KanbanCardEnriched,
+  KanbanStageHistoryEntryResponse,
+  KanbanStageResponse,
+} from './schemas.js';
 
 // ---------------------------------------------------------------------------
 // Erro tipado de transição inválida
@@ -403,7 +409,48 @@ export async function listKanbanCards(
     position: row.priority,
     lastNote: row.notes,
     updatedAt: row.updatedAt.toISOString(),
+    cityName: row.cityName,
   }));
 
   return { cards, total };
+}
+
+// ---------------------------------------------------------------------------
+// listCardHistory (F13-S07)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lista o histórico de transições de stage de um card.
+ *
+ * Segurança: valida o acesso ao card via findCardInScope (org + city-scope do
+ * lead) ANTES de buscar o histórico — 404 se fora do escopo (não vaza
+ * existência). RBAC verificado no preHandler (leads:read).
+ *
+ * LGPD: histórico não contém PII — apenas nomes de stage e do ator interno.
+ */
+export async function listCardHistory(
+  cardId: string,
+  actor: ListActor,
+): Promise<KanbanStageHistoryEntryResponse[]> {
+  const card = await findCardInScope(db, cardId, actor.orgId, {
+    cityScopeIds: actor.cityScopeIds,
+  });
+  if (!card) {
+    throw new NotFoundError(`Card não encontrado: ${cardId}`);
+  }
+
+  const rows = await findCardHistory(db, cardId);
+
+  return rows.map((r) => ({
+    id: r.id,
+    cardId: r.cardId,
+    fromStageId: r.fromStageId,
+    toStageId: r.toStageId,
+    fromStageName: r.fromStageName,
+    toStageName: r.toStageName,
+    // null actor = transição automática (sistema/worker).
+    actorName: r.actorName ?? 'Sistema',
+    note: typeof r.metadata['note'] === 'string' ? (r.metadata['note'] as string) : null,
+    createdAt: r.transitionedAt.toISOString(),
+  }));
 }

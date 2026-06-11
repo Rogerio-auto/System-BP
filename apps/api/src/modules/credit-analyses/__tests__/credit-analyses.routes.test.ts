@@ -126,6 +126,7 @@ function makeAnalysisResponse(overrides: Record<string, unknown> = {}) {
     id: FIXTURE_ANALYSIS_ID,
     organization_id: FIXTURE_ORG_ID,
     lead_id: FIXTURE_LEAD_ID,
+    lead_name: 'Cliente Teste',
     customer_id: null,
     simulation_id: null,
     current_version_id: FIXTURE_VERSION_ID,

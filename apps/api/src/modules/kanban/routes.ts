@@ -18,10 +18,16 @@ import { z } from 'zod';
 
 import { authenticate, authorize } from '../auth/middlewares/index.js';
 
-import { listCardsController, listStagesController, moveCardController } from './controller.js';
+import {
+  listCardHistoryController,
+  listCardsController,
+  listStagesController,
+  moveCardController,
+} from './controller.js';
 import {
   kanbanCardResponseSchema,
   kanbanCardsListResponseSchema,
+  kanbanHistoryListResponseSchema,
   kanbanStagesListResponseSchema,
   listCardsQuerySchema,
   moveCardBodySchema,
@@ -73,6 +79,30 @@ export const kanbanRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     listCardsController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // GET /api/kanban/cards/:id/history — histórico de transições do card
+  // ---------------------------------------------------------------------------
+  app.get(
+    '/api/kanban/cards/:id/history',
+    {
+      preHandler: [authenticate(), authorize({ permissions: ['leads:read'] })],
+      schema: {
+        tags: ['Kanban'],
+        summary: 'Histórico do card',
+        description:
+          'Lista as transições de stage de um card (append-only), mais recentes primeiro.',
+        security: [{ bearerAuth: [] }],
+        params: z.object({
+          id: z.string().uuid({ message: 'Card ID deve ser um UUID válido' }),
+        }),
+        response: {
+          200: kanbanHistoryListResponseSchema,
+        },
+      },
+    },
+    listCardHistoryController,
   );
 
   // ---------------------------------------------------------------------------

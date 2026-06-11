@@ -583,18 +583,27 @@ export function CrmListPage(): React.JSX.Element {
                                   >
                                     {lead.name}
                                   </p>
-                                  {lead.agent_id && (
-                                    <p className="font-sans text-xs text-ink-4 truncate">
-                                      Agente atribuído
-                                    </p>
-                                  )}
+                                  <p className="font-sans text-xs text-ink-4 truncate">
+                                    {lead.city_name ?? 'Sem cidade'}
+                                    {lead.agent_id ? ' · Agente atribuído' : ''}
+                                  </p>
                                 </div>
                               </Link>
                             </td>
 
-                            {/* Status */}
+                            {/* Status de atendimento + estágio de Kanban (gestão interna) */}
                             <td className="px-4 py-3.5">
-                              <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+                              <div className="flex flex-col gap-1 items-start">
+                                <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+                                {lead.kanban_stage && (
+                                  <span
+                                    className="font-sans text-[10px] text-ink-4 truncate max-w-[120px]"
+                                    title={`Estágio do Kanban: ${lead.kanban_stage.name}`}
+                                  >
+                                    ◳ {lead.kanban_stage.name}
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* Telefone — LGPD mascarado */}

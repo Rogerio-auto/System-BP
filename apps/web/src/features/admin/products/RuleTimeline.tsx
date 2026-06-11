@@ -14,6 +14,7 @@
 import * as React from 'react';
 
 import { Badge } from '../../../components/ui/Badge';
+import { Button } from '../../../components/ui/Button';
 import type { CreditProductRuleResponse } from '../../../hooks/admin/types';
 import { cn } from '../../../lib/cn';
 
@@ -69,6 +70,12 @@ interface RuleTimelineProps {
   rules: CreditProductRuleResponse[];
   /** IDs de cidades para exibição de nomes nos chips de escopo */
   citiesMap?: Record<string, string>;
+  /** Callback para usar/ativar uma versão (F13-S06). Ausente = sem botão. */
+  onActivateVersion?: ((version: number) => void) | undefined;
+  /** Versão em processo de ativação (loading). */
+  activatingVersion?: number | null | undefined;
+  /** false desabilita o botão (ex: flag off / sem permissão). */
+  canActivate?: boolean | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -80,9 +87,20 @@ interface RuleItemProps {
   isFirst: boolean;
   isLast: boolean;
   citiesMap: Record<string, string>;
+  onActivateVersion?: ((version: number) => void) | undefined;
+  isActivating: boolean;
+  canActivate: boolean;
 }
 
-function RuleItem({ rule, isFirst, isLast, citiesMap }: RuleItemProps): React.JSX.Element {
+function RuleItem({
+  rule,
+  isFirst,
+  isLast,
+  citiesMap,
+  onActivateVersion,
+  isActivating,
+  canActivate,
+}: RuleItemProps): React.JSX.Element {
   const isActive = rule.is_active;
 
   return (
@@ -144,7 +162,7 @@ function RuleItem({ rule, isFirst, isLast, citiesMap }: RuleItemProps): React.JS
             </span>
 
             <Badge variant={isActive ? 'success' : 'neutral'}>
-              {isActive ? 'Ativa' : 'Expirada'}
+              {isActive ? 'Vigente' : 'Expirada'}
             </Badge>
           </div>
 
@@ -223,6 +241,21 @@ function RuleItem({ rule, isFirst, isLast, citiesMap }: RuleItemProps): React.JS
               <span className="text-ink-3 font-medium">Cobertura:</span> todas as cidades
             </p>
           )}
+
+          {/* Ação: usar/ativar esta versão (F13-S06) — só nas não vigentes */}
+          {!isActive && onActivateVersion && (
+            <div className="flex justify-end pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!canActivate || isActivating}
+                onClick={() => onActivateVersion(rule.version)}
+                title="Clona esta versão e a torna vigente para novas simulações"
+              >
+                {isActivating ? 'Ativando…' : 'Usar esta versão'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -240,7 +273,13 @@ function RuleItem({ rule, isFirst, isLast, citiesMap }: RuleItemProps): React.JS
  * - Linha de tempo visual com dot (ativo = azul + glow, expirado = cinza).
  * - Card elev-2 para ativa, elev-1 para expiradas.
  */
-export function RuleTimeline({ rules, citiesMap = {} }: RuleTimelineProps): React.JSX.Element {
+export function RuleTimeline({
+  rules,
+  citiesMap = {},
+  onActivateVersion,
+  activatingVersion = null,
+  canActivate = true,
+}: RuleTimelineProps): React.JSX.Element {
   if (rules.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
@@ -286,6 +325,9 @@ export function RuleTimeline({ rules, citiesMap = {} }: RuleTimelineProps): Reac
             isFirst={idx === 0}
             isLast={idx === rules.length - 1}
             citiesMap={citiesMap}
+            onActivateVersion={onActivateVersion}
+            isActivating={activatingVersion === rule.version}
+            canActivate={canActivate}
           />
         </div>
       ))}

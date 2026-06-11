@@ -218,6 +218,23 @@ export async function findAnalysisById(
 }
 
 // ---------------------------------------------------------------------------
+// Nome do lead (para exibição na tela de análise) — F13
+// ---------------------------------------------------------------------------
+
+/**
+ * Busca o nome do lead por ID. PII — exibido apenas ao analista autorizado.
+ * O acesso à análise já foi validado (org + city-scope) antes desta chamada.
+ */
+export async function findLeadName(db: Database, leadId: string): Promise<string | null> {
+  const rows = await db
+    .select({ name: leads.name })
+    .from(leads)
+    .where(eq(leads.id, leadId))
+    .limit(1);
+  return rows[0]?.name ?? null;
+}
+
+// ---------------------------------------------------------------------------
 // Histórico por lead
 // ---------------------------------------------------------------------------
 
