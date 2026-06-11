@@ -3,13 +3,13 @@ id: F13-S01
 title: CurrencyInput canônico + helpers de moeda (BRL)
 phase: F13
 task_ref: null
-status: available
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-11T19:32:33Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/213
 depends_on: []
 blocks: [F13-S02]
 labels: []

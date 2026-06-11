@@ -3,13 +3,13 @@ id: F13-S03
 title: CRM exibe cidade + estágio de Kanban (lista, ficha e card)
 phase: F13
 task_ref: null
-status: available
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-11T19:32:34Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/213
 depends_on: []
 blocks: []
 labels: []

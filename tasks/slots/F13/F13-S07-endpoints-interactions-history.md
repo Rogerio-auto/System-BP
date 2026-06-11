@@ -3,13 +3,13 @@ id: F13-S07
 title: Endpoints de timeline — interactions do lead + histórico do card Kanban
 phase: F13
 task_ref: null
-status: available
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-11T19:32:36Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/213
 depends_on: []
 blocks: [F13-S08]
 labels: []

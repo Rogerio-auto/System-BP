@@ -3,13 +3,13 @@ id: F13-S06
 title: Produto de crédito — ativar/usar versão de regra
 phase: F13
 task_ref: null
-status: available
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-11T19:32:35Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/213
 depends_on: []
 blocks: []
 labels: []

@@ -12,7 +12,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F10  | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F12  | 13    | 1   | 1   | 0   | 0   | 0   | 11  |
-| F13  | 8     | 6   | 2   | 0   | 0   | 0   | 0   |
+| F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -121,16 +121,16 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 13 —
 
-| ID      | Título                                                                  | Status       | Prioridade | Depende de |
-| ------- | ----------------------------------------------------------------------- | ------------ | ---------- | ---------- |
-| F13-S01 | CurrencyInput canônico + helpers de moeda (BRL)                         | 🟢 available | high       | —          |
-| F13-S02 | Aplicar CurrencyInput nas telas de valor + corrigir bug ×10             | ⏸️ blocked   | high       | F13-S01    |
-| F13-S03 | CRM exibe cidade + estágio de Kanban (lista, ficha e card)              | 🟢 available | high       | —          |
-| F13-S04 | Follow-up — segmentar por estágio e outcome no frontend                 | 🟢 available | medium     | —          |
-| F13-S05 | Dashboard — tempo médio por estágio de Kanban                           | 🟢 available | medium     | —          |
-| F13-S06 | Produto de crédito — ativar/usar versão de regra                        | 🟢 available | medium     | —          |
-| F13-S07 | Endpoints de timeline — interactions do lead + histórico do card Kanban | 🟢 available | high       | —          |
-| F13-S08 | Estados de erro/empty no CRM+Kanban + gating do sync-all de templates   | ⏸️ blocked   | high       | F13-S07    |
+| ID      | Título                                                                  | Status  | Prioridade | Depende de |
+| ------- | ----------------------------------------------------------------------- | ------- | ---------- | ---------- |
+| F13-S01 | CurrencyInput canônico + helpers de moeda (BRL)                         | ✅ done | high       | —          |
+| F13-S02 | Aplicar CurrencyInput nas telas de valor + corrigir bug ×10             | ✅ done | high       | F13-S01    |
+| F13-S03 | CRM exibe cidade + estágio de Kanban (lista, ficha e card)              | ✅ done | high       | —          |
+| F13-S04 | Follow-up — segmentar por estágio e outcome no frontend                 | ✅ done | medium     | —          |
+| F13-S05 | Dashboard — tempo médio por estágio de Kanban                           | ✅ done | medium     | —          |
+| F13-S06 | Produto de crédito — ativar/usar versão de regra                        | ✅ done | medium     | —          |
+| F13-S07 | Endpoints de timeline — interactions do lead + histórico do card Kanban | ✅ done | high       | —          |
+| F13-S08 | Estados de erro/empty no CRM+Kanban + gating do sync-all de templates   | ✅ done | high       | F13-S07    |
 
 ## Fase 2 — Crédito e simulação
 

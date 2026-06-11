@@ -3,13 +3,13 @@ id: F13-S02
 title: Aplicar CurrencyInput nas telas de valor + corrigir bug ×10
 phase: F13
 task_ref: null
-status: blocked
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-11T19:32:34Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/213
 depends_on: [F13-S01]
 blocks: []
 labels: []
