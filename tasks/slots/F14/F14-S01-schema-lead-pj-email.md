@@ -3,12 +3,12 @@ id: F14-S01
 title: Schema — lead PJ (CNPJ/razão social) + índice único de email
 phase: F14
 task_ref: null
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-11T19:57:04Z
+completed_at: 2026-06-11T20:02:15Z
 pr_url: null
 depends_on: []
 blocks: [F14-S02]
