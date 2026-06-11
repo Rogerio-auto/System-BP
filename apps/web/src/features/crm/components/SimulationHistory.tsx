@@ -200,6 +200,8 @@ function SimulationCard({
 
 interface SimulationHistoryProps {
   leadId: string;
+  /** Telefone E.164 do lead — encaminhado ao modal para gating do botão de envio (F14-S06). */
+  leadPhone?: string | null;
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -207,8 +209,12 @@ interface SimulationHistoryProps {
 /**
  * Seção de histórico de simulações de crédito na ficha do lead.
  * Integra ao CrmDetailPage na coluna esquerda, abaixo dos dados de contato.
+ * F14-S06: aceita leadPhone para gating do botão "Enviar ao cliente" no modal.
  */
-export function SimulationHistory({ leadId }: SimulationHistoryProps): React.JSX.Element {
+export function SimulationHistory({
+  leadId,
+  leadPhone,
+}: SimulationHistoryProps): React.JSX.Element {
   const { simulations, isLoading, isError } = useLeadSimulations(leadId);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
@@ -354,6 +360,7 @@ export function SimulationHistory({ leadId }: SimulationHistoryProps): React.JSX
         <SimulationDetailModal
           simulation={selectedSimulation}
           leadId={leadId}
+          leadPhone={leadPhone}
           onClose={() => setSelectedId(null)}
         />
       )}

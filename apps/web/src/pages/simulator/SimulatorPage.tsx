@@ -110,6 +110,7 @@ export function SimulatorPage(): React.JSX.Element {
             result={data}
             simulationError={simulationError}
             leadId={selectedLead?.id ?? null}
+            leadPhone={selectedLead?.phone_e164 ?? null}
             onReset={handleReset}
           />
         </div>
