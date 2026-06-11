@@ -607,8 +607,9 @@ export function CrmDetailPage(): React.JSX.Element {
             />
           )}
 
-          {/* Histórico de simulações de crédito (F2-S08) */}
-          <SimulationHistory leadId={leadId} />
+          {/* Histórico de simulações de crédito (F2-S08 / F14-S06) */}
+          {/* F14-S06: phone_e164 passado para gating do botão "Enviar ao cliente" */}
+          <SimulationHistory leadId={leadId} leadPhone={lead?.phone_e164 ?? null} />
 
           {/* Tab de análise de crédito (F4-S03) */}
           <LeadCreditAnalysisTab leadId={leadId} />

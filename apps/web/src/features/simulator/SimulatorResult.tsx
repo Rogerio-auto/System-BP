@@ -6,9 +6,14 @@
 //   loading  → skeleton da área de stats + tabela
 //   error    → banner colorido por código (422/409/503/403)
 //   success  → Stats row (Bricolage) + Card elev-3 com AmortizationTable
+//             + botão "Enviar ao cliente" (F14-S06)
 //
 // DS §9.8 Stat, §9.3 Card, §9.6 Alert.
 // Parcela mensal em Bricolage 800 text-3xl com --brand-azul (primary da bandeira).
+//
+// F14-S06: botão "Enviar ao cliente" gated por flag + telefone do lead.
+//   - Usa useSendSimulation (hook criado em F14-S06).
+//   - Estados: loading (Enviando…), sucesso (toast verde), erro (banner amigável).
 // =============================================================================
 
 import * as React from 'react';
@@ -16,9 +21,13 @@ import { Link } from 'react-router-dom';
 
 import { Button } from '../../components/ui/Button';
 import { Stat } from '../../components/ui/Stat';
+import { useToast } from '../../components/ui/Toast';
 import type { SimulationResult } from '../../hooks/simulator/types';
 import { formatBRL, formatRate } from '../../hooks/simulator/types';
+import type { SendSimulationError } from '../../hooks/simulator/useSendSimulation';
+import { useSendSimulation } from '../../hooks/simulator/useSendSimulation';
 import type { SimulationError } from '../../hooks/simulator/useSimulate';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { cn } from '../../lib/cn';
 
 import { AmortizationTable } from './AmortizationTable';
@@ -30,6 +39,8 @@ interface SimulatorResultProps {
   result: SimulationResult | undefined | null;
   simulationError: SimulationError | null;
   leadId: string | null;
+  /** Telefone E.164 do lead selecionado — necessário para gating do botão de envio. */
+  leadPhone: string | null | undefined;
   onReset: () => void;
 }
 
@@ -127,7 +138,7 @@ function EmptyState(): React.JSX.Element {
   );
 }
 
-// ─── Banner de erro ───────────────────────────────────────────────────────────
+// ─── Banner de erro (simulação) ───────────────────────────────────────────────
 
 function ErrorBanner({ error }: { error: SimulationError }): React.JSX.Element {
   if (error.code === 'FLAG_DISABLED' || error.code === 'FORBIDDEN') {
@@ -210,15 +221,170 @@ function ErrorBanner({ error }: { error: SimulationError }): React.JSX.Element {
   );
 }
 
+// ─── Banner de erro de envio ──────────────────────────────────────────────────
+
+function SendErrorBanner({
+  error,
+  onDismiss,
+}: {
+  error: SendSimulationError;
+  onDismiss: () => void;
+}): React.JSX.Element {
+  return (
+    <div
+      role="alert"
+      className="flex items-start justify-between gap-3 rounded-sm border-l-[3px] p-4"
+      style={{
+        borderColor: error.code === 'META_UNAVAILABLE' ? 'var(--warning)' : 'var(--danger)',
+        background: error.code === 'META_UNAVAILABLE' ? 'var(--warning-bg)' : 'var(--danger-bg)',
+      }}
+    >
+      <div>
+        <p
+          className="font-sans font-semibold text-sm"
+          style={{
+            color: error.code === 'META_UNAVAILABLE' ? 'var(--warning)' : 'var(--danger)',
+          }}
+        >
+          {error.code === 'META_UNAVAILABLE'
+            ? 'WhatsApp indisponível'
+            : error.code === 'NO_PHONE'
+              ? 'Sem telefone cadastrado'
+              : 'Envio não autorizado'}
+        </p>
+        <p className="font-sans text-xs text-ink-2 mt-1">{error.message}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Fechar aviso"
+        className="shrink-0 opacity-60 hover:opacity-100 transition-opacity mt-0.5"
+      >
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.8}
+          className="w-4 h-4"
+          aria-hidden="true"
+        >
+          <path d="M4 4l8 8M12 4l-8 8" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// ─── Botão de envio ao cliente ────────────────────────────────────────────────
+
+/**
+ * Botão "Enviar ao cliente" com gating por flag + telefone.
+ * Encapsula todo o estado de envio (loading, sucesso toast, erro banner).
+ */
+function SendToClientButton({
+  simulationId,
+  leadPhone,
+}: {
+  simulationId: string;
+  leadPhone: string | null | undefined;
+}): React.JSX.Element {
+  const { toast } = useToast();
+  const { enabled: sendFlagEnabled, isLoading: sendFlagLoading } = useFeatureFlag(
+    'simulations.send.enabled',
+  );
+
+  const [sendError, setSendError] = React.useState<SendSimulationError | null>(null);
+
+  const { send, isPending } = useSendSimulation({
+    onSuccess: (data) => {
+      setSendError(null);
+      if (data.status === 'already_sent') {
+        toast('Simulação já enviada anteriormente (idempotente).', 'info');
+      } else {
+        toast('Simulação enviada por WhatsApp com sucesso!', 'success');
+      }
+    },
+    onError: (err) => {
+      setSendError(err);
+    },
+  });
+
+  const hasPhone = Boolean(leadPhone);
+  // Botão disponível quando: flag ligada + lead tem telefone + não está carregando
+  const canSend = sendFlagEnabled && hasPhone && !sendFlagLoading;
+
+  // Tooltip acessível explicando o motivo de desabilitação
+  const disabledReason = sendFlagLoading
+    ? undefined
+    : !sendFlagEnabled
+      ? 'Funcionalidade de envio desativada'
+      : !hasPhone
+        ? 'Lead sem telefone cadastrado'
+        : undefined;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {sendError && <SendErrorBanner error={sendError} onDismiss={() => setSendError(null)} />}
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={!canSend || isPending}
+        title={disabledReason}
+        aria-label={
+          isPending
+            ? 'Enviando simulação por WhatsApp…'
+            : (disabledReason ?? 'Enviar simulação ao cliente por WhatsApp')
+        }
+        onClick={() => {
+          setSendError(null);
+          send(simulationId);
+        }}
+        leftIcon={
+          isPending ? (
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              className="w-4 h-4 animate-spin"
+              aria-hidden="true"
+            >
+              <circle cx="8" cy="8" r="6" strokeOpacity={0.25} />
+              <path d="M8 2a6 6 0 0 1 6 6" />
+            </svg>
+          ) : (
+            /* WhatsApp-style send icon */
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.6}
+              className="w-4 h-4"
+              aria-hidden="true"
+            >
+              <path d="M14 2L7 9" />
+              <path d="M14 2L9 14l-2-5-5-2 12-5z" />
+            </svg>
+          )
+        }
+      >
+        {isPending ? 'Enviando…' : 'Enviar ao cliente'}
+      </Button>
+    </div>
+  );
+}
+
 // ─── Resultado principal ──────────────────────────────────────────────────────
 
 function ResultSuccess({
   result,
   leadId,
+  leadPhone,
   onReset,
 }: {
   result: SimulationResult;
   leadId: string | null;
+  leadPhone: string | null | undefined;
   onReset: () => void;
 }): React.JSX.Element {
   // Stat de destaque: parcela mensal
@@ -381,6 +547,9 @@ function ResultSuccess({
             </Link>
           </Button>
         )}
+
+        {/* Botão "Enviar ao cliente" — F14-S06 */}
+        <SendToClientButton simulationId={result.id} leadPhone={leadPhone} />
       </div>
     </div>
   );
@@ -391,12 +560,15 @@ function ResultSuccess({
 /**
  * Painel de resultado da simulação.
  * Gerencia os 4 estados: empty, loading, error, success.
+ *
+ * F14-S06: aceita `leadPhone` para gating do botão "Enviar ao cliente".
  */
 export function SimulatorResult({
   isPending,
   result,
   simulationError,
   leadId,
+  leadPhone,
   onReset,
 }: SimulatorResultProps): React.JSX.Element {
   if (isPending) {
@@ -408,7 +580,9 @@ export function SimulatorResult({
   }
 
   if (result) {
-    return <ResultSuccess result={result} leadId={leadId} onReset={onReset} />;
+    return (
+      <ResultSuccess result={result} leadId={leadId} leadPhone={leadPhone} onReset={onReset} />
+    );
   }
 
   return <EmptyState />;

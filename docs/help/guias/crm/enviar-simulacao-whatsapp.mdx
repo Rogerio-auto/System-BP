@@ -1,0 +1,88 @@
+---
+title: Enviar simulação ao cliente por WhatsApp
+description: Como enviar os dados de uma simulação de crédito diretamente para o WhatsApp do lead usando o botão "Enviar ao cliente".
+order: 55
+keywords: [simulacao, whatsapp, enviar, lead, credito, disparo, mensagem]
+---
+
+# Enviar simulação ao cliente por WhatsApp
+
+Use este guia quando quiser compartilhar o resultado de uma simulação de crédito com o lead via WhatsApp, sem precisar copiar os dados manualmente.
+
+## O que é
+
+O botão **Enviar ao cliente** dispara uma mensagem de WhatsApp padronizada com os dados da simulação — nome do lead, valor solicitado, número de parcelas, valor da parcela mensal e taxa aplicada — usando o template aprovado pela Meta.
+
+O envio é **idempotente**: se você clicar duas vezes ou tentar reenviar a mesma simulação, o sistema detecta que já foi enviada e exibe um aviso, sem criar mensagem duplicada.
+
+## Quando usar
+
+- Após calcular uma simulação no Simulador de Crédito e querer enviar o resumo imediatamente ao lead.
+- Na ficha do lead (CRM) para reenviar ou confirmar uma simulação específica do histórico.
+
+## Pré-requisitos
+
+- O lead precisa ter **telefone cadastrado** (campo Telefone preenchido na ficha).
+- A funcionalidade de disparo de simulações precisa estar habilitada pelo administrador.
+- Você precisa ter a permissão **simulations:send** (atribuída automaticamente ao papel de Agente e Gestor).
+
+## Enviando pelo Simulador de Crédito
+
+<Step number={1} title="Calcule a simulação">
+  No menu **Simulador**, preencha lead, produto, valor e prazo e clique em **Simular**.
+  O painel de resultado aparece à direita.
+</Step>
+
+<Step number={2} title="Clique em Enviar ao cliente">
+  Na área de ações abaixo do resultado, clique no botão verde **Enviar ao cliente**.
+
+  O botão fica **desabilitado** se o lead não tiver telefone ou se a funcionalidade estiver desativada.
+  Passe o cursor sobre ele para ver o motivo.
+</Step>
+
+<Step number={3} title="Aguarde a confirmação">
+  O botão mostra **Enviando…** enquanto a mensagem está sendo despachada.
+  Ao concluir, uma notificação verde aparece no canto da tela: *"Simulação enviada por WhatsApp com sucesso!"*.
+</Step>
+
+## Enviando pela ficha do lead (CRM)
+
+<Step number={1} title="Abra a ficha do lead">
+  No CRM, clique no nome do lead. Na seção **Simulações**, clique em uma simulação do histórico.
+</Step>
+
+<Step number={2} title="No modal de detalhe, clique em Enviar ao cliente">
+  O modal mostra os detalhes completos da simulação (valor, parcelas, tabela de amortização).
+  No rodapé, clique no botão verde **Enviar ao cliente**.
+</Step>
+
+<Step number={3} title="Confirme pelo toast de sucesso">
+  Igual ao fluxo pelo Simulador: aguarde o spinner de **Enviando…** e então a notificação de confirmação.
+</Step>
+
+## Erros comuns
+
+| Mensagem | Causa | Correção |
+|---|---|---|
+| *Lead sem telefone cadastrado* | O campo Telefone está vazio na ficha do lead | Abra a ficha, clique em Editar e preencha o telefone no formato +55 11 99999-0000 |
+| *WhatsApp indisponível* | Integração Meta não configurada ou fora do ar temporariamente | Aguarde alguns minutos e tente novamente. Se persistir, acione o administrador do sistema |
+| *Sem permissão para enviar simulações* | Seu papel não inclui a permissão simulations:send | Solicite ao gestor que verifique as permissões do seu perfil |
+| *Envio de simulações desativado* | Flag simulations.send.enabled está desligada | Peça ao administrador para habilitar a funcionalidade em Configurações → Feature Flags |
+| *Simulação já enviada anteriormente* | A mesma tentativa de envio foi detectada como duplicada (idempotência) | Nenhuma ação necessária — a mensagem já foi entregue ao lead |
+
+<Callout type="info" title="Mensagem padronizada">
+  O conteúdo da mensagem é fixo (template aprovado pela Meta) e inclui: nome do lead, valor
+  solicitado, número de parcelas, parcela mensal e taxa mensal. Não é possível editar o texto
+  antes de enviar.
+</Callout>
+
+<Callout type="warn" title="LGPD — dados enviados">
+  A mensagem é enviada para o telefone cadastrado na ficha do lead. Confirme que o número
+  pertence ao titular antes de enviar. Nunca insira dados de terceiros no cadastro.
+  Consulte a política de [proteção de dados do Banco do Povo](/ajuda/conceitos/lgpd).
+</Callout>
+
+## Veja também
+
+- [Ver e editar detalhes do lead](/ajuda/guias/crm/detalhes-do-lead) — onde fica a seção de simulações na ficha.
+- [Criar um lead manualmente](/ajuda/guias/crm/criar-lead) — como garantir que o telefone está cadastrado desde o início.
