@@ -12,6 +12,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F10  | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F12  | 13    | 1   | 1   | 0   | 0   | 0   | 11  |
+| F13  | 8     | 6   | 2   | 0   | 0   | 0   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -117,6 +118,19 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F12-S11 | Fix CRÍTICO — runner de migrations pula migrations em DB existente (go-live blocker)    | 🟢 available | critical   | —                |
 | F12-S12 | Fix — alinhar cliente admin de tutoriais ao contrato real da API (400/erro ao carregar) | ✅ done      | critical   | F12-S05          |
 | F12-S13 | Fix — Callout crasha a página com type inválido (white-screen no help)                  | ✅ done      | high       | —                |
+
+## Fase 13 —
+
+| ID      | Título                                                                  | Status       | Prioridade | Depende de |
+| ------- | ----------------------------------------------------------------------- | ------------ | ---------- | ---------- |
+| F13-S01 | CurrencyInput canônico + helpers de moeda (BRL)                         | 🟢 available | high       | —          |
+| F13-S02 | Aplicar CurrencyInput nas telas de valor + corrigir bug ×10             | ⏸️ blocked   | high       | F13-S01    |
+| F13-S03 | CRM exibe cidade + estágio de Kanban (lista, ficha e card)              | 🟢 available | high       | —          |
+| F13-S04 | Follow-up — segmentar por estágio e outcome no frontend                 | 🟢 available | medium     | —          |
+| F13-S05 | Dashboard — tempo médio por estágio de Kanban                           | 🟢 available | medium     | —          |
+| F13-S06 | Produto de crédito — ativar/usar versão de regra                        | 🟢 available | medium     | —          |
+| F13-S07 | Endpoints de timeline — interactions do lead + histórico do card Kanban | 🟢 available | high       | —          |
+| F13-S08 | Estados de erro/empty no CRM+Kanban + gating do sync-all de templates   | ⏸️ blocked   | high       | F13-S07    |
 
 ## Fase 2 — Crédito e simulação
 
