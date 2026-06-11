@@ -19,31 +19,51 @@
 //   - Emite simulations.sent_to_customer via outbox (única vez).
 //   - Retorna { alreadySent: boolean } para o endpoint controlar 200 vs 204.
 //
+// sendSimulation (F14-S05):
+//   - Endpoint manual: POST /api/simulations/:id/send.
+//   - Gated: flag simulations.send.enabled + RBAC simulations:send.
+//   - Idempotência via header Idempotency-Key: não reenviar a mesma req.
+//   - Monta variáveis (nome, valor, parcelas, valor_parcela, taxa) e chama
+//     metaClient.sendTemplate (mesma esteira de cobrança/follow-up).
+//   - Registra interação na timeline (channel whatsapp, outbound).
+//   - Meta indisponível → ExternalServiceError (502) com mensagem clara.
+//
 // Invariantes:
 //   - Simulação é snapshot imutável após criação (exceto sent_at).
 //   - Outbox + audit sempre na mesma transação que a mutação.
 //   - Nenhum PII bruto no payload do outbox.
 //
 // LGPD: lead_id, product_id, rule_version_id são IDs opacos — não são PII.
+//   name + phoneE164 do lead são usados apenas para envio e nunca logados.
+//   Interação registrada sem PII bruta no content (apenas IDs).
 // =============================================================================
 import { sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
+import { interactions } from '../../db/schema/interactions.js';
 import { emit } from '../../events/emit.js';
+import { MetaWhatsAppClient } from '../../integrations/meta-whatsapp/client.js';
 import { auditLog } from '../../lib/audit.js';
 import type { AuditActor } from '../../lib/audit.js';
-import { AppError, ForbiddenError, NotFoundError } from '../../shared/errors.js';
+import { isFlagEnabled } from '../../modules/featureFlags/service.js';
+import {
+  AppError,
+  ExternalServiceError,
+  ForbiddenError,
+  NotFoundError,
+} from '../../shared/errors.js';
 
 import { calculate } from './calculator.js';
 import {
   findActiveProduct,
   findActiveRuleForCity,
   findLeadForSimulation,
+  findSimulationForSend,
   insertSimulation,
   updateKanbanCardLastSimulation,
   updateLeadLastSimulation,
 } from './repository.js';
-import type { SimulationCreate, SimulationResponse } from './schemas.js';
+import type { SimulationCreate, SimulationResponse, SendSimulationResponse } from './schemas.js';
 import type { AmortizationTableJsonb } from './schemas.js';
 
 // ---------------------------------------------------------------------------
@@ -470,4 +490,264 @@ export async function markSimulationSent(
     leadId: row.lead_id,
     organizationId: row.organization_id,
   };
+}
+
+// ---------------------------------------------------------------------------
+// sendSimulation — endpoint manual POST /api/simulations/:id/send (F14-S05)
+// ---------------------------------------------------------------------------
+
+/**
+ * Opções de injeção para sendSimulation (facilitam testes unitários).
+ * Em produção, metaClient é criado internamente.
+ *
+ * `metaClient` aceita `undefined` explicitamente para compatibilidade com
+ * `exactOptionalPropertyTypes: true` — usar `undefined` significa "criar do env".
+ */
+export interface SendSimulationOptions {
+  /** Chave de idempotência do header Idempotency-Key (UUID). */
+  idempotencyKey: string;
+  /**
+   * MetaWhatsAppClient injetável para testes.
+   * undefined | null = usar env (lança ExternalServiceError se não configurado).
+   */
+  metaClient?: MetaWhatsAppClient | null | undefined;
+}
+
+/**
+ * Envia a simulação para o lead via WhatsApp (template `simulacao_resultado`).
+ *
+ * Pipeline:
+ *   1. Feature flag (4 camadas — guard na rota + verificação na service layer).
+ *   2. Carrega simulação (org scope) + lead (city scope) → 404/403 se não encontrado.
+ *   3. Verifica idempotência: se já existe interação com este Idempotency-Key
+ *      (external_ref) → retorna { status: 'already_sent', sent_message_id: null }.
+ *   4. Constrói variáveis do template a partir dos dados da simulação.
+ *   5. Obtém/verifica MetaWhatsAppClient → ExternalServiceError se não configurado.
+ *   6. Chama metaClient.sendTemplate → ExternalServiceError em falha de rede/Meta.
+ *   7. Transação: INSERT interaction (outbound, whatsapp) + EMIT outbox + AUDIT.
+ *   8. Retorna { status: 'sent', sent_message_id: wamid }.
+ *
+ * Idempotência:
+ *   A tabela interactions tem UNIQUE (channel, external_ref) WHERE external_ref IS NOT NULL.
+ *   O external_ref é o Idempotency-Key prefixado: 'simulations.send:<idempotencyKey>'.
+ *   Antes do envio verificamos a existência do external_ref para evitar re-disparar
+ *   a Meta desnecessariamente (custo por template message).
+ *
+ * LGPD:
+ *   - name e phoneE164 do lead são usados apenas para envio — nunca logados.
+ *   - O content da interaction armazena 'Simulação [id] enviada por WhatsApp' (sem PII).
+ *   - O outbox payload contém apenas IDs opacos (simulation_id, lead_id).
+ *   - Valores financeiros (amount, rate) não são PII.
+ *
+ * @throws ForbiddenError (403)        — lead fora do city scope.
+ * @throws NotFoundError (404)         — simulação ou lead não encontrado.
+ * @throws ExternalServiceError (502)  — Meta não configurada ou falha de rede.
+ */
+export async function sendSimulation(
+  db: Database,
+  actor: SimulationActorContext,
+  simulationId: string,
+  opts: SendSimulationOptions,
+): Promise<SendSimulationResponse> {
+  // ---------------------------------------------------------------------------
+  // 1. Verificação da flag na service layer (segunda camada — a primeira é o
+  //    featureGate() no preHandler da rota).
+  //    Fail-closed: se a flag não existe no banco, bloqueia.
+  // ---------------------------------------------------------------------------
+  const { enabled: flagEnabled } = await isFlagEnabled(db, 'simulations.send.enabled');
+  if (!flagEnabled) {
+    throw new ExternalServiceError(
+      'Funcionalidade de envio de simulação está desabilitada (flag simulations.send.enabled)',
+      { flag: 'simulations.send.enabled' },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 2. Carregar simulação (org scope) + lead (city scope)
+  // ---------------------------------------------------------------------------
+  const sim = await findSimulationForSend(db, simulationId, actor.organizationId);
+  if (!sim) {
+    throw new NotFoundError(`Simulação ${simulationId} não encontrada`);
+  }
+
+  // Carregar lead com city scope check
+  const lead = await findLeadForSimulation(
+    db,
+    sim.leadId,
+    actor.organizationId,
+    actor.cityScopeIds,
+  );
+  if (!lead) {
+    // Retorna 403 para não vazar existência do lead fora do scope
+    throw new ForbiddenError('Lead não encontrado ou fora do escopo do usuário');
+  }
+
+  // Lead precisa ter telefone para envio via WhatsApp
+  if (!lead.phoneE164) {
+    throw new AppError(
+      422,
+      'VALIDATION_ERROR',
+      'Lead não possui número de telefone cadastrado — não é possível enviar via WhatsApp',
+      { code: 'lead_no_phone' },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 3. Idempotência: verificar se já existe interação com este Idempotency-Key
+  // ---------------------------------------------------------------------------
+  const externalRef = `simulations.send:${opts.idempotencyKey}`;
+  const existingRows = await db.execute(
+    sql`SELECT id FROM interactions
+        WHERE channel = 'whatsapp'
+          AND external_ref = ${externalRef}
+        LIMIT 1`,
+  );
+
+  if ((existingRows.rows[0] as { id?: string } | undefined)?.id !== undefined) {
+    return { status: 'already_sent', sent_message_id: null };
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. Construir variáveis do template
+  //
+  // Template `simulacao_resultado` — variáveis (ordem posicional):
+  //   {{1}} nome_cliente      — lead.name (PII — nunca logado)
+  //   {{2}} valor_solicitado  — amount_requested formatado em BRL
+  //   {{3}} num_parcelas      — term_months
+  //   {{4}} valor_parcela     — monthly_payment formatado em BRL
+  //   {{5}} taxa_mensal       — rate_monthly_snapshot como percentual
+  //
+  // LGPD: nome_cliente é PII mas é enviado PARA o próprio titular —
+  //   tratamento legítimo de dado pessoal (art. 7º, III LGPD — execução de contrato).
+  //   Não é logado aqui (apenas em body HTTP — MetaWhatsAppClient não loga `to` nem body).
+  // ---------------------------------------------------------------------------
+  function formatBrl(numericStr: string): string {
+    const value = parseFloat(numericStr);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  }
+
+  function formatRate(numericStr: string): string {
+    const value = parseFloat(numericStr) * 100;
+    return `${value.toFixed(2).replace('.', ',')}%`;
+  }
+
+  const templateVariables = [
+    { type: 'text' as const, text: lead.name },
+    { type: 'text' as const, text: formatBrl(sim.amountRequested) },
+    { type: 'text' as const, text: String(sim.termMonths) },
+    { type: 'text' as const, text: formatBrl(sim.monthlyPayment) },
+    { type: 'text' as const, text: formatRate(sim.rateMonthlySnapshot) },
+  ];
+
+  // ---------------------------------------------------------------------------
+  // 5. Obter MetaWhatsAppClient
+  //    ExternalServiceError propagada se META_WHATSAPP_ACCESS_TOKEN ou
+  //    META_WHATSAPP_PHONE_NUMBER_ID não estiverem configurados.
+  // ---------------------------------------------------------------------------
+  let metaClient: MetaWhatsAppClient;
+  // `opts.metaClient` pode ser undefined (não passado), null (explícito) ou instance
+  // Com exactOptionalPropertyTypes, verificamos ambos undefined e null
+  const injectedClient = opts.metaClient;
+  if (injectedClient !== undefined && injectedClient !== null) {
+    metaClient = injectedClient;
+  } else {
+    // Construtor lança ExternalServiceError se env não configurado
+    try {
+      metaClient = new MetaWhatsAppClient();
+    } catch (err) {
+      if (err instanceof ExternalServiceError) {
+        throw new ExternalServiceError(
+          `Meta WhatsApp não configurado — não é possível enviar a simulação: ${err.message}`,
+          { code: 'meta_not_configured', original: err.message },
+        );
+      }
+      throw err;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 6. Enviar template via Meta
+  //    ExternalServiceError propagada em falha de rede / resposta de erro Meta.
+  // ---------------------------------------------------------------------------
+  let wamid: string;
+  try {
+    const result = await metaClient.sendTemplate({
+      // phoneE164 garantido acima — `as` justificado: narrowing já verificado
+      to: lead.phoneE164 as string,
+      templateName: 'simulacao_resultado',
+      language: 'pt_BR',
+      components:
+        templateVariables.length > 0 ? [{ type: 'body', parameters: templateVariables }] : [],
+    });
+    wamid = result.wamid;
+  } catch (err) {
+    if (err instanceof ExternalServiceError) {
+      throw new ExternalServiceError(
+        `Falha ao enviar simulação via WhatsApp: ${err.message}`,
+        err.details,
+      );
+    }
+    throw err;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. Transação: INSERT interaction + EMIT outbox + AUDIT
+  // ---------------------------------------------------------------------------
+  await db.transaction(async (tx) => {
+    const txDb = tx as unknown as Database;
+
+    // 7a. INSERT interaction (channel whatsapp, outbound)
+    //     external_ref = idempotency key → dedupe pela unique constraint
+    //     content: sem PII bruta — apenas IDs opacos
+    await txDb.insert(interactions).values({
+      leadId: sim.leadId,
+      organizationId: actor.organizationId,
+      channel: 'whatsapp',
+      direction: 'outbound',
+      content: `Simulação ${simulationId} enviada por WhatsApp (wamid: ${wamid})`,
+      externalRef: externalRef,
+      metadata: {
+        template: 'simulacao_resultado',
+        wamid,
+        simulation_id: simulationId,
+        idempotency_key: opts.idempotencyKey,
+      },
+    });
+
+    // 7b. EMIT simulations.sent_to_customer (sem PII)
+    //     Reutiliza o evento já tipado no AppEventDataMap (events/types.ts).
+    //     message_id = wamid retornado pela Meta.
+    await emit(txDb as unknown as Parameters<typeof emit>[0], {
+      eventName: 'simulations.sent_to_customer',
+      aggregateType: 'credit_simulation',
+      aggregateId: simulationId,
+      organizationId: actor.organizationId,
+      actor: { kind: 'user', id: actor.userId, ip: actor.ip ?? null },
+      idempotencyKey: `simulations.sent_to_customer:${opts.idempotencyKey}`,
+      data: {
+        simulation_id: simulationId,
+        lead_id: sim.leadId,
+        channel: 'whatsapp',
+        message_id: wamid,
+      },
+    });
+
+    // 7c. AUDIT LOG
+    await auditLog(txDb as unknown as Parameters<typeof auditLog>[0], {
+      organizationId: actor.organizationId,
+      actor: buildAuditActor(actor),
+      action: 'credit_simulation.sent_via_whatsapp',
+      resource: { type: 'credit_simulation', id: simulationId },
+      before: null,
+      after: {
+        simulation_id: simulationId,
+        lead_id: sim.leadId,
+        channel: 'whatsapp',
+        wamid,
+        idempotency_key: opts.idempotencyKey,
+      },
+    });
+  });
+
+  return { status: 'sent', sent_message_id: wamid };
 }

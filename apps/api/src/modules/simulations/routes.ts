@@ -4,13 +4,16 @@
 // Endpoints:
 //   POST /api/simulations              — cria simulação para um lead via UI (F2-S04).
 //   GET  /api/leads/:id/simulations    — histórico paginado de simulações por lead (F2-S08).
+//   POST /api/simulations/:id/send     — envia simulação por WhatsApp (F14-S05).
 //
 // Segurança:
 //   - authenticate(): JWT obrigatório.
-//   - authorize({ permissions: ['simulations:create'] }): RBAC para POST.
+//   - authorize({ permissions: ['simulations:create'] }): RBAC para POST criar.
 //   - authorize({ permissions: ['simulations:read'] }): RBAC para GET.
-//   - featureGate('credit_simulation.enabled'): feature flag.
-//   - City scope do lead validado na service layer (POST) e aqui (GET).
+//   - authorize({ permissions: ['simulations:send'] }): RBAC para POST enviar.
+//   - featureGate('credit_simulation.enabled'): flag para criar/listar.
+//   - featureGate('simulations.send.enabled'): flag para envio WhatsApp.
+//   - City scope do lead validado na service layer.
 //
 // LGPD: body/params contêm apenas IDs + números (sem PII bruta).
 //   pino.redact cobre body.* como medida extra no app.ts.
@@ -24,9 +27,10 @@ import { ForbiddenError } from '../../shared/errors.js';
 import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
 
-import { createSimulationController } from './controller.js';
+import { createSimulationController, sendSimulationController } from './controller.js';
 import { findLeadForSimulation, findSimulationsByLeadId } from './repository.js';
 import {
+  SendSimulationResponseSchema,
   SimulationCreateSchema,
   SimulationListQuerySchema,
   SimulationListResponseSchema,
@@ -35,6 +39,7 @@ import {
 
 const CREATE_PERMS: [string, ...string[]] = ['simulations:create'];
 const READ_PERMS: [string, ...string[]] = ['simulations:read'];
+const SEND_PERMS: [string, ...string[]] = ['simulations:send'];
 
 export const simulationsRoutes: FastifyPluginAsyncZod = async (app) => {
   // Autenticação obrigatória em todas as rotas deste plugin
@@ -150,5 +155,67 @@ export const simulationsRoutes: FastifyPluginAsyncZod = async (app) => {
 
       return reply.status(200).send({ data, nextCursor });
     },
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/simulations/:id/send — dispara simulação por WhatsApp (F14-S05)
+  //
+  // Fluxo:
+  //   1. authenticate() valida JWT → popula request.user.
+  //   2. authorize() verifica simulations:send.
+  //   3. featureGate() bloqueia se simulations.send.enabled=false → 403.
+  //   4. Controller → service:
+  //      a. Flag check (segunda camada).
+  //      b. Simulação existe na org → 404 se não.
+  //      c. City scope do lead → 403 se fora.
+  //      d. Lead tem phoneE164 → 422 se não.
+  //      e. Idempotência: Idempotency-Key já usado → 200 already_sent.
+  //      f. Monta variáveis do template.
+  //      g. MetaWhatsAppClient.sendTemplate → 502 se falha/não configurado.
+  //      h. Transação: INSERT interaction + EMIT outbox + AUDIT.
+  //   5. Retorna 200 com { status, sent_message_id }.
+  //
+  // Header obrigatório:
+  //   Idempotency-Key: <UUID v4> — garante que re-tentativas não gerem envios duplos.
+  //
+  // LGPD: params.id e header Idempotency-Key são IDs opacos.
+  //   PII (nome, telefone) é tratado internamente no service — nunca logado.
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/simulations/:id/send',
+    {
+      schema: {
+        tags: ['Simulations'],
+        summary: 'Enviar simulação por WhatsApp',
+        description:
+          'Envia ao lead, via WhatsApp, uma mensagem com os dados da simulação de crédito ' +
+          '(nome, valor, parcelas, valor da parcela, taxa mensal) usando o template aprovado ' +
+          '`simulacao_resultado`. Requer header `Idempotency-Key` (UUID) para garantir que ' +
+          're-tentativas não disparem mensagens duplicadas. ' +
+          'Responde `already_sent` se a chave já foi usada nesta organização. ' +
+          'Retorna 502 se a integração Meta WhatsApp não estiver configurada.',
+        security: [{ bearerAuth: [] }],
+        params: z.object({
+          id: z.string().uuid('id deve ser UUID').describe('UUID da simulação a enviar'),
+        }),
+        headers: z
+          .object({
+            // Idempotency-Key é UUID obrigatório — previne envios duplicados.
+            // O schema de headers no Zod usa lowercase por convenção HTTP.
+            // .passthrough() obrigatório: Fastify enviará outros headers (host, accept, etc.)
+            // que não devem causar falha de validação.
+            'idempotency-key': z
+              .string()
+              .uuid('Idempotency-Key deve ser UUID v4')
+              .describe('UUID único por tentativa de envio — re-usar para idempotência'),
+          })
+          .passthrough(),
+        response: {
+          200: SendSimulationResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: SEND_PERMS }), featureGate('simulations.send.enabled')],
+    },
+    sendSimulationController,
   );
 };

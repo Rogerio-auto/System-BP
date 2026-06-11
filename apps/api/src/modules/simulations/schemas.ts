@@ -130,6 +130,31 @@ export const SimulationListResponseSchema = z.object({
 export type SimulationListResponse = z.infer<typeof SimulationListResponseSchema>;
 
 // ---------------------------------------------------------------------------
+// POST /api/simulations/:id/send — disparo de simulação por WhatsApp (F14-S05)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resposta do endpoint POST /api/simulations/:id/send.
+ * Retornado em 200 tanto no disparo real como no caso idempotente (já enviado).
+ */
+export const SendSimulationResponseSchema = z.object({
+  /** Status do disparo: 'sent' = enviado agora, 'already_sent' = idempotência ativa. */
+  status: z
+    .enum(['sent', 'already_sent'])
+    .describe('sent = enviado nesta requisição; already_sent = Idempotency-Key já usada'),
+  /**
+   * ID da mensagem na Meta (wamid) — preenchido no envio real.
+   * null em caso de already_sent (não há nova mensagem).
+   */
+  sent_message_id: z
+    .string()
+    .nullable()
+    .describe('wamid retornado pela Meta Cloud API, ou null se already_sent'),
+});
+
+export type SendSimulationResponse = z.infer<typeof SendSimulationResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // Tipos internos
 // ---------------------------------------------------------------------------
 

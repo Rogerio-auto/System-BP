@@ -1,11 +1,15 @@
 // =============================================================================
-// simulations/controller.ts — Handler HTTP para POST /api/simulations (F2-S04).
+// simulations/controller.ts — Handlers HTTP para o módulo de simulações.
+//
+// Handlers:
+//   createSimulationController — POST /api/simulations (F2-S04)
+//   sendSimulationController   — POST /api/simulations/:id/send (F14-S05)
 //
 // Responsabilidades:
-//   - Extrair body do request (validado pelo Zod schema na rota).
+//   - Extrair parâmetros do request (validados pelo Zod schema na rota).
 //   - Montar SimulationActorContext a partir de request.user.
-//   - Delegar ao createSimulation() do service.
-//   - Retornar 201 com a simulação completa.
+//   - Delegar ao service.
+//   - Retornar resposta com status correto.
 //
 // request.user é garantidamente definido (authenticate() nos preHandlers).
 //
@@ -20,7 +24,7 @@ import { typedBody } from '../../shared/fastify-types.js';
 
 import type { SimulationCreate } from './schemas.js';
 import type { SimulationActorContext } from './service.js';
-import { createSimulation } from './service.js';
+import { createSimulation, sendSimulation } from './service.js';
 
 // ---------------------------------------------------------------------------
 // Helper: ActorContext de request.user
@@ -57,4 +61,45 @@ export async function createSimulationController(
   });
 
   return reply.status(201).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/simulations/:id/send (F14-S05)
+// ---------------------------------------------------------------------------
+
+/**
+ * Controller do endpoint POST /api/simulations/:id/send.
+ *
+ * Extrai o Idempotency-Key do header (obrigatório) e delega ao service.
+ * A feature flag e RBAC já foram verificados pelos preHandlers na rota.
+ *
+ * LGPD: params.id é UUID opaco — não é PII. O header Idempotency-Key é UUID.
+ *
+ * Nota de tipagem: `request.params` e `request.headers` são tipados via Zod schema
+ * declarado na rota, mas o controller recebe FastifyRequest genérico (sem
+ * TypeProvider) para compatibilidade com o sistema de rotas ZodTypeProvider.
+ * Os `as` abaixo são justificados: Zod validou os campos antes de chegar aqui.
+ */
+export async function sendSimulationController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  if (!request.user) {
+    throw new ForbiddenError('Contexto de usuário ausente — authenticate() não foi executado');
+  }
+
+  const actor = getActorContext(request);
+
+  // `as` justificado: Zod schema da rota garante que params.id é UUID string
+  const params = request.params as { id: string };
+  const simulationId = params.id;
+
+  // `as` justificado: Zod schema da rota garante que idempotency-key é UUID string
+  const idempotencyKey = (request.headers as Record<string, string | undefined>)[
+    'idempotency-key'
+  ] as string;
+
+  const result = await sendSimulation(db, actor, simulationId, { idempotencyKey });
+
+  return reply.status(200).send(result);
 }
