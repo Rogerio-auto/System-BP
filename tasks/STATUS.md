@@ -135,14 +135,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 14 —
 
-| ID      | Título                                                                         | Status       | Prioridade | Depende de |
-| ------- | ------------------------------------------------------------------------------ | ------------ | ---------- | ---------- |
-| F14-S01 | Schema — lead PJ (CNPJ/razão social) + índice único de email                   | 🟣 review    | high       | —          |
-| F14-S02 | Backend — lead PJ + email obrigatório no manual + unicidade + bloqueio interno | ⏸️ blocked   | high       | F14-S01    |
-| F14-S03 | Frontend — NewLeadModal com PJ + email obrigatório                             | ⏸️ blocked   | high       | F14-S02    |
-| F14-S04 | Email pessoal do agente no 1º login + bloqueio estendido                       | ⏸️ blocked   | medium     | F14-S02    |
-| F14-S05 | Backend — disparo de simulação por WhatsApp                                    | 🟢 available | high       | —          |
-| F14-S06 | Frontend — botão "Enviar simulação ao cliente"                                 | ⏸️ blocked   | high       | F14-S05    |
+| ID      | Título                                                                         | Status     | Prioridade | Depende de |
+| ------- | ------------------------------------------------------------------------------ | ---------- | ---------- | ---------- |
+| F14-S01 | Schema — lead PJ (CNPJ/razão social) + índice único de email                   | 🟣 review  | high       | —          |
+| F14-S02 | Backend — lead PJ + email obrigatório no manual + unicidade + bloqueio interno | ⏸️ blocked | high       | F14-S01    |
+| F14-S03 | Frontend — NewLeadModal com PJ + email obrigatório                             | ⏸️ blocked | high       | F14-S02    |
+| F14-S04 | Email pessoal do agente no 1º login + bloqueio estendido                       | ⏸️ blocked | medium     | F14-S02    |
+| F14-S05 | Backend — disparo de simulação por WhatsApp                                    | 🟣 review  | high       | —          |
+| F14-S06 | Frontend — botão "Enviar simulação ao cliente"                                 | ⏸️ blocked | high       | F14-S05    |
 
 ## Fase 2 — Crédito e simulação
 

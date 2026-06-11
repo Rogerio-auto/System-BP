@@ -385,3 +385,55 @@ export async function findSimulationById(
 
   return rows[0] ?? null;
 }
+
+// ---------------------------------------------------------------------------
+// Send query (F14-S05)
+// ---------------------------------------------------------------------------
+
+/**
+ * Campos mínimos de uma simulação para o pipeline de envio WhatsApp.
+ * Apenas dados financeiros + referências — sem PII.
+ */
+export interface SimulationForSend {
+  id: string;
+  leadId: string;
+  organizationId: string;
+  amountRequested: string;
+  termMonths: number;
+  monthlyPayment: string;
+  rateMonthlySnapshot: string;
+}
+
+/**
+ * Busca simulação por ID com os campos necessários para o envio WhatsApp.
+ * Retorna null se não encontrada ou não pertencer à organização.
+ *
+ * Não inclui city scope — a verificação de scope é feita via findLeadForSimulation
+ * na service layer, que autentica o lead com o city scope do usuário.
+ */
+export async function findSimulationForSend(
+  db: Database,
+  id: string,
+  organizationId: string,
+): Promise<SimulationForSend | null> {
+  const rows = await db
+    .select({
+      id: creditSimulations.id,
+      leadId: creditSimulations.leadId,
+      organizationId: creditSimulations.organizationId,
+      amountRequested: creditSimulations.amountRequested,
+      termMonths: creditSimulations.termMonths,
+      monthlyPayment: creditSimulations.monthlyPayment,
+      rateMonthlySnapshot: creditSimulations.rateMonthlySnapshot,
+    })
+    .from(creditSimulations)
+    .where(
+      and(
+        eq(creditSimulations.id, id),
+        eq(creditSimulations.organizationId, organizationId),
+      ) as ReturnType<typeof or>,
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+}

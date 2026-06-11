@@ -89,3 +89,20 @@ export const AI_PLAYGROUND_PERMISSIONS = [
 ] as const;
 
 export type AiPlaygroundPermissionKey = (typeof AI_PLAYGROUND_PERMISSIONS)[number]['key'];
+
+/**
+ * Definição da permissão de disparo de simulação por WhatsApp.
+ * Corresponde ao SQL da migration 0053_seed_simulation_template_flag.sql.
+ *
+ * Nota: simulations:send é admin-only no seed inicial. Pode ser expandida para
+ * gestor_geral/agente via UI de admin conforme necessidade operacional.
+ */
+export const SIMULATIONS_SEND_PERMISSIONS = [
+  {
+    key: 'simulations:send',
+    description: 'Disparo de simulação de crédito por WhatsApp para o lead',
+    roles: ['admin'],
+  },
+] as const;
+
+export type SimulationsSendPermissionKey = (typeof SIMULATIONS_SEND_PERMISSIONS)[number]['key'];
