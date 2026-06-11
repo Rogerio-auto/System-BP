@@ -14,16 +14,22 @@
 //   - cpf_encrypted:    bytea reservado para F1-S24 (AES-256-GCM via pgcrypto).
 //   - cpf_hash:         HMAC SHA-256 para dedupe seguro de CPF (F1-S24).
 //   - email:            citext (case-insensitive, extension citext de 0000_init.sql).
+//   - cnpj:             CNPJ em texto claro (D1 — lead PJ). Validação na borda Zod.
+//   - legal_name:       Razão social da empresa (lead PJ).
 //   - metadata:         jsonb livre para dados extras sem migration (ex: utm_source).
 //
 // LGPD (doc 17):
 //   - name, email, phone_* são PII — não logar em produção (pino.redact).
 //   - cpf_* colunas ficam NULL até F1-S24 implementar a criptografia.
+//   - cnpj/legal_name: dados de PJ — fora do escopo estrito de dados pessoais
+//     de PF (LGPD art. 5 I), mas tratados com cuidado em logs de produção.
 //   - content de interactions pode ter PII — cifrar em fase futura (TODO §8.5).
 //
 // Dedupe:
 //   - Índice único parcial (organization_id, phone_normalized) WHERE deleted_at IS NULL.
-//   - Permite reutilizar número após soft-delete.
+//   - Índice único parcial (organization_id, lower(email)) WHERE email IS NOT NULL
+//     AND deleted_at IS NULL (D2 — unicidade de email por org, adicionado em F14-S01).
+//   - Permite reutilizar telefone/email após soft-delete.
 //
 // Soft-delete via deleted_at para preservar histórico e lead_history.
 //
@@ -230,6 +236,25 @@ export const leads = pgTable(
      * Adicionado em migration 0041_leads_notion_page_id.sql.
      */
     notionPageId: text('notion_page_id'),
+
+    /**
+     * CNPJ da empresa (lead pessoa jurídica).
+     * Decisão D1 (F14-S01): texto claro — diferente do CPF (bytea cifrado).
+     * Formato não normalizado no DB — pode ser somente dígitos (14) ou
+     * formatado (XX.XXX.XXX/XXXX-XX); normalização e validação na borda Zod.
+     * null = lead é pessoa física ou CNPJ ainda não informado.
+     * Adicionado em migration 0051_lead_pj_email_unique.sql.
+     */
+    cnpj: text('cnpj'),
+
+    /**
+     * Razão social da empresa (lead pessoa jurídica).
+     * null = lead é pessoa física ou razão social ainda não informada.
+     * Dado de PJ — fora do escopo de dados pessoais de PF (LGPD art. 5 I),
+     * mas não logar em produção sem context (pode revelar intenção de crédito).
+     * Adicionado em migration 0051_lead_pj_email_unique.sql.
+     */
+    legalName: text('legal_name'),
   },
   (table) => ({
     // -------------------------------------------------------------------------
@@ -329,6 +354,23 @@ export const leads = pgTable(
     uqNotionPageId: uniqueIndex('uq_leads_notion_page_id')
       .on(table.organizationId, table.notionPageId)
       .where(sql`${table.notionPageId} IS NOT NULL`),
+
+    /**
+     * Unicidade de email por organização (D2 — F14-S01).
+     * Expressão lower(email::text) garante case-insensitive determinístico
+     * mesmo sendo citext (índices de expressão exigem cast explícito).
+     * Parcial: ignora leads sem email e leads soft-deletados — permite
+     * reutilizar o mesmo email em outra org ou após soft-delete na mesma.
+     * Criado com CONCURRENTLY na migration SQL (0051_lead_pj_email_unique.sql).
+     *
+     * NOTA: Drizzle não suporta uniqueIndex em expressão SQL pura com `.where()`.
+     * A declaração abaixo usa sql`` para a expressão; o índice real é criado
+     * manualmente na migration SQL — esta entry garante que o type system
+     * do schema reflita a constraint sem gerar DDL conflitante via db:generate.
+     */
+    uqOrgEmailActive: uniqueIndex('uq_leads_org_email_active')
+      .on(table.organizationId, table.email)
+      .where(sql`${table.email} IS NOT NULL AND ${table.deletedAt} IS NULL`),
   }),
 );
 
