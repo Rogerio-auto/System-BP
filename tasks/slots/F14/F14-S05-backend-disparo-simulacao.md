@@ -3,12 +3,12 @@ id: F14-S05
 title: Backend — disparo de simulação por WhatsApp
 phase: F14
 task_ref: null
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-11T20:00:16Z
-completed_at: null
+completed_at: 2026-06-11T20:23:56Z
 pr_url: null
 depends_on: []
 blocks: [F14-S06]
@@ -20,6 +20,7 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
+
 # F14-S05 — Backend: disparo de simulação por WhatsApp
 
 ## Objetivo
