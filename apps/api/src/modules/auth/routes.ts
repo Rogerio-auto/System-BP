@@ -38,10 +38,11 @@ import {
 } from './schemas.js';
 
 // Rate-limit estrito anti-brute-force (doc 10 §2.1): 5 tentativas / 15min / IP.
-// Pode ser desligado em dev/demo via AUTH_RATE_LIMIT_DISABLED=true — JAMAIS em
-// produção (o gate ignora a flag se NODE_ENV === 'production', por segurança).
+// Pode ser desligado APENAS em desenvolvimento local via AUTH_RATE_LIMIT_DISABLED=true.
+// O gate exige NODE_ENV === 'development' — produção, staging e test SEMPRE têm o
+// rate-limit ativo (segurança + mantém os testes de brute-force determinísticos).
 // `false` desativa o limiter para a rota (cai no global brando de app.ts).
-const authRateLimitDisabled = env.AUTH_RATE_LIMIT_DISABLED && env.NODE_ENV !== 'production';
+const authRateLimitDisabled = env.AUTH_RATE_LIMIT_DISABLED && env.NODE_ENV === 'development';
 
 const strictAuthRateLimit = authRateLimitDisabled
   ? (false as const)
