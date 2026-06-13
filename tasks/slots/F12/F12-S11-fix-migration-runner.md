@@ -3,13 +3,13 @@ id: F12-S11
 title: Fix CRÍTICO — runner de migrations pula migrations em DB existente (go-live blocker)
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#12
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-13T00:44:49Z
 completed_at: 2026-06-13T00:56:40Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/219
 depends_on: []
 blocks: []
 source_docs:
