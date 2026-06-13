@@ -3,11 +3,11 @@ id: F12-S11
 title: Fix CRÍTICO — runner de migrations pula migrations em DB existente (go-live blocker)
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#12
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-13T00:44:49Z
 completed_at: null
 pr_url: null
 depends_on: []
