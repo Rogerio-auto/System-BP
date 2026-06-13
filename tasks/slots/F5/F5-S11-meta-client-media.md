@@ -3,12 +3,12 @@ id: F5-S11
 title: Cliente Meta — parâmetro de mídia no envio + upload /media + header de mídia no catálogo
 phase: F5
 task_ref: docs/07-integracoes-whatsapp-chatwoot.md#midia-boleto
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-13T17:29:12Z
-completed_at: null
+completed_at: 2026-06-13T17:39:54Z
 pr_url: null
 depends_on: [F5-S03, F5-S09, F5-S10]
 blocks: [F5-S12, F5-S14]
