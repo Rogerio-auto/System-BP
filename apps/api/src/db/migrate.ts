@@ -19,17 +19,26 @@
 //   1. Linha 1 do arquivo contém o marker `-- no-transaction`.
 //   2. OU o arquivo contém as palavras CONCURRENTLY, VACUUM ou REINDEX.
 //
+// Detecção de migrations pendentes:
+//   Por HASH (SHA-256 do conteúdo .sql) — NÃO por timestamp.
+//   Razão: o campo `when` do _journal.json não é monotônico (migrations geradas
+//   em épocas diferentes, reordenadas por idx). Usar timestamp levava a pular
+//   silenciosamente migrations com `when` menor que o MAX(created_at) do DB.
+//   A detecção por hash é robusta a qualquer ordenação de `when`.
+//
 // Garantias:
 //   - Idempotente: re-executar em DB atualizado não aplica nada.
 //   - Se uma migration não-transacional falha: o journal NÃO é gravado e o
 //     processo termina com exit(1) + mensagem clara.
 //   - Migrations transacionais continuam com BEGIN/COMMIT — se falharem, o
 //     ROLLBACK garante que o journal também não é gravado (tudo na transação).
+//   - Cross-platform: o guard `isEntrypoint` funciona em Windows e Linux.
 // =============================================================================
 
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 
@@ -97,7 +106,7 @@ function stripSqlComments(sql: string): string {
 
 /**
  * Lê o journal Drizzle (_journal.json) e os arquivos .sql, retornando uma
- * lista ordenada por `folderMillis` com todos os metadados necessários.
+ * lista na ordem do journal (por idx) com todos os metadados necessários.
  */
 function readMigrationFiles(migrationsFolder: string): MigrationFile[] {
   const journalPath = path.join(migrationsFolder, 'meta', '_journal.json');
@@ -142,6 +151,47 @@ function readMigrationFiles(migrationsFolder: string): MigrationFile[] {
 }
 
 /**
+ * Função pura — sem efeitos colaterais, sem I/O, sem pg.
+ *
+ * Dado o slice do journal (entradas já lidas do disco) e o conjunto de hashes
+ * já registrados no DB, retorna as entradas que ainda precisam ser aplicadas,
+ * na ordem do journal.
+ *
+ * Regra de decisão: uma entry é "pendente" se o seu hash NÃO estiver em
+ * `appliedHashes`. Isso é robusto a qualquer ordenação de `folderMillis`/`when`.
+ *
+ * Log side-effect: recebe `log` (default console.log) para que testes possam
+ * silenciar ou capturar as mensagens sem precisar de Postgres.
+ */
+function selectPendingMigrations(
+  journalEntries: MigrationFile[],
+  appliedHashes: ReadonlySet<string>,
+  log: (msg: string) => void = (msg) => {
+    // eslint-disable-next-line no-console
+    console.log(msg);
+  },
+): MigrationFile[] {
+  const pending: MigrationFile[] = [];
+
+  for (const entry of journalEntries) {
+    if (appliedHashes.has(entry.hash)) {
+      // Hash presente no DB → já aplicada, pula
+      log(`[migrate] ${entry.tag} já aplicada (hash match). Pulando.`);
+    } else {
+      // Hash ausente → precisa aplicar
+      log(`[migrate] ${entry.tag} pendente (hash não encontrado no DB). Será aplicada.`);
+      pending.push(entry);
+    }
+  }
+
+  // Aviso: hash no DB que não existe no journal (migration removida ou journal corrompido)
+  // Não bloqueia, mas vale logar para diagnóstico.
+  // (Não temos como calcular isso aqui sem o set de tags do journal, mas o caller pode fazer.)
+
+  return pending;
+}
+
+/**
  * Garante que o schema e a tabela de journal existam.
  * Usa um cliente dedicado para não interferir com transações em curso.
  */
@@ -157,19 +207,15 @@ async function ensureJournalTable(client: pg.PoolClient): Promise<void> {
 }
 
 /**
- * Retorna o `created_at` da última migration registrada no journal,
- * ou -1 se o journal estiver vazio.
+ * Retorna o conjunto de hashes de todas as migrations registradas no DB.
+ * É robusto a qualquer ordenação de `created_at`.
  */
-async function getLastAppliedTimestamp(client: pg.PoolClient): Promise<number> {
-  const result = await client.query<{ created_at: string }>(
-    `SELECT created_at
-     FROM ${MIGRATIONS_SCHEMA}.${MIGRATIONS_TABLE}
-     ORDER BY created_at DESC
-     LIMIT 1`,
+async function getAppliedHashes(client: pg.PoolClient): Promise<Set<string>> {
+  const result = await client.query<{ hash: string }>(
+    `SELECT hash FROM ${MIGRATIONS_SCHEMA}.${MIGRATIONS_TABLE}`,
   );
 
-  if (result.rows.length === 0) return -1;
-  return Number(result.rows[0]!.created_at);
+  return new Set(result.rows.map((row) => row.hash));
 }
 
 /**
@@ -199,10 +245,24 @@ async function runMigrations(migrationsFolder: string): Promise<void> {
 
   try {
     await ensureJournalTable(client);
-    const lastTimestamp = await getLastAppliedTimestamp(client);
+
+    // Detecção por hash: busca todos os hashes já aplicados no DB.
+    // Robusto a `when` fora de ordem e a gaps no idx do journal.
+    const appliedHashes = await getAppliedHashes(client);
     const migrations = readMigrationFiles(migrationsFolder);
 
-    const pending = migrations.filter((m) => m.folderMillis > lastTimestamp);
+    // Loga hashes no DB que não existem no journal (warning de diagnóstico)
+    const journalHashes = new Set(migrations.map((m) => m.hash));
+    for (const dbHash of appliedHashes) {
+      if (!journalHashes.has(dbHash)) {
+        console.warn(
+          `[migrate] AVISO: hash ${dbHash.slice(0, 12)}… está no DB mas não no journal. ` +
+            `Migration removida ou journal corrompido.`,
+        );
+      }
+    }
+
+    const pending = selectPendingMigrations(migrations, appliedHashes);
 
     if (pending.length === 0) {
       // eslint-disable-next-line no-console
@@ -313,16 +373,21 @@ async function main(): Promise<void> {
 
 // ---------------------------------------------------------------------------
 // Entrypoint guard: só executa quando rodado diretamente (não importado).
-// Em ESM, `process.argv[1]` aponta para o arquivo que foi iniciado pelo Node.
-// Quando importado em testes (import { runMigrations } from '../migrate.js'),
-// process.argv[1] aponta para o runner do Vitest — condição falsa, main() não roda.
+//
+// Problema histórico: comparar `process.argv[1]` com `new URL(import.meta.url).pathname`
+// falha no Windows porque:
+//   - process.argv[1]  →  "C:\...\migrate.ts"    (backslashes, sem barra inicial)
+//   - URL.pathname     →  "/C:/...\migrate.ts"   (forward slashes, barra inicial extra)
+// Os dois nunca batem → main() nunca rodava → processo saía 0 sem aplicar nada.
+//
+// Correção: usar `fileURLToPath(import.meta.url)` (devolve path nativo do SO)
+// e `path.resolve(process.argv[1])` (normaliza separadores e resolve CWD).
+// Ambos produzem caminhos nativos comparáveis em Windows e Linux.
 // ---------------------------------------------------------------------------
-const isEntrypoint =
-  typeof process !== 'undefined' &&
-  process.argv[1] !== undefined &&
-  // tsx substitui .ts por .js no argv — normaliza para comparar
-  process.argv[1].replace(/\.[jt]s$/, '') ===
-    new URL(import.meta.url).pathname.replace(/\.[jt]s$/, '');
+const _thisFile = fileURLToPath(import.meta.url).replace(/\.[jt]s$/, '');
+const _argv1 =
+  process.argv[1] !== undefined ? path.resolve(process.argv[1]).replace(/\.[jt]s$/, '') : '';
+const isEntrypoint = _argv1 !== '' && _thisFile === _argv1;
 
 if (isEntrypoint) {
   main().catch((err: unknown) => {
@@ -335,5 +400,5 @@ if (isEntrypoint) {
 // ---------------------------------------------------------------------------
 // Exports para uso em testes de integração
 // ---------------------------------------------------------------------------
-export { readMigrationFiles, runMigrations, ensureJournalTable };
+export { readMigrationFiles, runMigrations, ensureJournalTable, selectPendingMigrations };
 export type { MigrationFile, Journal, MigrationEntry };

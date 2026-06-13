@@ -7,11 +7,16 @@
 //   (b) o journal foi (ou não foi) gravado conforme esperado,
 //   (c) o modo transacional/não-transacional foi respeitado.
 //
-// Os testes cobrem os 4 cenários do DoD:
+// Os testes cobrem os cenários do DoD:
 //   1. Migration transacional simples — aplica e grava journal.
 //   2. Migration com CONCURRENTLY — roda fora de transação e grava journal.
 //   3. Migration transacional que falha — rollback + journal vazio.
 //   4. Migration não-transacional que falha — journal vazio + erro claro.
+//   5. Idempotência por HASH — migration com hash já no DB não é re-aplicada.
+//   6. Hash-based: migration de `when` MENOR que o MAX(created_at) existente
+//      mas com hash AUSENTE é aplicada (o bug original).
+//   7. Hash-based (puro/sem pg): selectPendingMigrations filtra só por hash.
+//   8. readMigrationFiles — testes unitários puros da função de leitura.
 // =============================================================================
 
 import crypto from 'node:crypto';
@@ -47,8 +52,8 @@ function createMigrationsDir(fixtures: MigrationFixture[]): string {
   const journal = {
     version: '5',
     dialect: 'postgresql',
-    entries: fixtures.map((f) => ({
-      idx: 0,
+    entries: fixtures.map((f, i) => ({
+      idx: i,
       version: '5',
       when: f.when,
       tag: f.tag,
@@ -95,8 +100,8 @@ vi.mock('pg', () => {
 // Import do SUT (deve vir DEPOIS dos mocks para capturar o mock de pg)
 // ---------------------------------------------------------------------------
 
-// Importamos readMigrationFiles diretamente — não depende de pg
-import { readMigrationFiles } from '../migrate.js';
+// Importamos funções puras diretamente — não dependem de pg
+import { readMigrationFiles, selectPendingMigrations } from '../migrate.js';
 
 // runMigrations depende de pg — importamos dinamicamente em cada teste
 // para que o mock esteja ativo.
@@ -131,6 +136,20 @@ function queryCalls(client: MockClient): string[] {
   );
 }
 
+/**
+ * Configura o mock de client.query para retornar um conjunto de hashes
+ * como se fossem as migrations já aplicadas no DB.
+ * A query de leitura dos hashes é: `SELECT hash FROM drizzle.__drizzle_migrations`.
+ */
+function mockAppliedHashes(client: MockClient, hashes: string[]): void {
+  client.query.mockImplementation(async (sql: string) => {
+    if (typeof sql === 'string' && sql.includes('SELECT hash FROM')) {
+      return { rows: hashes.map((h) => ({ hash: h })) };
+    }
+    return { rows: [] };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Cenário 1 — Migration transacional simples
 // ---------------------------------------------------------------------------
@@ -146,13 +165,8 @@ describe('Cenário 1: migration transacional simples', () => {
 
     const migrationsDir = createMigrationsDir([fixture]);
 
-    // Simula journal vazio (sem migrations aplicadas)
-    mockClient.query.mockImplementation(async (sql: string) => {
-      if (typeof sql === 'string' && sql.includes('ORDER BY created_at DESC')) {
-        return { rows: [] }; // nenhuma migration aplicada
-      }
-      return { rows: [] };
-    });
+    // Nenhum hash aplicado — migration é nova
+    mockAppliedHashes(mockClient, []);
 
     const { runMigrations } = await import('../migrate.js');
     await runMigrations(migrationsDir);
@@ -195,12 +209,7 @@ describe('Cenário 2: migration com CONCURRENTLY', () => {
 
     const migrationsDir = createMigrationsDir([fixture]);
 
-    mockClient.query.mockImplementation(async (sql: string) => {
-      if (typeof sql === 'string' && sql.includes('ORDER BY created_at DESC')) {
-        return { rows: [] };
-      }
-      return { rows: [] };
-    });
+    mockAppliedHashes(mockClient, []);
 
     const { runMigrations } = await import('../migrate.js');
     await runMigrations(migrationsDir);
@@ -241,8 +250,8 @@ describe('Cenário 3: migration transacional com falha', () => {
     let insertCalled = false;
 
     mockClient.query.mockImplementation(async (sql: string) => {
-      if (typeof sql === 'string' && sql.includes('ORDER BY created_at DESC')) {
-        return { rows: [] };
+      if (typeof sql === 'string' && sql.includes('SELECT hash FROM')) {
+        return { rows: [] }; // nenhum hash aplicado
       }
       if (typeof sql === 'string' && sql.includes('ALTER TABLE inexistente')) {
         throw new Error('relation "inexistente" does not exist');
@@ -292,7 +301,7 @@ describe('Cenário 4: migration não-transacional com falha', () => {
     let insertCalled = false;
 
     mockClient.query.mockImplementation(async (sql: string) => {
-      if (typeof sql === 'string' && sql.includes('ORDER BY created_at DESC')) {
+      if (typeof sql === 'string' && sql.includes('SELECT hash FROM')) {
         return { rows: [] };
       }
       if (typeof sql === 'string' && sql.includes('CREATE UNIQUE INDEX CONCURRENTLY')) {
@@ -334,11 +343,11 @@ describe('Cenário 4: migration não-transacional com falha', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Cenário 5 — Idempotência: DB em dia não aplica nada
+// Cenário 5 — Idempotência por HASH: hash já no DB não re-aplica
 // ---------------------------------------------------------------------------
 
-describe('Cenário 5: idempotência', () => {
-  it('não executa statements quando o journal já está atualizado', async () => {
+describe('Cenário 5: idempotência por hash', () => {
+  it('não executa statements quando o hash da migration já está no DB', async () => {
     const content = 'CREATE TABLE bar (id uuid PRIMARY KEY);';
     const fixture: MigrationFixture = {
       tag: '0001_already_applied',
@@ -348,13 +357,9 @@ describe('Cenário 5: idempotência', () => {
 
     const migrationsDir = createMigrationsDir([fixture]);
 
-    // Simula journal já com a migration aplicada (created_at >= folderMillis)
-    mockClient.query.mockImplementation(async (sql: string) => {
-      if (typeof sql === 'string' && sql.includes('ORDER BY created_at DESC')) {
-        return { rows: [{ created_at: '1000' }] }; // já aplicada
-      }
-      return { rows: [] };
-    });
+    // O hash dessa migration já está registrado no DB
+    const alreadyAppliedHash = sha256(content);
+    mockAppliedHashes(mockClient, [alreadyAppliedHash]);
 
     const { runMigrations } = await import('../migrate.js');
     await runMigrations(migrationsDir);
@@ -367,6 +372,157 @@ describe('Cenário 5: idempotência', () => {
     expect(calls.some((q) => q === 'BEGIN')).toBe(false);
 
     fs.rmSync(migrationsDir, { recursive: true, force: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cenário 6 — O bug original: migration com `when` MENOR que MAX(created_at)
+//             mas hash AUSENTE deve ser APLICADA (não pulada silenciosamente)
+// ---------------------------------------------------------------------------
+
+describe('Cenário 6: detecção por hash — o bug original', () => {
+  it(
+    'aplica migration cujo `when` é menor que o created_at das já-aplicadas ' +
+      'mas cujo hash ainda não está no DB',
+    async () => {
+      // DB simulado: tem uma migration com `when` = 1_779_000_000_000 (2026)
+      // Novo journal: migration com `when` = 1_748_000_000_000 (2025) — posterior no idx
+      // Com o bug antigo (lastTimestamp): 1_748 < 1_779 → pulada silenciosamente.
+      // Com a correção (hash-based): hash ausente → deve ser aplicada.
+
+      const alreadyApplied = 'CREATE TABLE existing (id uuid PRIMARY KEY);';
+      const alreadyAppliedHash = sha256(alreadyApplied);
+
+      const newButLowWhen = 'ALTER TABLE leads ADD COLUMN notion_page_id text;';
+
+      const fixtures: MigrationFixture[] = [
+        { tag: '0040_already', when: 1_779_000_000_000, content: alreadyApplied },
+        { tag: '0041_new_low_when', when: 1_748_000_000_000, content: newButLowWhen },
+      ];
+
+      const migrationsDir = createMigrationsDir(fixtures);
+
+      // DB já tem o hash de 0040, mas NÃO tem o de 0041
+      mockAppliedHashes(mockClient, [alreadyAppliedHash]);
+
+      const { runMigrations } = await import('../migrate.js');
+      await runMigrations(migrationsDir);
+
+      const calls = queryCalls(mockClient);
+
+      // 0041 deve ter sido aplicada (ALTER TABLE presente nas calls)
+      expect(calls.some((q) => q.includes('ALTER TABLE leads ADD COLUMN notion_page_id'))).toBe(
+        true,
+      );
+
+      // 0040 NÃO deve ter sido re-aplicada (CREATE TABLE existing ausente nas DDL calls)
+      expect(calls.some((q) => q.includes('CREATE TABLE existing'))).toBe(false);
+
+      // Journal deve ter sido gravado uma vez (para 0041)
+      const insertCalls = calls.filter((q) =>
+        q.includes('INSERT INTO drizzle.__drizzle_migrations'),
+      );
+      expect(insertCalls).toHaveLength(1);
+
+      fs.rmSync(migrationsDir, { recursive: true, force: true });
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Cenário 7 — selectPendingMigrations (função pura, sem pg, sem disco)
+// ---------------------------------------------------------------------------
+
+describe('Cenário 7: selectPendingMigrations — função pura', () => {
+  // Não precisa de pg nem de disco — usa só a função exportada
+  const makeMigrationFile = (tag: string, content: string, when = 1000) => ({
+    tag,
+    folderMillis: when,
+    hash: sha256(content),
+    content,
+    statements: [content],
+    noTransaction: false,
+  });
+
+  it('retorna todas as entries quando nenhum hash está aplicado', () => {
+    const entries = [
+      makeMigrationFile('0001_a', 'CREATE TABLE a (id uuid);'),
+      makeMigrationFile('0002_b', 'CREATE TABLE b (id uuid);'),
+    ];
+
+    const pending = selectPendingMigrations(entries, new Set(), () => undefined);
+
+    expect(pending).toHaveLength(2);
+    expect(pending[0]!.tag).toBe('0001_a');
+    expect(pending[1]!.tag).toBe('0002_b');
+  });
+
+  it('retorna apenas entries com hash ausente do conjunto de aplicados', () => {
+    const contentA = 'CREATE TABLE a (id uuid);';
+    const contentB = 'CREATE TABLE b (id uuid);';
+
+    const entries = [makeMigrationFile('0001_a', contentA), makeMigrationFile('0002_b', contentB)];
+
+    // Apenas o hash de A está aplicado
+    const appliedHashes = new Set([sha256(contentA)]);
+    const pending = selectPendingMigrations(entries, appliedHashes, () => undefined);
+
+    expect(pending).toHaveLength(1);
+    expect(pending[0]!.tag).toBe('0002_b');
+  });
+
+  it('retorna lista vazia quando todos os hashes já estão aplicados', () => {
+    const contentA = 'CREATE TABLE a (id uuid);';
+    const contentB = 'CREATE TABLE b (id uuid);';
+
+    const entries = [makeMigrationFile('0001_a', contentA), makeMigrationFile('0002_b', contentB)];
+
+    const appliedHashes = new Set([sha256(contentA), sha256(contentB)]);
+    const pending = selectPendingMigrations(entries, appliedHashes, () => undefined);
+
+    expect(pending).toHaveLength(0);
+  });
+
+  it('reproduz o bug original: `when` baixo + hash ausente → retorna como pendente', () => {
+    // Entry com when=1748... (2025) mas hash não aplicado
+    // Isso simulava o bug: o antigo filtro `folderMillis > lastTimestamp` pularia
+    // essa migration quando lastTimestamp (MAX created_at no DB) fosse 1779... (2026)
+    const lowWhenContent = 'ALTER TABLE leads ADD COLUMN notion_page_id text;';
+    const highWhenContent = 'CREATE TABLE existing (id uuid);';
+
+    // No journal: highWhen vem primeiro (idx=40), lowWhen vem depois (idx=41)
+    const entries = [
+      makeMigrationFile('0040_high', highWhenContent, 1_779_000_000_000),
+      makeMigrationFile('0041_low', lowWhenContent, 1_748_000_000_000),
+    ];
+
+    // DB tem apenas o hash de 0040 (aplicado)
+    const appliedHashes = new Set([sha256(highWhenContent)]);
+    const pending = selectPendingMigrations(entries, appliedHashes, () => undefined);
+
+    // 0041 deve ser pendente mesmo com when < when(0040)
+    expect(pending).toHaveLength(1);
+    expect(pending[0]!.tag).toBe('0041_low');
+  });
+
+  it('mantém a ordem do journal para as entries pendentes', () => {
+    const contentA = 'CREATE TABLE a (id uuid);';
+    const contentB = 'CREATE TABLE b (id uuid);';
+    const contentC = 'CREATE TABLE c (id uuid);';
+
+    // B já aplicada, A e C pendentes
+    const entries = [
+      makeMigrationFile('0001_a', contentA, 1000),
+      makeMigrationFile('0002_b', contentB, 2000),
+      makeMigrationFile('0003_c', contentC, 3000),
+    ];
+
+    const appliedHashes = new Set([sha256(contentB)]);
+    const pending = selectPendingMigrations(entries, appliedHashes, () => undefined);
+
+    expect(pending).toHaveLength(2);
+    expect(pending[0]!.tag).toBe('0001_a');
+    expect(pending[1]!.tag).toBe('0003_c');
   });
 });
 
