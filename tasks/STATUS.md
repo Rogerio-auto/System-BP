@@ -17,7 +17,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
-| F5   | 16    | 6   | 0   | 0   | 0   | 0   | 10  |
+| F5   | 16    | 5   | 0   | 0   | 1   | 0   | 10  |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -217,24 +217,24 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 5 — Follow-up e cobrança
 
-| ID     | Título                                                                                        | Status       | Prioridade | Depende de                                     |
-| ------ | --------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------------------------------------------- |
-| F5-S01 | Schema followup_rules + followup_jobs + whatsapp_templates                                    | ✅ done      | high       | F0-S04, F1-S09, F1-S15, F1-S23                 |
-| F5-S02 | Worker followup-scheduler (gated)                                                             | ✅ done      | high       | F5-S01, F1-S15, F1-S23                         |
-| F5-S03 | Worker followup-sender + cliente Meta WhatsApp templates                                      | ✅ done      | high       | F5-S01, F5-S02, F1-S15, F1-S20                 |
-| F5-S04 | Cancelamento de followup por resposta do cliente                                              | ✅ done      | high       | F5-S01, F5-S03, F1-S19, F1-S15                 |
-| F5-S05 | Frontend — réguas de followup, jobs agendados e pausa manual                                  | ✅ done      | medium     | F5-S01, F5-S02, F5-S03, F1-S08, F1-S23, F8-S08 |
-| F5-S06 | Schema payment_dues + collection_rules + collection_jobs                                      | ✅ done      | medium     | F5-S01, F1-S09, F1-S15, F1-S23, F1-S24         |
-| F5-S07 | Workers collection-scheduler + collection-sender (gated)                                      | ✅ done      | medium     | F5-S06, F5-S03, F1-S15                         |
-| F5-S08 | Frontend cobrança + importação payment_dues + marcação manual                                 | ✅ done      | medium     | F5-S06, F5-S07, F1-S08, F1-S17, F8-S08         |
-| F5-S09 | Frontend templates WhatsApp + sync Meta Cloud + webhook de status                             | ✅ done      | medium     | F5-S01, F5-S03, F1-S08, F1-S20, F8-S08         |
-| F5-S10 | Schema — header de mídia em whatsapp_templates + campos de boleto em payment_dues + flags     | ✅ done      | high       | F5-S01, F5-S06                                 |
-| F5-S11 | Cliente Meta — parâmetro de mídia no envio + upload /media + header de mídia no catálogo      | 🟢 available | high       | F5-S03, F5-S09, F5-S10                         |
-| F5-S12 | Módulo templates — header_type (texto/documento/imagem) no CRUD + submit de header de mídia   | 🟢 available | high       | F5-S10, F5-S11                                 |
-| F5-S13 | Cobrança — anexar boleto à parcela (endpoint + import) com RBAC, auditoria e LGPD             | 🟢 available | high       | F5-S10, F5-S11, F5-S08                         |
-| F5-S14 | collection-sender — anexar header de boleto no envio de cobrança (re-upload + fallback)       | 🟢 available | high       | F5-S11, F5-S13                                 |
-| F5-S15 | Frontend templates — seletor de header (texto/documento/imagem) + upload de amostra + preview | 🟢 available | medium     | F5-S12                                         |
-| F5-S16 | Frontend cobrança — anexar/visualizar boleto na parcela (upload PDF + URL + linha/PIX)        | 🟢 available | medium     | F5-S13                                         |
+| ID     | Título                                                                                        | Status         | Prioridade | Depende de                                     |
+| ------ | --------------------------------------------------------------------------------------------- | -------------- | ---------- | ---------------------------------------------- |
+| F5-S01 | Schema followup_rules + followup_jobs + whatsapp_templates                                    | ✅ done        | high       | F0-S04, F1-S09, F1-S15, F1-S23                 |
+| F5-S02 | Worker followup-scheduler (gated)                                                             | ✅ done        | high       | F5-S01, F1-S15, F1-S23                         |
+| F5-S03 | Worker followup-sender + cliente Meta WhatsApp templates                                      | ✅ done        | high       | F5-S01, F5-S02, F1-S15, F1-S20                 |
+| F5-S04 | Cancelamento de followup por resposta do cliente                                              | ✅ done        | high       | F5-S01, F5-S03, F1-S19, F1-S15                 |
+| F5-S05 | Frontend — réguas de followup, jobs agendados e pausa manual                                  | ✅ done        | medium     | F5-S01, F5-S02, F5-S03, F1-S08, F1-S23, F8-S08 |
+| F5-S06 | Schema payment_dues + collection_rules + collection_jobs                                      | ✅ done        | medium     | F5-S01, F1-S09, F1-S15, F1-S23, F1-S24         |
+| F5-S07 | Workers collection-scheduler + collection-sender (gated)                                      | ✅ done        | medium     | F5-S06, F5-S03, F1-S15                         |
+| F5-S08 | Frontend cobrança + importação payment_dues + marcação manual                                 | ✅ done        | medium     | F5-S06, F5-S07, F1-S08, F1-S17, F8-S08         |
+| F5-S09 | Frontend templates WhatsApp + sync Meta Cloud + webhook de status                             | ✅ done        | medium     | F5-S01, F5-S03, F1-S08, F1-S20, F8-S08         |
+| F5-S10 | Schema — header de mídia em whatsapp_templates + campos de boleto em payment_dues + flags     | ✅ done        | high       | F5-S01, F5-S06                                 |
+| F5-S11 | Cliente Meta — parâmetro de mídia no envio + upload /media + header de mídia no catálogo      | 🔵 in-progress | high       | F5-S03, F5-S09, F5-S10                         |
+| F5-S12 | Módulo templates — header_type (texto/documento/imagem) no CRUD + submit de header de mídia   | 🟢 available   | high       | F5-S10, F5-S11                                 |
+| F5-S13 | Cobrança — anexar boleto à parcela (endpoint + import) com RBAC, auditoria e LGPD             | 🟢 available   | high       | F5-S10, F5-S11, F5-S08                         |
+| F5-S14 | collection-sender — anexar header de boleto no envio de cobrança (re-upload + fallback)       | 🟢 available   | high       | F5-S11, F5-S13                                 |
+| F5-S15 | Frontend templates — seletor de header (texto/documento/imagem) + upload de amostra + preview | 🟢 available   | medium     | F5-S12                                         |
+| F5-S16 | Frontend cobrança — anexar/visualizar boleto na parcela (upload PDF + URL + linha/PIX)        | 🟢 available   | medium     | F5-S13                                         |
 
 ## Fase 7 — Hardening final
 
