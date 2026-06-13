@@ -192,7 +192,8 @@ function selectPendingMigrations(
 }
 
 /**
- * Garante que o schema e a tabela de journal existam.
+ * Garante que o schema e a tabela de journal existam, incluindo um constraint
+ * UNIQUE no hash para evitar double-inserts em race conditions de deploy.
  * Usa um cliente dedicado para não interferir com transações em curso.
  */
 async function ensureJournalTable(client: pg.PoolClient): Promise<void> {
@@ -203,6 +204,22 @@ async function ensureJournalTable(client: pg.PoolClient): Promise<void> {
       hash       TEXT    NOT NULL,
       created_at BIGINT
     )
+  `);
+  // Garante UNIQUE no hash para serializar gravações duplas em deploys paralelos.
+  // Usa bloco DO para idempotência em versões do Postgres que não suportam
+  // ADD CONSTRAINT IF NOT EXISTS (disponível apenas a partir do PG 9.x para alguns casos).
+  await client.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uq_migration_hash'
+          AND conrelid = '${MIGRATIONS_SCHEMA}.${MIGRATIONS_TABLE}'::regclass
+      ) THEN
+        ALTER TABLE ${MIGRATIONS_SCHEMA}.${MIGRATIONS_TABLE}
+          ADD CONSTRAINT uq_migration_hash UNIQUE (hash);
+      END IF;
+    END $$;
   `);
 }
 
@@ -241,9 +258,19 @@ async function recordMigration(
 
 async function runMigrations(migrationsFolder: string): Promise<void> {
   const pool = new Pool({ connectionString: env.DATABASE_URL });
-  const client = await pool.connect();
+
+  // `client` é declarado fora do try para que o finally possa liberar
+  // mesmo se pool.connect() lançar (evita pool leak).
+  let client: pg.PoolClient | undefined;
 
   try {
+    client = await pool.connect();
+
+    // Advisory lock para serializar execuções concorrentes em deploys com
+    // múltiplas réplicas. hashtext('elemento_db_migrate') = lock ID estável.
+    // O lock é por sessão e liberado explicitamente no finally.
+    await client.query(`SELECT pg_advisory_lock(hashtext('elemento_db_migrate'))`);
+
     await ensureJournalTable(client);
 
     // Detecção por hash: busca todos os hashes já aplicados no DB.
@@ -346,7 +373,18 @@ async function runMigrations(migrationsFolder: string): Promise<void> {
       }
     }
   } finally {
-    client.release();
+    if (client !== undefined) {
+      // Libera o advisory lock antes de devolver o client ao pool.
+      // Sem await intencional em pg_advisory_unlock: se o unlock falhar, o lock
+      // expira ao fim da sessão de qualquer forma — não queremos mascarar o erro
+      // original da migration. Mas usamos try/catch para não suprimir o erro principal.
+      try {
+        await client.query(`SELECT pg_advisory_unlock(hashtext('elemento_db_migrate'))`);
+      } catch {
+        // silencioso — lock expira com a sessão
+      }
+      client.release();
+    }
     await pool.end();
   }
 }

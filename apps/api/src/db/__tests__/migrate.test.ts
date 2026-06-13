@@ -10,13 +10,14 @@
 // Os testes cobrem os cenários do DoD:
 //   1. Migration transacional simples — aplica e grava journal.
 //   2. Migration com CONCURRENTLY — roda fora de transação e grava journal.
-//   3. Migration transacional que falha — rollback + journal vazio.
-//   4. Migration não-transacional que falha — journal vazio + erro claro.
+//   3. Migration transacional que falha — rollback + journal vazio + cleanup.
+//   4. Migration não-transacional que falha — journal vazio + erro claro + cleanup.
 //   5. Idempotência por HASH — migration com hash já no DB não é re-aplicada.
 //   6. Hash-based: migration de `when` MENOR que o MAX(created_at) existente
 //      mas com hash AUSENTE é aplicada (o bug original).
 //   7. Hash-based (puro/sem pg): selectPendingMigrations filtra só por hash.
 //   8. readMigrationFiles — testes unitários puros da função de leitura.
+//   9. Advisory lock — pg_advisory_lock/unlock são chamados em runMigrations.
 // =============================================================================
 
 import crypto from 'node:crypto';
@@ -274,6 +275,10 @@ describe('Cenário 3: migration transacional com falha', () => {
     expect(calls.some((q) => q === 'ROLLBACK')).toBe(true);
     expect(insertCalled).toBe(false);
 
+    // [LOW-03] Cleanup: client.release() e pool.end() devem ser chamados mesmo em erro
+    expect(mockClient.release).toHaveBeenCalled();
+    expect(mockPool.end).toHaveBeenCalled();
+
     fs.rmSync(migrationsDir, { recursive: true, force: true });
   });
 });
@@ -336,6 +341,10 @@ describe('Cenário 4: migration não-transacional com falha', () => {
     const calls = queryCalls(mockClient);
     expect(calls.some((q) => q === 'BEGIN')).toBe(false);
     expect(calls.some((q) => q === 'ROLLBACK')).toBe(false);
+
+    // [LOW-03] Cleanup: client.release() e pool.end() devem ser chamados mesmo em erro
+    expect(mockClient.release).toHaveBeenCalled();
+    expect(mockPool.end).toHaveBeenCalled();
 
     consoleErrorSpy.mockRestore();
     fs.rmSync(migrationsDir, { recursive: true, force: true });
@@ -634,5 +643,91 @@ describe('readMigrationFiles', () => {
     expect(files[0]!.noTransaction).toBe(true);
 
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cenário 9 — Advisory lock: pg_advisory_lock e pg_advisory_unlock são chamados
+// ---------------------------------------------------------------------------
+
+describe('Cenário 9: advisory lock', () => {
+  it('chama pg_advisory_lock no início e pg_advisory_unlock no finally', async () => {
+    const content = 'CREATE TABLE advisory_test (id uuid PRIMARY KEY);';
+    const fixture: MigrationFixture = {
+      tag: '0001_advisory',
+      when: 9_000,
+      content,
+    };
+
+    const migrationsDir = createMigrationsDir([fixture]);
+
+    mockAppliedHashes(mockClient, []);
+
+    const { runMigrations } = await import('../migrate.js');
+    await runMigrations(migrationsDir);
+
+    const calls = queryCalls(mockClient);
+
+    // Lock deve ter sido adquirido
+    expect(
+      calls.some((q) => q.includes('pg_advisory_lock') && q.includes('elemento_db_migrate')),
+    ).toBe(true);
+
+    // Lock deve ter sido liberado
+    expect(
+      calls.some((q) => q.includes('pg_advisory_unlock') && q.includes('elemento_db_migrate')),
+    ).toBe(true);
+
+    // A ordem importa: lock antes de CREATE TABLE, unlock depois
+    const lockIdx = calls.findIndex(
+      (q) => q.includes('pg_advisory_lock') && q.includes('elemento_db_migrate'),
+    );
+    const createIdx = calls.findIndex((q) => q.includes('CREATE TABLE advisory_test'));
+    const unlockIdx = calls.findIndex(
+      (q) => q.includes('pg_advisory_unlock') && q.includes('elemento_db_migrate'),
+    );
+
+    expect(lockIdx).toBeLessThan(createIdx);
+    expect(createIdx).toBeLessThan(unlockIdx);
+
+    fs.rmSync(migrationsDir, { recursive: true, force: true });
+  });
+
+  it('chama pg_advisory_unlock mesmo quando a migration falha', async () => {
+    const content = 'ALTER TABLE tabela_que_nao_existe ADD COLUMN foo text;';
+    const fixture: MigrationFixture = {
+      tag: '0001_advisory_fail',
+      when: 9_001,
+      content,
+    };
+
+    const migrationsDir = createMigrationsDir([fixture]);
+
+    mockClient.query.mockImplementation(async (sql: string) => {
+      if (typeof sql === 'string' && sql.includes('SELECT hash FROM')) {
+        return { rows: [] };
+      }
+      if (typeof sql === 'string' && sql.includes('ALTER TABLE tabela_que_nao_existe')) {
+        throw new Error('relation "tabela_que_nao_existe" does not exist');
+      }
+      return { rows: [] };
+    });
+
+    const { runMigrations } = await import('../migrate.js');
+
+    await expect(runMigrations(migrationsDir)).rejects.toThrow();
+
+    const calls = queryCalls(mockClient);
+
+    // Unlock deve ter sido chamado mesmo com erro
+    expect(
+      calls.some((q) => q.includes('pg_advisory_unlock') && q.includes('elemento_db_migrate')),
+    ).toBe(true);
+
+    // client.release() e pool.end() também devem ter sido chamados
+    expect(mockClient.release).toHaveBeenCalled();
+    expect(mockPool.end).toHaveBeenCalled();
+
+    fs.rmSync(migrationsDir, { recursive: true, force: true });
   });
 });
