@@ -3,7 +3,7 @@ id: F14-S03
 title: Frontend — NewLeadModal com PJ + email obrigatório
 phase: F14
 task_ref: null
-status: blocked
+status: available
 priority: high
 estimated_size: S
 agent_id: null
