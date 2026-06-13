@@ -60,14 +60,42 @@ Para enviar **boleto** (ou qualquer documento/imagem) numa mensagem **proativa**
 de 24h — a Cloud API exige um **template aprovado com header de mídia**. Mensagem de mídia avulsa
 (free-form) só é permitida **dentro** da janela de 24h; por isso a cobrança usa template.
 
-**Catálogo (submissão do template).** Um template de mídia declara um componente `HEADER` com
-`format: DOCUMENT | IMAGE | VIDEO`. A Meta exige um `example.header_handle` — obtido subindo uma
-**amostra** via _resumable upload_ (`POST /{app_id}/uploads` → `POST /{upload_id}`). O handle fica
-em `whatsapp_templates.header_handle`. Campos de header em `whatsapp_templates`: `header_type`
-(`none|text|document|image|video`), `header_text` (só para `text`), `header_handle`.
+#### Catálogo — submissão de template com header de mídia
 
-**Envio.** No `POST /{phone_number_id}/messages`, o template carrega um componente de header com
-parâmetro de mídia:
+Um template de mídia declara um componente `HEADER` com `format: DOCUMENT | IMAGE | VIDEO`.
+A Meta exige um `example.header_handle` — obtido subindo uma **amostra** via resumable upload.
+O handle fica em `whatsapp_templates.header_handle`.
+
+**Fluxo de resumable upload (`MetaTemplatesClient.uploadSampleForTemplate`):**
+
+```
+POST /{app_id}/uploads
+  body: { file_length, file_type }
+  → { id: "<upload_session_id>" }
+
+POST /{upload_session_id}
+  headers: Authorization: OAuth <token>, Content-Type: <mimeType>, file_offset: 0
+  body: <bytes binários do arquivo de amostra>
+  → { h: "<header_handle>" }
+```
+
+O `header_handle` é salvo em `whatsapp_templates.header_handle` e enviado em `submitTemplate()`:
+
+```jsonc
+{
+  "type": "HEADER",
+  "format": "DOCUMENT",
+  "example": { "header_handle": ["<header_handle>"] },
+}
+```
+
+Requer `META_APP_ID` configurado em `.env`. Campos de header em `whatsapp_templates`:
+`header_type` (`none|text|document|image|video`), `header_text` (só para `text`), `header_handle`.
+
+#### Envio — header de mídia em runtime
+
+No `POST /{phone_number_id}/messages`, o template carrega um componente de header com
+parâmetro de mídia (`TemplateDocumentParameter` ou `TemplateImageParameter`):
 
 ```jsonc
 {
@@ -79,16 +107,38 @@ parâmetro de mídia:
 }
 ```
 
-Duas formas de referenciar o documento (XOR):
+Duas formas de referenciar o documento (XOR — exatamente uma deve estar presente):
 
-- **`id`** — obtido via `POST /{phone_number_id}/media` (upload do arquivo, expira ~30 dias).
-  **Caminho preferido por LGPD** — não expõe URL pública. O boleto vive em `payment_dues.boleto_media_id`.
+- **`id`** — obtido via `MetaWhatsAppClient.uploadMedia()` (`POST /{phone_number_id}/media`, multipart/form-data).
+  **Caminho preferido por LGPD §8.3** — não expõe URL pública com PII. Expira ~30 dias.
+  O media_id vive em `payment_dues.boleto_media_id`.
 - **`link`** — URL pública/assinada que a Meta busca server-side. Só usar URL **controlada/assinada**
-  (allowlist de host). Vive em `payment_dues.boleto_url`.
+  (allowlist de host). Nunca logar. Vive em `payment_dues.boleto_url`.
+
+**Fluxo de upload de mídia em runtime (`MetaWhatsAppClient.uploadMedia`):**
+
+```
+POST /{phone_number_id}/media
+  headers: Authorization: Bearer <token>, multipart/form-data
+  body: file=<bytes>, type=<mimeType>, messaging_product=whatsapp
+  → { id: "<media_id>" }
+```
+
+> **Dois uploads diferentes, não confundir:**
+>
+> - `uploadMedia` (Cloud API, por `phone_number_id`) → media `id` para **enviar** mensagem (runtime).
+> - `uploadSampleForTemplate` (resumable, por `app_id`) → `header_handle` para **registrar** template (one-time).
+
+#### LGPD §8.3 — regras de log
+
+Nenhum destes campos pode aparecer em logs estruturados:
+`link`, `id` (media), `filename`, `bytes` do arquivo de boleto.
+Logar apenas: `header_type`, `has_media: true`, `mimeType` (sem conteúdo).
+Token nunca exposto em erros lançados.
 
 **Origem do boleto.** Decisão de produto (2026-06-10): boleto é **importado/anexado** (gerado pelo
 sistema do Banco do Povo) — **sem integração bancária/PSP**. Guardamos apenas a referência, nunca os
-bytes do PDF (boleto contém PII — ver doc 17 §8.3 e inventário de PII).
+bytes do PDF em banco (boleto contém PII — ver doc 17 §8.3 e inventário de PII).
 
 **Worker de cobrança (F5-S14).** O `collection-sender` anexa o header de boleto quando o template é
 de mídia e a parcela tem boleto: prefere `boleto_media_id` válido; se expirado, re-faz upload a partir

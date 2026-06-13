@@ -64,9 +64,38 @@ function isRetryable(error: unknown): boolean {
 // Tipos da Meta API para gestão de templates
 // ---------------------------------------------------------------------------
 
+/**
+ * Componente de template Meta (catálogo).
+ *
+ * Para HEADER com mídia (boleto):
+ *   - `format`: 'DOCUMENT' | 'IMAGE' | 'VIDEO'
+ *   - `example.header_handle`: obtido via `uploadSampleForTemplate()`.
+ *
+ * Para HEADER com texto: `format: 'TEXT'` + `text`.
+ * Para BODY/FOOTER: apenas `text` (format não se aplica).
+ * Para BUTTONS: usar estrutura apropriada (não detalhado neste slot).
+ */
 export interface MetaTemplateComponent {
   type: 'HEADER' | 'BODY' | 'FOOTER' | 'BUTTONS';
+  /** Conteúdo textual do componente (BODY, FOOTER, ou HEADER de texto). */
   text?: string;
+  /**
+   * Formato do componente HEADER.
+   * TEXT: cabeçalho de texto (com `text`).
+   * DOCUMENT/IMAGE/VIDEO: cabeçalho de mídia (requer `example.header_handle`).
+   */
+  format?: 'TEXT' | 'DOCUMENT' | 'IMAGE' | 'VIDEO';
+  /**
+   * Exemplos exigidos pela Meta para componentes com variáveis ou mídia.
+   * Para HEADER de mídia: `header_handle` é o handle da amostra subida via resumable upload.
+   * Para BODY com variáveis: `body_text` é uma lista de arrays de valores de exemplo.
+   */
+  example?: {
+    /** Handles de amostras de mídia (obtidos via uploadSampleForTemplate). */
+    header_handle?: string[];
+    /** Valores de exemplo para variáveis do corpo {{1}}, {{2}}, etc. */
+    body_text?: string[][];
+  };
 }
 
 export interface MetaSubmitTemplatePayload {
@@ -96,12 +125,33 @@ interface MetaListResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Tipos internos de resposta para resumable upload
+// ---------------------------------------------------------------------------
+
+interface MetaResumableStartResponse {
+  id?: string;
+  error?: { message: string; code: number; title?: string };
+}
+
+interface MetaResumableFinishResponse {
+  /** handle gerado para uso em example.header_handle do template. */
+  h?: string;
+  error?: { message: string; code: number; title?: string };
+}
+
+// ---------------------------------------------------------------------------
 // Options de injeção (para testes)
 // ---------------------------------------------------------------------------
 
 export interface MetaTemplatesClientOptions {
   accessToken?: string;
   wabaId?: string;
+  /**
+   * Meta App ID (necessário para resumable upload de amostras de template).
+   * Lido de META_APP_ID se ausente.
+   * Opcional: uploadSampleForTemplate() lança se ausente ao ser chamado.
+   */
+  appId?: string;
   timeoutMs?: number;
   maxAttempts?: number;
   backoffBaseMs?: number;
@@ -127,6 +177,11 @@ export interface MetaTemplatesClientOptions {
 export class MetaTemplatesClient {
   private readonly accessToken: string;
   private readonly wabaId: string;
+  /**
+   * App ID da Meta (opcional no construtor — obrigatório apenas para uploadSampleForTemplate).
+   * Lido de META_APP_ID no env; ausente em dev/test é aceito.
+   */
+  private readonly appId: string | undefined;
   private readonly timeoutMs: number;
   private readonly maxAttempts: number;
   private readonly backoffBaseMs: number;
@@ -157,6 +212,9 @@ export class MetaTemplatesClient {
 
     this.accessToken = resolvedToken;
     this.wabaId = resolvedWabaId;
+    // appId: injeção via options tem precedência (testes); depois META_APP_ID do env.
+    // Não lançamos erro aqui — uploadSampleForTemplate() lança se for chamado sem appId.
+    this.appId = options.appId ?? env.META_APP_ID;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
     this.maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
     this.backoffBaseMs = options.backoffBaseMs ?? DEFAULT_BACKOFF_BASE_MS;
@@ -227,6 +285,72 @@ export class MetaTemplatesClient {
     const url = `${META_GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${this.wabaId}/message_templates?name=${encodeURIComponent(templateName)}`;
     // DELETE não envia body — passamos objeto vazio e o doFetch usa body apenas para !GET
     await this.requestWithRetry('DELETE', url, {});
+  }
+
+  /**
+   * Faz upload de uma **amostra** de mídia para uso em `example.header_handle` ao registrar
+   * um template com header de mídia (DOCUMENT/IMAGE/VIDEO) na Meta.
+   *
+   * Fluxo de resumable upload (Meta Graph API):
+   *   1. POST /{app_id}/uploads  → inicia a sessão, retorna `upload_session_id`.
+   *   2. POST /{upload_session_id} (binário, Authorization: OAuth) → retorna `h` (header_handle).
+   *
+   * O `header_handle` retornado deve ser salvo em `whatsapp_templates.header_handle`
+   * e incluído no payload de `submitTemplate()` como `example.header_handle: [handle]`.
+   *
+   * **Atenção:** Este upload é apenas da **amostra** para aprovação do template.
+   * Para enviar o boleto real em runtime, usar `MetaWhatsAppClient.uploadMedia()` (F5-S03).
+   * Ver doc 07 §1.6 #midia-boleto para o fluxo completo.
+   *
+   * LGPD §8.3: `bytes` nunca são logados. Apenas `mimeType` aparece em contexto de erro.
+   * O token de acesso nunca é exposto em erros lançados.
+   *
+   * @param bytes     Bytes do arquivo de amostra.
+   * @param mimeType  MIME type (ex: "application/pdf", "image/jpeg").
+   * @returns         `header_handle` para uso em MetaTemplateComponent.example.header_handle.
+   * @throws          ExternalServiceError se META_APP_ID não configurado ou falha na API.
+   */
+  async uploadSampleForTemplate(bytes: Buffer, mimeType: string): Promise<string> {
+    if (!this.appId) {
+      throw new ExternalServiceError(
+        'META_APP_ID não configurado — necessário para resumable upload de amostras de template',
+        { upstreamStatus: 0 },
+      );
+    }
+
+    // Etapa 1: iniciar sessão de upload
+    const startUrl = `${META_GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${this.appId}/uploads`;
+    const startPayload: Record<string, unknown> = {
+      file_length: bytes.length,
+      file_type: mimeType,
+    };
+    const startRaw = (await this.requestWithRetry(
+      'POST',
+      startUrl,
+      startPayload,
+    )) as MetaResumableStartResponse;
+
+    if (!startRaw.id) {
+      throw new ExternalServiceError('Meta API: resumable upload (start) não retornou session id', {
+        upstreamStatus: 0,
+        mimeType,
+      });
+    }
+
+    const uploadSessionId = startRaw.id;
+
+    // Etapa 2: fazer upload dos bytes usando a sessão
+    const uploadUrl = `${META_GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${uploadSessionId}`;
+    const finishRaw = await this.doFetchResumableUpload(uploadUrl, bytes, mimeType);
+
+    if (!finishRaw.h) {
+      throw new ExternalServiceError(
+        'Meta API: resumable upload (finish) não retornou header_handle',
+        { upstreamStatus: 0, mimeType },
+      );
+    }
+
+    return finishRaw.h;
   }
 
   // -------------------------------------------------------------------------
@@ -327,5 +451,78 @@ export class MetaTemplatesClient {
     }
 
     return responseBody;
+  }
+
+  /**
+   * Executa a etapa 2 do resumable upload (envio dos bytes) para a Meta Graph API.
+   *
+   * A Meta usa "Authorization: OAuth <token>" (não Bearer) neste endpoint específico.
+   * Content-Type deve ser o mimeType do arquivo, não application/json.
+   *
+   * LGPD §8.3: `bytes` nunca são logados. Token nunca exposto em erro.
+   */
+  private async doFetchResumableUpload(
+    url: string,
+    bytes: Buffer,
+    mimeType: string,
+  ): Promise<MetaResumableFinishResponse> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          // Meta Graph API usa "OAuth" (não "Bearer") no upload de bytes do resumable upload.
+          Authorization: `OAuth ${this.accessToken}`,
+          'Content-Type': mimeType,
+          file_offset: '0',
+        },
+        // Buffer como body binário — Node fetch aceita BufferSource.
+        body: bytes,
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new ExternalServiceError(
+          `Meta Templates API (resumable upload) timeout após ${this.timeoutMs}ms`,
+          { upstreamStatus: 0, mimeType },
+        );
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    let responseBody: unknown = null;
+    const contentType = response.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+      try {
+        responseBody = (await response.json()) as unknown;
+      } catch {
+        responseBody = null;
+      }
+    }
+
+    if (!response.ok) {
+      const errorDetail = (responseBody as MetaResumableFinishResponse | null)?.error;
+      const retryAfterRaw = response.status === 429 ? response.headers.get('retry-after') : null;
+      const retryAfterMs = retryAfterRaw !== null ? parseInt(retryAfterRaw, 10) * 1000 : undefined;
+
+      throw new ExternalServiceError(
+        `Meta Templates API (resumable upload) ${response.status}: ${errorDetail?.title ?? errorDetail?.message ?? 'Unknown error'}`,
+        {
+          upstreamStatus: response.status,
+          meta_error_code: errorDetail?.code,
+          meta_error_title: errorDetail?.title,
+          mimeType,
+          retryAfterMs:
+            retryAfterMs !== undefined && Number.isFinite(retryAfterMs) ? retryAfterMs : undefined,
+        },
+      );
+    }
+
+    return (responseBody ?? {}) as MetaResumableFinishResponse;
   }
 }

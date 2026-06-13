@@ -1,14 +1,20 @@
 // =============================================================================
 // __tests__/metaClient.test.ts — Testes do MetaTemplatesClient.
 //
-// Contexto: F5-S09.
+// Contexto: F5-S09 + F5-S11.
 //
 // Estratégia:
 //   - Injeta accessToken, wabaId e sleepFn via constructor options.
-//   - Mocka fetch global via jest.spyOn.
+//   - Mocka fetch global via vi.spyOn.
 //   - Testa retry em 429/5xx e non-retry em 4xx.
 //   - Testa timeout (AbortError).
 //   - Nunca usa token real.
+//
+// F5-S11 — Novos cenários:
+//   - submitTemplate: HEADER com format + example.header_handle
+//   - uploadSampleForTemplate: resumable upload (etapas 1 + 2)
+//   - uploadSampleForTemplate: sem META_APP_ID → ExternalServiceError
+//   - uploadSampleForTemplate: bytes e token nunca logados (LGPD §8.3)
 // =============================================================================
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -245,5 +251,152 @@ describe('MetaTemplatesClient', () => {
       expect(e.message).not.toContain(DUMMY_TOKEN);
       expect((e.details as { upstreamStatus: number }).upstreamStatus).toBe(401);
     }
+  });
+
+  // ── F5-S11: HEADER com format e example.header_handle ────────────────────
+
+  it('submitTemplate: aceita componente HEADER com format=DOCUMENT e example.header_handle', async () => {
+    fetchSpy.mockImplementation(mockFetchResponse(200, { id: 'meta_tmpl_boleto' }));
+
+    const client = makeClient();
+    const id = await client.submitTemplate({
+      name: 'boleto_cobranca',
+      category: 'UTILITY',
+      language: 'pt_BR',
+      components: [
+        {
+          type: 'HEADER',
+          format: 'DOCUMENT',
+          example: { header_handle: ['handle_abc_123'] },
+        },
+        { type: 'BODY', text: 'Olá {{1}}, seu boleto vence em {{2}}.' },
+      ],
+    });
+
+    expect(id).toBe('meta_tmpl_boleto');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    // Verificar que o payload enviado inclui format e example.header_handle
+    const callArgs = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const sentBody = JSON.parse(callArgs[1]?.body as string) as Record<string, unknown>;
+    const components = sentBody['components'] as Array<Record<string, unknown>>;
+    const header = components.find((c) => c['type'] === 'HEADER');
+    expect(header?.['format']).toBe('DOCUMENT');
+    expect((header?.['example'] as Record<string, unknown>)?.['header_handle']).toEqual([
+      'handle_abc_123',
+    ]);
+  });
+
+  it('submitTemplate: aceita HEADER com format=IMAGE e example.header_handle', async () => {
+    fetchSpy.mockImplementation(mockFetchResponse(200, { id: 'meta_tmpl_img' }));
+
+    const client = makeClient();
+    const id = await client.submitTemplate({
+      name: 'promo_imagem',
+      category: 'MARKETING',
+      language: 'pt_BR',
+      components: [
+        {
+          type: 'HEADER',
+          format: 'IMAGE',
+          example: { header_handle: ['img_handle_xyz'] },
+        },
+        { type: 'BODY', text: 'Confira nossa promoção!' },
+      ],
+    });
+
+    expect(id).toBe('meta_tmpl_img');
+  });
+
+  // ── F5-S11: uploadSampleForTemplate ──────────────────────────────────────
+
+  it('uploadSampleForTemplate: fluxo completo (start + finish) → retorna header_handle', async () => {
+    // Etapa 1: POST /{app_id}/uploads → session id
+    const startResponse = mockFetchResponse(200, { id: 'upload_session_123' });
+    // Etapa 2: POST /{upload_session_id} → header_handle
+    const finishResponse = mockFetchResponse(200, { h: 'header_handle_abc_xyz' });
+
+    fetchSpy.mockImplementationOnce(startResponse).mockImplementationOnce(finishResponse);
+
+    const client = makeClient({ appId: 'test_app_id_123' });
+    const handle = await client.uploadSampleForTemplate(
+      Buffer.from('%PDF-1.4 sample'),
+      'application/pdf',
+    );
+
+    expect(handle).toBe('header_handle_abc_xyz');
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    // Verificar etapa 1: URL contém app_id
+    const [url1] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url1).toContain('test_app_id_123');
+    expect(url1).toContain('/uploads');
+
+    // Verificar etapa 2: URL contém upload_session_id, método POST
+    const [url2, opts2] = fetchSpy.mock.calls[1] as [string, RequestInit];
+    expect(url2).toContain('upload_session_123');
+    expect(opts2.method).toBe('POST');
+
+    // Verificar que etapa 2 usa "OAuth" (não "Bearer")
+    const headers2 = opts2.headers as Record<string, string>;
+    expect(headers2['Authorization']).toMatch(/^OAuth /);
+    expect(headers2['Authorization']).not.toMatch(/^Bearer /);
+  });
+
+  it('uploadSampleForTemplate: lança ExternalServiceError se appId ausente', async () => {
+    // Sem appId injetado e sem META_APP_ID no env (não mockamos env aqui — metaClient.ts
+    // acessa env.META_APP_ID que é undefined no test sem a var configurada).
+    // exactOptionalPropertyTypes: omitir a propriedade em vez de passar undefined explicitamente.
+    const client = makeClient({});
+    await expect(
+      client.uploadSampleForTemplate(Buffer.from('test'), 'application/pdf'),
+    ).rejects.toBeInstanceOf(ExternalServiceError);
+
+    // Nenhuma chamada HTTP deve ter sido feita
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('uploadSampleForTemplate: lança ExternalServiceError se etapa 1 não retornar session id', async () => {
+    fetchSpy.mockImplementation(mockFetchResponse(200, {}));
+
+    const client = makeClient({ appId: 'test_app_id' });
+    await expect(
+      client.uploadSampleForTemplate(Buffer.from('test'), 'application/pdf'),
+    ).rejects.toBeInstanceOf(ExternalServiceError);
+  });
+
+  it('uploadSampleForTemplate: lança ExternalServiceError se etapa 2 não retornar header_handle', async () => {
+    const startResponse = mockFetchResponse(200, { id: 'upload_session_abc' });
+    const finishResponse = mockFetchResponse(200, {}); // sem 'h'
+    fetchSpy.mockImplementationOnce(startResponse).mockImplementationOnce(finishResponse);
+
+    const client = makeClient({ appId: 'test_app_id' });
+    await expect(
+      client.uploadSampleForTemplate(Buffer.from('test'), 'application/pdf'),
+    ).rejects.toBeInstanceOf(ExternalServiceError);
+  });
+
+  it('uploadSampleForTemplate: bytes e token NUNCA aparecem em erro (LGPD §8.3)', async () => {
+    // Etapa 1 falha
+    fetchSpy.mockImplementation(
+      mockFetchResponse(500, { error: { code: 0, message: 'Server error' } }),
+    );
+
+    const client = makeClient({ appId: 'test_app_id' });
+    const SECRET_BYTES_CONTENT = 'CONFIDENTIAL_PDF_BYTES';
+    const err = await client
+      .uploadSampleForTemplate(Buffer.from(SECRET_BYTES_CONTENT), 'application/pdf')
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ExternalServiceError);
+    const e = err as ExternalServiceError;
+
+    // Bytes NUNCA devem aparecer em logs
+    expect(e.message).not.toContain(SECRET_BYTES_CONTENT);
+    expect(JSON.stringify(e.details)).not.toContain(SECRET_BYTES_CONTENT);
+
+    // Token NUNCA deve aparecer
+    expect(e.message).not.toContain(DUMMY_TOKEN);
+    expect(JSON.stringify(e.details)).not.toContain(DUMMY_TOKEN);
   });
 });
