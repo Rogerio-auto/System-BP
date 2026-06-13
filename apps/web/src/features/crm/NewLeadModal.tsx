@@ -151,13 +151,15 @@ export function NewLeadModal({ open, onClose }: NewLeadModalProps): React.JSX.El
     };
   }, [open]);
 
-  // Resetar seção PJ ao fechar
+  // Resetar seção PJ e estado do RHF ao fechar — [M2] reset() garante que
+  // valores internos do RHF (ex.: cnpj) não persistam em reabertura.
   React.useEffect(() => {
     if (!open) {
       setCnpjDisplay('');
       setShowPjSection(false);
+      reset();
     }
-  }, [open]);
+  }, [open, reset]);
 
   if (!open) return null;
 
@@ -324,50 +326,53 @@ export function NewLeadModal({ open, onClose }: NewLeadModalProps): React.JSX.El
                 Pessoa Jurídica (opcional)
               </button>
 
-              {/* Campos PJ — colapsáveis */}
-              {showPjSection && (
-                <div
-                  id="pj-section"
-                  className={cn(
-                    'flex flex-col gap-4',
-                    'rounded-md border border-border-subtle',
-                    'bg-surface-2 px-4 py-4',
-                  )}
-                  style={{ boxShadow: 'var(--elev-1)' }}
-                >
-                  <p className="text-xs text-ink-3 leading-relaxed">
-                    Preencha apenas se o lead representar uma empresa. CNPJ e razão social são
-                    opcionais.
-                  </p>
+              {/* Campos PJ — [M1] sempre no DOM; visibilidade via `hidden` para
+                  manter o contrato aria-controls="pj-section" válido mesmo
+                  quando recolhido. */}
+              <div
+                id="pj-section"
+                hidden={!showPjSection}
+                className={cn(
+                  'flex flex-col gap-4',
+                  'rounded-md border border-border-subtle',
+                  'bg-surface-2 px-4 py-4',
+                )}
+                style={{ boxShadow: 'var(--elev-1)' }}
+              >
+                <p className="text-xs text-ink-3 leading-relaxed">
+                  Preencha apenas se o lead representar uma empresa. CNPJ e razão social são
+                  opcionais.
+                </p>
 
-                  {/* CNPJ — com máscara controlada */}
-                  <div className="flex flex-col gap-2">
-                    <Input
-                      id="lead-cnpj"
-                      label="CNPJ"
-                      placeholder="00.000.000/0000-00"
-                      inputMode="numeric"
-                      value={cnpjDisplay}
-                      error={errors.cnpj?.message}
-                      onChange={(e) => {
-                        const masked = maskCnpj(e.target.value);
-                        setCnpjDisplay(masked);
-                        // Envia o valor com máscara — o schema Zod aceita ambos formatos
-                        setValue('cnpj', masked || null, { shouldValidate: true });
-                      }}
-                    />
-                  </div>
-
-                  {/* Razão social */}
+                {/* CNPJ — com máscara controlada */}
+                <div className="flex flex-col gap-2">
                   <Input
-                    id="lead-legal-name"
-                    label="Razão social"
-                    placeholder="Ex: Comercial Silva Ltda"
-                    error={errors.legal_name?.message}
-                    {...register('legal_name')}
+                    id="lead-cnpj"
+                    label="CNPJ"
+                    placeholder="00.000.000/0000-00"
+                    inputMode="numeric"
+                    value={cnpjDisplay}
+                    error={errors.cnpj?.message}
+                    onChange={(e) => {
+                      const masked = maskCnpj(e.target.value);
+                      setCnpjDisplay(masked);
+                      // Envia somente dígitos ao RHF — [L1] normalização canônica
+                      // antes do submit; display com máscara fica em cnpjDisplay.
+                      const digits = masked.replace(/\D/g, '');
+                      setValue('cnpj', digits || null, { shouldValidate: true });
+                    }}
                   />
                 </div>
-              )}
+
+                {/* Razão social */}
+                <Input
+                  id="lead-legal-name"
+                  label="Razão social"
+                  placeholder="Ex: Comercial Silva Ltda"
+                  error={errors.legal_name?.message}
+                  {...register('legal_name')}
+                />
+              </div>
             </div>
 
             {/* Notas */}
