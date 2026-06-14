@@ -13,3 +13,6 @@ export * from './leads.js';
 
 // Cities (F1-S06)
 export * from './cities.js';
+
+// Live chat (F16-S03)
+export * from './livechat.js';

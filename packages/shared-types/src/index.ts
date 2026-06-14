@@ -26,3 +26,7 @@ export type Role = (typeof ROLES)[number];
 
 // Feature keys — catálogo fechado de funcionalidades com tutorial (F12-S01)
 export { FEATURE_KEYS, type FeatureKey } from './featureKeys.js';
+
+// Live chat (F16-S03)
+export * from './livechat.js';
+export * from './socketEvents.js';
