@@ -80,9 +80,12 @@ function toResponse(row: {
   body: string;
   variables: string[];
   status: 'pending' | 'approved' | 'rejected' | 'paused';
+  // DB enum inclui 'video' por completude do contrato Meta; API exclui 'video' (M-2).
+  // Parâmetro aceita o tipo DB mais largo; o cast abaixo é seguro porque nenhuma rota
+  // de escrita aceita 'video' após M-2, logo rows com headerType='video' não são criados.
   headerType: 'none' | 'text' | 'document' | 'image' | 'video';
   headerText: string | null;
-  headerHandle: string | null;
+  headerHandle: string | null; // persistido no banco mas NÃO exposto na resposta pública (L-4)
   createdAt: Date;
   updatedAt: Date;
 }): TemplateResponse {
@@ -96,9 +99,11 @@ function toResponse(row: {
     body: row.body,
     variables: row.variables,
     status: row.status,
-    headerType: row.headerType,
+    // Cast seguro: API schema exclui 'video' (M-2); nenhuma rota de escrita aceita
+    // 'video' como input nesta versão, portanto o valor nunca será 'video' na prática.
+    headerType: row.headerType as TemplateHeaderType,
     headerText: row.headerText,
-    headerHandle: row.headerHandle,
+    // headerHandle omitido da resposta pública — token opaco da Meta (L-4)
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -110,12 +115,15 @@ function toResponse(row: {
 
 /**
  * Lança FeatureDisabledError se a flag templates.media.enabled estiver desligada
- * e o headerType solicitado for de mídia (document/image/video).
+ * e o headerType solicitado for de mídia (document/image).
+ *
+ * @param userRoles Roles do actor para avaliação de audience 'internal_only' (L-1).
+ *                  Sem roles, flags internal_only nunca liberam para o rollout interno.
  */
-async function assertMediaGate(headerType: TemplateHeaderType): Promise<void> {
+async function assertMediaGate(headerType: TemplateHeaderType, userRoles: string[]): Promise<void> {
   if (!(MEDIA_HEADER_TYPES as readonly string[]).includes(headerType)) return;
 
-  const { enabled } = await isFlagEnabled(db, 'templates.media.enabled');
+  const { enabled } = await isFlagEnabled(db, 'templates.media.enabled', userRoles);
   if (!enabled) {
     throw new FeatureDisabledError('templates.media.enabled');
   }
@@ -147,10 +155,9 @@ function buildMetaComponents(
     (MEDIA_HEADER_TYPES as readonly string[]).includes(headerType) &&
     headerHandle !== null
   ) {
-    const formatMap: Record<string, 'DOCUMENT' | 'IMAGE' | 'VIDEO'> = {
+    const formatMap: Record<string, 'DOCUMENT' | 'IMAGE'> = {
       document: 'DOCUMENT',
       image: 'IMAGE',
-      video: 'VIDEO',
     };
     const format = formatMap[headerType];
     if (format) {
@@ -231,8 +238,8 @@ export async function createTemplateService(
 ): Promise<TemplateResponse> {
   const headerType = data.headerType ?? 'none';
 
-  // Gate: templates de mídia bloqueados quando flag desabilitada
-  await assertMediaGate(headerType);
+  // Gate: templates de mídia bloqueados quando flag desabilitada (L-1: passa roles do actor)
+  await assertMediaGate(headerType, [actor.role]);
 
   // Validar que mídia forneceu amostra
   if ((MEDIA_HEADER_TYPES as readonly string[]).includes(headerType)) {
@@ -369,11 +376,19 @@ export async function updateTemplateService(
     );
   }
 
-  // Determinar o headerType efetivo após o update
-  const effectiveHeaderType: TemplateHeaderType = data.headerType ?? existing.headerType;
+  // Determinar o headerType efetivo após o update.
+  // Cast de existing.headerType: DB inclui 'video' no enum por completude do contrato Meta,
+  // mas a API não aceita 'video' como input (M-2). Rows com headerType='video' não existem
+  // em produção nesta versão — cast seguro de boundary DB→API.
+  const effectiveHeaderType: TemplateHeaderType =
+    data.headerType ?? (existing.headerType as TemplateHeaderType);
 
-  // Gate: templates de mídia bloqueados quando flag desabilitada
-  await assertMediaGate(effectiveHeaderType);
+  // Gate: aplica somente quando o request está MUDANDO o headerType para mídia (M-3).
+  // Usar o tipo herdado do banco bloquearia edições de body/category em templates
+  // de mídia já existentes quando a flag estiver off — comportamento incorreto.
+  if (data.headerType !== undefined) {
+    await assertMediaGate(data.headerType, [actor.role]);
+  }
 
   // Se estiver mudando para um tipo de mídia e não houver amostra, validar
   if (

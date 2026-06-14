@@ -132,13 +132,13 @@ const TEMPLATE_TEXT_HEADER_RESPONSE = {
   headerHandle: null,
 };
 
-/** Fixture — header de documento (com handle). */
+/** Fixture — header de documento (handle não exposto na resposta pública — L-4). */
 const TEMPLATE_DOCUMENT_HEADER_RESPONSE = {
   ...TEMPLATE_RESPONSE,
   name: 'cobranca_boleto',
   headerType: 'document',
   headerText: null,
-  headerHandle: 'handle_abc123',
+  // headerHandle omitido: token opaco da Meta não exposto ao frontend (L-4)
 };
 
 // ---------------------------------------------------------------------------
@@ -408,6 +408,132 @@ describe('POST /api/templates (multipart — header de mídia)', () => {
       expect.any(Buffer),
       'application/pdf',
     );
+  });
+
+  // L-2 / M-1: data JSON realista (>100 bytes) deve passar sem truncamento.
+  // Antes da correção M-1, o fieldSize default de 100 bytes do @fastify/multipart
+  // truncava o JSON silenciosamente, causando falha de parse.
+  it('201 — data JSON realista >100 bytes não é truncado (M-1)', async () => {
+    mockCreateService.mockResolvedValue(TEMPLATE_DOCUMENT_HEADER_RESPONSE);
+
+    const boundary = '----TestBoundaryRealSize';
+    // JSON com body de 50+ chars garante >100 bytes no campo 'data'
+    const jsonData = JSON.stringify({
+      name: 'cobranca_boleto_realista',
+      category: 'utility',
+      language: 'pt_BR',
+      body: 'Olá {{1}}, segue o boleto ref. ao contrato {{2}} vencendo em {{3}}. Banco do Povo.',
+      variables: ['nome_cliente', 'contrato', 'vencimento'],
+      headerType: 'document',
+    });
+    // Confirmar que o JSON supera 100 bytes (requisito do teste)
+    expect(Buffer.byteLength(jsonData)).toBeGreaterThan(100);
+
+    const pdfSample = Buffer.from('%PDF-1.4 test-sample');
+
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="data"',
+      '',
+      jsonData,
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="sampleUpload"; filename="sample.pdf"',
+      'Content-Type: application/pdf',
+      '',
+      pdfSample.toString('binary'),
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateService).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        name: 'cobranca_boleto_realista',
+        headerType: 'document',
+        body: 'Olá {{1}}, segue o boleto ref. ao contrato {{2}} vencendo em {{3}}. Banco do Povo.',
+      }),
+      expect.any(String),
+      expect.any(Buffer),
+      'application/pdf',
+    );
+  });
+
+  // L-2: upload acima do limite de tamanho → 413.
+  it('413 — sampleUpload acima de 10 MB retorna 413', async () => {
+    const boundary = '----TestBoundaryOversize';
+    const jsonData = JSON.stringify({
+      name: 'cobranca_boleto',
+      category: 'utility',
+      language: 'pt_BR',
+      body: 'Segue seu boleto {{1}}.',
+      variables: ['nome_cliente'],
+      headerType: 'document',
+    });
+
+    // Criar buffer de 10 MB + 1 byte para garantir que ultrapassa o limite
+    const oversizedFile = Buffer.alloc(10 * 1024 * 1024 + 1, 'x');
+
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="data"',
+      '',
+      jsonData,
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="sampleUpload"; filename="big.pdf"',
+      'Content-Type: application/pdf',
+      '',
+      oversizedFile.toString('binary'),
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(413);
+    expect(mockCreateService).not.toHaveBeenCalled();
+  });
+
+  // L-2: DLP no path multipart — data JSON com headerText contendo CPF → rejeitado.
+  it('400 — DLP: data JSON com headerText contendo CPF é rejeitado no multipart', async () => {
+    const boundary = '----TestBoundaryDlpMultipart';
+    const jsonData = JSON.stringify({
+      name: 'test_dlp_multipart',
+      category: 'utility',
+      language: 'pt_BR',
+      body: 'Olá {{1}}, seu crédito foi aprovado.',
+      variables: ['nome_cliente'],
+      headerType: 'text',
+      headerText: 'CPF: 123.456.789-00 — Banco do Povo',
+    });
+
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="data"',
+      '',
+      jsonData,
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateService).not.toHaveBeenCalled();
   });
 
   it('400 — multipart sem campo data é rejeitado', async () => {

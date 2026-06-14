@@ -42,10 +42,19 @@ import {
 } from './service.js';
 
 // ---------------------------------------------------------------------------
-// Limite de tamanho para amostra de mídia (bytes): 10 MB.
-// Igual ao limite global do @fastify/multipart em app.ts.
+// Limites de campos multipart (M-1, L-3).
+//
+// fieldSize: o default do @fastify/multipart é 100 bytes — insuficiente para o
+//   campo 'data' (JSON do template, tipicamente 200-1024 bytes). Corrigido aqui
+//   por-request para 100 KB, sem tocar a configuração global de app.ts que
+//   serve também o módulo de imports com suas próprias restrições.
+//
+// SAMPLE_MAX_BYTES: único ponto de definição do limite de arquivo — usada tanto
+//   em `request.parts({ limits: { fileSize } })` quanto na verificação inline de
+//   chunk-by-chunk (acumulo de bytes). Não duplicar em app.ts.
 // ---------------------------------------------------------------------------
-const SAMPLE_MAX_BYTES = 10 * 1024 * 1024;
+const FIELD_SIZE_MAX_BYTES = 100 * 1024; // 100 KB — JSON do template (campo 'data')
+const SAMPLE_MAX_BYTES = 10 * 1024 * 1024; // 10 MB — arquivo de amostra de mídia
 
 // ---------------------------------------------------------------------------
 // Helper: ActorContext de request.user
@@ -124,7 +133,16 @@ async function parseTemplateRequest<T>(
   let sampleFile: Buffer | undefined;
   let sampleMime: string | undefined;
 
-  const parts = request.parts();
+  // M-1: passa limits por-request para sobrescrever o fieldSize global de 100 bytes.
+  // Sem isso, o campo 'data' (JSON do template) é silenciosamente truncado pela
+  // busboy antes de chegar ao nosso parser JSON — causando falha 400 em templates reais.
+  const parts = request.parts({
+    limits: {
+      fieldSize: FIELD_SIZE_MAX_BYTES,
+      fileSize: SAMPLE_MAX_BYTES,
+      files: 1,
+    },
+  });
 
   for await (const part of parts) {
     if (part.type === 'field' && part.fieldname === 'data') {

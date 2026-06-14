@@ -70,13 +70,16 @@ function rejectPiiInTemplateBody(text: string, ctx: z.RefinementCtx): void {
  * 'text'     → cabeçalho de texto (requer headerText).
  * 'document' → cabeçalho de documento PDF (requer amostra no submit).
  * 'image'    → cabeçalho de imagem JPG/PNG (requer amostra no submit).
- * 'video'    → cabeçalho de vídeo (não exercitado no MVP; suporte completo futuro).
+ *
+ * Nota: 'video' foi removido do MVP — a allowlist de MIME do metaClient não inclui
+ * video/mp4 nesta versão, o que causaria 502 confuso ao submeter para a Meta.
+ * Reintroduzir em slot futuro quando o suporte completo estiver implementado.
  */
-export const TemplateHeaderTypeEnum = z.enum(['none', 'text', 'document', 'image', 'video']);
+export const TemplateHeaderTypeEnum = z.enum(['none', 'text', 'document', 'image']);
 export type TemplateHeaderType = z.infer<typeof TemplateHeaderTypeEnum>;
 
 /** Subconjunto de header types que requerem upload de amostra de mídia. */
-export const MEDIA_HEADER_TYPES: readonly TemplateHeaderType[] = ['document', 'image', 'video'];
+export const MEDIA_HEADER_TYPES: readonly TemplateHeaderType[] = ['document', 'image'];
 
 export const TemplateCategoryEnum = z.enum(['utility', 'marketing', 'authentication']);
 export type TemplateCategory = z.infer<typeof TemplateCategoryEnum>;
@@ -141,7 +144,6 @@ export const TemplateCreateSchema = z
      * 'text'     → header de texto; headerText é obrigatório.
      * 'document' → PDF; exige amostra (campo sampleUpload no multipart).
      * 'image'    → imagem; idem.
-     * 'video'    → vídeo (suporte completo futuro — aceito no schema, sem envio de amostra obrigatório no MVP).
      */
     headerType: TemplateHeaderTypeEnum.default('none'),
 
@@ -247,12 +249,9 @@ export const TemplateResponseSchema = z.object({
   headerType: TemplateHeaderTypeEnum,
   /** Texto do cabeçalho quando headerType='text'; nulo nos demais. */
   headerText: z.string().nullable(),
-  /**
-   * Handle da amostra de mídia subida via resumable upload (Meta Graph API).
-   * Presente apenas quando headerType in ('document','image','video') e a amostra
-   * foi enviada. NULL caso contrário.
-   */
-  headerHandle: z.string().nullable(),
+  // headerHandle (token opaco da Meta) foi removido da resposta pública —
+  // o frontend não precisa desse handle e expô-lo aumenta a superfície de ataque.
+  // O handle continua persistido no banco para resubmissões internas.
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
