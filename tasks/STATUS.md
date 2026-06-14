@@ -17,7 +17,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
-| F5   | 16    | 4   | 0   | 0   | 0   | 0   | 12  |
+| F5   | 16    | 3   | 0   | 0   | 0   | 1   | 12  |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -231,7 +231,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F5-S10 | Schema — header de mídia em whatsapp_templates + campos de boleto em payment_dues + flags     | ✅ done      | high       | F5-S01, F5-S06                                 |
 | F5-S11 | Cliente Meta — parâmetro de mídia no envio + upload /media + header de mídia no catálogo      | ✅ done      | high       | F5-S03, F5-S09, F5-S10                         |
 | F5-S12 | Módulo templates — header_type (texto/documento/imagem) no CRUD + submit de header de mídia   | ✅ done      | high       | F5-S10, F5-S11                                 |
-| F5-S13 | Cobrança — anexar boleto à parcela (endpoint + import) com RBAC, auditoria e LGPD             | 🟢 available | high       | F5-S10, F5-S11, F5-S08                         |
+| F5-S13 | Cobrança — anexar boleto à parcela (endpoint + import) com RBAC, auditoria e LGPD             | 🟣 review    | high       | F5-S10, F5-S11, F5-S08                         |
 | F5-S14 | collection-sender — anexar header de boleto no envio de cobrança (re-upload + fallback)       | 🟢 available | high       | F5-S11, F5-S13                                 |
 | F5-S15 | Frontend templates — seletor de header (texto/documento/imagem) + upload de amostra + preview | 🟢 available | medium     | F5-S12                                         |
 | F5-S16 | Frontend cobrança — anexar/visualizar boleto na parcela (upload PDF + URL + linha/PIX)        | 🟢 available | medium     | F5-S13                                         |
