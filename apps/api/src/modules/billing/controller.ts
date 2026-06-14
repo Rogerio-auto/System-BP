@@ -310,13 +310,19 @@ export async function attachBoletoController(
     }
 
     // LGPD §8.3: bytes nunca logados — validação MIME e tamanho no service
+    // exactOptionalPropertyTypes: filename incluído apenas quando definido.
+    const fileArg: { bytes: Buffer; mimeType: string; filename?: string } = {
+      bytes: fileBytes,
+      mimeType: fileMime,
+      ...(fileFilename !== undefined && { filename: fileFilename }),
+    };
     const result = await attachBoletoUploadService(
       db,
       organizationId,
       id,
       cityScopeIds,
       { userId, ip },
-      { bytes: fileBytes, mimeType: fileMime, filename: fileFilename },
+      fileArg,
       idempotencyKey,
       allowedHosts,
     );

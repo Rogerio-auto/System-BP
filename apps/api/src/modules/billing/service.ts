@@ -505,7 +505,8 @@ export async function attachBoletoUploadService(
   const { mediaId } = await metaClient.uploadMedia({
     bytes: file.bytes,
     mimeType: file.mimeType,
-    filename: file.filename,
+    // exactOptionalPropertyTypes: inclui filename apenas quando definido.
+    ...(file.filename !== undefined && { filename: file.filename }),
   });
 
   // Validade: Meta expira media em ~30 dias (2592000s).

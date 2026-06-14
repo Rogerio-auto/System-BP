@@ -472,6 +472,12 @@ export const paymentDuesAdapter: ImportAdapter<PaymentDuesParsed, PaymentDuesCre
     _tx: Transaction,
   ): Promise<PersistResult> {
     try {
+      // exactOptionalPropertyTypes: campos de boleto incluídos apenas quando não-null.
+      // Drizzle Insert type aceita string | null mas não undefined explícito.
+      const hasBoleto =
+        input.boletoUrl !== null ||
+        input.boletoDigitableLine !== null ||
+        input.pixCopiaCola !== null;
       const rows = await db
         .insert(paymentDues)
         .values({
@@ -486,16 +492,13 @@ export const paymentDuesAdapter: ImportAdapter<PaymentDuesParsed, PaymentDuesCre
           createdBy: input.createdBy,
           // Boleto (F5-S13) — armazenados apenas se fornecidos na planilha.
           // LGPD §14.2: boleto_url deve ter passado pela allowlist em validateRow.
+          ...(input.boletoUrl !== null && { boletoUrl: input.boletoUrl }),
+          ...(input.boletoDigitableLine !== null && {
+            boletoDigitableLine: input.boletoDigitableLine,
+          }),
+          ...(input.pixCopiaCola !== null && { pixCopiaCola: input.pixCopiaCola }),
           // boletoAttachedAt preenchido se qualquer campo de boleto foi fornecido.
-          boletoUrl: input.boletoUrl ?? undefined,
-          boletoDigitableLine: input.boletoDigitableLine ?? undefined,
-          pixCopiaCola: input.pixCopiaCola ?? undefined,
-          boletoAttachedAt:
-            input.boletoUrl !== null ||
-            input.boletoDigitableLine !== null ||
-            input.pixCopiaCola !== null
-              ? new Date()
-              : undefined,
+          ...(hasBoleto && { boletoAttachedAt: new Date() }),
         })
         .returning({ id: paymentDues.id });
 

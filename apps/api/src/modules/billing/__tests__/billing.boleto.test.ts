@@ -139,13 +139,6 @@ const TEST_USER_WITH_BOLETO = {
   cityScopeIds: null as string[] | null,
 };
 
-const _TEST_USER_WITHOUT_BOLETO = {
-  id: USER_ID,
-  organizationId: ORG_ID,
-  permissions: ['billing:read'],
-  cityScopeIds: null as string[] | null,
-};
-
 const SAMPLE_BOLETO_RESPONSE = {
   payment_due_id: DUE_ID,
   boleto_url: null,

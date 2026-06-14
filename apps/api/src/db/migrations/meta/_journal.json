@@ -344,6 +344,13 @@
       "when": 1779753812000,
       "tag": "0053_seed_simulation_template_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1779753813000,
+      "tag": "0054_seed_billing_boleto_permission",
+      "breakpoints": true
     }
   ]
 }

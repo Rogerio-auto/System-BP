@@ -405,18 +405,33 @@ export async function updatePaymentDueBoleto(
   dueId: string,
   fields: BoletoFields,
 ): Promise<void> {
+  // exactOptionalPropertyTypes: constrói patch omitindo chaves com valor undefined.
+  // Drizzle aceita null (limpar campo) mas rejeita undefined explícito em .set().
+  // Tipo inline para satisfazer o .set() do Drizzle (apenas colunas de boleto + updatedAt).
+  type BoletoPatch = {
+    updatedAt?: Date;
+    boletoUrl?: string | null;
+    boletoMediaId?: string | null;
+    boletoMediaExpiresAt?: Date | null;
+    boletoDigitableLine?: string | null;
+    pixCopiaCola?: string | null;
+    boletoFilename?: string | null;
+    boletoAttachedAt?: Date | null;
+  };
+  const patch: BoletoPatch = { updatedAt: new Date() };
+  if (fields.boletoUrl !== undefined) patch.boletoUrl = fields.boletoUrl;
+  if (fields.boletoMediaId !== undefined) patch.boletoMediaId = fields.boletoMediaId;
+  if (fields.boletoMediaExpiresAt !== undefined)
+    patch.boletoMediaExpiresAt = fields.boletoMediaExpiresAt;
+  if (fields.boletoDigitableLine !== undefined)
+    patch.boletoDigitableLine = fields.boletoDigitableLine;
+  if (fields.pixCopiaCola !== undefined) patch.pixCopiaCola = fields.pixCopiaCola;
+  if (fields.boletoFilename !== undefined) patch.boletoFilename = fields.boletoFilename;
+  if (fields.boletoAttachedAt !== undefined) patch.boletoAttachedAt = fields.boletoAttachedAt;
+
   await db
     .update(paymentDues)
-    .set({
-      boletoUrl: fields.boletoUrl,
-      boletoMediaId: fields.boletoMediaId,
-      boletoMediaExpiresAt: fields.boletoMediaExpiresAt,
-      boletoDigitableLine: fields.boletoDigitableLine,
-      pixCopiaCola: fields.pixCopiaCola,
-      boletoFilename: fields.boletoFilename,
-      boletoAttachedAt: fields.boletoAttachedAt,
-      updatedAt: new Date(),
-    })
+    .set(patch)
     .where(and(eq(paymentDues.id, dueId), eq(paymentDues.organizationId, organizationId)));
 }
 
