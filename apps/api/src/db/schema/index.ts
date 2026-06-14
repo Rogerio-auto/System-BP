@@ -93,3 +93,10 @@ export * from './docFeedback.js';
 
 // Tutoriais em vídeo — registro global feature_key → vídeo + artigo (F12-S01)
 export * from './featureTutorials.js';
+
+// Live chat multicanal (F16-S02, decisao D2)
+export * from './channels.js';
+export * from './channelSecrets.js';
+export * from './conversations.js';
+export * from './messages.js';
+export * from './webhookEvents.js';
