@@ -1,6 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { getArticleBySlug, getHelpManifest } from '../manifest';
+
+// Aquece o manifest UMA vez antes de qualquer teste. A primeira chamada a
+// getHelpManifest() dispara o transform de TODOS os .mdx de docs/help/** (cada
+// um vira um dynamic import). Em runners de CI lentos esse transform agregado
+// pode passar de 100s, e o primeiro teste a chamar getHelpManifest() estourava
+// o timeout default de 5s do vitest — falha flaky, dependente da carga do
+// runner, sem relação com o conteúdo. Pagar o custo aqui, com orçamento
+// generoso, deixa os testes individuais instantâneos (manifest é memoizado).
+beforeAll(async () => {
+  await getHelpManifest();
+}, 120_000);
 
 // Guarda contra a classe de bug "glob path errado, manifest vazio, tudo 404".
 // Foi exatamente isso que aconteceu na primeira tentativa do F10-S02 — a CI
