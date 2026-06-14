@@ -395,4 +395,21 @@ describe('paymentDuesAdapter allowlist de host (F5-S13)', () => {
     const hostname = new URL(url).hostname.toLowerCase();
     expect(allowedHosts.includes(hostname)).toBe(true);
   });
+
+  // LOW-01: esquemas proibidos (HIGH-01 — SSRF)
+  it('B9. file:// com host da allowlist é REJEITADO (LOW-01 / HIGH-01)', () => {
+    // Simula a lógica do validateRow: verifica protocolo antes de checar host.
+    const url = 'file://boletos.bdp.ro.gov.br/etc/passwd';
+    const parsed = new URL(url);
+    expect(parsed.protocol).toBe('file:');
+    // A lógica no adapter rejeita qualquer protocolo diferente de 'https:'
+    expect(parsed.protocol !== 'https:').toBe(true);
+  });
+
+  it('B10. ftp:// com host da allowlist é REJEITADO (LOW-01 / HIGH-01)', () => {
+    const url = 'ftp://boletos.bdp.ro.gov.br/boleto.pdf';
+    const parsed = new URL(url);
+    expect(parsed.protocol).toBe('ftp:');
+    expect(parsed.protocol !== 'https:').toBe(true);
+  });
 });

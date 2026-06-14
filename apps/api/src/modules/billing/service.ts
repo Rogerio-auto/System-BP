@@ -43,7 +43,7 @@ import {
   listCollectionJobs,
   listCollectionRules,
   listPaymentDues,
-  lockPaymentDueForBoleto,
+  verifyPaymentDueScope,
   markPaymentDuePaid,
   renegotiatePaymentDue,
   updateCollectionRule,
@@ -69,7 +69,7 @@ import type {
 // ---------------------------------------------------------------------------
 
 /**
- * Tenta recuperar uma resposta previamente cacheada para a chave.
+ * Tenta recuperar uma resposta previamente cacheada para a chave (PaymentDueResponse).
  * Retorna a resposta se existir, null caso contrário.
  * LGPD: response_body armazena apenas { payment_due_id: uuid } — sem PII.
  */
@@ -83,6 +83,26 @@ async function checkIdempotencyKey(db: Database, key: string): Promise<PaymentDu
   // `as` justificado: responseBody é JSONB armazenado pelo próprio service
   // com estrutura PaymentDueResponse — sem PII, só IDs e metadados.
   return cached as PaymentDueResponse;
+}
+
+/**
+ * Tenta recuperar uma BoletoResponse previamente cacheada para a chave.
+ * Retorna a resposta se existir, null caso contrário.
+ * LGPD: response_body armazena apenas { payment_due_id: uuid } — sem PII bruta.
+ */
+async function checkBoletoIdempotencyKey(
+  db: Database,
+  key: string,
+): Promise<BoletoResponse | null> {
+  const { eq } = await import('drizzle-orm');
+  const rows = await db.select().from(idempotencyKeys).where(eq(idempotencyKeys.key, key)).limit(1);
+
+  if (rows.length === 0) return null;
+
+  const cached = rows[0]!.responseBody;
+  // `as` justificado: responseBody é JSONB armazenado pelo próprio service com estrutura
+  // BoletoResponse (campos de boleto + payment_due_id) — sem PII bruta em nenhum campo.
+  return cached as BoletoResponse;
 }
 
 /**
@@ -109,6 +129,30 @@ async function persistIdempotencyKey(
     responseStatus: 200,
     // LGPD: armazena apenas { payment_due_id: uuid } — sem PII bruta.
     responseBody: { payment_due_id: response.id },
+  });
+}
+
+/**
+ * Persiste a chave de idempotência para operações de boleto (BoletoResponse).
+ * Deve estar na mesma transação que a mutação para atomicidade.
+ * LGPD: armazena apenas { payment_due_id: uuid } — sem boleto_url/linha/PIX.
+ */
+async function persistBoletoIdempotencyKey(
+  // `as` justificado: Drizzle não exporta tipo público da transação.
+  tx: Database,
+  key: string,
+  endpoint: string,
+  response: BoletoResponse,
+): Promise<void> {
+  const requestHash = crypto.createHash('sha256').update(key).digest('hex');
+
+  await tx.insert(idempotencyKeys).values({
+    key,
+    endpoint,
+    requestHash,
+    responseStatus: 200,
+    // LGPD: armazena apenas payment_due_id — nunca boleto_url/linha/PIX.
+    responseBody: { payment_due_id: response.payment_due_id },
   });
 }
 
@@ -418,6 +462,16 @@ function assertBoletoUrlAllowed(url: string, allowedHosts: string[]): void {
     throw new AppError(400, 'VALIDATION_ERROR', 'boletoUrl inválida: não é uma URL válida');
   }
 
+  // HIGH-01: rejeitar esquemas que não sejam https: (file://, ftp://, gopher://, etc.)
+  // mesmo que o hostname esteja na allowlist — defesa em profundidade contra SSRF.
+  if (parsed.protocol !== 'https:') {
+    throw new AppError(
+      400,
+      'VALIDATION_ERROR',
+      `boletoUrl bloqueada: esquema '${parsed.protocol}' não permitido — somente https:`,
+    );
+  }
+
   const hostname = parsed.hostname.toLowerCase();
   if (!allowedHosts.includes(hostname)) {
     throw new AppError(
@@ -483,6 +537,13 @@ export async function attachBoletoUploadService(
   idempotencyKey: string,
   _allowedHosts: string[],
 ): Promise<BoletoResponse> {
+  // HIGH-02: verificar idempotency-key antes de processar (fora da tx — leitura rápida).
+  // Re-enviar a mesma key retorna a resposta cacheada sem re-executar upload para a Meta.
+  const cached = await checkBoletoIdempotencyKey(db, idempotencyKey);
+  if (cached !== null) {
+    return cached;
+  }
+
   // Gate MIME antes de qualquer operação costosa.
   assertBoletoMimeAllowed(file.mimeType);
 
@@ -494,9 +555,9 @@ export async function attachBoletoUploadService(
     );
   }
 
-  // H-01: SELECT FOR UPDATE + city-scope (garante que a parcela pertence ao scope).
+  // H-01: verifica que a parcela existe e pertence ao scope do usuário (city-scope).
   // Executado fora da tx para fail-fast antes de chamar a Meta (custo de rede).
-  await lockPaymentDueForBoleto(db, organizationId, dueId, cityScopeIds);
+  await verifyPaymentDueScope(db, organizationId, dueId, cityScopeIds);
 
   // Upload para a Meta (fora da tx — operação externa, não revertível).
   // LGPD §8.3: bytes/filename nunca logados pelo cliente Meta.
@@ -511,6 +572,8 @@ export async function attachBoletoUploadService(
 
   // Validade: Meta expira media em ~30 dias (2592000s).
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  let result!: BoletoResponse;
 
   await db.transaction(async (tx) => {
     // `as` justificado: Drizzle não exporta tipo público da transação.
@@ -547,7 +610,7 @@ export async function attachBoletoUploadService(
     // Outbox billing.boleto_attached — sem PII bruta (só IDs + modo).
     const eventData: BillingBoletoAttachedData = {
       payment_due_id: dueId,
-      customer_id: '', // preenchido abaixo via getBoletoByDueId
+      customer_id: '', // preenchido abaixo via busca mínima
       mode: 'upload',
       has_media: true,
     };
@@ -570,9 +633,20 @@ export async function attachBoletoUploadService(
       idempotencyKey: `billing.boleto_attached:${dueId}:${idempotencyKey}`,
       data: eventData,
     });
+
+    // HIGH-02: busca resultado dentro da tx para persistir idempotency-key atomicamente.
+    // Se a tx fizer rollback, a key também não é gravada.
+    result = await getBoletoByDueId(txDb, organizationId, dueId, cityScopeIds);
+
+    await persistBoletoIdempotencyKey(
+      txDb,
+      idempotencyKey,
+      `POST /api/billing/payment-dues/${dueId}/boleto (upload)`,
+      result,
+    );
   });
 
-  return getBoletoByDueId(db, organizationId, dueId, cityScopeIds);
+  return result;
 }
 
 /**
@@ -606,13 +680,21 @@ export async function attachBoletoReferenceService(
   idempotencyKey: string,
   allowedHosts: string[],
 ): Promise<BoletoResponse> {
+  // HIGH-02: verificar idempotency-key antes de processar (fora da tx — leitura rápida).
+  const cached = await checkBoletoIdempotencyKey(db, idempotencyKey);
+  if (cached !== null) {
+    return cached;
+  }
+
   // Allowlist de host antes de qualquer operação de DB.
   if (body.boletoUrl !== undefined) {
     assertBoletoUrlAllowed(body.boletoUrl, allowedHosts);
   }
 
-  // H-01: SELECT FOR UPDATE + city-scope.
-  await lockPaymentDueForBoleto(db, organizationId, dueId, cityScopeIds);
+  // H-01: verifica que a parcela existe e pertence ao scope do usuário (city-scope).
+  await verifyPaymentDueScope(db, organizationId, dueId, cityScopeIds);
+
+  let result!: BoletoResponse;
 
   await db.transaction(async (tx) => {
     // `as` justificado: Drizzle não exporta tipo público da transação.
@@ -671,9 +753,20 @@ export async function attachBoletoReferenceService(
       idempotencyKey: `billing.boleto_attached:${dueId}:${idempotencyKey}`,
       data: eventData,
     });
+
+    // HIGH-02: busca resultado dentro da tx para persistir idempotency-key atomicamente.
+    // Se a tx fizer rollback, a key também não é gravada.
+    result = await getBoletoByDueId(txDb, organizationId, dueId, cityScopeIds);
+
+    await persistBoletoIdempotencyKey(
+      txDb,
+      idempotencyKey,
+      `POST /api/billing/payment-dues/${dueId}/boleto (reference)`,
+      result,
+    );
   });
 
-  return getBoletoByDueId(db, organizationId, dueId, cityScopeIds);
+  return result;
 }
 
 /**
@@ -696,8 +789,8 @@ export async function removeBoletoService(
   cityScopeIds: string[] | null,
   actor: BoletoActor,
 ): Promise<BoletoResponse> {
-  // H-01: SELECT FOR UPDATE + city-scope.
-  await lockPaymentDueForBoleto(db, organizationId, dueId, cityScopeIds);
+  // H-01: verifica que a parcela existe e pertence ao scope do usuário (city-scope).
+  await verifyPaymentDueScope(db, organizationId, dueId, cityScopeIds);
 
   await db.transaction(async (tx) => {
     // `as` justificado: Drizzle não exporta tipo público da transação.

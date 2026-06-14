@@ -5,6 +5,20 @@ description: Como vincular um boleto (PDF ou referência) a uma parcela de cobra
 
 # Anexar boleto à parcela
 
+<Permission required="billing:boleto:write">
+  Esta funcionalidade é exclusiva para usuários com a permissão **billing:boleto:write**
+  (concedida a **Admin**, **Gestor Geral** e **Gestor Regional**).
+  Se você não vê a opção de anexar boleto, fale com o administrador do sistema.
+</Permission>
+
+<Callout type="warning" title="Proteção de dados — LGPD §14.2">
+  O boleto contém dados pessoais do devedor (nome, CPF, endereço). O tratamento dessas
+  informações segue as regras definidas em
+  [`docs/17-lgpd-protecao-dados.md` §14.2](/docs/17-lgpd-protecao-dados#checklist-de-dados-pessoais).
+  Em caso de dúvida sobre consentimento, finalidade ou prazo de retenção, consulte o
+  encarregado (DPO) antes de prosseguir.
+</Callout>
+
 A funcionalidade de boleto permite vincular um documento de cobrança a uma parcela (`payment_due`).
 Quando o boleto está anexado, o envio automático pela régua de cobrança inclui o arquivo no template WhatsApp.
 

@@ -256,6 +256,9 @@ export const BoletoAttachReferenceBodySchema = z
       .string()
       .url('boletoUrl deve ser uma URL válida')
       .max(2048, 'boletoUrl muito longa')
+      // HIGH-01: defesa em profundidade — rejeita esquemas que não sejam https: no nível do schema.
+      // O service também valida, mas rejeitar cedo evita chegar até assertBoletoUrlAllowed.
+      .refine((u) => u.startsWith('https://'), 'boletoUrl deve usar https://')
       .optional(),
     digitableLine: z
       .string()

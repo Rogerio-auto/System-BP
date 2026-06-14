@@ -120,6 +120,8 @@ function mapDueRow(row: {
   boleto_media_id: string | null;
   boleto_url: string | null;
   boleto_filename: string | null;
+  // MEDIUM-02: necessário para has_boleto correto (parcelas só com linha/PIX)
+  boleto_attached_at: Date | null;
 }): PaymentDueResponse {
   return {
     id: row.id,
@@ -137,7 +139,10 @@ function mapDueRow(row: {
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
     // LGPD: expõe apenas indicadores de presença — não a URL/linha/PIX em si.
-    has_boleto: row.boleto_media_id !== null || row.boleto_url !== null,
+    // MEDIUM-02: inclui boleto_attached_at para cobrir parcelas com apenas
+    // linha digitável ou PIX (sem media_id nem URL).
+    has_boleto:
+      row.boleto_media_id !== null || row.boleto_url !== null || row.boleto_attached_at !== null,
     boleto_filename: row.boleto_filename ?? null,
   };
 }
@@ -217,6 +222,8 @@ export async function listPaymentDues(
       boleto_media_id: paymentDues.boletoMediaId,
       boleto_url: paymentDues.boletoUrl,
       boleto_filename: paymentDues.boletoFilename,
+      // MEDIUM-02: necessário para has_boleto correto (parcelas só com linha/PIX)
+      boleto_attached_at: paymentDues.boletoAttachedAt,
     })
     .from(paymentDues)
     .leftJoin(customers, eq(paymentDues.customerId, customers.id))
@@ -266,6 +273,8 @@ export async function getPaymentDueById(
       boleto_media_id: paymentDues.boletoMediaId,
       boleto_url: paymentDues.boletoUrl,
       boleto_filename: paymentDues.boletoFilename,
+      // MEDIUM-02: necessário para has_boleto correto
+      boleto_attached_at: paymentDues.boletoAttachedAt,
     })
     .from(paymentDues)
     .leftJoin(customers, eq(paymentDues.customerId, customers.id))
@@ -339,7 +348,9 @@ export async function getBoletoByDueId(
     pix_copia_cola: row.pix_copia_cola ?? null,
     boleto_filename: row.boleto_filename ?? null,
     boleto_attached_at: row.boleto_attached_at?.toISOString() ?? null,
-    has_boleto: row.boleto_media_id !== null || row.boleto_url !== null,
+    // MEDIUM-02: inclui boleto_attached_at para cobrir parcelas com apenas linha/PIX.
+    has_boleto:
+      row.boleto_media_id !== null || row.boleto_url !== null || row.boleto_attached_at !== null,
   };
 }
 
@@ -362,9 +373,11 @@ export interface BoletoFields {
  * Retorna o registro mínimo necessário para gate de boleto.
  * Lança NotFoundError se fora do scope ou inexistente.
  *
- * Usa SELECT FOR UPDATE para fechar race em operações de attach/remove concorrentes.
+ * MEDIUM-01: não usa SELECT FOR UPDATE pois esta função é chamada FORA de transação
+ * (fail-fast antes de chamar a Meta / iniciar a tx). O lock real ocorre implicitamente
+ * no UPDATE dentro de updatePaymentDueBoleto (Postgres row lock em UPDATE).
  */
-export async function lockPaymentDueForBoleto(
+export async function verifyPaymentDueScope(
   db: Database,
   organizationId: string,
   dueId: string,
@@ -383,7 +396,6 @@ export async function lockPaymentDueForBoleto(
     .leftJoin(customers, eq(paymentDues.customerId, customers.id))
     .leftJoin(leads, eq(customers.primaryLeadId, leads.id))
     .where(and(...conditions))
-    .for('update')
     .limit(1);
 
   if (rows.length === 0) {

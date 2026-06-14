@@ -413,11 +413,19 @@ export const paymentDuesAdapter: ImportAdapter<PaymentDuesParsed, PaymentDuesCre
       } else {
         try {
           const url = new URL(parsed.boletoUrl);
-          const hostname = url.hostname.toLowerCase();
-          if (!allowedHosts.includes(hostname)) {
+          // HIGH-01: rejeitar esquemas que não sejam https: (file://, ftp://, gopher://, etc.)
+          // mesmo que o hostname esteja na allowlist — defesa em profundidade contra SSRF.
+          if (url.protocol !== 'https:') {
             errors.push(
-              `boleto_url bloqueada: host '${hostname}' não está na allowlist de hosts permitidos`,
+              `boleto_url bloqueada: esquema '${url.protocol}' não permitido — somente https:`,
             );
+          } else {
+            const hostname = url.hostname.toLowerCase();
+            if (!allowedHosts.includes(hostname)) {
+              errors.push(
+                `boleto_url bloqueada: host '${hostname}' não está na allowlist de hosts permitidos`,
+              );
+            }
           }
         } catch {
           errors.push(`boleto_url inválida: "${parsed.boletoUrl}" não é uma URL válida`);

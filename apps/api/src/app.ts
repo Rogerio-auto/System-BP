@@ -159,6 +159,10 @@ export async function buildApp() {
           '*.pix_copia_cola',
           'req.body.pixCopiaCola',
           '*.pixCopiaCola',
+          // boleto_filename: quasi-identificador — pode conter referência ao devedor.
+          // Ex: "boleto-joao-silva-parcela-3.pdf" vaza nome.
+          '*.boleto_filename',
+          'req.body.boleto_filename',
         ],
         censor: '[REDACTED]',
       },
