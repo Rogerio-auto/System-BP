@@ -1,16 +1,20 @@
 // =============================================================================
-// billing/schemas.ts — Schemas Zod para o módulo de cobrança (F5-S08).
+// billing/schemas.ts — Schemas Zod para o módulo de cobrança (F5-S08, F5-S13).
 //
 // Cobre:
 //   - PaymentDueResponseSchema / PaymentDuesListQuerySchema
 //   - CollectionRuleCreateSchema / CollectionRuleUpdateSchema / CollectionRuleResponseSchema
 //   - CollectionJobResponseSchema / CollectionJobsListQuerySchema
 //   - MarkPaidBodySchema / RenegotiateBodySchema
+//   - BoletoAttachReferenceBodySchema / BoletoResponseSchema (F5-S13)
 //
 // LGPD (doc 17):
 //   - PaymentDueResponse não expõe CPF — vínculo via customer_id.
 //   - customer_name: apenas primeiro nome (split_part do lead).
 //   - CollectionJobResponse não expõe PII direta.
+//   - Campos de boleto (boleto_url, boleto_digitable_line, pix_copia_cola) são PII
+//     indireta: expostos apenas no BoletoResponseSchema (endpoint dedicado, não na listagem).
+//     PaymentDueResponse inclui apenas has_boleto (bool) + boleto_filename.
 // =============================================================================
 import { z } from 'zod';
 
@@ -76,6 +80,11 @@ export const PaymentDueResponseSchema = z.object({
   created_by: z.string().uuid().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
+  // Boleto (F5-S13) — indicadores sem PII.
+  // boleto_url / boleto_digitable_line / pix_copia_cola ficam NO BoletoResponseSchema.
+  // has_boleto evita que o front precise checar múltiplos campos nulos.
+  has_boleto: z.boolean(),
+  boleto_filename: z.string().nullable(),
 });
 
 export type PaymentDueResponse = z.infer<typeof PaymentDueResponseSchema>;
@@ -219,3 +228,80 @@ export const CollectionJobsListResponseSchema = z.object({
 });
 
 export type CollectionJobsListResponse = z.infer<typeof CollectionJobsListResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Boleto schemas (F5-S13)
+//
+// Dois modos de anexar boleto:
+//   1. upload  — multipart/form-data com campo 'file' (PDF/JPG/PNG).
+//                O controller chama MetaWhatsAppClient.uploadMedia, persiste
+//                boleto_media_id + boleto_media_expires_at + boleto_filename.
+//                NÃO armazenamos bytes (decisão LGPD/F5-S10).
+//
+//   2. reference — application/json com boletoUrl e/ou campos adicionais.
+//                  boletoUrl passa por allowlist de host (BOLETO_ALLOWED_HOSTS).
+//
+// LGPD §14.2: boleto_url / boleto_digitable_line / pix_copia_cola são PII indireta.
+//   Entram no pino.redact; nunca em outbox; não retornados na listagem geral.
+// ---------------------------------------------------------------------------
+
+/**
+ * Body para modo 'reference' (application/json).
+ * Aceita URL de boleto já hospedada, linha digitável e/ou PIX.
+ * boletoUrl é validada por allowlist de host no service (BOLETO_ALLOWED_HOSTS).
+ */
+export const BoletoAttachReferenceBodySchema = z
+  .object({
+    boletoUrl: z
+      .string()
+      .url('boletoUrl deve ser uma URL válida')
+      .max(2048, 'boletoUrl muito longa')
+      .optional(),
+    digitableLine: z
+      .string()
+      .max(200, 'digitableLine muito longa')
+      .optional()
+      .describe('Linha digitável (código de barras) do boleto'),
+    pixCopiaCola: z
+      .string()
+      .max(1000, 'pixCopiaCola muito longo')
+      .optional()
+      .describe('Payload PIX copia-e-cola (BR Code)'),
+    filename: z
+      .string()
+      .max(255, 'filename muito longo')
+      .regex(/^[^/\\<>:"|?*]+$/, 'filename contém caracteres inválidos — nunca incluir CPF')
+      .optional()
+      .describe('Nome amigável para o arquivo (ex: boleto-parcela-3.pdf). Nunca incluir CPF.'),
+  })
+  .refine(
+    (b) =>
+      b.boletoUrl !== undefined || b.digitableLine !== undefined || b.pixCopiaCola !== undefined,
+    { message: 'Ao menos um de boletoUrl, digitableLine ou pixCopiaCola é obrigatório' },
+  );
+
+export type BoletoAttachReferenceBody = z.infer<typeof BoletoAttachReferenceBodySchema>;
+
+/**
+ * Resposta completa do boleto — inclui campos PII que não aparecem em PaymentDueResponse.
+ * Retornado por POST e DELETE /payment-dues/:id/boleto.
+ *
+ * LGPD §14.2: este schema expõe boletoUrl/digitableLine/pixCopiaCola.
+ * Esses campos entram no pino.redact e nunca devem aparecer em logs ou outbox.
+ */
+export const BoletoResponseSchema = z.object({
+  payment_due_id: z.string().uuid(),
+  // LGPD: boleto_url é URL controlada/assinada — vai no pino.redact
+  boleto_url: z.string().nullable(),
+  boleto_media_id: z.string().nullable(),
+  boleto_media_expires_at: z.string().nullable(),
+  // LGPD: linha digitável — vai no pino.redact
+  boleto_digitable_line: z.string().nullable(),
+  // LGPD: PIX copia-e-cola — vai no pino.redact
+  pix_copia_cola: z.string().nullable(),
+  boleto_filename: z.string().nullable(),
+  boleto_attached_at: z.string().nullable(),
+  has_boleto: z.boolean(),
+});
+
+export type BoletoResponse = z.infer<typeof BoletoResponseSchema>;

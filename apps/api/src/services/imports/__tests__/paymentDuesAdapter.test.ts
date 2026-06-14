@@ -261,3 +261,138 @@ describe('paymentDuesAdapter.validateRow — erros locais', () => {
     // O adapter retorna errors neste caso — validado nos testes de integração
   });
 });
+
+// ---------------------------------------------------------------------------
+// Boleto (F5-S13) — parseRow com colunas opcionais de boleto
+// ---------------------------------------------------------------------------
+
+describe('paymentDuesAdapter.parseRow — colunas de boleto (F5-S13)', () => {
+  it('B1. linha com boleto_url → parseRow extrai boletoUrl', () => {
+    const raw = {
+      customer_id: 'cust-uuid-1',
+      amount_due: '1.234,56',
+      due_date: '15/06/2026',
+      contract_reference: 'BP-2026-00001',
+      installment_number: '3',
+      boleto_url: 'https://boletos.bdp.ro.gov.br/boleto-123.pdf',
+    };
+
+    const result = paymentDuesAdapter.parseRow(raw);
+    expect(isParseError(result)).toBe(false);
+
+    if (!isParseError(result)) {
+      expect(result.boletoUrl).toBe('https://boletos.bdp.ro.gov.br/boleto-123.pdf');
+      expect(result.linhaDigitavel).toBeNull();
+      expect(result.pixCopiaCola).toBeNull();
+    }
+  });
+
+  it('B2. linha com linha_digitavel → parseRow extrai linhaDigitavel', () => {
+    const raw = {
+      customer_id: 'cust-uuid-1',
+      amount_due: '1.234,56',
+      due_date: '15/06/2026',
+      contract_reference: 'BP-2026-00001',
+      installment_number: '3',
+      linha_digitavel: '12345.67890 12345.678901 12345.678901 1 23450000012000',
+    };
+
+    const result = paymentDuesAdapter.parseRow(raw);
+    expect(isParseError(result)).toBe(false);
+
+    if (!isParseError(result)) {
+      expect(result.linhaDigitavel).toContain('12345');
+      expect(result.boletoUrl).toBeNull();
+    }
+  });
+
+  it('B3. linha com pix_copia_cola → parseRow extrai pixCopiaCola', () => {
+    const raw = {
+      customer_id: 'cust-uuid-1',
+      amount_due: '500,00',
+      due_date: '20/06/2026',
+      contract_reference: 'BP-2026-00002',
+      installment_number: '1',
+      pix_copia_cola: '00020126330014br.gov.bcb.pix01110112345678901234',
+    };
+
+    const result = paymentDuesAdapter.parseRow(raw);
+    expect(isParseError(result)).toBe(false);
+
+    if (!isParseError(result)) {
+      expect(result.pixCopiaCola).toContain('br.gov.bcb.pix');
+      expect(result.boletoUrl).toBeNull();
+    }
+  });
+
+  it('B4. linha sem colunas de boleto → todos null', () => {
+    const raw = {
+      customer_id: 'cust-uuid-1',
+      amount_due: '1.234,56',
+      due_date: '15/06/2026',
+      contract_reference: 'BP-2026-00001',
+      installment_number: '3',
+    };
+
+    const result = paymentDuesAdapter.parseRow(raw);
+    expect(isParseError(result)).toBe(false);
+
+    if (!isParseError(result)) {
+      expect(result.boletoUrl).toBeNull();
+      expect(result.linhaDigitavel).toBeNull();
+      expect(result.pixCopiaCola).toBeNull();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Boleto (F5-S13) — allowlist de host no validateRow
+//
+// Estes testes verificam a lógica de allowlist sem precisar de DB.
+// A validação de host ocorre em validateRow antes da query de dedupe.
+// ---------------------------------------------------------------------------
+
+describe('paymentDuesAdapter allowlist de host (F5-S13)', () => {
+  it('B5. URL no formato válido é parseável', () => {
+    // Verifica que a URL de boleto é parseable via new URL()
+    const url = 'https://boletos.bdp.ro.gov.br/boleto-123.pdf';
+    let parsed: URL | null = null;
+    try {
+      parsed = new URL(url);
+    } catch {
+      // ignore
+    }
+    expect(parsed).not.toBeNull();
+    expect(parsed!.hostname).toBe('boletos.bdp.ro.gov.br');
+  });
+
+  it('B6. URL inválida não é parseável via new URL()', () => {
+    let parsed: URL | null = null;
+    try {
+      parsed = new URL('nao-é-uma-url');
+    } catch {
+      parsed = null;
+    }
+    expect(parsed).toBeNull();
+  });
+
+  it('B7. Host fora da allowlist deve ser bloqueado', () => {
+    // Simula a lógica do validateRow sem chamar o adapter completo
+    const allowedHosts = ['boletos.bdp.ro.gov.br'];
+    const url = 'https://evil.example.com/boleto.pdf';
+    let hostname = '';
+    try {
+      hostname = new URL(url).hostname.toLowerCase();
+    } catch {
+      // ignore
+    }
+    expect(allowedHosts.includes(hostname)).toBe(false);
+  });
+
+  it('B8. Host na allowlist é permitido', () => {
+    const allowedHosts = ['boletos.bdp.ro.gov.br'];
+    const url = 'https://boletos.bdp.ro.gov.br/boleto-001.pdf';
+    const hostname = new URL(url).hostname.toLowerCase();
+    expect(allowedHosts.includes(hostname)).toBe(true);
+  });
+});

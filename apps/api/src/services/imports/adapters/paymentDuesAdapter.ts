@@ -1,5 +1,5 @@
 // =============================================================================
-// services/imports/adapters/paymentDuesAdapter.ts — Adapter de parcelas (F5-S08).
+// services/imports/adapters/paymentDuesAdapter.ts — Adapter de parcelas (F5-S08, F5-S13).
 //
 // Implementa ImportAdapter<PaymentDuesParsed, PaymentDuesCreateInput> para o
 // pipeline genérico de importação (F1-S17).
@@ -11,22 +11,27 @@
 //   persistRow  — INSERT em payment_dues com origin='import'.
 //
 // CSV de entrada suporta colunas:
-//   customer_id      — UUID do customer (preferencial)
-//   cpf              — CPF do titular (resolvido para customer_id via customers.cpf_hash)
-//   amount_due       — Valor BR: "1.234,56" ou "1234.56" ou "1234,56"
-//   due_date         — Data BR: "dd/mm/aaaa" ou ISO "yyyy-mm-dd"
+//   customer_id        — UUID do customer (preferencial)
+//   cpf                — CPF do titular (resolvido para customer_id via customers.cpf_hash)
+//   amount_due         — Valor BR: "1.234,56" ou "1234.56" ou "1234,56"
+//   due_date           — Data BR: "dd/mm/aaaa" ou ISO "yyyy-mm-dd"
 //   contract_reference — Referência do contrato (ex: "BP-2026-00123")
 //   installment_number — Número da parcela (int positivo)
-//   external_id      — Idempotência: slug externo opcional (ignorado após insert)
+//   external_id        — Idempotência: slug externo opcional (ignorado após insert)
+//   boleto_url         — (F5-S13) URL do boleto — validada por allowlist de host
+//   linha_digitavel    — (F5-S13) Linha digitável / código de barras do boleto
+//   pix_copia_cola     — (F5-S13) Payload PIX copia-e-cola (BR Code)
 //
 // LGPD (doc 17 §14.2 — Art. 7º V — execução de contrato):
 //   - CPF raw NUNCA persiste neste adapter — apenas cpf_hash para resolução.
 //   - amount é dado financeiro operacional, não PII estrito.
 //   - contract_reference: dado financeiro, não PII.
 //   - origin: sempre 'import'.
+//   - boleto_url, linha_digitavel, pix_copia_cola: PII indireta — nunca logados.
 // =============================================================================
 import { and, eq } from 'drizzle-orm';
 
+import { env } from '../../../config/env.js';
 import { db } from '../../../db/client.js';
 import { customers } from '../../../db/schema/customers.js';
 import { paymentDues } from '../../../db/schema/paymentDues.js';
@@ -55,6 +60,13 @@ export interface PaymentDuesParsed {
   installmentNumberRaw: string;
   /** ID externo para idempotência (opcional — não persiste). */
   externalId: string | null;
+  // Boleto (F5-S13) — PII indireta: nunca logar
+  /** URL do boleto (opcional; validada por allowlist de host). */
+  boletoUrl: string | null;
+  /** Linha digitável do boleto (opcional). */
+  linhaDigitavel: string | null;
+  /** Payload PIX copia-e-cola (opcional). */
+  pixCopiaCola: string | null;
 }
 
 export interface PaymentDuesCreateInput {
@@ -66,6 +78,10 @@ export interface PaymentDuesCreateInput {
   amount: string; // formato '1234.56' (numeric decimal)
   origin: 'import';
   createdBy: string | null;
+  // Boleto (F5-S13) — PII indireta; pode ser null se não fornecido
+  boletoUrl: string | null;
+  boletoDigitableLine: string | null;
+  pixCopiaCola: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +117,17 @@ const COLUMN_ALIASES: Record<keyof PaymentDuesParsed, string[]> = {
     'Parcela',
   ],
   externalId: ['external_id', 'id_externo', 'ext_id'],
+  // Boleto (F5-S13) — PII indireta
+  boletoUrl: ['boleto_url', 'url_boleto', 'link_boleto'],
+  linhaDigitavel: [
+    'linha_digitavel',
+    'linha_digitável',
+    'digitable_line',
+    'linhaDigitavel',
+    'codigo_barras',
+    'codigo_de_barras',
+  ],
+  pixCopiaCola: ['pix_copia_cola', 'pix', 'pixCopiaCola', 'pix_code', 'qr_code'],
 };
 
 function extractField(raw: Record<string, unknown>, field: keyof PaymentDuesParsed): string | null {
@@ -303,6 +330,10 @@ export const paymentDuesAdapter: ImportAdapter<PaymentDuesParsed, PaymentDuesCre
       contractReference,
       installmentNumberRaw,
       externalId: extractField(raw, 'externalId'),
+      // Boleto (F5-S13) — opcionais; nunca logar esses valores
+      boletoUrl: extractField(raw, 'boletoUrl'),
+      linhaDigitavel: extractField(raw, 'linhaDigitavel'),
+      pixCopiaCola: extractField(raw, 'pixCopiaCola'),
     };
   },
 
@@ -370,11 +401,35 @@ export const paymentDuesAdapter: ImportAdapter<PaymentDuesParsed, PaymentDuesCre
       );
     }
 
+    // 5. Validar boleto_url contra allowlist de host (F5-S13)
+    // LGPD §14.2: boleto_url aponta para PDF com PII — host deve ser controlado.
+    if (parsed.boletoUrl !== null) {
+      const allowedHosts = env.BOLETO_ALLOWED_HOSTS ?? [];
+      if (allowedHosts.length === 0) {
+        // Sem allowlist configurada → rejeitar URL (fail-closed, como no service)
+        errors.push(
+          'boleto_url fornecida mas BOLETO_ALLOWED_HOSTS não configurado — somente upload de arquivo é aceito',
+        );
+      } else {
+        try {
+          const url = new URL(parsed.boletoUrl);
+          const hostname = url.hostname.toLowerCase();
+          if (!allowedHosts.includes(hostname)) {
+            errors.push(
+              `boleto_url bloqueada: host '${hostname}' não está na allowlist de hosts permitidos`,
+            );
+          }
+        } catch {
+          errors.push(`boleto_url inválida: "${parsed.boletoUrl}" não é uma URL válida`);
+        }
+      }
+    }
+
     if (errors.length > 0) {
       return { errors };
     }
 
-    // 5. Verificar dedupe — (contract_reference, installment_number, organization_id) já existe
+    // 6. Verificar dedupe — (contract_reference, installment_number, organization_id) já existe
     // MEDIUM-01: escopo de org para evitar cross-tenant oracle
     const exists = await paymentDueExists(
       parsed.contractReference,
@@ -400,6 +455,10 @@ export const paymentDuesAdapter: ImportAdapter<PaymentDuesParsed, PaymentDuesCre
         amount: amount as string,
         origin: 'import',
         createdBy: ctx.userId,
+        // Boleto (F5-S13): mapear opcionais — null se não fornecido
+        boletoUrl: parsed.boletoUrl,
+        boletoDigitableLine: parsed.linhaDigitavel,
+        pixCopiaCola: parsed.pixCopiaCola,
       },
     };
   },
@@ -425,6 +484,18 @@ export const paymentDuesAdapter: ImportAdapter<PaymentDuesParsed, PaymentDuesCre
           status: 'pending',
           origin: input.origin,
           createdBy: input.createdBy,
+          // Boleto (F5-S13) — armazenados apenas se fornecidos na planilha.
+          // LGPD §14.2: boleto_url deve ter passado pela allowlist em validateRow.
+          // boletoAttachedAt preenchido se qualquer campo de boleto foi fornecido.
+          boletoUrl: input.boletoUrl ?? undefined,
+          boletoDigitableLine: input.boletoDigitableLine ?? undefined,
+          pixCopiaCola: input.pixCopiaCola ?? undefined,
+          boletoAttachedAt:
+            input.boletoUrl !== null ||
+            input.boletoDigitableLine !== null ||
+            input.pixCopiaCola !== null
+              ? new Date()
+              : undefined,
         })
         .returning({ id: paymentDues.id });
 

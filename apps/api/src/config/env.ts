@@ -173,6 +173,25 @@ const envSchema = z.object({
     .min(1000, 'FOLLOWUP_SENDER_TICK_MS deve ser >= 1000ms')
     .default(30_000)
     .optional(),
+
+  // ---- Boleto (F5-S13) — Allowlist de hosts permitidos para boleto_url -----
+  // Restringe as URLs de boleto que o Banco do Povo pode anexar às parcelas.
+  // Impede redirecionamento para URLs arbitrárias com PII (LGPD §8.3).
+  // Formato: hostname1,hostname2 (ex: "boletos.bdp.ro.gov.br,storage.bdp.ro.gov.br")
+  // LGPD §14.2: boleto_url aponta para PDF com PII (nome, CPF, endereço do devedor).
+  // Obrigatória em produção; em dev pode usar "localhost" para testes locais.
+  // Deixar vazia bloqueia TODOS os uploads por referência-URL (apenas upload de arquivo).
+  BOLETO_ALLOWED_HOSTS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      v
+        ? v
+            .split(',')
+            .map((s) => s.trim().toLowerCase())
+            .filter(Boolean)
+        : [],
+    ),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -146,6 +146,19 @@ export async function buildApp() {
           'req.body.internal_score',
           // Help feedback comment (F10-S12) - PII potencial (doc 17 sec 9)
           'req.body.comment',
+          // Boleto (F5-S13) — LGPD §14.2: boleto contém nome, CPF e endereço do devedor.
+          // boleto_url: URL controlada/assinada — não deve vazar em logs (host + path podem revelar PII).
+          '*.boleto_url',
+          'req.body.boletoUrl',
+          '*.boletoUrl',
+          // boleto_digitable_line: código de barras do boleto — dado financeiro com PII indireta.
+          '*.boleto_digitable_line',
+          'req.body.digitableLine',
+          '*.digitableLine',
+          // pix_copia_cola: payload BR Code — pode conter nome do devedor.
+          '*.pix_copia_cola',
+          'req.body.pixCopiaCola',
+          '*.pixCopiaCola',
         ],
         censor: '[REDACTED]',
       },
