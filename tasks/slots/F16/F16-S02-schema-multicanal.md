@@ -3,11 +3,11 @@ id: F16-S02
 title: Schema multicanal do live chat — channels, channel_secrets, conversations, messages, webhook_events
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#4-dados-schema-multicanal-decisao-d2
-status: available
+status: in-progress
 priority: critical
 estimated_size: L
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-14T22:25:29Z
 completed_at: null
 pr_url: null
 depends_on: []
