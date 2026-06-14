@@ -38,6 +38,8 @@ import type {
   MetaWhatsAppClientOptions,
   SendTemplateParams,
   SendTemplateResult,
+  UploadMediaParams,
+  UploadMediaResult,
 } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -64,6 +66,32 @@ const GRAPH_API_VERSION = 'v20.0';
 
 /** URL base da Meta Graph API. */
 const META_GRAPH_BASE_URL = 'https://graph.facebook.com';
+
+// ---------------------------------------------------------------------------
+// Allowlist de MIME types aceitos pela Meta para upload de mídia.
+//
+// Fonte: Meta Cloud API — tipos suportados em POST /{phone_number_id}/media.
+// Nota: fileParser.ts (CSV/XLSX) tem allowlist própria para outro domínio;
+// não reutilizamos para evitar acoplamento entre módulos não relacionados.
+// Se ampliar, atualizar também em modules/templates/metaClient.ts.
+// ---------------------------------------------------------------------------
+const META_ALLOWED_MEDIA_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
+
+type MetaAllowedMediaMimeType = (typeof META_ALLOWED_MEDIA_MIME_TYPES)[number];
+
+function assertAllowedMimeType(mimeType: string): asserts mimeType is MetaAllowedMediaMimeType {
+  if (!(META_ALLOWED_MEDIA_MIME_TYPES as ReadonlyArray<string>).includes(mimeType)) {
+    throw new ExternalServiceError(
+      `MIME type não permitido para upload Meta: valor rejeitado pela allowlist`,
+      { upstreamStatus: 0 },
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers internos
@@ -114,6 +142,11 @@ function hashPhone(phoneE164: string): string {
 
 interface MetaMessageResponse {
   messages?: Array<{ id: string }>;
+  error?: MetaApiErrorDetail;
+}
+
+interface MetaUploadMediaResponse {
+  id?: string;
   error?: MetaApiErrorDetail;
 }
 
@@ -176,8 +209,17 @@ export class MetaWhatsAppClient {
   /**
    * Envia um template message aprovado para o destinatário.
    *
+   * Suporta parâmetros de header de mídia (`document`/`image`) além de `text`/`currency`.
+   * Para templates de boleto: incluir um `TemplateDocumentParameter` no header component,
+   * com `document.id` (preferido — LGPD §8.3) ou `document.link`.
+   *
+   * Guarda defensiva XOR: `sendTemplate` repassa `components` diretamente — o caller
+   * é responsável por garantir que exatamente um de `link`/`id` está presente por parâmetro
+   * de mídia. Ver `TemplateDocumentParameter` / `TemplateImageParameter` em types.ts.
+   *
    * LGPD §8.3: `params.to` é usado apenas no corpo HTTP e nunca logado.
    * Logs usam `to_hash` (HMAC truncado a 16 chars) para rastreabilidade segura.
+   * Campos de mídia (`link`, `id`, `filename`) também nunca são logados.
    *
    * @param params  Parâmetros de envio (to, templateName, language, components).
    * @returns       { wamid } — ID da mensagem na Meta para rastreamento de delivery.
@@ -211,6 +253,42 @@ export class MetaWhatsAppClient {
     }
 
     return { wamid };
+  }
+
+  /**
+   * Faz upload de um arquivo de mídia para a Cloud API da Meta.
+   *
+   * `POST /{phone_number_id}/media` (multipart/form-data)
+   * Retorna um `mediaId` que pode ser usado em `TemplateDocumentParameter.document.id`
+   * ou `TemplateImageParameter.image.id` por até ~30 dias.
+   *
+   * Caminho LGPD-preferido para boleto — não expõe URL pública com PII.
+   * Ver doc 07 §1.6 #midia-boleto.
+   *
+   * LGPD §8.3: `bytes` e `filename` NUNCA são logados. Apenas `mimeType` aparece em logs.
+   * O token de acesso nunca é exposto em erros.
+   *
+   * Retry: 429 e 5xx (backoff exponencial); sem retry em 4xx (exceto 429).
+   *
+   * @param params  { bytes, mimeType, filename? }
+   * @returns       { mediaId } — ID opaco da Meta, válido por ~30 dias.
+   * @throws        ExternalServiceError em falha definitiva (após retries esgotados).
+   */
+  async uploadMedia(params: UploadMediaParams): Promise<UploadMediaResult> {
+    const url = `${META_GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${this.phoneNumberId}/media`;
+
+    const raw = await this.requestWithRetryMultipart(url, params);
+    const parsed = raw as MetaUploadMediaResponse;
+
+    if (parsed.id === undefined || parsed.id === '') {
+      throw new ExternalServiceError(
+        'Meta API: uploadMedia retornou resposta sem id — verificar payload',
+        // Logar apenas mimeType — nunca bytes/filename (LGPD §8.3)
+        { upstreamStatus: 0, mimeType: params.mimeType },
+      );
+    }
+
+    return { mediaId: parsed.id };
   }
 
   // -------------------------------------------------------------------------
@@ -327,6 +405,117 @@ export class MetaWhatsAppClient {
           meta_error_code: errorDetail?.code,
           meta_error_title: errorDetail?.title,
           to_hash: toHash,
+          retryAfterMs:
+            retryAfterMs !== undefined && Number.isFinite(retryAfterMs) ? retryAfterMs : undefined,
+        },
+      );
+    }
+
+    return responseBody;
+  }
+
+  /**
+   * Executa um upload multipart/form-data com retry em 429/5xx.
+   * Separado de `requestWithRetry` (JSON) porque o body é FormData, não Record<string, unknown>.
+   */
+  private async requestWithRetryMultipart(
+    url: string,
+    params: UploadMediaParams,
+  ): Promise<unknown> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < this.maxAttempts; attempt++) {
+      if (attempt > 0) {
+        const backoff = calcBackoffDelay(attempt - 1, this.backoffBaseMs, this.jitterMaxMs);
+        const retryAfterMs =
+          lastError instanceof ExternalServiceError
+            ? ((lastError.details as { retryAfterMs?: number } | undefined)?.retryAfterMs ?? 0)
+            : 0;
+        const delay = Math.max(backoff, Number.isFinite(retryAfterMs) ? retryAfterMs : 0);
+        await this.sleepFn(delay);
+      }
+
+      try {
+        return await this.doFetchMultipart(url, params);
+      } catch (err) {
+        lastError = err;
+        if (!isRetryable(err)) throw err;
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
+   * Executa o upload multipart/form-data para a Meta Cloud API.
+   *
+   * LGPD §8.3: `params.bytes` e `params.filename` nunca são logados.
+   * O token nunca aparece em erros lançados.
+   */
+  private async doFetchMultipart(url: string, params: UploadMediaParams): Promise<unknown> {
+    // M-1: validar mimeType contra allowlist ANTES de usar como header Content-Type via Blob.
+    // Blob define Content-Type internamente no multipart — um valor arbitrário injetaria header.
+    assertAllowedMimeType(params.mimeType);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('type', params.mimeType);
+    // Criamos um Blob com o mimeType correto para que a Meta processe o tipo adequadamente.
+    const blob = new Blob([params.bytes], { type: params.mimeType });
+    // filename pode ser undefined — Blob não expõe o nome original; usamos fallback genérico
+    // apenas para o multipart header Content-Disposition (nunca logado).
+    form.append('file', blob, params.filename ?? 'media');
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          // Content-Type NÃO é setado manualmente — o browser/Node define com boundary correto.
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+        body: form,
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new ExternalServiceError(
+          `Meta WhatsApp API (upload) timeout após ${this.timeoutMs}ms`,
+          // Nunca logar bytes/filename — apenas mimeType para contexto de debug
+          { upstreamStatus: 0, mimeType: params.mimeType },
+        );
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    let responseBody: unknown = null;
+    const contentType = response.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+      try {
+        responseBody = (await response.json()) as unknown;
+      } catch {
+        responseBody = null;
+      }
+    }
+
+    if (!response.ok) {
+      const errorDetail = (responseBody as MetaUploadMediaResponse | null)?.error;
+      const retryAfterRaw = response.status === 429 ? response.headers.get('retry-after') : null;
+      const retryAfterMs = retryAfterRaw !== null ? parseInt(retryAfterRaw, 10) * 1000 : undefined;
+
+      throw new ExternalServiceError(
+        `Meta WhatsApp API (upload) ${response.status}: ${errorDetail?.title ?? 'Unknown error'}`,
+        // Nunca logar bytes/filename/token — apenas código de erro da Meta para diagnóstico
+        {
+          upstreamStatus: response.status,
+          meta_error_code: errorDetail?.code,
+          meta_error_title: errorDetail?.title,
+          mimeType: params.mimeType,
           retryAfterMs:
             retryAfterMs !== undefined && Number.isFinite(retryAfterMs) ? retryAfterMs : undefined,
         },

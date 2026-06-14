@@ -157,6 +157,13 @@ const envSchema = z.object({
   // Fallback em metaClient.ts usa META_WHATSAPP_PHONE_NUMBER_ID (funcionalmente incorreto em prod).
   META_WABA_ID: z.string().min(1).optional(),
 
+  // Meta App ID — necessário para resumable upload de amostras de templates com header de mídia
+  // (F5-S11: uploadSampleForTemplate). O App ID identifica a aplicação registrada no Meta Developers.
+  // Encontrado em: developers.facebook.com → Meus Apps → [Nome do App] → App ID (canto superior).
+  // Opcional: ausente → MetaTemplatesClient.uploadSampleForTemplate() lança ExternalServiceError
+  // apenas quando chamado. Outras operações de template não requerem esta variável.
+  META_APP_ID: z.string().min(1).optional(),
+
   // Intervalo do tick do worker followup-sender em milissegundos.
   // Default: 30000 (30 segundos). Processa lotes de 50 jobs por tick.
   // Valores < 1000 são rejeitados para evitar sobrecarga.

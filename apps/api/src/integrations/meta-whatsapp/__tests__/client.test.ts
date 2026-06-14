@@ -1,5 +1,5 @@
 // =============================================================================
-// client.test.ts — Testes do MetaWhatsAppClient (F5-S03).
+// client.test.ts — Testes do MetaWhatsAppClient (F5-S03 + F5-S11).
 //
 // Cenários cobertos:
 //   1. sendTemplate: sucesso → retorna wamid correto
@@ -12,6 +12,21 @@
 //   8. Construtor sem access token → lança ExternalServiceError
 //   9. Construtor sem phone number ID → lança ExternalServiceError
 //  10. Construtor com tokens válidos → inicializa sem erro
+//  F5-S11 — Mídia em template:
+//  11. sendTemplate: envia header com document.id (TemplateDocumentParameter)
+//  12. sendTemplate: envia header com document.link (TemplateDocumentParameter)
+//  13. sendTemplate: envia header com image.id (TemplateImageParameter)
+//  14. sendTemplate: link e id não aparecem em logs de erro (LGPD §8.3)
+//  F5-S11 — uploadMedia:
+//  15. uploadMedia: sucesso → retorna mediaId
+//  16. uploadMedia: 429 → retry com backoff
+//  17. uploadMedia: 4xx → sem retry, lança imediatamente
+//  18. uploadMedia: timeout → lança ExternalServiceError
+//  19. uploadMedia: resposta sem id → lança ExternalServiceError
+//  20. uploadMedia: bytes e filename nunca logados em erro (LGPD §8.3)
+//  F5-S11 security fixes (M-1):
+//  21. uploadMedia: MIME fora da allowlist → ExternalServiceError sem fetch
+//  22. uploadMedia: todos os MIME da allowlist são aceitos
 // =============================================================================
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -415,6 +430,309 @@ describe('MetaWhatsAppClient', () => {
             phoneNumberId: '123456789',
           }),
       ).not.toThrow();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Cenários F5-S11: Parâmetros de mídia no header (sendTemplate)
+  // -------------------------------------------------------------------------
+  describe('sendTemplate() — header com mídia (F5-S11)', () => {
+    it('envia header com document.id (TemplateDocumentParameter)', async () => {
+      fetchSpy.mockResolvedValueOnce(makeSuccessResponse('wamid.media_doc_id'));
+
+      const client = makeClient();
+      const result = await client.sendTemplate({
+        to: '+5511999999999',
+        templateName: 'boleto_cobranca',
+        language: 'pt_BR',
+        components: [
+          {
+            type: 'header',
+            parameters: [
+              {
+                type: 'document',
+                document: { id: 'media_id_123', filename: 'boleto-2026-01.pdf' },
+              },
+            ],
+          },
+          {
+            type: 'body',
+            parameters: [{ type: 'text', text: 'João' }],
+          },
+        ],
+      });
+
+      expect(result.wamid).toBe('wamid.media_doc_id');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+      const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as Record<string, unknown>;
+      const template = body['template'] as Record<string, unknown>;
+      const components = template['components'] as Array<Record<string, unknown>>;
+      const header = components.find((c) => c['type'] === 'header');
+      expect(header).toBeDefined();
+      const params = header?.['parameters'] as Array<Record<string, unknown>>;
+      expect(params?.[0]?.['type']).toBe('document');
+      expect((params?.[0]?.['document'] as Record<string, unknown>)?.['id']).toBe('media_id_123');
+    });
+
+    it('envia header com document.link (TemplateDocumentParameter)', async () => {
+      fetchSpy.mockResolvedValueOnce(makeSuccessResponse('wamid.media_doc_link'));
+
+      const client = makeClient();
+      const result = await client.sendTemplate({
+        to: '+5511999999999',
+        templateName: 'boleto_link',
+        language: 'pt_BR',
+        components: [
+          {
+            type: 'header',
+            parameters: [
+              {
+                type: 'document',
+                document: {
+                  link: 'https://storage.example.com/boleto.pdf',
+                  filename: 'boleto.pdf',
+                },
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(result.wamid).toBe('wamid.media_doc_link');
+
+      const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as Record<string, unknown>;
+      const template = body['template'] as Record<string, unknown>;
+      const components = template['components'] as Array<Record<string, unknown>>;
+      const header = components.find((c) => c['type'] === 'header');
+      const params = header?.['parameters'] as Array<Record<string, unknown>>;
+      expect((params?.[0]?.['document'] as Record<string, unknown>)?.['link']).toBe(
+        'https://storage.example.com/boleto.pdf',
+      );
+    });
+
+    it('envia header com image.id (TemplateImageParameter)', async () => {
+      fetchSpy.mockResolvedValueOnce(makeSuccessResponse('wamid.media_img'));
+
+      const client = makeClient();
+      const result = await client.sendTemplate({
+        to: '+5511999999999',
+        templateName: 'promo_imagem',
+        language: 'pt_BR',
+        components: [
+          {
+            type: 'header',
+            parameters: [{ type: 'image', image: { id: 'img_media_456' } }],
+          },
+        ],
+      });
+
+      expect(result.wamid).toBe('wamid.media_img');
+
+      const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      const body = JSON.parse(options.body as string) as Record<string, unknown>;
+      const template = body['template'] as Record<string, unknown>;
+      const components = template['components'] as Array<Record<string, unknown>>;
+      const header = components.find((c) => c['type'] === 'header');
+      const params = header?.['parameters'] as Array<Record<string, unknown>>;
+      expect(params?.[0]?.['type']).toBe('image');
+      expect((params?.[0]?.['image'] as Record<string, unknown>)?.['id']).toBe('img_media_456');
+    });
+
+    it('link e id de mídia NÃO aparecem em erro de envio (LGPD §8.3)', async () => {
+      // Simula falha no envio — garante que o ExternalServiceError não loga campos PII
+      fetchSpy.mockResolvedValueOnce(makeErrorResponse(400, 100, 'Bad request'));
+
+      const client = makeClient({ maxAttempts: 1 });
+      const err = await client
+        .sendTemplate({
+          to: '+5511999999999',
+          templateName: 'boleto_lgpd',
+          language: 'pt_BR',
+          components: [
+            {
+              type: 'header',
+              parameters: [
+                {
+                  type: 'document',
+                  document: { id: 'SECRET_MEDIA_ID', link: 'https://secret.url/boleto.pdf' },
+                },
+              ],
+            },
+          ],
+        })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(ExternalServiceError);
+      const e = err as ExternalServiceError;
+      expect(JSON.stringify(e.details)).not.toContain('SECRET_MEDIA_ID');
+      expect(JSON.stringify(e.details)).not.toContain('secret.url');
+      expect(e.message).not.toContain('SECRET_MEDIA_ID');
+      expect(e.message).not.toContain('secret.url');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Cenários F5-S11: uploadMedia
+  // -------------------------------------------------------------------------
+  describe('uploadMedia() — F5-S11', () => {
+    const DUMMY_BYTES = Buffer.from('%PDF-1.4 test content');
+    const DUMMY_MIME = 'application/pdf';
+
+    function makeUploadSuccessResponse(mediaId = 'media_id_abc'): Response {
+      return new Response(JSON.stringify({ id: mediaId }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    it('sucesso → retorna mediaId', async () => {
+      fetchSpy.mockResolvedValueOnce(makeUploadSuccessResponse('media_xyz_789'));
+
+      const client = makeClient();
+      const result = await client.uploadMedia({
+        bytes: DUMMY_BYTES,
+        mimeType: DUMMY_MIME,
+        filename: 'boleto-2026-01.pdf',
+      });
+
+      expect(result.mediaId).toBe('media_xyz_789');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+      // Verificar URL contém phone_number_id e /media
+      const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('123456789');
+      expect(url).toContain('/media');
+    });
+
+    it('usa Authorization: Bearer no header', async () => {
+      fetchSpy.mockResolvedValueOnce(makeUploadSuccessResponse());
+
+      const client = makeClient({ accessToken: 'my-upload-token' });
+      await client.uploadMedia({ bytes: DUMMY_BYTES, mimeType: DUMMY_MIME });
+
+      const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      const headers = options.headers as Record<string, string>;
+      expect(headers['Authorization']).toBe('Bearer my-upload-token');
+    });
+
+    it('envia FormData com messaging_product=whatsapp e type=mimeType', async () => {
+      fetchSpy.mockResolvedValueOnce(makeUploadSuccessResponse());
+
+      const client = makeClient();
+      await client.uploadMedia({ bytes: DUMMY_BYTES, mimeType: 'image/jpeg' });
+
+      const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      expect(options.body).toBeInstanceOf(FormData);
+      const form = options.body as FormData;
+      expect(form.get('messaging_product')).toBe('whatsapp');
+      expect(form.get('type')).toBe('image/jpeg');
+    });
+
+    it('429 → retry e sucesso no segundo attempt', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(makeErrorResponse(429, 429, 'Rate limit'))
+        .mockResolvedValueOnce(makeUploadSuccessResponse('media_after_429'));
+
+      const client = makeClient({ maxAttempts: 3 });
+      const result = await client.uploadMedia({ bytes: DUMMY_BYTES, mimeType: DUMMY_MIME });
+
+      expect(result.mediaId).toBe('media_after_429');
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(SLEEP_NOP).toHaveBeenCalledTimes(1);
+    });
+
+    it('400 → sem retry, lança imediatamente', async () => {
+      fetchSpy.mockResolvedValueOnce(makeErrorResponse(400, 100, 'Bad request'));
+
+      const client = makeClient({ maxAttempts: 3 });
+      await expect(
+        client.uploadMedia({ bytes: DUMMY_BYTES, mimeType: DUMMY_MIME }),
+      ).rejects.toBeInstanceOf(ExternalServiceError);
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('timeout → lança ExternalServiceError com upstreamStatus=0', async () => {
+      const abortErr = new Error('AbortError');
+      abortErr.name = 'AbortError';
+      fetchSpy.mockRejectedValueOnce(abortErr);
+
+      const client = makeClient({ maxAttempts: 1 });
+      const err = await client
+        .uploadMedia({ bytes: DUMMY_BYTES, mimeType: DUMMY_MIME })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(ExternalServiceError);
+      expect((err as ExternalServiceError).details).toMatchObject({ upstreamStatus: 0 });
+    });
+
+    it('resposta sem id → lança ExternalServiceError', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: 'ok' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+
+      const client = makeClient();
+      await expect(
+        client.uploadMedia({ bytes: DUMMY_BYTES, mimeType: DUMMY_MIME }),
+      ).rejects.toBeInstanceOf(ExternalServiceError);
+    });
+
+    it('bytes e filename NUNCA aparecem em erro lançado (LGPD §8.3)', async () => {
+      fetchSpy.mockResolvedValueOnce(makeErrorResponse(500, 0, 'Internal error'));
+
+      const client = makeClient({ maxAttempts: 1 });
+      const SECRET_FILENAME = 'boleto-cpf-123456789.pdf';
+      const err = await client
+        .uploadMedia({
+          bytes: Buffer.from('SECRET PDF CONTENT'),
+          mimeType: DUMMY_MIME,
+          filename: SECRET_FILENAME,
+        })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(ExternalServiceError);
+      const e = err as ExternalServiceError;
+      // Nunca logar bytes (serializados ou não) ou filename com PII
+      expect(e.message).not.toContain('SECRET PDF CONTENT');
+      expect(JSON.stringify(e.details)).not.toContain('SECRET PDF CONTENT');
+      expect(JSON.stringify(e.details)).not.toContain(SECRET_FILENAME);
+      // mimeType pode aparecer (não é PII)
+      expect(JSON.stringify(e.details)).toContain('application/pdf');
+    });
+
+    // ── F5-S11 security fixes (M-1): allowlist de MIME types ────────────────
+
+    it('(M-1) MIME type fora da allowlist → ExternalServiceError sem chamar fetch', async () => {
+      const client = makeClient();
+      await expect(
+        client.uploadMedia({ bytes: DUMMY_BYTES, mimeType: 'text/html' }),
+      ).rejects.toBeInstanceOf(ExternalServiceError);
+
+      // Nenhuma chamada HTTP deve ocorrer — rejeição é síncrona antes do fetch
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('(M-1) todos os MIME types da allowlist são aceitos', async () => {
+      const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] as const;
+
+      for (const mime of allowedMimes) {
+        fetchSpy.mockResolvedValueOnce(
+          new Response(JSON.stringify({ id: `media_${mime.replace('/', '_')}` }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+
+        const client = makeClient();
+        const result = await client.uploadMedia({ bytes: DUMMY_BYTES, mimeType: mime });
+        expect(result.mediaId).toContain('media_');
+      }
     });
   });
 });

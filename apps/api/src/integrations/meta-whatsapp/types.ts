@@ -5,6 +5,8 @@
 //
 // LGPD §8.3: campos `to` (número de telefone) NUNCA devem aparecer em logs.
 // O cliente usa `to_hash` (HMAC-SHA256) nos logs estruturados em vez do número bruto.
+// Campos de mídia (`link`, `id`, `filename`) também nunca devem aparecer em logs —
+// logar apenas `header_type` e `has_media: true`.
 // =============================================================================
 
 // ---------------------------------------------------------------------------
@@ -36,7 +38,57 @@ export interface TemplateCurrencyParameter {
   };
 }
 
-export type TemplateParameter = TemplateTextParameter | TemplateCurrencyParameter;
+/**
+ * Parâmetro de documento para componente de header do template.
+ *
+ * Invariante XOR: exatamente um de `link` ou `id` DEVE estar presente.
+ * Use `id` (preferencial — LGPD §8.3): obtido via uploadMedia(), não expõe URL pública.
+ * Use `link` apenas quando o id não estiver disponível — apenas URLs controladas/assinadas.
+ *
+ * LGPD §8.3: `link`, `id` e `filename` NUNCA devem aparecer em logs.
+ * Logar apenas `header_type: 'document'` e `has_media: true`.
+ */
+// TODO(F5-S14): enforce XOR link/id em runtime para TemplateDocumentParameter e TemplateImageParameter.
+// Atualmente a invariante está documentada mas não é verificada em runtime — depende do caller.
+export interface TemplateDocumentParameter {
+  type: 'document';
+  document: {
+    /** Media ID obtido via uploadMedia() — caminho preferido (LGPD §8.3). */
+    id?: string;
+    /** URL pública/assinada — usar apenas URLs controladas. Nunca logar. */
+    link?: string;
+    /** Nome do arquivo exibido ao destinatário. Nunca logar (pode conter PII). */
+    filename?: string;
+  };
+}
+
+/**
+ * Parâmetro de imagem para componente de header do template.
+ *
+ * Invariante XOR: exatamente um de `link` ou `id` DEVE estar presente.
+ * Use `id` (preferencial — LGPD §8.3): obtido via uploadMedia().
+ * Use `link` apenas quando o id não estiver disponível — apenas URLs controladas/assinadas.
+ *
+ * LGPD §8.3: `link` e `id` NUNCA devem aparecer em logs.
+ */
+export interface TemplateImageParameter {
+  type: 'image';
+  image: {
+    /** Media ID obtido via uploadMedia() — caminho preferido (LGPD §8.3). */
+    id?: string;
+    /** URL pública/assinada — usar apenas URLs controladas. Nunca logar. */
+    link?: string;
+  };
+}
+
+export type TemplateParameter =
+  | TemplateTextParameter
+  | TemplateCurrencyParameter
+  | TemplateDocumentParameter
+  | TemplateImageParameter;
+
+/** Parâmetros de mídia (document ou image) — subtipo para uso em header components. */
+export type TemplateMediaParameter = TemplateDocumentParameter | TemplateImageParameter;
 
 /**
  * Componente de corpo (body) do template com variáveis posicionais.
@@ -49,8 +101,11 @@ export interface TemplateBodyComponent {
 
 /**
  * Componente de cabeçalho (header) do template.
- * Pode conter texto ou mídia (image/document/video).
- * Para follow-up de crédito, apenas text é suportado.
+ * Aceita texto, moeda OU mídia (document/image) via `TemplateParameter`.
+ * Para templates de mídia (boleto): usar `TemplateDocumentParameter` com `id` (preferido).
+ *
+ * LGPD §8.3: ao logar contexto de header, usar apenas `header_type` + `has_media: true`.
+ * Nunca logar `link`, `id` ou `filename` de parâmetros de mídia.
  */
 export interface TemplateHeaderComponent {
   type: 'header';
@@ -110,6 +165,34 @@ export interface SendTemplateParams {
 export interface SendTemplateResult {
   /** WhatsApp Message ID (ex: "wamid.HBgLNTUxMTk5OTk5OTkVAgARGBI..."). */
   wamid: string;
+}
+
+// ---------------------------------------------------------------------------
+// Upload de mídia
+// ---------------------------------------------------------------------------
+
+/**
+ * Parâmetros para upload de mídia via Cloud API.
+ *
+ * LGPD §8.3: `bytes` e `filename` NUNCA devem aparecer em logs.
+ * O cliente loga apenas `mimeType` e o `mediaId` retornado.
+ */
+export interface UploadMediaParams {
+  /** Bytes do arquivo a subir (ex: PDF do boleto). Nunca logar. */
+  bytes: Buffer;
+  /** MIME type do arquivo (ex: "application/pdf", "image/jpeg"). */
+  mimeType: string;
+  /** Nome do arquivo (opcional, exibido ao destinatário). Nunca logar — pode conter PII. */
+  filename?: string;
+}
+
+/**
+ * Resultado do upload de mídia.
+ * O `mediaId` expira após ~30 dias na Meta.
+ */
+export interface UploadMediaResult {
+  /** Media ID atribuído pela Meta. Usar em TemplateDocumentParameter.document.id. */
+  mediaId: string;
 }
 
 // ---------------------------------------------------------------------------
