@@ -1,7 +1,7 @@
 // =============================================================================
 // templates/repository.ts — Acesso a dados para whatsapp_templates.
 //
-// Contexto: F5-S09.
+// Contexto: F5-S09, F5-S12.
 // Todas as operações são org-scoped (multi-tenant).
 // =============================================================================
 import { and, count, eq, ilike, type SQL } from 'drizzle-orm';
@@ -107,6 +107,7 @@ export async function insertTemplate(
   organizationId: string,
   metaTemplateId: string,
   data: TemplateCreate,
+  headerHandle?: string | null,
 ): Promise<typeof whatsappTemplates.$inferSelect> {
   const inserted = await (db as Database)
     .insert(whatsappTemplates)
@@ -119,6 +120,10 @@ export async function insertTemplate(
       body: data.body,
       variables: data.variables,
       status: 'pending',
+      // F5-S12: campos de header
+      headerType: data.headerType ?? 'none',
+      headerText: data.headerType === 'text' ? (data.headerText ?? null) : null,
+      headerHandle: headerHandle ?? null,
     })
     .returning();
 
@@ -181,12 +186,32 @@ export async function updateTemplateContent(
   id: string,
   organizationId: string,
   data: TemplateUpdate,
+  headerHandle?: string | null,
 ): Promise<typeof whatsappTemplates.$inferSelect | undefined> {
   const patch: Partial<typeof whatsappTemplates.$inferInsert> = { updatedAt: new Date() };
   if (data.body !== undefined) patch.body = data.body;
   if (data.variables !== undefined) patch.variables = data.variables;
   if (data.category !== undefined) patch.category = data.category;
   if (data.language !== undefined) patch.language = data.language;
+
+  // F5-S12: campos de header
+  if (data.headerType !== undefined) {
+    patch.headerType = data.headerType;
+    // Ao mudar para non-text, limpar headerText; ao mudar para 'text', preservar valor enviado.
+    if (data.headerType !== 'text') {
+      patch.headerText = null;
+    } else {
+      patch.headerText = data.headerText ?? null;
+    }
+  } else if (data.headerText !== undefined) {
+    // headerType inalterado, apenas atualizando headerText (esperado somente para 'text')
+    patch.headerText = data.headerText;
+  }
+
+  // Atualiza header_handle quando fornecido (mídia nova enviada no update)
+  if (headerHandle !== undefined) {
+    patch.headerHandle = headerHandle;
+  }
 
   const updated = await (db as Database)
     .update(whatsappTemplates)

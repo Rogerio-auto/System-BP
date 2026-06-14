@@ -1,7 +1,7 @@
 // =============================================================================
 // templates/service.ts — Lógica de negócio para gestão de templates WhatsApp.
 //
-// Contexto: F5-S09.
+// Contexto: F5-S09, F5-S12.
 //
 // Responsabilidades:
 //   - Criar template local + submeter na Meta (atomic: rollback se Meta falhar).
@@ -9,11 +9,20 @@
 //   - Soft delete (status=paused, não remove da Meta).
 //   - Sync individual: busca status atual na Meta e atualiza local.
 //   - Sync-all: sync batch de todos os templates (gated por flag).
-//   - Auditoria em toda mutação (actor + diff).
+//   - Auditoria em toda mutação (actor + diff, incluindo header_type).
 //   - Outbox event `templates.status_changed`.
 //
+// F5-S12 — header de mídia:
+//   - headerType='text' → componente HEADER format=TEXT + text.
+//   - headerType in ('document','image','video') → exige amostra (Buffer), chama
+//     uploadSampleForTemplate() → persiste header_handle.
+//   - Gate: templates.media.enabled (feature flag) bloqueia criação/edição de
+//     templates de mídia quando desabilitada.
+//   - Template já approved não pode ter headerType alterado (Meta exige resubmissão).
+//
 // LGPD:
-//   - Template body não contém PII (validado upstream pelo Zod schema).
+//   - Template body/headerText não contêm PII (validado upstream pelo Zod).
+//   - Bytes da amostra nunca são logados.
 //   - Audit log não inclui campos sensíveis.
 //   - Event outbox não inclui PII — apenas IDs.
 // =============================================================================
@@ -21,8 +30,10 @@ import { db } from '../../db/client.js';
 import { emit } from '../../events/emit.js';
 import { auditLog } from '../../lib/audit.js';
 import { logger } from '../../lib/logger.js';
-import { AppError, NotFoundError } from '../../shared/errors.js';
+import { isFlagEnabled } from '../../modules/featureFlags/service.js';
+import { AppError, FeatureDisabledError, NotFoundError } from '../../shared/errors.js';
 
+import type { MetaTemplateComponent } from './metaClient.js';
 import { MetaTemplatesClient } from './metaClient.js';
 import {
   getAllTemplates,
@@ -35,11 +46,13 @@ import {
 } from './repository.js';
 import type {
   TemplateCreate,
+  TemplateHeaderType,
   TemplateListQuery,
   TemplateListResponse,
   TemplateResponse,
   TemplateUpdate,
 } from './schemas.js';
+import { MEDIA_HEADER_TYPES } from './schemas.js';
 
 // ---------------------------------------------------------------------------
 // Actor context
@@ -67,6 +80,9 @@ function toResponse(row: {
   body: string;
   variables: string[];
   status: 'pending' | 'approved' | 'rejected' | 'paused';
+  headerType: 'none' | 'text' | 'document' | 'image' | 'video';
+  headerText: string | null;
+  headerHandle: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): TemplateResponse {
@@ -80,9 +96,74 @@ function toResponse(row: {
     body: row.body,
     variables: row.variables,
     status: row.status,
+    headerType: row.headerType,
+    headerText: row.headerText,
+    headerHandle: row.headerHandle,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Gate: templates.media.enabled
+// ---------------------------------------------------------------------------
+
+/**
+ * Lança FeatureDisabledError se a flag templates.media.enabled estiver desligada
+ * e o headerType solicitado for de mídia (document/image/video).
+ */
+async function assertMediaGate(headerType: TemplateHeaderType): Promise<void> {
+  if (!(MEDIA_HEADER_TYPES as readonly string[]).includes(headerType)) return;
+
+  const { enabled } = await isFlagEnabled(db, 'templates.media.enabled');
+  if (!enabled) {
+    throw new FeatureDisabledError('templates.media.enabled');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers — componentes Meta
+// ---------------------------------------------------------------------------
+
+/**
+ * Monta os componentes do template para o payload Meta.
+ * Inclui HEADER quando headerType ≠ 'none'.
+ */
+function buildMetaComponents(
+  data: TemplateCreate | (TemplateUpdate & { body: string }),
+  headerHandle: string | null,
+): MetaTemplateComponent[] {
+  const components: MetaTemplateComponent[] = [];
+
+  const headerType = ('headerType' in data ? data.headerType : undefined) ?? 'none';
+
+  if (headerType === 'text' && 'headerText' in data && data.headerText) {
+    components.push({
+      type: 'HEADER',
+      format: 'TEXT',
+      text: data.headerText,
+    });
+  } else if (
+    (MEDIA_HEADER_TYPES as readonly string[]).includes(headerType) &&
+    headerHandle !== null
+  ) {
+    const formatMap: Record<string, 'DOCUMENT' | 'IMAGE' | 'VIDEO'> = {
+      document: 'DOCUMENT',
+      image: 'IMAGE',
+      video: 'VIDEO',
+    };
+    const format = formatMap[headerType];
+    if (format) {
+      components.push({
+        type: 'HEADER',
+        format,
+        example: { header_handle: [headerHandle] },
+      });
+    }
+  }
+
+  components.push({ type: 'BODY', text: data.body });
+  return components;
 }
 
 /** Mapeia status da Meta (uppercase) para status local (lowercase). */
@@ -134,20 +215,50 @@ export async function getTemplateService(
 // createTemplate
 // ---------------------------------------------------------------------------
 
+/**
+ * Cria um template local + submete na Meta.
+ *
+ * @param sampleFile  Buffer da amostra de mídia (obrigatório quando headerType in
+ *                    ('document','image','video')). LGPD §8.3: nunca logado.
+ * @param sampleMime  MIME type da amostra (ex: 'application/pdf', 'image/jpeg').
+ */
 export async function createTemplateService(
   actor: ActorContext,
   data: TemplateCreate,
   idempotencyKey: string,
+  sampleFile?: Buffer,
+  sampleMime?: string,
 ): Promise<TemplateResponse> {
-  // Submeter na Meta primeiro para obter o metaTemplateId
+  const headerType = data.headerType ?? 'none';
+
+  // Gate: templates de mídia bloqueados quando flag desabilitada
+  await assertMediaGate(headerType);
+
+  // Validar que mídia forneceu amostra
+  if ((MEDIA_HEADER_TYPES as readonly string[]).includes(headerType)) {
+    if (!sampleFile || !sampleMime) {
+      throw new AppError(
+        422,
+        'VALIDATION_ERROR',
+        `Templates com header de mídia (${headerType}) requerem o campo 'sampleUpload' no multipart.`,
+      );
+    }
+  }
+
   const metaClient = new MetaTemplatesClient();
 
-  // Mapear categoria para o formato esperado pela Meta (uppercase)
   const categoryMap: Record<string, 'UTILITY' | 'MARKETING' | 'AUTHENTICATION'> = {
     utility: 'UTILITY',
     marketing: 'MARKETING',
     authentication: 'AUTHENTICATION',
   };
+
+  // Etapa 1 (pré-transação): upload da amostra de mídia, se necessário.
+  // LGPD §8.3: bytes nunca logados; apenas mimeType em contexto de erro.
+  let headerHandle: string | null = null;
+  if (sampleFile && sampleMime) {
+    headerHandle = await metaClient.uploadSampleForTemplate(sampleFile, sampleMime);
+  }
 
   // M-2: submitTemplate antes da transação DB — se o INSERT falhar, compensamos deletando
   // o template fantasma na Meta. Sem compensação, o operador teria de resolver manualmente.
@@ -158,7 +269,7 @@ export async function createTemplateService(
       name: data.name,
       category: categoryMap[data.category] ?? 'UTILITY',
       language: data.language,
-      components: [{ type: 'BODY', text: data.body }],
+      components: buildMetaComponents(data, headerHandle),
     });
 
     // Persistir local em transação com auditoria + outbox
@@ -170,6 +281,7 @@ export async function createTemplateService(
         actor.organizationId,
         metaTemplateId!,
         data,
+        headerHandle,
       );
 
       await auditLog(tx, {
@@ -188,6 +300,8 @@ export async function createTemplateService(
           category: data.category,
           language: data.language,
           status: 'pending',
+          // F5-S12: incluir header_type no diff de auditoria
+          header_type: headerType,
           metaTemplateId,
         },
         correlationId: idempotencyKey,
@@ -230,10 +344,19 @@ export async function createTemplateService(
 // updateTemplate
 // ---------------------------------------------------------------------------
 
+/**
+ * Edita um template local (somente pending/rejected).
+ *
+ * @param sampleFile  Buffer da amostra de mídia quando alterando para header de mídia.
+ *                    LGPD §8.3: nunca logado.
+ * @param sampleMime  MIME type da amostra.
+ */
 export async function updateTemplateService(
   actor: ActorContext,
   id: string,
   data: TemplateUpdate,
+  sampleFile?: Buffer,
+  sampleMime?: string,
 ): Promise<TemplateResponse> {
   const existing = await getTemplateById(db, id, actor.organizationId);
   if (!existing) throw new NotFoundError(`Template ${id} não encontrado`);
@@ -246,6 +369,37 @@ export async function updateTemplateService(
     );
   }
 
+  // Determinar o headerType efetivo após o update
+  const effectiveHeaderType: TemplateHeaderType = data.headerType ?? existing.headerType;
+
+  // Gate: templates de mídia bloqueados quando flag desabilitada
+  await assertMediaGate(effectiveHeaderType);
+
+  // Se estiver mudando para um tipo de mídia e não houver amostra, validar
+  if (
+    data.headerType !== undefined &&
+    (MEDIA_HEADER_TYPES as readonly string[]).includes(data.headerType) &&
+    !sampleFile
+  ) {
+    // Permitir update sem nova amostra somente se o headerType não está mudando
+    // (a amostra existente no header_handle ainda é válida).
+    // Se está mudando DE outro tipo PARA mídia, amostra é obrigatória.
+    if (existing.headerType !== data.headerType) {
+      throw new AppError(
+        422,
+        'VALIDATION_ERROR',
+        `Alterar header para mídia (${data.headerType}) requer o campo 'sampleUpload' no multipart.`,
+      );
+    }
+  }
+
+  // Upload da amostra, se fornecida
+  let headerHandle: string | undefined;
+  if (sampleFile && sampleMime) {
+    const metaClient = new MetaTemplatesClient();
+    headerHandle = await metaClient.uploadSampleForTemplate(sampleFile, sampleMime);
+  }
+
   let updatedRow: typeof existing | undefined;
 
   await db.transaction(async (tx) => {
@@ -254,12 +408,12 @@ export async function updateTemplateService(
       id,
       actor.organizationId,
       data,
+      headerHandle,
     );
     if (!updatedRow) throw new NotFoundError(`Template ${id} não encontrado`);
 
     // L-2: audit sem body completo — registra QUE campos mudaram, não o conteúdo.
-    // Template body pode conter texto de marketing longo; não há necessidade de
-    // armazenar o texto completo no audit log para rastreabilidade de mudanças.
+    // F5-S12: inclui header_type no diff de auditoria.
     await auditLog(tx, {
       actor: {
         userId: actor.userId,
@@ -276,6 +430,7 @@ export async function updateTemplateService(
         variables: existing.variables,
         category: existing.category,
         language: existing.language,
+        header_type: existing.headerType,
       },
       after: {
         id,
@@ -283,6 +438,7 @@ export async function updateTemplateService(
         variables: data.variables ?? existing.variables,
         category: data.category ?? existing.category,
         language: data.language ?? existing.language,
+        header_type: effectiveHeaderType,
       },
       correlationId: null,
     });

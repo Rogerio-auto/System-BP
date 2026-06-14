@@ -1,18 +1,27 @@
 // =============================================================================
 // templates/controller.ts — Handlers HTTP para gestão de templates WhatsApp.
 //
-// Contexto: F5-S09.
+// Contexto: F5-S09, F5-S12.
 //
 // Responsabilidades:
 //   - Extrair params/body/query/headers do request.
 //   - Montar ActorContext.
 //   - Chamar service correto.
 //   - Idempotência via Idempotency-Key header em POST endpoints.
+//
+// F5-S12 — header de mídia:
+//   - POST /api/templates e PATCH /api/templates/:id aceitam multipart/form-data
+//     quando o template requer amostra de mídia.
+//   - Campo multipart: 'sampleUpload' (arquivo) + campos JSON como 'data' (string).
+//   - Fallback: application/json continua funcionando para templates 'none'/'text'.
+//   - Validação de MIME allowlist: delegada ao service (via metaClient).
+//   - LGPD §8.3: bytes da amostra nunca logados — apenas mimeType em erro.
 // =============================================================================
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { ZodError } from 'zod';
 
-import { ForbiddenError } from '../../shared/errors.js';
-import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
+import { AppError, ForbiddenError, ValidationError } from '../../shared/errors.js';
+import { typedParams, typedQuery } from '../../shared/fastify-types.js';
 
 import type {
   TemplateCreate,
@@ -20,6 +29,7 @@ import type {
   TemplateListQuery,
   TemplateUpdate,
 } from './schemas.js';
+import { TemplateCreateSchema, TemplateUpdateSchema } from './schemas.js';
 import type { ActorContext } from './service.js';
 import {
   createTemplateService,
@@ -30,6 +40,12 @@ import {
   syncTemplateService,
   updateTemplateService,
 } from './service.js';
+
+// ---------------------------------------------------------------------------
+// Limite de tamanho para amostra de mídia (bytes): 10 MB.
+// Igual ao limite global do @fastify/multipart em app.ts.
+// ---------------------------------------------------------------------------
+const SAMPLE_MAX_BYTES = 10 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Helper: ActorContext de request.user
@@ -55,6 +71,120 @@ function getIdempotencyKey(request: FastifyRequest): string {
   const raw = request.headers['idempotency-key'];
   const key = Array.isArray(raw) ? raw[0] : raw;
   return key ?? crypto.randomUUID();
+}
+
+// ---------------------------------------------------------------------------
+// Helper: parse multipart request para templates com header de mídia.
+//
+// O campo 'data' deve ser JSON serializado contendo os campos do template.
+// O campo 'sampleUpload' é o arquivo de amostra (opcional para templates sem mídia).
+//
+// Estratégia:
+//   - Se Content-Type é multipart/form-data: parseia campos + arquivo.
+//   - Caso contrário: trata como JSON normal (sem sampleFile).
+//
+// Restrição de tamanho: SAMPLE_MAX_BYTES (verificado antes de coletar o buffer).
+// LGPD §8.3: bytes nunca logados.
+// ---------------------------------------------------------------------------
+
+type ParsedMultipartTemplate<T> =
+  | { data: T; sampleFile: Buffer; sampleMime: string }
+  | { data: T; sampleFile?: never; sampleMime?: never };
+
+/**
+ * Parseia um request que pode ser multipart (com amostra de mídia) ou JSON.
+ *
+ * Multipart esperado:
+ *   - campo 'data': JSON string com os campos do template.
+ *   - campo 'sampleUpload': arquivo binário (pdf/jpg/png).
+ *
+ * JSON (sem amostra):
+ *   - Body padrão com os campos do template.
+ */
+async function parseTemplateRequest<T>(
+  request: FastifyRequest,
+  parseJson: (raw: unknown) => T,
+): Promise<ParsedMultipartTemplate<T>> {
+  const contentType = request.headers['content-type'] ?? '';
+
+  if (!contentType.includes('multipart/form-data')) {
+    // JSON simples — sem amostra de mídia
+    try {
+      return { data: parseJson(request.body) };
+    } catch (err) {
+      if (err instanceof ZodError) {
+        throw new ValidationError(err.issues);
+      }
+      throw err;
+    }
+  }
+
+  // Multipart
+  let dataJson: unknown;
+  let sampleFile: Buffer | undefined;
+  let sampleMime: string | undefined;
+
+  const parts = request.parts();
+
+  for await (const part of parts) {
+    if (part.type === 'field' && part.fieldname === 'data') {
+      try {
+        dataJson = JSON.parse(part.value as string) as unknown;
+      } catch {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          "Campo 'data' no multipart deve ser JSON válido.",
+        );
+      }
+    } else if (part.type === 'file' && part.fieldname === 'sampleUpload') {
+      sampleMime = part.mimetype;
+      const chunks: Buffer[] = [];
+      let totalBytes = 0;
+
+      for await (const chunk of part.file) {
+        totalBytes += chunk.length;
+        if (totalBytes > SAMPLE_MAX_BYTES) {
+          throw new AppError(
+            413,
+            'VALIDATION_ERROR',
+            `Amostra de mídia excede o limite de ${SAMPLE_MAX_BYTES / 1024 / 1024} MB.`,
+          );
+        }
+        chunks.push(chunk);
+      }
+
+      sampleFile = Buffer.concat(chunks);
+    } else if (part.type === 'file') {
+      // Consumir stream para liberar recursos (campo desconhecido)
+      for await (const _ of part.file) {
+        // no-op
+      }
+    }
+  }
+
+  if (dataJson === undefined) {
+    throw new AppError(
+      400,
+      'VALIDATION_ERROR',
+      "Campo 'data' é obrigatório no multipart (JSON com os campos do template).",
+    );
+  }
+
+  let parsed: T;
+  try {
+    parsed = parseJson(dataJson);
+  } catch (err) {
+    if (err instanceof ZodError) {
+      throw new ValidationError(err.issues);
+    }
+    throw err;
+  }
+
+  if (sampleFile !== undefined && sampleMime !== undefined) {
+    return { data: parsed, sampleFile, sampleMime };
+  }
+  return { data: parsed };
 }
 
 // ---------------------------------------------------------------------------
@@ -94,11 +224,13 @@ export async function createTemplateController(
 ): Promise<void> {
   const actor = getActorContext(request);
   const idempotencyKey = getIdempotencyKey(request);
-  const result = await createTemplateService(
-    actor,
-    typedBody<TemplateCreate>(request),
-    idempotencyKey,
+
+  const { data, sampleFile, sampleMime } = await parseTemplateRequest<TemplateCreate>(
+    request,
+    (raw) => TemplateCreateSchema.parse(raw),
   );
+
+  const result = await createTemplateService(actor, data, idempotencyKey, sampleFile, sampleMime);
   return reply.status(201).send(result);
 }
 
@@ -112,7 +244,13 @@ export async function updateTemplateController(
 ): Promise<void> {
   const actor = getActorContext(request);
   const { id } = typedParams<TemplateIdParam>(request);
-  const result = await updateTemplateService(actor, id, typedBody<TemplateUpdate>(request));
+
+  const { data, sampleFile, sampleMime } = await parseTemplateRequest<TemplateUpdate>(
+    request,
+    (raw) => TemplateUpdateSchema.parse(raw),
+  );
+
+  const result = await updateTemplateService(actor, id, data, sampleFile, sampleMime);
   return reply.status(200).send(result);
 }
 
