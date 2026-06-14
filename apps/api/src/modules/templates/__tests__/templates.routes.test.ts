@@ -1,14 +1,15 @@
 // =============================================================================
 // __tests__/templates.routes.test.ts — Testes de integração das rotas de templates.
 //
-// Contexto: F5-S09.
+// Contexto: F5-S09, F5-S12.
 //
 // Estratégia:
-//   - Fastify sobe com templatesRoutes.
+//   - Fastify sobe com templatesRoutes + plugin multipart.
 //   - authenticate e authorize mockados para controlar acesso.
 //   - Services mockados para isolar da DB.
-//   - Cobre: CRUD + RBAC + validação Zod (DLP).
+//   - Cobre: CRUD + RBAC + validação Zod (DLP) + header de mídia + feature gate.
 // =============================================================================
+import multipart from '@fastify/multipart';
 import type { FastifyInstance } from 'fastify';
 import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
@@ -83,6 +84,8 @@ beforeAll(async () => {
   app = Fastify();
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+  // Registrar multipart (necessário para testes com sampleUpload)
+  await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
   await app.register(templatesRoutes);
   await app.ready();
 });
@@ -102,6 +105,7 @@ beforeEach(() => {
 const TEMPLATE_ID = '11111111-1111-4111-8111-111111111111';
 const ORG_ID = '22222222-2222-4222-8222-222222222222';
 
+/** Fixture base — header 'none' (padrão histórico). */
 const TEMPLATE_RESPONSE = {
   id: TEMPLATE_ID,
   organizationId: ORG_ID,
@@ -112,8 +116,29 @@ const TEMPLATE_RESPONSE = {
   body: 'Olá {{1}}, sua proposta está em análise.',
   variables: ['nome_cliente'],
   status: 'pending',
+  headerType: 'none',
+  headerText: null,
+  headerHandle: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
+};
+
+/** Fixture — header de texto. */
+const TEMPLATE_TEXT_HEADER_RESPONSE = {
+  ...TEMPLATE_RESPONSE,
+  name: 'followup_text_header',
+  headerType: 'text',
+  headerText: 'Banco do Povo — Crédito Rural',
+  headerHandle: null,
+};
+
+/** Fixture — header de documento (handle não exposto na resposta pública — L-4). */
+const TEMPLATE_DOCUMENT_HEADER_RESPONSE = {
+  ...TEMPLATE_RESPONSE,
+  name: 'cobranca_boleto',
+  headerType: 'document',
+  headerText: null,
+  // headerHandle omitido: token opaco da Meta não exposto ao frontend (L-4)
 };
 
 // ---------------------------------------------------------------------------
@@ -171,11 +196,11 @@ describe('GET /api/templates/:id', () => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/templates
+// POST /api/templates — JSON (header none)
 // ---------------------------------------------------------------------------
 
-describe('POST /api/templates', () => {
-  it('201 — cria template', async () => {
+describe('POST /api/templates (JSON)', () => {
+  it('201 — cria template sem header (padrão)', async () => {
     mockCreateService.mockResolvedValue(TEMPLATE_RESPONSE);
 
     const response = await app.inject({
@@ -191,6 +216,59 @@ describe('POST /api/templates', () => {
     });
 
     expect(response.statusCode).toBe(201);
+    expect(mockCreateService).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ name: 'followup_d1', headerType: 'none' }),
+      expect.any(String),
+      undefined,
+      undefined,
+    );
+  });
+
+  it('201 — cria template com headerType=text e headerText válido', async () => {
+    mockCreateService.mockResolvedValue(TEMPLATE_TEXT_HEADER_RESPONSE);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      payload: {
+        name: 'followup_text_header',
+        category: 'utility',
+        language: 'pt_BR',
+        body: 'Olá {{1}}, sua proposta está em análise.',
+        variables: ['nome_cliente'],
+        headerType: 'text',
+        headerText: 'Banco do Povo — Crédito Rural',
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateService).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ headerType: 'text', headerText: 'Banco do Povo — Crédito Rural' }),
+      expect.any(String),
+      undefined,
+      undefined,
+    );
+  });
+
+  it('400 — headerType=text sem headerText é rejeitado', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      payload: {
+        name: 'test_text_no_header_text',
+        category: 'utility',
+        language: 'pt_BR',
+        body: 'Olá {{1}}, proposta em análise.',
+        variables: [],
+        headerType: 'text',
+        // headerText ausente → deve falhar
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateService).not.toHaveBeenCalled();
   });
 
   it('400 — DLP: body com CPF hardcoded é rejeitado', async () => {
@@ -207,7 +285,6 @@ describe('POST /api/templates', () => {
     });
 
     expect(response.statusCode).toBe(400);
-    // createTemplateService não deve ser chamado
     expect(mockCreateService).not.toHaveBeenCalled();
   });
 
@@ -227,6 +304,25 @@ describe('POST /api/templates', () => {
     expect(response.statusCode).toBe(400);
   });
 
+  it('400 — DLP: headerText com CPF hardcoded é rejeitado', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      payload: {
+        name: 'test_header_cpf',
+        category: 'utility',
+        language: 'pt_BR',
+        body: 'Olá {{1}}, sua proposta está em análise.',
+        variables: [],
+        headerType: 'text',
+        headerText: 'CPF: 123.456.789-00 — Banco do Povo',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateService).not.toHaveBeenCalled();
+  });
+
   it('400 — body com name inválido (caracteres especiais)', async () => {
     const response = await app.inject({
       method: 'POST',
@@ -242,6 +338,254 @@ describe('POST /api/templates', () => {
 
     expect(response.statusCode).toBe(400);
   });
+
+  it('400 — headerText presente quando headerType≠text é rejeitado', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      payload: {
+        name: 'test_bad_header',
+        category: 'utility',
+        language: 'pt_BR',
+        body: 'Olá {{1}}, proposta em análise.',
+        variables: [],
+        headerType: 'none',
+        headerText: 'Texto indevido',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateService).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/templates — multipart (header de mídia)
+// ---------------------------------------------------------------------------
+
+describe('POST /api/templates (multipart — header de mídia)', () => {
+  it('201 — cria template de documento com sampleUpload (mock service)', async () => {
+    mockCreateService.mockResolvedValue(TEMPLATE_DOCUMENT_HEADER_RESPONSE);
+
+    // Construir multipart manualmente usando boundary
+    const boundary = '----TestBoundary123';
+    const jsonData = JSON.stringify({
+      name: 'cobranca_boleto',
+      category: 'utility',
+      language: 'pt_BR',
+      body: 'Segue seu boleto {{1}}.',
+      variables: ['nome_cliente'],
+      headerType: 'document',
+    });
+    const pdfSample = Buffer.from('%PDF-1.4 sample');
+
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="data"',
+      '',
+      jsonData,
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="sampleUpload"; filename="sample.pdf"',
+      'Content-Type: application/pdf',
+      '',
+      pdfSample.toString('binary'),
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(201);
+    // Verifica que createService foi chamado com buffer de amostra e mimeType
+    expect(mockCreateService).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ headerType: 'document' }),
+      expect.any(String),
+      expect.any(Buffer),
+      'application/pdf',
+    );
+  });
+
+  // L-2 / M-1: data JSON realista (>100 bytes) deve passar sem truncamento.
+  // Antes da correção M-1, o fieldSize default de 100 bytes do @fastify/multipart
+  // truncava o JSON silenciosamente, causando falha de parse.
+  it('201 — data JSON realista >100 bytes não é truncado (M-1)', async () => {
+    mockCreateService.mockResolvedValue(TEMPLATE_DOCUMENT_HEADER_RESPONSE);
+
+    const boundary = '----TestBoundaryRealSize';
+    // JSON com body de 50+ chars garante >100 bytes no campo 'data'
+    const jsonData = JSON.stringify({
+      name: 'cobranca_boleto_realista',
+      category: 'utility',
+      language: 'pt_BR',
+      body: 'Olá {{1}}, segue o boleto ref. ao contrato {{2}} vencendo em {{3}}. Banco do Povo.',
+      variables: ['nome_cliente', 'contrato', 'vencimento'],
+      headerType: 'document',
+    });
+    // Confirmar que o JSON supera 100 bytes (requisito do teste)
+    expect(Buffer.byteLength(jsonData)).toBeGreaterThan(100);
+
+    const pdfSample = Buffer.from('%PDF-1.4 test-sample');
+
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="data"',
+      '',
+      jsonData,
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="sampleUpload"; filename="sample.pdf"',
+      'Content-Type: application/pdf',
+      '',
+      pdfSample.toString('binary'),
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(mockCreateService).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        name: 'cobranca_boleto_realista',
+        headerType: 'document',
+        body: 'Olá {{1}}, segue o boleto ref. ao contrato {{2}} vencendo em {{3}}. Banco do Povo.',
+      }),
+      expect.any(String),
+      expect.any(Buffer),
+      'application/pdf',
+    );
+  });
+
+  // L-2: upload acima do limite de tamanho → 413.
+  it('413 — sampleUpload acima de 10 MB retorna 413', async () => {
+    const boundary = '----TestBoundaryOversize';
+    const jsonData = JSON.stringify({
+      name: 'cobranca_boleto',
+      category: 'utility',
+      language: 'pt_BR',
+      body: 'Segue seu boleto {{1}}.',
+      variables: ['nome_cliente'],
+      headerType: 'document',
+    });
+
+    // Criar buffer de 10 MB + 1 byte para garantir que ultrapassa o limite
+    const oversizedFile = Buffer.alloc(10 * 1024 * 1024 + 1, 'x');
+
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="data"',
+      '',
+      jsonData,
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="sampleUpload"; filename="big.pdf"',
+      'Content-Type: application/pdf',
+      '',
+      oversizedFile.toString('binary'),
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(413);
+    expect(mockCreateService).not.toHaveBeenCalled();
+  });
+
+  // L-2: DLP no path multipart — data JSON com headerText contendo CPF → rejeitado.
+  it('400 — DLP: data JSON com headerText contendo CPF é rejeitado no multipart', async () => {
+    const boundary = '----TestBoundaryDlpMultipart';
+    const jsonData = JSON.stringify({
+      name: 'test_dlp_multipart',
+      category: 'utility',
+      language: 'pt_BR',
+      body: 'Olá {{1}}, seu crédito foi aprovado.',
+      variables: ['nome_cliente'],
+      headerType: 'text',
+      headerText: 'CPF: 123.456.789-00 — Banco do Povo',
+    });
+
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="data"',
+      '',
+      jsonData,
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateService).not.toHaveBeenCalled();
+  });
+
+  it('400 — multipart sem campo data é rejeitado', async () => {
+    const boundary = '----TestBoundary456';
+    const pdfSample = Buffer.from('%PDF-1.4 sample');
+
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="sampleUpload"; filename="sample.pdf"',
+      'Content-Type: application/pdf',
+      '',
+      pdfSample.toString('binary'),
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockCreateService).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/templates — gate templates.media.enabled
+// ---------------------------------------------------------------------------
+
+describe('POST /api/templates — gate templates.media.enabled', () => {
+  it('403 — service lança FeatureDisabledError quando flag off', async () => {
+    const { FeatureDisabledError } = await import('../../../shared/errors.js');
+    mockCreateService.mockRejectedValue(new FeatureDisabledError('templates.media.enabled'));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/templates',
+      payload: {
+        name: 'test_media_gate',
+        category: 'utility',
+        language: 'pt_BR',
+        body: 'Segue seu boleto {{1}}.',
+        variables: ['nome_cliente'],
+        headerType: 'document',
+      },
+    });
+
+    // FeatureDisabledError → 403
+    expect(response.statusCode).toBe(403);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -249,7 +593,7 @@ describe('POST /api/templates', () => {
 // ---------------------------------------------------------------------------
 
 describe('PATCH /api/templates/:id', () => {
-  it('200 — edita template', async () => {
+  it('200 — edita body do template', async () => {
     mockUpdateService.mockResolvedValue({ ...TEMPLATE_RESPONSE, body: 'Novo body {{1}}' });
 
     const response = await app.inject({
@@ -259,6 +603,36 @@ describe('PATCH /api/templates/:id', () => {
     });
 
     expect(response.statusCode).toBe(200);
+  });
+
+  it('200 — edita headerType para text com headerText válido', async () => {
+    mockUpdateService.mockResolvedValue(TEMPLATE_TEXT_HEADER_RESPONSE);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/api/templates/${TEMPLATE_ID}`,
+      payload: { headerType: 'text', headerText: 'Banco do Povo — Crédito Rural' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockUpdateService).toHaveBeenCalledWith(
+      expect.anything(),
+      TEMPLATE_ID,
+      expect.objectContaining({ headerType: 'text', headerText: 'Banco do Povo — Crédito Rural' }),
+      undefined,
+      undefined,
+    );
+  });
+
+  it('400 — PATCH com headerType=text sem headerText é rejeitado', async () => {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: `/api/templates/${TEMPLATE_ID}`,
+      payload: { headerType: 'text' },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(mockUpdateService).not.toHaveBeenCalled();
   });
 });
 

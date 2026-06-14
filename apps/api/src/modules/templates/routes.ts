@@ -1,7 +1,7 @@
 // =============================================================================
 // templates/routes.ts — Rotas do módulo de templates WhatsApp Meta.
 //
-// Contexto: F5-S09.
+// Contexto: F5-S09, F5-S12.
 //
 // Rotas:
 //   GET    /api/templates              — lista (filtros: status, category, language)
@@ -18,6 +18,14 @@
 //
 // Idempotência:
 //   - POST /api/templates e POST /api/templates/:id/sync aceitam Idempotency-Key header.
+//
+// F5-S12 — header de mídia:
+//   - POST /api/templates e PATCH /api/templates/:id aceitam tanto application/json
+//     (para templates 'none'/'text') como multipart/form-data (com sampleUpload para mídia).
+//   - Para multipart: campo 'data' contém JSON dos campos do template; campo 'sampleUpload'
+//     contém o arquivo de amostra (pdf/jpg/png, máx. 10 MB).
+//   - O body schema é omitido no registro das rotas (validação ocorre no controller)
+//     para compatibilidade com ambos os Content-Types.
 // =============================================================================
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -35,12 +43,10 @@ import {
   updateTemplateController,
 } from './controller.js';
 import {
-  TemplateCreateSchema,
   TemplateIdParamSchema,
   TemplateListQuerySchema,
   TemplateListResponseSchema,
   TemplateResponseSchema,
-  TemplateUpdateSchema,
 } from './schemas.js';
 
 // Permissões tipadas
@@ -96,6 +102,11 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
 
   // -------------------------------------------------------------------------
   // POST /api/templates — criar + submeter na Meta
+  //
+  // Aceita application/json ou multipart/form-data (F5-S12).
+  // Multipart: campo 'data' (JSON string) + campo 'sampleUpload' (arquivo de amostra).
+  // Body schema omitido aqui — validação Zod ocorre no controller para suportar
+  // ambos os Content-Types sem conflito com o parser de multipart do Fastify.
   // -------------------------------------------------------------------------
   app.post(
     '/api/templates',
@@ -103,9 +114,13 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ['Templates'],
         summary: 'Criar template',
-        description: 'Cria um novo template WhatsApp Meta.',
+        description:
+          'Cria um novo template WhatsApp Meta e o submete para aprovação. ' +
+          'Para templates com header de texto ou sem header, enviar application/json. ' +
+          'Para templates com header de mídia (document/image/video), enviar multipart/form-data ' +
+          "com campo 'data' (JSON dos campos do template) e campo 'sampleUpload' (arquivo de amostra PDF/JPG/PNG). " +
+          "Gate: templates de mídia exigem a flag 'templates.media.enabled' ativa.",
         security: [{ bearerAuth: [] }],
-        body: TemplateCreateSchema,
         response: { 201: TemplateResponseSchema },
       },
       preHandler: [authorize({ permissions: WRITE_PERMS })],
@@ -115,6 +130,8 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
 
   // -------------------------------------------------------------------------
   // PATCH /api/templates/:id — editar (apenas pending/rejected)
+  //
+  // Aceita application/json ou multipart/form-data (F5-S12). Mesma lógica do POST.
   // -------------------------------------------------------------------------
   app.patch(
     '/api/templates/:id',
@@ -122,10 +139,11 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ['Templates'],
         summary: 'Atualizar template',
-        description: 'Atualiza um template WhatsApp Meta.',
+        description:
+          'Atualiza um template WhatsApp Meta (somente status pending/rejected). ' +
+          'Para templates com header de mídia, enviar multipart/form-data com sampleUpload.',
         security: [{ bearerAuth: [] }],
         params: TemplateIdParamSchema,
-        body: TemplateUpdateSchema,
         response: { 200: TemplateResponseSchema },
       },
       preHandler: [authorize({ permissions: WRITE_PERMS })],

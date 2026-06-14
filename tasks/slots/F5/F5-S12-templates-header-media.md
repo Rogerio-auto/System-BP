@@ -3,12 +3,12 @@ id: F5-S12
 title: Módulo templates — header_type (texto/documento/imagem) no CRUD + submit de header de mídia
 phase: F5
 task_ref: docs/07-integracoes-whatsapp-chatwoot.md#midia-boleto
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-14T16:07:30Z
+completed_at: 2026-06-14T16:23:45Z
 pr_url: null
 depends_on: [F5-S10, F5-S11]
 blocks: [F5-S15]
