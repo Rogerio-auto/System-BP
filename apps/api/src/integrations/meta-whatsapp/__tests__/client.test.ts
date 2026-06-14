@@ -24,6 +24,9 @@
 //  18. uploadMedia: timeout → lança ExternalServiceError
 //  19. uploadMedia: resposta sem id → lança ExternalServiceError
 //  20. uploadMedia: bytes e filename nunca logados em erro (LGPD §8.3)
+//  F5-S11 security fixes (M-1):
+//  21. uploadMedia: MIME fora da allowlist → ExternalServiceError sem fetch
+//  22. uploadMedia: todos os MIME da allowlist são aceitos
 // =============================================================================
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -701,6 +704,35 @@ describe('MetaWhatsAppClient', () => {
       expect(JSON.stringify(e.details)).not.toContain(SECRET_FILENAME);
       // mimeType pode aparecer (não é PII)
       expect(JSON.stringify(e.details)).toContain('application/pdf');
+    });
+
+    // ── F5-S11 security fixes (M-1): allowlist de MIME types ────────────────
+
+    it('(M-1) MIME type fora da allowlist → ExternalServiceError sem chamar fetch', async () => {
+      const client = makeClient();
+      await expect(
+        client.uploadMedia({ bytes: DUMMY_BYTES, mimeType: 'text/html' }),
+      ).rejects.toBeInstanceOf(ExternalServiceError);
+
+      // Nenhuma chamada HTTP deve ocorrer — rejeição é síncrona antes do fetch
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('(M-1) todos os MIME types da allowlist são aceitos', async () => {
+      const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] as const;
+
+      for (const mime of allowedMimes) {
+        fetchSpy.mockResolvedValueOnce(
+          new Response(JSON.stringify({ id: `media_${mime.replace('/', '_')}` }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+
+        const client = makeClient();
+        const result = await client.uploadMedia({ bytes: DUMMY_BYTES, mimeType: mime });
+        expect(result.mediaId).toContain('media_');
+      }
     });
   });
 });

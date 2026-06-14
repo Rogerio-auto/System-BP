@@ -48,6 +48,8 @@ export interface TemplateCurrencyParameter {
  * LGPD §8.3: `link`, `id` e `filename` NUNCA devem aparecer em logs.
  * Logar apenas `header_type: 'document'` e `has_media: true`.
  */
+// TODO(F5-S14): enforce XOR link/id em runtime para TemplateDocumentParameter e TemplateImageParameter.
+// Atualmente a invariante está documentada mas não é verificada em runtime — depende do caller.
 export interface TemplateDocumentParameter {
   type: 'document';
   document: {

@@ -34,6 +34,32 @@ import { ExternalServiceError } from '../../shared/errors.js';
 // ---------------------------------------------------------------------------
 
 const DEFAULT_MAX_ATTEMPTS = 3;
+
+// ---------------------------------------------------------------------------
+// Allowlist de MIME types aceitos pela Meta para mídia em templates.
+//
+// Fonte: Meta Cloud API — suporte a mídia em mensagens / templates.
+// Nota: fileParser.ts (CSV/XLSX) tem allowlist própria para outro domínio;
+// não reutilizamos para evitar acoplamento entre módulos não relacionados.
+// Se ampliar, atualizar também em integrations/meta-whatsapp/client.ts.
+// ---------------------------------------------------------------------------
+const META_ALLOWED_MEDIA_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
+
+type MetaAllowedMediaMimeType = (typeof META_ALLOWED_MEDIA_MIME_TYPES)[number];
+
+function assertAllowedMimeType(mimeType: string): asserts mimeType is MetaAllowedMediaMimeType {
+  if (!(META_ALLOWED_MEDIA_MIME_TYPES as ReadonlyArray<string>).includes(mimeType)) {
+    throw new ExternalServiceError(
+      `MIME type não permitido para upload Meta: valor rejeitado pela allowlist`,
+      { upstreamStatus: 0 },
+    );
+  }
+}
 const DEFAULT_BACKOFF_BASE_MS = 500;
 const BACKOFF_FACTOR = 2;
 const DEFAULT_JITTER_MAX_MS = 200;
@@ -318,7 +344,10 @@ export class MetaTemplatesClient {
       );
     }
 
-    // Etapa 1: iniciar sessão de upload
+    // M-1: rejeitar MIME types fora da allowlist ANTES de qualquer chamada HTTP.
+    assertAllowedMimeType(mimeType);
+
+    // Etapa 1: iniciar sessão de upload (com retry via requestWithRetry)
     const startUrl = `${META_GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${this.appId}/uploads`;
     const startPayload: Record<string, unknown> = {
       file_length: bytes.length,
@@ -339,9 +368,10 @@ export class MetaTemplatesClient {
 
     const uploadSessionId = startRaw.id;
 
-    // Etapa 2: fazer upload dos bytes usando a sessão
-    const uploadUrl = `${META_GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${uploadSessionId}`;
-    const finishRaw = await this.doFetchResumableUpload(uploadUrl, bytes, mimeType);
+    // L-2: encodeURIComponent para consistência com outros IDs de path (ex: metaTemplateId).
+    // M-2: etapa 2 agora passa por requestWithRetryResumable (429/5xx com backoff).
+    const uploadUrl = `${META_GRAPH_BASE_URL}/${GRAPH_API_VERSION}/${encodeURIComponent(uploadSessionId)}`;
+    const finishRaw = await this.requestWithRetryResumable(uploadUrl, bytes, mimeType);
 
     if (!finishRaw.h) {
       throw new ExternalServiceError(
@@ -454,10 +484,47 @@ export class MetaTemplatesClient {
   }
 
   /**
+   * Wrapper de retry para a etapa 2 do resumable upload (M-2).
+   *
+   * A etapa 1 já usa requestWithRetry. A etapa 2 (envio binário) precisa do mesmo
+   * tratamento de 429/5xx — separamos em método próprio porque o body é Buffer, não JSON.
+   * Mesma lógica de backoff/jitter/Retry-After de requestWithRetry.
+   */
+  private async requestWithRetryResumable(
+    url: string,
+    bytes: Buffer,
+    mimeType: string,
+  ): Promise<MetaResumableFinishResponse> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < this.maxAttempts; attempt++) {
+      if (attempt > 0) {
+        const backoff = calcBackoffDelay(attempt - 1, this.backoffBaseMs, this.jitterMaxMs);
+        const retryAfterMs =
+          lastError instanceof ExternalServiceError
+            ? ((lastError.details as { retryAfterMs?: number } | undefined)?.retryAfterMs ?? 0)
+            : 0;
+        const delay = Math.max(backoff, Number.isFinite(retryAfterMs) ? retryAfterMs : 0);
+        await this.sleepFn(delay);
+      }
+
+      try {
+        return await this.doFetchResumableUpload(url, bytes, mimeType);
+      } catch (err) {
+        lastError = err;
+        if (!isRetryable(err)) throw err;
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
    * Executa a etapa 2 do resumable upload (envio dos bytes) para a Meta Graph API.
    *
    * A Meta usa "Authorization: OAuth <token>" (não Bearer) neste endpoint específico.
    * Content-Type deve ser o mimeType do arquivo, não application/json.
+   * M-1: mimeType já foi validado contra allowlist em uploadSampleForTemplate antes de chegar aqui.
    *
    * LGPD §8.3: `bytes` nunca são logados. Token nunca exposto em erro.
    */

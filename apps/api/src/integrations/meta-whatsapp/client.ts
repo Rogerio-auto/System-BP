@@ -68,6 +68,32 @@ const GRAPH_API_VERSION = 'v20.0';
 const META_GRAPH_BASE_URL = 'https://graph.facebook.com';
 
 // ---------------------------------------------------------------------------
+// Allowlist de MIME types aceitos pela Meta para upload de mídia.
+//
+// Fonte: Meta Cloud API — tipos suportados em POST /{phone_number_id}/media.
+// Nota: fileParser.ts (CSV/XLSX) tem allowlist própria para outro domínio;
+// não reutilizamos para evitar acoplamento entre módulos não relacionados.
+// Se ampliar, atualizar também em modules/templates/metaClient.ts.
+// ---------------------------------------------------------------------------
+const META_ALLOWED_MEDIA_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
+
+type MetaAllowedMediaMimeType = (typeof META_ALLOWED_MEDIA_MIME_TYPES)[number];
+
+function assertAllowedMimeType(mimeType: string): asserts mimeType is MetaAllowedMediaMimeType {
+  if (!(META_ALLOWED_MEDIA_MIME_TYPES as ReadonlyArray<string>).includes(mimeType)) {
+    throw new ExternalServiceError(
+      `MIME type não permitido para upload Meta: valor rejeitado pela allowlist`,
+      { upstreamStatus: 0 },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers internos
 // ---------------------------------------------------------------------------
 
@@ -427,6 +453,10 @@ export class MetaWhatsAppClient {
    * O token nunca aparece em erros lançados.
    */
   private async doFetchMultipart(url: string, params: UploadMediaParams): Promise<unknown> {
+    // M-1: validar mimeType contra allowlist ANTES de usar como header Content-Type via Blob.
+    // Blob define Content-Type internamente no multipart — um valor arbitrário injetaria header.
+    assertAllowedMimeType(params.mimeType);
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 

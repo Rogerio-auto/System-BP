@@ -15,6 +15,12 @@
 //   - uploadSampleForTemplate: resumable upload (etapas 1 + 2)
 //   - uploadSampleForTemplate: sem META_APP_ID → ExternalServiceError
 //   - uploadSampleForTemplate: bytes e token nunca logados (LGPD §8.3)
+//
+// F5-S11 security fixes:
+//   - uploadSampleForTemplate: MIME allowlist (M-1) — rejeita tipo fora da lista
+//   - uploadSampleForTemplate: retry na etapa 2 em 429 (M-2)
+//   - uploadSampleForTemplate: retry na etapa 2 em 5xx (M-2)
+//   - uploadSampleForTemplate: encodeURIComponent no uploadSessionId (L-2)
 // =============================================================================
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -398,5 +404,94 @@ describe('MetaTemplatesClient', () => {
     // Token NUNCA deve aparecer
     expect(e.message).not.toContain(DUMMY_TOKEN);
     expect(JSON.stringify(e.details)).not.toContain(DUMMY_TOKEN);
+  });
+
+  // ── F5-S11 security fixes ─────────────────────────────────────────────────
+
+  it('uploadSampleForTemplate (M-1): rejeita MIME type fora da allowlist', async () => {
+    // Nenhuma chamada HTTP deve ocorrer — rejeição é síncrona antes do primeiro fetch.
+    const client = makeClient({ appId: 'test_app_id' });
+    await expect(
+      client.uploadSampleForTemplate(Buffer.from('test'), 'text/html'),
+    ).rejects.toBeInstanceOf(ExternalServiceError);
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('uploadSampleForTemplate (M-1): aceita todos os MIME types da allowlist', async () => {
+    // Para cada MIME permitido: etapa 1 OK, etapa 2 OK → retorna handle.
+    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'] as const;
+
+    for (const mime of allowedMimes) {
+      const startResponse = mockFetchResponse(200, { id: 'upload_session_ok' });
+      const finishResponse = mockFetchResponse(200, { h: `handle_for_${mime.replace('/', '_')}` });
+      fetchSpy.mockImplementationOnce(startResponse).mockImplementationOnce(finishResponse);
+
+      const client = makeClient({ appId: 'test_app_id' });
+      const handle = await client.uploadSampleForTemplate(Buffer.from('data'), mime);
+      expect(handle).toContain('handle_for_');
+    }
+  });
+
+  it('uploadSampleForTemplate (M-2): etapa 2 retenta em 429 e sucede na segunda tentativa', async () => {
+    const sleepMock = vi.fn().mockResolvedValue(undefined);
+    // Etapa 1: sucesso
+    const startResponse = mockFetchResponse(200, { id: 'upload_session_retry_429' });
+    // Etapa 2: 429 na primeira tentativa, sucesso na segunda
+    const finish429 = mockFetchResponse(429, { error: { code: 429, message: 'Rate limit' } });
+    const finishOk = mockFetchResponse(200, { h: 'handle_after_retry_429' });
+
+    fetchSpy
+      .mockImplementationOnce(startResponse)
+      .mockImplementationOnce(finish429)
+      .mockImplementationOnce(finishOk);
+
+    const client = makeClient({ appId: 'test_app_id', maxAttempts: 3, sleepFn: sleepMock });
+    const handle = await client.uploadSampleForTemplate(Buffer.from('pdf'), 'application/pdf');
+
+    expect(handle).toBe('handle_after_retry_429');
+    // 3 chamadas: 1 start + 1 finish(429) + 1 finish(ok)
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    // sleepFn chamado uma vez (antes do retry da etapa 2)
+    expect(sleepMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('uploadSampleForTemplate (M-2): etapa 2 retenta em 5xx e sucede na segunda tentativa', async () => {
+    const sleepMock = vi.fn().mockResolvedValue(undefined);
+    // Etapa 1: sucesso
+    const startResponse = mockFetchResponse(200, { id: 'upload_session_retry_5xx' });
+    // Etapa 2: 503 na primeira tentativa, sucesso na segunda
+    const finish5xx = mockFetchResponse(503, {
+      error: { code: 503, message: 'Service unavailable' },
+    });
+    const finishOk = mockFetchResponse(200, { h: 'handle_after_retry_5xx' });
+
+    fetchSpy
+      .mockImplementationOnce(startResponse)
+      .mockImplementationOnce(finish5xx)
+      .mockImplementationOnce(finishOk);
+
+    const client = makeClient({ appId: 'test_app_id', maxAttempts: 3, sleepFn: sleepMock });
+    const handle = await client.uploadSampleForTemplate(Buffer.from('pdf'), 'application/pdf');
+
+    expect(handle).toBe('handle_after_retry_5xx');
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(sleepMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('uploadSampleForTemplate (L-2): uploadSessionId é encoded na URL da etapa 2', async () => {
+    // Usa um session ID com caractere especial para validar encodeURIComponent.
+    const startResponse = mockFetchResponse(200, { id: 'upload/session+id=special' });
+    const finishResponse = mockFetchResponse(200, { h: 'handle_encoded' });
+
+    fetchSpy.mockImplementationOnce(startResponse).mockImplementationOnce(finishResponse);
+
+    const client = makeClient({ appId: 'test_app_id' });
+    await client.uploadSampleForTemplate(Buffer.from('pdf'), 'application/pdf');
+
+    const [url2] = fetchSpy.mock.calls[1] as [string, RequestInit];
+    // O session ID bruto NÃO deve aparecer na URL — deve estar percent-encoded.
+    expect(url2).not.toContain('upload/session+id=special');
+    expect(url2).toContain(encodeURIComponent('upload/session+id=special'));
   });
 });
