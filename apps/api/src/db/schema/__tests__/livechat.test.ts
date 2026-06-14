@@ -110,21 +110,27 @@ describe('channels — schema e types', () => {
 
   it('canal valido meta_instagram: insert aceito', async () => {
     mockInsertValues.mockResolvedValueOnce([{ id: CHANNEL_ID }]);
-    const ch = makeNewChannel({
+    // exactOptionalPropertyTypes: omit phoneNumberId for ig channel
+    const ch: NewChannel = {
+      organizationId: ORG_ID,
       provider: 'meta_instagram',
-      phoneNumberId: undefined,
+      name: 'Canal IG',
+      displayHandle: '@ig_handle',
       igUserId: 'ig-999',
-    });
+    };
     expect(await mockDb.insert(channels).values(ch)).toEqual([{ id: CHANNEL_ID }]);
   });
 
   it('canal valido waha: insert aceito', async () => {
     mockInsertValues.mockResolvedValueOnce([{ id: CHANNEL_ID }]);
-    const ch = makeNewChannel({
+    // exactOptionalPropertyTypes: omit phoneNumberId for waha channel
+    const ch: NewChannel = {
+      organizationId: ORG_ID,
       provider: 'waha',
-      phoneNumberId: undefined,
+      name: 'Canal WAHA',
+      displayHandle: '+5569900000003',
       wahaSessionId: 'sess-01',
-    });
+    };
     expect(await mockDb.insert(channels).values(ch)).toEqual([{ id: CHANNEL_ID }]);
   });
 
@@ -141,9 +147,16 @@ describe('channels — schema e types', () => {
     mockInsertValues.mockRejectedValueOnce(
       new Error('check constraint "channels_provider_fields_check"'),
     );
-    await expect(
-      mockDb.insert(channels).values(makeNewChannel({ phoneNumberId: undefined })),
-    ).rejects.toThrow('channels_provider_fields_check');
+    // Simula: meta_whatsapp sem phone_number_id viola o CHECK do provider
+    const chNoPhone: NewChannel = {
+      organizationId: ORG_ID,
+      provider: 'meta_whatsapp',
+      name: 'Canal',
+      displayHandle: '+5569900000001',
+    };
+    await expect(mockDb.insert(channels).values(chNoPhone)).rejects.toThrow(
+      'channels_provider_fields_check',
+    );
   });
 
   it('channel FK org inexistente: simula FK violation', async () => {
@@ -184,9 +197,12 @@ describe('channelSecrets — schema e types', () => {
 
   it('appSecretEnc nullable: insert aceito', async () => {
     mockInsertValues.mockResolvedValueOnce([{ id: 'sec-1' }]);
-    expect(
-      await mockDb.insert(channelSecrets).values(makeNewChannelSecret({ appSecretEnc: undefined })),
-    ).toEqual([{ id: 'sec-1' }]);
+    // exactOptionalPropertyTypes: omit appSecretEnc (nullable optional column)
+    const secretNoApp: NewChannelSecret = {
+      channelId: CHANNEL_ID,
+      accessTokenEnc: Buffer.from('enc-token'),
+    };
+    expect(await mockDb.insert(channelSecrets).values(secretNoApp)).toEqual([{ id: 'sec-1' }]);
   });
 });
 
