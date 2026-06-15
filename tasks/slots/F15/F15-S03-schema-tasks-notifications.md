@@ -3,13 +3,13 @@ id: F15-S03
 title: Schema — tabelas `tasks`, `notifications`, `notification_preferences`
 phase: F15
 task_ref: null
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-15T18:47:53Z
 completed_at: 2026-06-15T18:53:46Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/231
 depends_on: []
 blocks: [F15-S04, F15-S05, F15-S06, F15-S08]
 labels: [tasks, notifications, schema, foundation]
