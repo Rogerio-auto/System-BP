@@ -22,3 +22,6 @@ export * from './notifications.js';
 
 // Billing / SPC / Dashboard cobrança (F15-S02/S04)
 export * from './billing.js';
+
+// Contracts (F17-S01/S02)
+export * from './contracts.js';
