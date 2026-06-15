@@ -3,11 +3,11 @@ id: F15-S07
 title: Backend — service de status SPC (transições + auditoria)
 phase: F15
 task_ref: null
-status: blocked
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T20:09:32Z
 completed_at: null
 pr_url: null
 depends_on: [F15-S01, F15-S02, F15-S04]
