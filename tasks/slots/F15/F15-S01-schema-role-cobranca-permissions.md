@@ -3,11 +3,11 @@ id: F15-S01
 title: Schema — role `cobranca` global + permissões de cobrança/tarefas/notificações
 phase: F15
 task_ref: null
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T18:37:20Z
 completed_at: null
 pr_url: null
 depends_on: []
