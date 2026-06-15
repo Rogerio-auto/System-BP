@@ -3,11 +3,11 @@ id: F15-S04
 title: Contratos compartilhados — tarefas, notificações, SPC, dashboard cobrança
 phase: F15
 task_ref: null
-status: blocked
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T19:44:25Z
 completed_at: null
 pr_url: null
 depends_on: [F15-S03]
