@@ -1,0 +1,159 @@
+---
+title: Anexar e visualizar boleto pela interface
+description: Como usar a tela de Parcelas para anexar, visualizar ou remover o boleto de uma parcela de cobrança — upload de PDF ou referência por URL/linha/PIX.
+order: 5
+keywords: [boleto, parcela, cobrança, upload, pdf, linha digitável, pix, billing]
+---
+
+# Anexar e visualizar boleto pela interface
+
+<Permission required="billing:boleto:write">
+  Esta funcionalidade é exclusiva para usuários com a permissão **billing:boleto:write** —
+  concedida a **Admin**, **Gestor Geral** e **Gestor Regional**.
+  Se a coluna "Boleto" não aparece na tabela de parcelas, fale com o administrador.
+</Permission>
+
+<Callout type="warning" title="Módulo em pré-produção">
+  A funcionalidade de boleto é controlada pela flag `billing.boleto.enabled`.
+  Enquanto a flag estiver desligada, a coluna Boleto fica oculta e a ação
+  aparece com indicador "off". O administrador ativa a flag no Hub de Configurações.
+</Callout>
+
+## O que é
+
+A tela de **Parcelas** (`Cobrança → Parcelas`) exibe uma coluna **Boleto** que mostra o
+status de cada parcela — se há ou não um boleto vinculado. Ao clicar na coluna, o modal
+de boleto abre e permite:
+
+- **Upload de PDF** — enviar o arquivo para associação à parcela.
+- **Referência** — informar URL, linha digitável e/ou PIX copia-e-cola sem enviar arquivo.
+- **Visualização** — ver o boleto já vinculado, copiar linha digitável ou PIX, abrir link.
+- **Remover** — desvincular o boleto da parcela.
+
+## Quando usar
+
+- Quando você precisa que o template WhatsApp de cobrança inclua o boleto.
+- Quando o boleto já existe no sistema do banco e você quer associar a URL/linha/PIX.
+- Quando precisa substituir ou remover um boleto já vinculado.
+
+---
+
+## Pré-requisitos
+
+- Flag `billing.boleto.enabled` ativada pelo administrador.
+- Permissão `billing:boleto:write` (Admin, Gestor Geral ou Gestor Regional).
+- Gestores Regionais só visualizam e vinculam boletos de parcelas da própria cidade.
+
+---
+
+## Passo a passo — Anexar boleto via upload
+
+<Step title="Acesse a tela de Parcelas">
+  No menu lateral, acesse **Cobrança → Parcelas**.
+  A tabela exibirá uma coluna **Boleto** com ícone de status (verde = anexado, cinza = sem boleto).
+</Step>
+
+<Step title="Abra o modal de boleto">
+  Clique no ícone ou no indicador **Boleto** na linha da parcela desejada.
+  O modal se abrirá com as abas **Upload PDF** e **Referência**
+  (ou **Boleto anexado** se a parcela já tiver boleto).
+</Step>
+
+<Step title="Selecione o arquivo">
+  Na aba **Upload PDF**, arraste o arquivo para a área de upload ou clique para
+  selecionar do computador.
+
+  <Callout type="info">
+    Formatos aceitos: **PDF, JPG ou PNG**. Tamanho máximo: **10 MB**.
+  </Callout>
+
+  O nome do arquivo aparecerá na área de upload após a seleção.
+</Step>
+
+<Step title="Envie o arquivo">
+  Clique em **Enviar boleto**. O sistema exibirá a indicação de carregamento
+  enquanto o arquivo é transmitido.
+
+  Após o envio, o modal muda para a aba **Boleto anexado** com o status atualizado.
+</Step>
+
+---
+
+## Passo a passo — Informar referência (URL / linha / PIX)
+
+<Step title="Abra o modal de boleto">
+  Clique no ícone Boleto na linha da parcela desejada.
+</Step>
+
+<Step title="Acesse a aba Referência">
+  No modal, clique na aba **Referência**.
+</Step>
+
+<Step title="Preencha os dados disponíveis">
+  Preencha ao menos **um** dos campos:
+
+  - **URL do boleto** — link direto para o PDF (deve usar `https://` e pertencer ao domínio
+    autorizado pelo administrador).
+  - **Linha digitável** — código numérico para pagamento em bancos.
+  - **PIX copia-e-cola** — payload do QR Code PIX (formato BR Code).
+
+  O campo **Nome do arquivo** é opcional — use para facilitar a identificação
+  (ex: `boleto-parcela-3.pdf`). Nunca inclua CPF ou dados pessoais no nome.
+</Step>
+
+<Step title="Salve a referência">
+  Clique em **Salvar referência**. O modal exibirá o boleto vinculado com opções
+  de cópia e link.
+</Step>
+
+---
+
+## Visualizar boleto já vinculado
+
+Quando uma parcela já tem boleto, o indicador na tabela aparece verde com o texto **Anexado**.
+Ao clicar, o modal abre direto na aba **Boleto anexado** com:
+
+- Nome do arquivo e data de vinculação.
+- Botão **Abrir** (link externo) — visível quando há URL cadastrada.
+- Botão **Copiar** para linha digitável e PIX copia-e-cola.
+- Botões **Substituir boleto** (abre aba de upload/referência) e **Remover boleto**.
+
+---
+
+## Remover o boleto
+
+<Callout type="warning">
+  Remover o boleto desvincula o arquivo da parcela. Se existirem jobs de cobrança
+  agendados, eles serão enviados **sem** o boleto em anexo.
+</Callout>
+
+<Step title="Abra o modal do boleto já vinculado">
+  Clique no ícone verde "Anexado" na linha da parcela.
+</Step>
+
+<Step title="Clique em Remover boleto">
+  No rodapé do modal, clique em **Remover boleto** (botão em vermelho).
+  A operação é imediata e o modal retornará para a aba de upload.
+</Step>
+
+---
+
+## Erros comuns
+
+| Erro exibido | Causa provável | O que fazer |
+|---|---|---|
+| "Tipo de arquivo não suportado" | Arquivo não é PDF, JPG ou PNG | Converta o arquivo antes de enviar |
+| "Arquivo muito grande. Máximo: 10 MB" | Arquivo maior que o limite | Comprima o PDF ou use referência por URL |
+| "A URL deve usar https://" | URL com `http://` | Obtenha o link seguro com o banco emissor |
+| "Preencha ao menos URL, linha digitável ou PIX" | Todos os campos de referência vazios | Preencha ao menos um campo |
+| "Erro 403" / Ação não aparece | Flag desativada ou sem permissão | Contate o administrador |
+| "Erro 502" | Falha na API WhatsApp ao processar upload | Tente novamente em alguns minutos |
+
+---
+
+## Veja também
+
+- [Cobrança com boleto — visão geral](/docs/help/guias/cobranca/cobranca-com-boleto)
+- [Anexar boleto via API (integração)](/docs/help/guias/cobranca/anexar-boleto)
+- [Configurar réguas de cobrança](/docs/help/guias/cobranca/configurar-reguas)
+- [Monitorar jobs de cobrança](/docs/help/guias/cobranca/monitorar-jobs)

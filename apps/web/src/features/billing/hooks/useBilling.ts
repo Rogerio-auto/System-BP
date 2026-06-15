@@ -1,15 +1,18 @@
 // =============================================================================
-// features/billing/hooks/useBilling.ts — TanStack Query hooks para cobrança (F5-S08).
+// features/billing/hooks/useBilling.ts — TanStack Query hooks para cobrança (F5-S08, F5-S16).
 //
 // Hooks:
-//   - usePaymentDues         — lista parcelas com filtros paginados
-//   - useMarkPaymentDuePaid  — mutação: marcar parcela como paga
-//   - useRenegotiatePaymentDue — mutação: renegociar parcela
-//   - useCollectionRules     — lista réguas
-//   - useCreateCollectionRule — mutação: criar régua
-//   - useUpdateCollectionRule — mutação: atualizar régua
-//   - useCollectionJobs      — lista jobs paginados com filtros
-//   - useCancelCollectionJob  — mutação: cancelar job agendado
+//   - usePaymentDues              — lista parcelas com filtros paginados
+//   - useMarkPaymentDuePaid       — mutação: marcar parcela como paga
+//   - useRenegotiatePaymentDue    — mutação: renegociar parcela
+//   - useCollectionRules          — lista réguas
+//   - useCreateCollectionRule     — mutação: criar régua
+//   - useUpdateCollectionRule     — mutação: atualizar régua
+//   - useCollectionJobs           — lista jobs paginados com filtros
+//   - useCancelCollectionJob      — mutação: cancelar job agendado
+//   - useAttachBoletoUpload       — mutação: anexar boleto via upload PDF (F5-S16)
+//   - useAttachBoletoReference    — mutação: anexar boleto via referência (F5-S16)
+//   - useRemoveBoleto             — mutação: remover boleto da parcela (F5-S16)
 //
 // Nunca useEffect + fetch — sempre TanStack Query.
 // Invalidate após mutate para manter cache consistente.
@@ -17,16 +20,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  attachBoletoReference,
+  attachBoletoUpload,
   cancelCollectionJob,
   createCollectionRule,
   fetchCollectionJobs,
   fetchCollectionRules,
   fetchPaymentDues,
   markPaymentDuePaid,
+  removeBoletoDue,
   renegotiatePaymentDue,
   updateCollectionRule,
 } from '../api';
 import type {
+  BoletoReferenceForm,
+  BoletoResponse,
   CollectionJobResponse,
   CollectionJobsFilters,
   CollectionJobsListResponse,
@@ -275,6 +283,124 @@ export function useCancelCollectionJob(): {
       if (opts?.onSuccess) mutateOpts.onSuccess = opts.onSuccess;
       if (opts?.onError) mutateOpts.onError = (err) => opts.onError?.(err as Error);
       mutate(jobId, mutateOpts);
+    },
+    isPending,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// useAttachBoletoUpload (F5-S16)
+// ---------------------------------------------------------------------------
+
+export function useAttachBoletoUpload(): {
+  mutate: (
+    args: { dueId: string; file: File; idempotencyKey: string },
+    opts?: {
+      onSuccess?: (boleto: BoletoResponse) => void;
+      onError?: (err: Error) => void;
+    },
+  ) => void;
+  isPending: boolean;
+} {
+  const queryClient = useQueryClient();
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: ({
+      dueId,
+      file,
+      idempotencyKey,
+    }: {
+      dueId: string;
+      file: File;
+      idempotencyKey: string;
+    }) => attachBoletoUpload(dueId, file, idempotencyKey),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: BILLING_KEYS.dues() });
+    },
+  });
+
+  return {
+    mutate: (args, opts) => {
+      const mutateOpts: Parameters<typeof mutate>[1] = {};
+      if (opts?.onSuccess) mutateOpts.onSuccess = opts.onSuccess;
+      if (opts?.onError) mutateOpts.onError = (err) => opts.onError?.(err as Error);
+      mutate(args, mutateOpts);
+    },
+    isPending,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// useAttachBoletoReference (F5-S16)
+// ---------------------------------------------------------------------------
+
+export function useAttachBoletoReference(): {
+  mutate: (
+    args: { dueId: string; body: BoletoReferenceForm; idempotencyKey: string },
+    opts?: {
+      onSuccess?: (boleto: BoletoResponse) => void;
+      onError?: (err: Error) => void;
+    },
+  ) => void;
+  isPending: boolean;
+} {
+  const queryClient = useQueryClient();
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: ({
+      dueId,
+      body,
+      idempotencyKey,
+    }: {
+      dueId: string;
+      body: BoletoReferenceForm;
+      idempotencyKey: string;
+    }) => attachBoletoReference(dueId, body, idempotencyKey),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: BILLING_KEYS.dues() });
+    },
+  });
+
+  return {
+    mutate: (args, opts) => {
+      const mutateOpts: Parameters<typeof mutate>[1] = {};
+      if (opts?.onSuccess) mutateOpts.onSuccess = opts.onSuccess;
+      if (opts?.onError) mutateOpts.onError = (err) => opts.onError?.(err as Error);
+      mutate(args, mutateOpts);
+    },
+    isPending,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// useRemoveBoleto (F5-S16)
+// ---------------------------------------------------------------------------
+
+export function useRemoveBoleto(): {
+  mutate: (
+    dueId: string,
+    opts?: {
+      onSuccess?: (boleto: BoletoResponse) => void;
+      onError?: (err: Error) => void;
+    },
+  ) => void;
+  isPending: boolean;
+} {
+  const queryClient = useQueryClient();
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: (dueId: string) => removeBoletoDue(dueId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: BILLING_KEYS.dues() });
+    },
+  });
+
+  return {
+    mutate: (dueId, opts) => {
+      const mutateOpts: Parameters<typeof mutate>[1] = {};
+      if (opts?.onSuccess) mutateOpts.onSuccess = opts.onSuccess;
+      if (opts?.onError) mutateOpts.onError = (err) => opts.onError?.(err as Error);
+      mutate(dueId, mutateOpts);
     },
     isPending,
   };

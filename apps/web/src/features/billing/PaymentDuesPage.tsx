@@ -1,7 +1,8 @@
 // =============================================================================
 // features/billing/PaymentDuesPage.tsx — /admin/billing/dues
 //
-// Lista paginada de parcelas de crédito com filtros + ações de marcação manual.
+// Lista paginada de parcelas de crédito com filtros + ações de marcação manual
+// e gerenciamento de boleto (F5-S16).
 //
 // DS:
 //   - Tabela densa §9.7: th caption-style, hover linha.
@@ -16,8 +17,9 @@
 //   - Sem CPF, telefone, email na listagem.
 //
 // Permissões:
-//   - billing:read      — ver lista.
-//   - billing:mark_paid — modal de marcação.
+//   - billing:read           — ver lista.
+//   - billing:mark_paid      — modal de marcação.
+//   - billing:boleto:write   — ação Boleto (gate billing.boleto.enabled).
 // =============================================================================
 import * as React from 'react';
 import { Link } from 'react-router-dom';
@@ -31,6 +33,7 @@ import { useAuthStore } from '../../lib/auth-store';
 import { ContextualHelp } from '../help/contextual';
 
 import { BillingGatedBanner } from './components/BillingGatedBanner';
+import { BoletoModal } from './components/BoletoModal';
 import { MarkPaidModal } from './components/MarkPaidModal';
 import {
   useMarkPaymentDuePaid,
@@ -61,6 +64,40 @@ function formatAmount(amount: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Ícone de boleto
+// ---------------------------------------------------------------------------
+
+function BoletoIcon({ attached }: { attached: boolean }): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      className="w-4 h-4"
+      aria-hidden="true"
+      style={{ color: attached ? 'var(--success)' : 'var(--border-strong)' }}
+    >
+      <path
+        d="M4 2h6l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+      {attached ? (
+        <path
+          d="M6 8.5l1.5 1.5L10 7"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : (
+        <path d="M6 8h4M6 10h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      )}
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Skeleton
 // ---------------------------------------------------------------------------
 
@@ -69,7 +106,7 @@ function TableSkeleton(): React.JSX.Element {
     <>
       {Array.from({ length: 6 }).map((_, i) => (
         <tr key={i} aria-hidden="true">
-          {Array.from({ length: 7 }).map((__, j) => (
+          {Array.from({ length: 8 }).map((__, j) => (
             <td key={j} className="px-4 py-3.5">
               <div
                 className="h-4 rounded-xs animate-pulse"
@@ -93,7 +130,7 @@ function TableSkeleton(): React.JSX.Element {
 function EmptyState({ hasFilters }: { hasFilters: boolean }): React.JSX.Element {
   return (
     <tr>
-      <td colSpan={8}>
+      <td colSpan={9}>
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
           <svg
             viewBox="0 0 80 80"
@@ -186,15 +223,21 @@ export function PaymentDuesPage(): React.JSX.Element {
   const { toast } = useToast();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canMarkPaid = hasPermission('billing:mark_paid');
+  const canBoleto = hasPermission('billing:boleto:write');
   const { enabled: billingEnabled } = useFeatureFlag('billing.enabled');
+  const { enabled: boletoEnabled } = useFeatureFlag('billing.boleto.enabled');
 
   const [filters, setFilters] = React.useState<PaymentDuesFilters>({ page: 1, limit: 20 });
   const [statusFilter, setStatusFilter] = React.useState<PaymentDueStatus | ''>('');
   const [selectedDue, setSelectedDue] = React.useState<PaymentDueResponse | null>(null);
+  const [boletoDue, setBoletoDue] = React.useState<PaymentDueResponse | null>(null);
 
   const { data, isLoading, isError, refetch } = usePaymentDues(filters);
   const { mutate: markPaid, isPending: isMarkingPaid } = useMarkPaymentDuePaid();
   const { mutate: renegotiate, isPending: isRenegotiating } = useRenegotiatePaymentDue();
+
+  // Boleto gate: mostra ação apenas se permissão + flag habilitadas
+  const showBoletoAction = canBoleto && boletoEnabled;
 
   const dues = data?.data ?? [];
   const pagination = data?.pagination;
@@ -386,7 +429,21 @@ export function PaymentDuesPage(): React.JSX.Element {
                       </th>
                     ),
                   )}
-                  {canMarkPaid && (
+                  {/* Coluna Boleto — sempre presente quando há permissão+flag (F5-S16) */}
+                  {showBoletoAction && (
+                    <th
+                      className="px-4 py-2.5 text-center font-sans font-bold uppercase text-ink-3"
+                      style={{
+                        fontSize: '0.7rem',
+                        letterSpacing: '0.08em',
+                        borderBottom: '1px solid var(--border)',
+                        width: '5rem',
+                      }}
+                    >
+                      Boleto
+                    </th>
+                  )}
+                  {(canMarkPaid || (canBoleto && !boletoEnabled)) && (
                     <th
                       className="px-4 py-2.5 text-right font-sans font-bold uppercase text-ink-3"
                       style={{
@@ -405,7 +462,13 @@ export function PaymentDuesPage(): React.JSX.Element {
 
                 {!isLoading && isError && (
                   <tr>
-                    <td colSpan={canMarkPaid ? 7 : 6}>
+                    <td
+                      colSpan={
+                        6 +
+                        (showBoletoAction ? 1 : 0) +
+                        (canMarkPaid || (canBoleto && !boletoEnabled) ? 1 : 0)
+                      }
+                    >
                       <div className="flex flex-col items-center gap-3 py-12 text-center">
                         <p className="font-sans text-ink-3" style={{ fontSize: 'var(--text-sm)' }}>
                           Erro ao carregar parcelas.
@@ -496,26 +559,70 @@ export function PaymentDuesPage(): React.JSX.Element {
                           <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
                         </td>
 
-                        {/* Ações */}
-                        {canMarkPaid && (
+                        {/* Indicador de boleto (F5-S16) */}
+                        {showBoletoAction && (
+                          <td className="px-4 py-3.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setBoletoDue(due)}
+                              className="inline-flex items-center justify-center gap-1.5 rounded-xs px-2 py-1 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20"
+                              title={
+                                due.has_boleto
+                                  ? `Boleto: ${due.boleto_filename ?? 'ver'}`
+                                  : 'Anexar boleto'
+                              }
+                              aria-label={
+                                due.has_boleto
+                                  ? `Ver boleto de ${due.customer_name ?? 'cliente'}`
+                                  : `Anexar boleto de ${due.customer_name ?? 'cliente'}`
+                              }
+                            >
+                              <BoletoIcon attached={due.has_boleto} />
+                              {due.has_boleto && (
+                                <span
+                                  className="font-sans font-medium hidden sm:inline"
+                                  style={{ fontSize: '0.7rem', color: 'var(--success)' }}
+                                >
+                                  Anexado
+                                </span>
+                              )}
+                            </button>
+                          </td>
+                        )}
+
+                        {/* Ações de marcação */}
+                        {(canMarkPaid || (canBoleto && !boletoEnabled)) && (
                           <td className="px-4 py-3.5 text-right">
-                            {isMarkable ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSelectedDue(due)}
-                                aria-label={`Registrar pagamento para ${due.customer_name ?? 'cliente'}`}
-                              >
-                                Registrar
-                              </Button>
-                            ) : (
-                              <span
-                                className="font-sans text-ink-4"
-                                style={{ fontSize: 'var(--text-xs)' }}
-                              >
-                                —
-                              </span>
-                            )}
+                            <div className="flex items-center justify-end gap-1">
+                              {canMarkPaid && isMarkable && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelectedDue(due)}
+                                  aria-label={`Registrar pagamento para ${due.customer_name ?? 'cliente'}`}
+                                >
+                                  Registrar
+                                </Button>
+                              )}
+                              {/* Tooltip: boleto gateado — aparece no lugar da ação quando flag off */}
+                              {canBoleto && !boletoEnabled && (
+                                <span
+                                  className="font-sans text-ink-4"
+                                  title="Funcionalidade de boleto desabilitada (billing.boleto.enabled=off)"
+                                  style={{ fontSize: 'var(--text-xs)', cursor: 'default' }}
+                                >
+                                  Boleto off
+                                </span>
+                              )}
+                              {!isMarkable && !(canBoleto && !boletoEnabled) && (
+                                <span
+                                  className="font-sans text-ink-4"
+                                  style={{ fontSize: 'var(--text-xs)' }}
+                                >
+                                  —
+                                </span>
+                              )}
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -546,6 +653,9 @@ export function PaymentDuesPage(): React.JSX.Element {
           isPending={isPending}
         />
       )}
+
+      {/* Modal de boleto (F5-S16) */}
+      {boletoDue && <BoletoModal due={boletoDue} onClose={() => setBoletoDue(null)} />}
     </>
   );
 }
