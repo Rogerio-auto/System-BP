@@ -3,11 +3,11 @@ id: F15-S03
 title: Schema — tabelas `tasks`, `notifications`, `notification_preferences`
 phase: F15
 task_ref: null
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T18:47:53Z
 completed_at: null
 pr_url: null
 depends_on: []
