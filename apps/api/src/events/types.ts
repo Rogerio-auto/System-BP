@@ -577,6 +577,31 @@ export interface BillingBoletoAttachedData {
   has_media: boolean;
 }
 
+// --- Domínio: tarefas (F15-S05) ---
+// LGPD §8.5: sem PII bruta — apenas IDs opacos e metadados operacionais.
+
+/**
+ * Emitido ao criar uma tarefa (F15-S05).
+ * Permite workers downstream reagirem à criação (ex: notificar usuários com o role).
+ * Payload: apenas IDs opacos + classificação. Sem título, descrição ou PII.
+ */
+export interface TaskCreatedData {
+  /** UUID da tarefa criada. */
+  task_id: string;
+  /** Role key canônica do destinatário (ex: 'agente', 'gestor_regional'). */
+  assignee_role: string;
+  /** UUID da cidade, null para tarefa global. */
+  city_id: string | null;
+  /** Tipo de tarefa: 'spc_inclusion' | 'spc_removal' | 'winback' | etc. */
+  type: string;
+  /** Tipo da entidade relacionada (ex: 'lead', 'customer'). null se não vinculado. */
+  entity_type: string | null;
+  /** UUID da entidade relacionada. null se não vinculado. */
+  entity_id: string | null;
+  /** UUID da organização dona da tarefa. */
+  organization_id: string;
+}
+
 // --- Domínio: templates WhatsApp (F5-S09) ---
 
 /**
@@ -836,6 +861,8 @@ export interface AppEventDataMap {
   'user.role_assigned': UserRoleAssignedData;
   'user.city_scope_changed': UserCityScopeChangedData;
   'user.session_revoked': UserEventData;
+  // --- Tarefas (F15-S05) ---
+  'task.created': TaskCreatedData;
   // --- Templates WhatsApp (F5-S09) ---
   'templates.status_changed': TemplateStatusChangedData;
   // --- LGPD direitos do titular (F1-S25) ---
