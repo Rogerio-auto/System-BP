@@ -372,6 +372,13 @@
       "when": 1779753816000,
       "tag": "0057_tasks_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1779753817000,
+      "tag": "0058_customer_spc_status",
+      "breakpoints": true
     }
   ]
 }
