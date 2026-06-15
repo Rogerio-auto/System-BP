@@ -3,12 +3,12 @@ id: F17-S06
 title: Frontend — ficha do contrato com gestão e saúde de boletos
 phase: F17
 task_ref: null
-status: in-progress
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-15T22:09:01Z
-completed_at: null
+completed_at: 2026-06-15T22:21:09Z
 pr_url: null
 depends_on: [F17-S04, F17-S05, F5-S16]
 blocks: []
@@ -22,7 +22,6 @@ docs_audience:
 docs_artifacts:
   - docs/help/guias/contratos/ficha-contrato-boletos.mdx
 ---
-
 # F17-S06 — Ficha do contrato + saúde de boletos
 
 ## Objetivo
