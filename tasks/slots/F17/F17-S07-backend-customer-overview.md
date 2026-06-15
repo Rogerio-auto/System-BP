@@ -3,12 +3,12 @@ id: F17-S07
 title: Backend — visão cliente (dados + histórico + contratos + boletos)
 phase: F17
 task_ref: null
-status: in-progress
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-15T21:30:05Z
-completed_at: null
+completed_at: 2026-06-15T21:39:49Z
 pr_url: null
 depends_on: [F17-S01, F17-S02, F17-S03]
 blocks: [F17-S08]
