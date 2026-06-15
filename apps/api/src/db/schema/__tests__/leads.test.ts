@@ -452,6 +452,8 @@ describe('tipos Drizzle — compilação sem any', () => {
       consentRevokedAt: null,
       anonymizedAt: null,
       metadata: {},
+      spcStatus: 'none', // adicionado em F15-S02 (0058_customer_spc_status.sql)
+      spcChangedAt: null, // adicionado em F15-S02 (0058_customer_spc_status.sql)
       createdAt: new Date(),
       updatedAt: new Date(),
     };

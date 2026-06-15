@@ -35,6 +35,7 @@ import {
   index,
   uniqueIndex,
   foreignKey,
+  check,
   customType,
 } from 'drizzle-orm/pg-core';
 
@@ -117,6 +118,29 @@ export const customers = pgTable(
      */
     anonymizedAt: timestamp('anonymized_at', { withTimezone: true }),
 
+    /**
+     * Status atual do cliente no SPC (decisão D13 — F15).
+     * Ciclo de vida: none → pending_inclusion → included → removed
+     *   - none:              nunca foi incluído no SPC (estado inicial/default).
+     *   - pending_inclusion: operador solicitou inclusão; aguardando processamento externo.
+     *   - included:          consta negativado no SPC no momento do registro.
+     *   - removed:           foi retirado do SPC (pagamento, acordo, erro).
+     * Transições regressivas (ex: included → none) são proibidas pela aplicação.
+     * Auditado via spc_changed_at + outbox de evento (F15-S03+).
+     */
+    spcStatus: text('spc_status')
+      .notNull()
+      .default('none')
+      .$type<'none' | 'pending_inclusion' | 'included' | 'removed'>(),
+
+    /**
+     * Data/hora da última mudança de spc_status.
+     * null enquanto spc_status = 'none' (nunca houve ação de SPC).
+     * Atualizado pela aplicação em cada transição de status.
+     * Usado para auditoria e relatórios de cobrança.
+     */
+    spcChangedAt: timestamp('spc_changed_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -165,6 +189,34 @@ export const customers = pgTable(
     uqOrgDocumentHash: uniqueIndex('uq_customers_org_document_hash')
       .on(table.organizationId, table.documentHash)
       .where(sql`${table.documentHash} IS NOT NULL`),
+
+    /**
+     * CHECK constraint: garante que spc_status só aceita os 4 valores do ciclo
+     * de vida definido na decisão D13. Bloqueia inserção de valores inválidos
+     * diretamente no banco, independente da camada de aplicação.
+     */
+    chkSpcStatus: check(
+      'chk_customers_spc_status',
+      sql`spc_status IN ('none', 'pending_inclusion', 'included', 'removed')`,
+    ),
+
+    /**
+     * Índice parcial para clientes sem histórico SPC (spc_status = 'none').
+     * Suporta: filtro "clientes nunca incluídos no SPC" em relatórios de cobrança.
+     * Parcial por seletividade: a maioria dos clientes começa aqui e migra.
+     */
+    idxSpcNone: index('idx_customers_spc_none')
+      .on(table.organizationId)
+      .where(sql`${table.spcStatus} = 'none'`),
+
+    /**
+     * Índice parcial para clientes com inclusão pendente (spc_status = 'pending_inclusion').
+     * Suporta: fila de processamento de inclusão SPC + alertas de pendentes.
+     * Parcial: filtra apenas o subconjunto relevante para o worker de SPC.
+     */
+    idxSpcPending: index('idx_customers_spc_pending')
+      .on(table.organizationId)
+      .where(sql`${table.spcStatus} = 'pending_inclusion'`),
   }),
 );
 
