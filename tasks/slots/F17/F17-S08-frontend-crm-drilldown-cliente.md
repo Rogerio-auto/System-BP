@@ -3,7 +3,7 @@ id: F17-S08
 title: Frontend — CRM drill-down do cliente (ficha com contratos e boletos)
 phase: F17
 task_ref: null
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null

@@ -3,7 +3,7 @@ id: F17-S06
 title: Frontend — ficha do contrato com gestão e saúde de boletos
 phase: F17
 task_ref: null
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null

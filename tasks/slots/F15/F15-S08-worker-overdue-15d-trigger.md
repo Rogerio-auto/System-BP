@@ -3,7 +3,7 @@ id: F15-S08
 title: Backend — worker de inadimplência 15d → cria tarefa SPC + evento de notificação
 phase: F15
 task_ref: null
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null

@@ -3,7 +3,7 @@ id: F15-S10
 title: Frontend — painel de tarefas + badge de notificações no header
 phase: F15
 task_ref: null
-status: blocked
+status: available
 priority: high
 estimated_size: M
 agent_id: null
