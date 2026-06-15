@@ -346,10 +346,10 @@
       "breakpoints": true
     },
     {
-      "idx": 54,
+      "idx": 60,
       "version": "7",
-      "when": 1781484000000,
-      "tag": "0054_livechat_multicanal",
+      "when": 1781554500000,
+      "tag": "0060_livechat_multicanal",
       "breakpoints": true
     }
   ]

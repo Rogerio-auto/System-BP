@@ -1,4 +1,4 @@
--- Migration 0054: Schema multicanal do live chat (F16-S02, decisao D2).
+-- Migration 0060: Schema multicanal do live chat (F16-S02, decisao D2).
 -- LGPD: colunas PII em bytea (enc via encryptPii em app layer).
 -- Remediacao de seguranca (F16-S02 security pass):
 --   H1: phone_number_enc (BYTEA) em vez de phone_number (TEXT) — dado pessoal cifrado.
