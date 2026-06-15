@@ -47,6 +47,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { contracts } from './contracts.js';
 import { customers } from './customers.js';
 import { organizations } from './organizations.js';
 import { users } from './users.js';
@@ -193,6 +194,15 @@ export const paymentDues = pgTable(
      */
     boletoAttachedAt: timestamp('boleto_attached_at', { withTimezone: true }),
 
+    /**
+     * Contrato estruturado ao qual esta parcela pertence (F17-S01).
+     * nullable: parcelas migradas do legado podem ter contract_reference sem
+     * contract_id até o backfill da migration 0059_contracts.sql ser aplicado.
+     * FK ON DELETE SET NULL: parcela sobrevive à eventual remoção do contrato
+     * (preserva histórico fiscal por 5 anos — LGPD doc 17).
+     */
+    contractId: uuid('contract_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -225,6 +235,17 @@ export const paymentDues = pgTable(
       name: 'fk_payment_dues_created_by',
       columns: [table.createdBy],
       foreignColumns: [users.id],
+    }).onDelete('set null'),
+
+    /**
+     * Contrato estruturado ao qual esta parcela pertence (F17-S01).
+     * ON DELETE SET NULL: parcela sobrevive à exclusão do contrato.
+     * Preserva histórico fiscal de cobrança (retenção 5 anos — LGPD doc 17).
+     */
+    fkContract: foreignKey({
+      name: 'fk_payment_dues_contract',
+      columns: [table.contractId],
+      foreignColumns: [contracts.id],
     }).onDelete('set null'),
 
     // -------------------------------------------------------------------------
