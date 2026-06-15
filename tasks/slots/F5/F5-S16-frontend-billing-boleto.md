@@ -3,11 +3,11 @@ id: F5-S16
 title: Frontend cobrança — anexar/visualizar boleto na parcela (upload PDF + URL + linha/PIX)
 phase: F5
 task_ref: docs/05-modulos-funcionais.md#cobranca-boleto
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T18:01:10Z
 completed_at: null
 pr_url: null
 depends_on: [F5-S13]
