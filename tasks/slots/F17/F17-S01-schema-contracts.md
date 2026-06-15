@@ -3,11 +3,11 @@ id: F17-S01
 title: Schema — entidade `contracts` + migração `contract_reference` → `contract_id`
 phase: F17
 task_ref: null
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T19:30:22Z
 completed_at: null
 pr_url: null
 depends_on: []
