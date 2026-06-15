@@ -3,18 +3,20 @@ id: F17-S04
 title: Backend — saúde de boletos do contrato (agregação)
 phase: F17
 task_ref: null
-status: blocked
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-15T21:27:56Z
+completed_at: 2026-06-15T21:38:02Z
 pr_url: null
 depends_on: [F17-S01, F17-S02, F17-S03]
 blocks: [F17-S06]
 labels: [contracts, billing, backend]
 source_docs:
   - docs/planejamento-2026-06-evolucao.md#épico-e--contratos-boletos-e-renovação-item-5--épico
+docs_artifacts:
+  - docs/help/guias/contratos/saude-de-boletos.mdx
 ---
 
 # F17-S04 — Saúde de boletos do contrato

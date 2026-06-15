@@ -28,11 +28,13 @@ import { authorize } from '../auth/middlewares/authorize.js';
 
 import {
   createContractController,
+  getBoletoHealthController,
   getContractController,
   listContractsController,
   signContractController,
 } from './controller.js';
 import {
+  BoletoHealthResponseSchema,
   ContractCreateBodySchema,
   ContractResponseSchema,
   ContractsListQuerySchema,
@@ -158,5 +160,47 @@ export const contractsRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: ['contracts:sign'] })],
     },
     signContractController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // GET /api/contracts/:id/health (F17-S04)
+  //
+  // Retorna o indicador de saúde de boletos derivado das payment_dues do contrato.
+  //
+  // City-scope: herdado — gestores regionais só acessam contratos de seus clientes.
+  // LGPD: resposta contém apenas agregados financeiros operacionais (sem PII).
+  // Sem N+1: uma única query de agregação por contrato.
+  //
+  // Lógica de `health`:
+  //   settled:   todas as parcelas pagas (percent_paid == 100)
+  //   defaulted: ≥1 parcela vencida há ≥ 15 dias
+  //   at_risk:   ≥1 parcela vencida há < 15 dias
+  //   healthy:   sem parcelas vencidas (apenas paid / pending)
+  // ---------------------------------------------------------------------------
+  app.get(
+    '/api/contracts/:id/health',
+    {
+      schema: {
+        tags: ['Contratos'],
+        summary: 'Saúde de boletos do contrato',
+        description:
+          'Retorna o indicador sintético de saúde de pagamento de um contrato, ' +
+          'calculado a partir das parcelas (`payment_dues`) vinculadas. ' +
+          'Contabiliza parcelas pagas, vencidas e pendentes, seus somatórios em reais ' +
+          'e o percentual pago. O campo `health` resume a situação: ' +
+          '`settled` (quitado), `defaulted` (inadimplente — vencida ≥ 15 dias), ' +
+          '`at_risk` (em risco — vencida < 15 dias), `healthy` (sem vencimento). ' +
+          'Aplicável para dashboards de carteira, alertas de inadimplência e renovação. ' +
+          'Aplica escopo de cidade: retorna 404 se o contrato estiver fora do escopo do usuário. ' +
+          'Requer permissão `contracts:read`.',
+        security: [{ bearerAuth: [] }],
+        params: contractIdParamSchema,
+        response: {
+          200: BoletoHealthResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['contracts:read'] })],
+    },
+    getBoletoHealthController,
   );
 };

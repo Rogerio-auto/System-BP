@@ -28,12 +28,14 @@ import { AppError } from '../../shared/errors.js';
 
 import {
   createContract,
+  getBoletoHealthByContractId,
   getContractById,
   listContracts,
   signContract,
   verifyContractScope,
 } from './repository.js';
 import type {
+  BoletoHealthResponse,
   ContractCreateBody,
   ContractResponse,
   ContractStatus,
@@ -239,6 +241,32 @@ export async function signContractService(
   });
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// getBoletoHealthService (F17-S04)
+//
+// Calcula a saúde de boletos de um contrato.
+//
+// Fluxo:
+//   1. verifyContractScope: valida existência + city-scope (fail-fast).
+//   2. getBoletoHealthByContractId: query de agregação — uma única passada.
+//
+// City-scope: herdado de verifyContractScope (mesma lógica do GET /api/contracts/:id).
+// LGPD: nenhum dado de PII nos campos retornados (apenas IDs opacos e agregados).
+// ---------------------------------------------------------------------------
+
+export async function getBoletoHealthService(
+  db: Database,
+  organizationId: string,
+  contractId: string,
+  cityScopeIds: string[] | null,
+): Promise<BoletoHealthResponse> {
+  // Valida existência + city-scope (lança NotFoundError se fora do scope).
+  await verifyContractScope(db, organizationId, contractId, cityScopeIds);
+
+  // Agregação em uma única query — sem N+1.
+  return getBoletoHealthByContractId(db, contractId);
 }
 
 // Re-export para uso nos testes

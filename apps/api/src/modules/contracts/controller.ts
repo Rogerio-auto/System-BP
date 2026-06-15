@@ -17,6 +17,7 @@ import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.j
 import type { ContractCreateBody, ContractIdParam, ContractsListQuery } from './schemas.js';
 import {
   createContractService,
+  getBoletoHealthService,
   getContractService,
   listContractsService,
   signContractService,
@@ -98,5 +99,19 @@ export async function signContractController(
   const { organizationId, cityScopeIds, userId, ip } = getUserContext(request);
   const { id } = typedParams<ContractIdParam>(request);
   const result = await signContractService(db, organizationId, id, cityScopeIds, { userId, ip });
+  await reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/contracts/:id/health (F17-S04)
+// ---------------------------------------------------------------------------
+
+export async function getBoletoHealthController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const { organizationId, cityScopeIds } = getUserContext(request);
+  const { id } = typedParams<ContractIdParam>(request);
+  const result = await getBoletoHealthService(db, organizationId, id, cityScopeIds);
   await reply.status(200).send(result);
 }
