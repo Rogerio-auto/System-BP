@@ -18,16 +18,26 @@ import {
   TemplateCreateFormSchema,
   TemplateUpdateFormSchema,
   TemplateStatusSchema,
+  type TemplateHeaderType,
 } from '../schemas';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const VALID_PAYLOAD = {
+const VALID_PAYLOAD: {
+  name: string;
+  category: 'utility';
+  language: string;
+  body: string;
+  variables: string[];
+  headerType?: TemplateHeaderType;
+  headerText?: string;
+} = {
   name: 'followup_d1',
-  category: 'utility' as const,
+  category: 'utility',
   language: 'pt_BR',
   body: 'Olá {{1}}, sua proposta de crédito está em análise.',
   variables: ['nome_cliente'],
+  headerType: 'none',
 };
 
 function parseCreate(overrides: Partial<typeof VALID_PAYLOAD>) {
@@ -189,5 +199,127 @@ describe('TemplateUpdateFormSchema — DLP (LGPD)', () => {
       const messages = result.error.issues.map((i) => i.message).join(' ');
       expect(messages).toMatch(/CPF em forma bruta/i);
     }
+  });
+});
+
+// ─── F5-S15 — headerType + headerText ─────────────────────────────────────────
+
+describe('TemplateCreateFormSchema — F5-S15 header', () => {
+  it('aceita headerType=none (default)', () => {
+    const result = parseCreate({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.headerType).toBe('none');
+    }
+  });
+
+  it('aceita headerType=text com headerText válido', () => {
+    const result = parseCreate({
+      headerType: 'text' as const,
+      headerText: 'Banco do Povo — Crédito Rural',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita headerType=text sem headerText', () => {
+    const result = parseCreate({
+      headerType: 'text' as const,
+      // headerText ausente
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message).join(' ');
+      expect(messages).toMatch(/cabeçalho é obrigatório/i);
+    }
+  });
+
+  it('rejeita headerText com CPF bruto', () => {
+    const result = parseCreate({
+      headerType: 'text' as const,
+      headerText: 'CPF 123.456.789-00',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message).join(' ');
+      expect(messages).toMatch(/CPF em forma bruta/i);
+    }
+  });
+
+  it('rejeita headerText com e-mail hardcoded', () => {
+    const result = parseCreate({
+      headerType: 'text' as const,
+      headerText: 'Contato: usuario@banco.gov.br',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message).join(' ');
+      expect(messages).toMatch(/e-mail hardcoded/i);
+    }
+  });
+
+  it('rejeita headerText quando headerType=document', () => {
+    const result = parseCreate({
+      headerType: 'document' as const,
+      headerText: 'Texto indevido',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message).join(' ');
+      expect(messages).toMatch(/só é permitido quando o tipo é 'Texto'/i);
+    }
+  });
+
+  it('aceita headerType=document sem headerText', () => {
+    const result = parseCreate({
+      headerType: 'document' as const,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita headerType=image sem headerText', () => {
+    const result = parseCreate({
+      headerType: 'image' as const,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita headerText > 60 caracteres', () => {
+    const result = parseCreate({
+      headerType: 'text' as const,
+      headerText: 'A'.repeat(61),
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message).join(' ');
+      expect(messages).toMatch(/Máximo 60 caracteres/i);
+    }
+  });
+});
+
+describe('TemplateUpdateFormSchema — F5-S15 header', () => {
+  it('aceita update com headerType=text e headerText válido', () => {
+    const result = TemplateUpdateFormSchema.safeParse({
+      headerType: 'text',
+      headerText: 'Novo título',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita update com headerType=text sem headerText', () => {
+    const result = TemplateUpdateFormSchema.safeParse({
+      headerType: 'text',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message).join(' ');
+      expect(messages).toMatch(/cabeçalho é obrigatório/i);
+    }
+  });
+
+  it('aceita update com headerType=document sem headerText', () => {
+    const result = TemplateUpdateFormSchema.safeParse({
+      headerType: 'document',
+    });
+    expect(result.success).toBe(true);
   });
 });

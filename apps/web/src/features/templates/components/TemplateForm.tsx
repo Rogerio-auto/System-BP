@@ -11,8 +11,14 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
 import { Button } from '../../../components/ui/Button';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import { cn } from '../../../lib/cn';
-import type { TemplateCreateForm, TemplateResponse, TemplateUpdateForm } from '../schemas';
+import type {
+  TemplateCreateForm,
+  TemplateHeaderType,
+  TemplateResponse,
+  TemplateUpdateForm,
+} from '../schemas';
 import {
   TemplateCategorySchema,
   TemplateCreateFormSchema,
@@ -29,7 +35,8 @@ interface TemplateFormProps {
   initialValues?: Partial<TemplateResponse>;
   /** true se editando um template existente (modo edição). */
   isEdit?: boolean;
-  onSubmit: (data: TemplateCreateForm | TemplateUpdateForm) => void;
+  /** F5-S15 — onSubmit agora aceita sampleFile quando headerType=document/image. */
+  onSubmit: (data: TemplateCreateForm | TemplateUpdateForm, sampleFile: File | null) => void;
   isPending?: boolean;
   /** Erro do servidor para exibir no form. */
   serverError?: string | null;
@@ -131,6 +138,14 @@ export function TemplateForm({
 }: TemplateFormProps): React.JSX.Element {
   const schema = isEdit ? TemplateUpdateFormSchema : TemplateCreateFormSchema;
 
+  // F5-S15 — Gate de feature flag para mídia em templates
+  const { enabled: mediaEnabled, isLoading: mediaFlagLoading } =
+    useFeatureFlag('templates.media.enabled');
+
+  // F5-S15 — Estado do arquivo de amostra (document/image) para upload
+  const [sampleFile, setSampleFile] = React.useState<File | null>(null);
+  const [fileError, setFileError] = React.useState<string | null>(null);
+
   // Justificativa do `as`: schema é discriminado por isEdit — tipo safe em runtime.
   const {
     register,
@@ -146,16 +161,29 @@ export function TemplateForm({
       language: initialValues?.language ?? 'pt_BR',
       body: initialValues?.body ?? '',
       variables: initialValues?.variables ?? [],
+      headerType: initialValues?.headerType ?? 'none',
+      headerText: initialValues?.headerText ?? undefined,
     },
   });
 
   const watchedBody = watch('body') ?? '';
   const watchedVariables = watch('variables') ?? [];
+  const watchedHeaderType = watch('headerType') ?? 'none';
+  const watchedHeaderText = watch('headerText') ?? '';
 
   return (
     <form
       onSubmit={(e) => {
-        void handleSubmit(onSubmit)(e);
+        e.preventDefault();
+        void handleSubmit((data) => {
+          // F5-S15 — Valida que arquivo está presente quando requerido
+          const headerType = data.headerType ?? 'none';
+          if ((headerType === 'document' || headerType === 'image') && !sampleFile) {
+            setFileError('Arquivo de amostra é obrigatório para este tipo de cabeçalho.');
+            return;
+          }
+          onSubmit(data, sampleFile);
+        })();
       }}
       className="flex flex-col gap-6"
       noValidate
@@ -277,8 +305,140 @@ export function TemplateForm({
         </p>
       </div>
 
+      {/* F5-S15 — Cabeçalho do template */}
+      <div
+        className="p-4 rounded-md border"
+        style={{
+          background: 'var(--bg-elev-2)',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <h3
+          className="font-sans font-semibold mb-3"
+          style={{ fontSize: 'var(--text-base)', color: 'var(--text)' }}
+        >
+          Cabeçalho (header)
+        </h3>
+
+        {/* Seletor de tipo de cabeçalho */}
+        <div className="mb-4">
+          <FieldLabel htmlFor="template-headerType">Tipo de cabeçalho</FieldLabel>
+          <select
+            id="template-headerType"
+            className="w-full px-3 py-2 rounded-sm border font-sans text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              borderColor: 'var(--border-strong)',
+              background: 'var(--bg-elev-1)',
+              color: 'var(--text)',
+              boxShadow: 'inset 0 1px 2px var(--border-inner-dark)',
+              fontSize: 'var(--text-sm)',
+            }}
+            {...register('headerType')}
+            disabled={mediaFlagLoading}
+          >
+            <option value="none">Sem cabeçalho</option>
+            <option value="text">Texto</option>
+            {mediaEnabled && <option value="document">Documento (PDF)</option>}
+            {mediaEnabled && <option value="image">Imagem (JPG/PNG)</option>}
+          </select>
+          {!mediaEnabled && !mediaFlagLoading && (
+            <p className="mt-1 font-sans text-xs" style={{ color: 'var(--text-4)' }}>
+              💡 Opções de mídia (documento/imagem) disponíveis em breve.
+            </p>
+          )}
+        </div>
+
+        {/* Campo condicional: headerText */}
+        {watchedHeaderType === 'text' && (
+          <div>
+            <FieldLabel htmlFor="template-headerText" required>
+              Texto do cabeçalho
+            </FieldLabel>
+            <FieldInput
+              id="template-headerText"
+              placeholder="ex: Banco do Povo — Crédito Rural"
+              maxLength={60}
+              {...(errors.headerText?.message ? { error: errors.headerText.message } : {})}
+              {...register('headerText')}
+            />
+            <p className="mt-1 font-sans text-xs" style={{ color: 'var(--text-4)' }}>
+              Máximo 60 caracteres. Não pode conter CPF, e-mail ou telefone.
+            </p>
+          </div>
+        )}
+
+        {/* Campo condicional: upload de amostra */}
+        {mediaEnabled && (watchedHeaderType === 'document' || watchedHeaderType === 'image') && (
+          <div>
+            <FieldLabel htmlFor="template-sampleFile" required>
+              Arquivo de amostra {watchedHeaderType === 'document' ? '(PDF)' : '(JPG/PNG)'}
+            </FieldLabel>
+            <input
+              type="file"
+              id="template-sampleFile"
+              accept={watchedHeaderType === 'document' ? '.pdf' : 'image/jpeg,image/png'}
+              className="w-full px-3 py-2 rounded-sm border font-sans text-sm focus:outline-none"
+              style={{
+                borderColor: fileError ? 'var(--danger)' : 'var(--border-strong)',
+                background: 'var(--bg-elev-1)',
+                color: 'var(--text)',
+                boxShadow: fileError
+                  ? 'inset 0 1px 2px var(--border-inner-dark), 0 0 0 3px rgba(200,52,31,0.12)'
+                  : 'inset 0 1px 2px var(--border-inner-dark)',
+                fontSize: 'var(--text-sm)',
+              }}
+              onChange={(e) => {
+                // Validação client-side apenas para UX (feedback imediato).
+                // O backend revalida MIME, tamanho e feature gate — esta camada não é de segurança.
+                const file = e.target.files?.[0];
+                setFileError(null);
+                if (!file) {
+                  setSampleFile(null);
+                  return;
+                }
+                // Validação de MIME
+                const allowedMimes =
+                  watchedHeaderType === 'document'
+                    ? ['application/pdf']
+                    : ['image/jpeg', 'image/png'];
+                if (!allowedMimes.includes(file.type)) {
+                  setFileError(`Tipo de arquivo inválido. Esperado: ${allowedMimes.join(', ')}`);
+                  setSampleFile(null);
+                  return;
+                }
+                // Validação de tamanho (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                  setFileError('Arquivo muito grande. Máximo: 5MB.');
+                  setSampleFile(null);
+                  return;
+                }
+                setSampleFile(file);
+              }}
+            />
+            {fileError && (
+              <p className="mt-1 font-sans text-xs" style={{ color: 'var(--danger)' }} role="alert">
+                {fileError}
+              </p>
+            )}
+            {sampleFile && (
+              <p className="mt-1 font-sans text-xs" style={{ color: 'var(--success)' }}>
+                ✓ {sampleFile.name} ({(sampleFile.size / 1024).toFixed(1)} KB)
+              </p>
+            )}
+            <p className="mt-1 font-sans text-xs" style={{ color: 'var(--text-4)' }}>
+              Máximo 5MB. Esta amostra será enviada ao WhatsApp para aprovação do template.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Preview */}
-      <TemplatePreview body={watchedBody} variables={watchedVariables} />
+      <TemplatePreview
+        body={watchedBody}
+        variables={watchedVariables}
+        headerType={watchedHeaderType as TemplateHeaderType}
+        headerText={watchedHeaderText}
+      />
 
       {/* Variáveis */}
       <div>

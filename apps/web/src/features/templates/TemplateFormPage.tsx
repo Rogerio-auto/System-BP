@@ -26,11 +26,15 @@ export function TemplateFormPage(): React.JSX.Element {
     },
   });
 
-  const handleSubmit = (data: TemplateCreateForm | TemplateUpdateForm): void => {
+  const handleSubmit = (
+    data: TemplateCreateForm | TemplateUpdateForm,
+    sampleFile: File | null,
+  ): void => {
     setServerError(null);
     // This page is always creation mode — data always contains 'name'.
     // The union is required by TemplateForm's onSubmit signature.
-    createTemplate(data as TemplateCreateForm);
+    // F5-S15 — passa sampleFile para o hook.
+    createTemplate(data as TemplateCreateForm, sampleFile);
   };
 
   return (
