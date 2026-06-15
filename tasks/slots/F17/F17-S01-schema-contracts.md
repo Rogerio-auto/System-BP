@@ -3,13 +3,13 @@ id: F17-S01
 title: Schema — entidade `contracts` + migração `contract_reference` → `contract_id`
 phase: F17
 task_ref: null
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-15T19:30:22Z
 completed_at: 2026-06-15T19:35:50Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/233
 depends_on: []
 blocks: [F17-S02, F17-S03, F17-S04, F17-S07, F17-S09]
 labels: [contracts, schema, lgpd]
