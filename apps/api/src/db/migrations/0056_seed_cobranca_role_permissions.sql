@@ -44,7 +44,7 @@
 -- clientes independentemente da cidade — não há city-scope neste role.
 -- ---------------------------------------------------------------------------
 
-INSERT INTO "roles" ("key", "name", "scope")
+INSERT INTO "roles" ("key", "label", "scope")
 VALUES (
   'cobranca',
   'Cobrança',
