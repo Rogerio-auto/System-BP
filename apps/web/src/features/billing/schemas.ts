@@ -1,5 +1,5 @@
 // =============================================================================
-// features/billing/schemas.ts — Schemas Zod frontend para cobrança (F5-S08).
+// features/billing/schemas.ts — Schemas Zod frontend para cobrança (F5-S08, F5-S16).
 //
 // Espelha contratos do backend para validação client-side com RHF.
 //
@@ -7,6 +7,8 @@
 //   - PaymentDueResponse não expõe CPF — vínculo via customer_id.
 //   - customer_name: apenas primeiro nome (backend retorna split_part).
 //   - CollectionJobResponse não expõe PII direta.
+//   - BoletoResponse inclui campos PII indiretos (url, linha, pix) — nunca
+//     logar, não persistir em localStorage. Exposto apenas via endpoint dedicado.
 // =============================================================================
 import { z } from 'zod';
 
@@ -81,6 +83,10 @@ export interface PaymentDueResponse {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // Boleto (F5-S16) — indicadores sem PII.
+  // Detalhes (url, linha, pix) ficam no BoletoResponse via endpoint dedicado.
+  has_boleto: boolean;
+  boleto_filename: string | null;
 }
 
 export interface PaymentDuesListResponse {
@@ -196,3 +202,71 @@ export const TRIGGER_TYPE_LABEL: Record<CollectionTriggerType, string> = {
 export const CANCELLABLE_JOB_STATUSES: CollectionJobStatus[] = ['scheduled'];
 
 export const MARKABLE_DUE_STATUSES: PaymentDueStatus[] = ['pending', 'overdue'];
+
+// ---------------------------------------------------------------------------
+// Boleto schemas (F5-S16)
+//
+// Espelha BoletoAttachReferenceBodySchema + BoletoResponseSchema do backend.
+//
+// LGPD §14.2: boleto_url / boleto_digitable_line / pix_copia_cola são PII
+//   indireta. Nunca logar, nunca persistir em localStorage.
+// ---------------------------------------------------------------------------
+
+/**
+ * Form schema para modo referência (URL + linha digitável + PIX).
+ * Espelha BoletoAttachReferenceBodySchema do backend (F5-S13).
+ * Requer ao menos um dos três campos.
+ */
+export const BoletoReferenceFormSchema = z
+  .object({
+    boletoUrl: z
+      .string()
+      .url('URL inválida')
+      .max(2048, 'URL muito longa')
+      .refine((u) => u.startsWith('https://'), 'A URL deve usar https://')
+      .optional()
+      .or(z.literal('')),
+    digitableLine: z.string().max(200, 'Linha digitável muito longa').optional().or(z.literal('')),
+    pixCopiaCola: z.string().max(1000, 'PIX muito longo').optional().or(z.literal('')),
+    filename: z
+      .string()
+      .max(255, 'Nome muito longo')
+      .regex(/^[^/\\<>:"|?*]+$/, 'Nome contém caracteres inválidos')
+      .optional()
+      .or(z.literal('')),
+  })
+  .refine(
+    (b) => {
+      const hasUrl = Boolean(b.boletoUrl);
+      const hasLine = Boolean(b.digitableLine);
+      const hasPix = Boolean(b.pixCopiaCola);
+      return hasUrl || hasLine || hasPix;
+    },
+    { message: 'Preencha ao menos URL, linha digitável ou PIX copia-e-cola' },
+  );
+
+export type BoletoReferenceForm = z.infer<typeof BoletoReferenceFormSchema>;
+
+/**
+ * Resposta do endpoint POST/DELETE /payment-dues/:id/boleto.
+ * LGPD: boleto_url / boleto_digitable_line / pix_copia_cola nunca devem ir
+ * para localStorage, logs ou estado persistido fora do componente.
+ */
+export interface BoletoResponse {
+  payment_due_id: string;
+  boleto_url: string | null;
+  boleto_media_id: string | null;
+  boleto_media_expires_at: string | null;
+  boleto_digitable_line: string | null;
+  pix_copia_cola: string | null;
+  boleto_filename: string | null;
+  boleto_attached_at: string | null;
+  has_boleto: boolean;
+}
+
+/** Tamanho máximo de upload (10 MB — espelha o backend). */
+export const BOLETO_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+/** Tipos MIME aceitos para upload. */
+export const BOLETO_ACCEPTED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'] as const;
+export type BoletoAcceptedMimeType = (typeof BOLETO_ACCEPTED_MIME_TYPES)[number];

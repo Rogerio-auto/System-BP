@@ -1,5 +1,5 @@
 // =============================================================================
-// billing.test.ts — Testes de lógica pura do módulo de cobrança (F5-S08).
+// billing.test.ts — Testes de lógica pura do módulo de cobrança (F5-S08, F5-S16).
 //
 // Estratégia: pure logic sem render React (espelha followup.test.ts).
 //
@@ -13,12 +13,18 @@
 //   7. CollectionJobStatusSchema — validação Zod
 //   8. CollectionRuleFormSchema — validação Zod completa
 //   9. BILLING_KEYS — query keys canônicas
+//  10. BoletoReferenceFormSchema — validação Zod do form de referência (F5-S16)
+//  11. BOLETO_MAX_FILE_SIZE_BYTES — constante de limite de upload
+//  12. BOLETO_ACCEPTED_MIME_TYPES — tipos aceitos
 // =============================================================================
 
 import { describe, expect, it } from 'vitest';
 
 import { BILLING_KEYS } from '../hooks/useBilling';
 import {
+  BOLETO_ACCEPTED_MIME_TYPES,
+  BOLETO_MAX_FILE_SIZE_BYTES,
+  BoletoReferenceFormSchema,
   CANCELLABLE_JOB_STATUSES,
   CollectionJobStatusSchema,
   CollectionRuleFormSchema,
@@ -301,5 +307,128 @@ describe('BILLING_KEYS', () => {
     const k1 = BILLING_KEYS.jobsList({ status: 'scheduled' });
     const k2 = BILLING_KEYS.jobsList({ status: 'sent' });
     expect(JSON.stringify(k1)).not.toBe(JSON.stringify(k2));
+  });
+});
+
+// ─── BoletoReferenceFormSchema (F5-S16) ──────────────────────────────────────
+
+describe('BoletoReferenceFormSchema', () => {
+  it('aceita apenas URL válida', () => {
+    const result = BoletoReferenceFormSchema.safeParse({
+      boletoUrl: 'https://banco.exemplo.com.br/boleto/123',
+      digitableLine: '',
+      pixCopiaCola: '',
+      filename: '',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita apenas linha digitável', () => {
+    const result = BoletoReferenceFormSchema.safeParse({
+      boletoUrl: '',
+      digitableLine: '00190.000090 01234.567891',
+      pixCopiaCola: '',
+      filename: '',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita apenas PIX copia-e-cola', () => {
+    const result = BoletoReferenceFormSchema.safeParse({
+      boletoUrl: '',
+      digitableLine: '',
+      pixCopiaCola: '00020126580014BR.GOV.BCB.PIX',
+      filename: '',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita quando todos os campos são vazios', () => {
+    const result = BoletoReferenceFormSchema.safeParse({
+      boletoUrl: '',
+      digitableLine: '',
+      pixCopiaCola: '',
+      filename: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita URL com http:// (requer https)', () => {
+    const result = BoletoReferenceFormSchema.safeParse({
+      boletoUrl: 'http://banco.exemplo.com.br/boleto/123',
+      digitableLine: '',
+      pixCopiaCola: '',
+      filename: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita URL inválida', () => {
+    const result = BoletoReferenceFormSchema.safeParse({
+      boletoUrl: 'nao-e-url',
+      digitableLine: '',
+      pixCopiaCola: '',
+      filename: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejeita filename com caracteres inválidos', () => {
+    const result = BoletoReferenceFormSchema.safeParse({
+      boletoUrl: '',
+      digitableLine: '00190.000090',
+      pixCopiaCola: '',
+      filename: '../../../etc/passwd',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('aceita filename válido', () => {
+    const result = BoletoReferenceFormSchema.safeParse({
+      boletoUrl: '',
+      digitableLine: '00190.000090',
+      pixCopiaCola: '',
+      filename: 'boleto-parcela-3.pdf',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita digitableLine acima de 200 chars', () => {
+    const result = BoletoReferenceFormSchema.safeParse({
+      boletoUrl: '',
+      digitableLine: 'x'.repeat(201),
+      pixCopiaCola: '',
+      filename: '',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ─── BOLETO_MAX_FILE_SIZE_BYTES ───────────────────────────────────────────────
+
+describe('BOLETO_MAX_FILE_SIZE_BYTES', () => {
+  it('deve ser exatamente 10 MB', () => {
+    expect(BOLETO_MAX_FILE_SIZE_BYTES).toBe(10 * 1024 * 1024);
+  });
+});
+
+// ─── BOLETO_ACCEPTED_MIME_TYPES ───────────────────────────────────────────────
+
+describe('BOLETO_ACCEPTED_MIME_TYPES', () => {
+  it('inclui application/pdf', () => {
+    expect(BOLETO_ACCEPTED_MIME_TYPES).toContain('application/pdf');
+  });
+
+  it('inclui image/jpeg', () => {
+    expect(BOLETO_ACCEPTED_MIME_TYPES).toContain('image/jpeg');
+  });
+
+  it('inclui image/png', () => {
+    expect(BOLETO_ACCEPTED_MIME_TYPES).toContain('image/png');
+  });
+
+  it('não aceita outros tipos', () => {
+    expect(BOLETO_ACCEPTED_MIME_TYPES).not.toContain('application/zip');
+    expect(BOLETO_ACCEPTED_MIME_TYPES).not.toContain('text/plain');
   });
 });
