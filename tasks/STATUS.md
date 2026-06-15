@@ -14,7 +14,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F12  | 13    | 0   | 1   | 0   | 0   | 0   | 12  |
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
-| F15  | 12    | 1   | 1   | 0   | 0   | 8   | 2   |
+| F15  | 12    | 0   | 1   | 0   | 0   | 9   | 2   |
 | F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
 | F17  | 10    | 2   | 2   | 0   | 0   | 6   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
@@ -149,20 +149,20 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 15 —
 
-| ID      | Título                                                                          | Status       | Prioridade | Depende de                         |
-| ------- | ------------------------------------------------------------------------------- | ------------ | ---------- | ---------------------------------- |
-| F15-S01 | Schema — role `cobranca` global + permissões de cobrança/tarefas/notificações   | ✅ done      | high       | —                                  |
-| F15-S02 | Schema — status SPC dedicado em `customers`                                     | 🟣 review    | high       | —                                  |
-| F15-S03 | Schema — tabelas `tasks`, `notifications`, `notification_preferences`           | ✅ done      | high       | —                                  |
-| F15-S04 | Contratos compartilhados — tarefas, notificações, SPC, dashboard cobrança       | 🟣 review    | high       | F15-S03                            |
-| F15-S05 | Backend — módulo de tarefas (CRUD + assumir + concluir + "minhas tarefas")      | 🟣 review    | high       | F15-S01, F15-S03, F15-S04          |
-| F15-S06 | Backend — notificações in-app + fan-out por canal (email/WhatsApp)              | 🟣 review    | high       | F15-S01, F15-S03, F15-S04, F15-S05 |
-| F15-S07 | Backend — service de status SPC (transições + auditoria)                        | 🟣 review    | medium     | F15-S01, F15-S02, F15-S04          |
-| F15-S08 | Backend — worker de inadimplência 15d → cria tarefa SPC + evento de notificação | 🟣 review    | medium     | F15-S05, F15-S06, F15-S07          |
-| F15-S09 | Backend — métricas do dashboard de cobrança                                     | 🟣 review    | medium     | F15-S01, F15-S02, F15-S04          |
-| F15-S10 | Frontend — painel de tarefas + badge de notificações no header                  | 🟢 available | high       | F15-S04, F15-S05, F15-S06          |
-| F15-S11 | Frontend — dashboard de cobrança + tag/ação de SPC                              | 🟣 review    | medium     | F15-S04, F15-S07, F15-S09          |
-| F15-S12 | Importar relatório de baixa — conciliação CPF + nº da parcela (BLOCKED — D10)   | ⏸️ blocked   | medium     | —                                  |
+| ID      | Título                                                                          | Status     | Prioridade | Depende de                         |
+| ------- | ------------------------------------------------------------------------------- | ---------- | ---------- | ---------------------------------- |
+| F15-S01 | Schema — role `cobranca` global + permissões de cobrança/tarefas/notificações   | ✅ done    | high       | —                                  |
+| F15-S02 | Schema — status SPC dedicado em `customers`                                     | 🟣 review  | high       | —                                  |
+| F15-S03 | Schema — tabelas `tasks`, `notifications`, `notification_preferences`           | ✅ done    | high       | —                                  |
+| F15-S04 | Contratos compartilhados — tarefas, notificações, SPC, dashboard cobrança       | 🟣 review  | high       | F15-S03                            |
+| F15-S05 | Backend — módulo de tarefas (CRUD + assumir + concluir + "minhas tarefas")      | 🟣 review  | high       | F15-S01, F15-S03, F15-S04          |
+| F15-S06 | Backend — notificações in-app + fan-out por canal (email/WhatsApp)              | 🟣 review  | high       | F15-S01, F15-S03, F15-S04, F15-S05 |
+| F15-S07 | Backend — service de status SPC (transições + auditoria)                        | 🟣 review  | medium     | F15-S01, F15-S02, F15-S04          |
+| F15-S08 | Backend — worker de inadimplência 15d → cria tarefa SPC + evento de notificação | 🟣 review  | medium     | F15-S05, F15-S06, F15-S07          |
+| F15-S09 | Backend — métricas do dashboard de cobrança                                     | 🟣 review  | medium     | F15-S01, F15-S02, F15-S04          |
+| F15-S10 | Frontend — painel de tarefas + badge de notificações no header                  | 🟣 review  | high       | F15-S04, F15-S05, F15-S06          |
+| F15-S11 | Frontend — dashboard de cobrança + tag/ação de SPC                              | 🟣 review  | medium     | F15-S04, F15-S07, F15-S09          |
+| F15-S12 | Importar relatório de baixa — conciliação CPF + nº da parcela (BLOCKED — D10)   | ⏸️ blocked | medium     | —                                  |
 
 ## Fase 16 —
 
