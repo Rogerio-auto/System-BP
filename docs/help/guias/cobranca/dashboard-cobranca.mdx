@@ -1,0 +1,128 @@
+---
+title: Dashboard de cobrança
+description: Como visualizar a carteira de cobrança, interpretar os 5 segmentos de parcelas e registrar ações de SPC para clientes inadimplentes.
+order: 50
+keywords: [dashboard, cobranca, cobrança, carteira, spc, parcelas, vencidas, inadimplentes, inclusao, remocao]
+---
+
+# Dashboard de cobrança
+
+Use este guia quando você precisar ter uma visão consolidada da carteira de cobrança — quantas parcelas estão vencendo, quantas estão em atraso ou em processo de cobrança, e quais clientes estão incluídos no SPC.
+
+<Callout type="info" title="Quem pode usar">
+  O dashboard de cobrança está disponível para usuários com o papel de **Cobrança** ou **Gestor**.
+  O módulo de Cobrança deve estar liberado pelo administrador.
+</Callout>
+
+## Os 5 segmentos da carteira
+
+O dashboard exibe 5 cards, cada um representando um grupo de parcelas em situações diferentes:
+
+| Segmento | O que representa |
+|---|---|
+| Vencendo em breve | Parcelas que vencem nos próximos 7 dias — alerta preventivo |
+| Vencidas sem cobrança | Parcelas vencidas que ainda não têm job de cobrança ativo |
+| Em cobrança ativa | Parcelas com job de cobrança em andamento |
+| Inadimplentes 15+ dias | Parcelas com 15 ou mais dias de atraso — candidatas ao SPC |
+| Clientes no SPC | Clientes com status SPC registrado como incluído |
+
+Cada card mostra o **valor total do segmento** (em reais) e a **quantidade de registros**. Quando um segmento está vazio, o card indica "Nenhum registro".
+
+## Filtrar por cidade
+
+Se você tem acesso a mais de uma cidade, o filtro de cidade aparece no canto superior direito do dashboard.
+
+<Step number={1}>
+  **Localize o seletor de cidade**
+
+  O dropdown "Todas as cidades" fica visível apenas quando seu perfil tem acesso a múltiplas cidades.
+</Step>
+
+<Step number={2}>
+  **Selecione a cidade**
+
+  Escolha a cidade desejada. Os 5 cards atualizam automaticamente para mostrar apenas os dados daquela cidade.
+</Step>
+
+<Step number={3}>
+  **Volte para a visão consolidada**
+
+  Selecione "Todas as cidades" no dropdown para ver os totais consolidados de todas as cidades do seu escopo.
+</Step>
+
+## Ações de SPC
+
+O SPC (Serviço de Proteção ao Crédito) pode ser usado para clientes com dívidas não regularizadas. O avanço do status exige a permissão **spc:manage** — usuários com papel apenas de cobrança podem visualizar, mas não avançar o status.
+
+### Como funciona o ciclo de status SPC
+
+O status SPC de um cliente segue esta sequência:
+
+1. **Sem SPC** — situação inicial, sem restrição registrada.
+2. **Pendente de inclusão** — solicitação aberta, aguardando confirmação.
+3. **Incluído no SPC** — restrição registrada no serviço.
+4. **Removido do SPC** — restrição encerrada após regularização.
+
+Um cliente removido pode ser reincluído caso a dívida não seja regularizada.
+
+### Avançar o status SPC de um cliente
+
+<Step number={1}>
+  **Localize o cliente**
+
+  Acesse a ficha do cliente pelo módulo CRM. O status SPC atual aparece como um badge colorido próximo ao nome.
+
+  <Callout type="warn" title="Permissão necessária">
+    O botão de ação SPC só aparece para usuários com a permissão **spc:manage**.
+    Se você não vê o botão, contate o gestor ou administrador.
+  </Callout>
+</Step>
+
+<Step number={2}>
+  **Clique no botão de ação**
+
+  O botão exibe a ação disponível para o status atual:
+  - Status "Sem SPC" mostra: **Solicitar inclusão no SPC**
+  - Status "Pendente de inclusão" mostra: **Confirmar inclusão** e **Cancelar solicitação**
+  - Status "Incluído no SPC" mostra: **Solicitar remoção do SPC**
+  - Status "Removido do SPC" mostra: **Solicitar inclusão no SPC** (reinclusão)
+</Step>
+
+<Step number={3}>
+  **Confirme a ação no modal**
+
+  Um modal de confirmação descreve a ação e o próximo estado. Leia com atenção antes de confirmar — a ação é registrada no histórico de cobrança.
+</Step>
+
+<Step number={4}>
+  **Aguarde a confirmação**
+
+  O sistema registra a mudança de status e atualiza o dashboard automaticamente. O card "Clientes no SPC" reflete a nova contagem na próxima atualização.
+</Step>
+
+## Erros comuns
+
+### O dashboard não carrega
+
+**Causa:** problema de conectividade ou permissão insuficiente.
+
+**Solução:** verifique se o módulo Cobrança está liberado para sua organização. Se a mensagem for "Sem permissão", contate o administrador. Caso contrário, use o botão **Tentar novamente** que aparece na mensagem de erro.
+
+### O filtro de cidade não aparece
+
+**Causa:** seu perfil tem acesso a apenas uma cidade.
+
+**Solução:** o filtro é exibido somente quando há duas ou mais cidades no escopo do usuário. Se precisar de acesso a outras cidades, solicite ao administrador.
+
+### O botão de ação SPC não aparece
+
+**Causa:** o usuário não tem a permissão `spc:manage`.
+
+**Solução:** solicite ao gestor ou administrador que conceda a permissão necessária. Usuários com papel apenas de cobrança podem visualizar o status, mas não alterá-lo.
+
+## Veja também
+
+- [Monitorar jobs de cobrança](/ajuda/guias/cobranca/monitorar-jobs) — acompanhe as mensagens automáticas enviadas.
+- [Registrar e gerenciar parcelas](/ajuda/guias/cobranca/registrar-parcelas) — entenda o ciclo de vida das parcelas.
+- [Configurar uma régua de cobrança](/ajuda/guias/cobranca/configurar-reguas) — automatize o processo de cobrança.
+- [Papéis e cidades](/ajuda/conceitos/papeis-e-cidades) — entenda quem pode fazer o quê.
