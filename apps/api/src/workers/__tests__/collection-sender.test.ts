@@ -310,6 +310,37 @@ function makeMetaClient() {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: mock de response.body usando ReadableStream (para downloadBoletoBytes)
+// ---------------------------------------------------------------------------
+/**
+ * Cria um mock de Response compatível com a leitura via ReadableStream
+ * que downloadBoletoBytes agora usa internamente.
+ *
+ * @param bytes - Conteúdo total do "corpo" a retornar (como Uint8Array)
+ * @param contentLength - Se fornecido, popula o header content-length
+ */
+function makeFetchResponseWithBody(bytes: Uint8Array, contentLength?: number) {
+  const reader = {
+    read: vi
+      .fn()
+      .mockResolvedValueOnce({ done: false, value: bytes })
+      .mockResolvedValueOnce({ done: true, value: undefined }),
+    cancel: vi.fn().mockResolvedValue(undefined),
+    releaseLock: vi.fn(),
+  };
+
+  return {
+    ok: true,
+    status: 200,
+    headers: {
+      get: (name: string) =>
+        name === 'content-length' && contentLength !== undefined ? String(contentLength) : null,
+    },
+    body: { getReader: () => reader },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Helper: db mock para processCollectionJob
 // ---------------------------------------------------------------------------
 /**
@@ -644,11 +675,8 @@ describe('collection-sender', () => {
       });
       mockIsFlagEnabled.mockResolvedValue({ enabled: true, status: 'enabled' });
 
-      // Mock fetch para download
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(100)),
-      });
+      // Mock fetch para download (100 bytes, sem content-length)
+      mockFetch.mockResolvedValueOnce(makeFetchResponseWithBody(new Uint8Array(100)));
 
       // Mock uploadMedia
       mockUploadMedia.mockResolvedValueOnce({ mediaId: 'new-media-id-xyz' });
@@ -692,6 +720,151 @@ describe('collection-sender', () => {
       );
 
       expect(result.kind).toBe('missing');
+    });
+
+    // --- GAP-1: redirect:error ---
+
+    it('GAP-1: redirect 3xx → resolveMediaHeader lança ExternalServiceError (não segue redirect)', async () => {
+      const ctx = makeCtx({
+        templateHeaderType: 'document',
+        boletoMediaId: 'old-media-id',
+        boletoMediaExpiresAt: new Date(Date.now() - 1000), // expirado → vai tentar re-upload
+        boletoUrl: 'https://boletos.bdp.ro.gov.br/boleto.pdf',
+      });
+      mockIsFlagEnabled.mockResolvedValue({ enabled: true, status: 'enabled' });
+
+      // fetch com redirect:'error' lança TypeError para respostas 3xx —
+      // o ExternalServiceError é propagado sem ser engolido por resolveMediaHeader.
+      mockFetch.mockRejectedValueOnce(
+        Object.assign(new TypeError('redirect was not allowed'), { name: 'TypeError' }),
+      );
+
+      const db = makeDbForProcess({ ctx });
+      await expect(
+        resolveMediaHeader(db as never, ctx, makeMetaClient() as never, mockLogger),
+      ).rejects.toBeInstanceOf(ExternalServiceError);
+    });
+
+    it('GAP-1: processCollectionJob com redirect → outcome=failed, sem envio Meta', async () => {
+      // Testa o caminho completo: falha de rede no re-upload → job failed
+      setFlagsAllOn(true);
+      const ctx = makeCtx({
+        templateHeaderType: 'document',
+        boletoMediaId: 'expired-media',
+        boletoMediaExpiresAt: new Date(Date.now() - 1000), // expirado
+        boletoUrl: 'https://boletos.bdp.ro.gov.br/boleto.pdf',
+      });
+      const db = makeDbForProcess({ ctx, lockResult: [{ id: JOB_ID }] });
+      const job = makeJob();
+
+      // redirect:'error' lança TypeError — NÃO deve seguir nenhum redirect
+      mockFetch.mockRejectedValueOnce(
+        Object.assign(new TypeError('redirect was not allowed'), { name: 'TypeError' }),
+      );
+
+      const result = await processCollectionJob(
+        db as never,
+        makeMetaClient() as never,
+        job,
+        false,
+        mockLogger,
+      );
+
+      // Falha de rede no re-upload → outcome failed, sem envio para Meta
+      expect(result.outcome).toBe('failed');
+      expect(mockSendTemplate).not.toHaveBeenCalled();
+    });
+
+    // --- GAP-2: cap de tamanho ---
+
+    it('GAP-2: content-length acima do teto → rejeita antes de baixar o corpo', async () => {
+      setFlagsAllOn(true);
+      const ctx = makeCtx({
+        templateHeaderType: 'document',
+        boletoMediaId: 'expired-for-size-test',
+        boletoMediaExpiresAt: new Date(Date.now() - 1000), // expirado → re-upload
+        boletoUrl: 'https://boletos.bdp.ro.gov.br/boleto.pdf',
+      });
+      const db = makeDbForProcess({ ctx, lockResult: [{ id: JOB_ID }] });
+      const job = makeJob();
+
+      // 11 MB declarado no Content-Length — acima do teto de 10 MB
+      const ELEVEN_MB = 11 * 1024 * 1024;
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name: string) => (name === 'content-length' ? String(ELEVEN_MB) : null),
+        },
+        body: null, // body nunca deve ser lido
+        arrayBuffer: vi.fn().mockRejectedValue(new Error('não deveria ser chamado')),
+      });
+
+      const result = await processCollectionJob(
+        db as never,
+        makeMetaClient() as never,
+        job,
+        false,
+        mockLogger,
+      );
+
+      // Deve falhar por tamanho, sem chamar a Meta
+      expect(result.outcome).toBe('failed');
+      expect(mockSendTemplate).not.toHaveBeenCalled();
+      expect(mockUploadMedia).not.toHaveBeenCalled();
+    });
+
+    it('GAP-2: corpo acima do teto sem content-length confiável → rejeita via streaming', async () => {
+      setFlagsAllOn(true);
+      const ctx = makeCtx({
+        templateHeaderType: 'document',
+        boletoMediaId: 'expired-stream-test',
+        boletoMediaExpiresAt: new Date(Date.now() - 1000), // expirado → re-upload
+        boletoUrl: 'https://boletos.bdp.ro.gov.br/boleto.pdf',
+      });
+      const db = makeDbForProcess({ ctx, lockResult: [{ id: JOB_ID }] });
+      const job = makeJob();
+
+      // 11 MB em dois chunks — sem content-length (ou content-length omitido)
+      const CHUNK_SIZE = 6 * 1024 * 1024; // 6 MB cada chunk → total 12 MB
+      const chunk = new Uint8Array(CHUNK_SIZE);
+      let callCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(async () => {
+          callCount++;
+          if (callCount === 1) return { done: false, value: chunk };
+          if (callCount === 2) return { done: false, value: chunk }; // ultrapassa 10MB
+          return { done: true, value: undefined };
+        }),
+        cancel: vi.fn().mockResolvedValue(undefined),
+        releaseLock: vi.fn(),
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (_name: string) => null, // sem content-length
+        },
+        body: {
+          getReader: () => mockReader,
+        },
+      });
+
+      const result = await processCollectionJob(
+        db as never,
+        makeMetaClient() as never,
+        job,
+        false,
+        mockLogger,
+      );
+
+      // Deve falhar por tamanho detectado durante streaming
+      expect(result.outcome).toBe('failed');
+      expect(mockSendTemplate).not.toHaveBeenCalled();
+      expect(mockUploadMedia).not.toHaveBeenCalled();
+      // O reader.cancel deve ter sido chamado para liberar o stream
+      expect(mockReader.cancel).toHaveBeenCalledWith('boleto_too_large');
     });
 
     it('template image → header image por id', async () => {
@@ -1031,11 +1204,8 @@ describe('collection-sender', () => {
       const db = makeDbForProcess({ ctx });
       const job = makeJob();
 
-      // Mock download
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(200)),
-      });
+      // Mock download (200 bytes, sem content-length)
+      mockFetch.mockResolvedValueOnce(makeFetchResponseWithBody(new Uint8Array(200)));
       // Mock uploadMedia
       mockUploadMedia.mockResolvedValueOnce({ mediaId: 'new-fresh-media-id' });
       // Mock sendTemplate

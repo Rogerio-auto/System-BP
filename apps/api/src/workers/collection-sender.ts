@@ -106,6 +106,15 @@ const BACKOFF_MAX_MS = 24 * 60 * 60 * 1000; // 24 horas
  */
 const BOLETO_REUPLOAD_TIMEOUT_MS = 30_000; // 30s para download do boleto_url
 
+/**
+ * Teto máximo de bytes aceito no download do boleto para re-upload.
+ * Mesmo limite usado no upload (10 MB). Aplicado em duas camadas:
+ *   (a) Content-Length header — rejeita antes de baixar o corpo.
+ *   (b) Leitura via stream — aborta assim que acumular mais que o teto,
+ *       defendendo contra content-length ausente ou mentiroso.
+ */
+const BOLETO_MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+
 function sleep(ms: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
@@ -553,12 +562,19 @@ export async function resolveMediaHeader(
 /**
  * Faz download dos bytes do boleto a partir de boleto_url.
  *
- * SSRF: a URL já foi validada por assertBoletoUrlAllowed() antes desta chamada.
- * Timeout: BOLETO_REUPLOAD_TIMEOUT_MS (30s).
+ * SSRF (GAP-1 fix): redirect:'error' — qualquer resposta 3xx lança TypeError
+ * imediatamente, impedindo que um host na allowlist redirecione para endereços
+ * internos/cloud-metadata (SSRF via redirect). O catch já converte em
+ * ExternalServiceError retryável.
  *
- * Erros de rede são lançados como ExternalServiceError (retryáveis pelo caller).
+ * DoS de memória (GAP-2 fix): teto de BOLETO_MAX_DOWNLOAD_BYTES em duas camadas:
+ *   (a) Content-Length presente e acima do teto → rejeita antes de ler o corpo.
+ *   (b) Leitura via ReadableStream — aborta assim que os bytes acumulados
+ *       ultrapassam o teto, defendendo contra content-length ausente/mentiroso.
  *
- * LGPD §8.3: a URL nunca é logada. Logs usam apenas flags booleanas.
+ * Timeout: BOLETO_REUPLOAD_TIMEOUT_MS (30s) via AbortController.
+ *
+ * LGPD §8.3: a URL nunca é logada. Logs usam apenas flags booleanas/tamanhos.
  */
 async function downloadBoletoBytes(boletoUrl: string): Promise<Buffer> {
   const controller = new AbortController();
@@ -569,8 +585,9 @@ async function downloadBoletoBytes(boletoUrl: string): Promise<Buffer> {
     response = await fetch(boletoUrl, {
       method: 'GET',
       signal: controller.signal,
-      // Sem redirect automático além do padrão do fetch — não seguimos redirects para fora da allowlist.
-      redirect: 'follow',
+      // GAP-1: 'error' faz o fetch lançar em qualquer redirect (3xx),
+      // impedindo bypass da allowlist via redirect para hosts internos/SSRF.
+      redirect: 'error',
     });
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
@@ -594,8 +611,54 @@ async function downloadBoletoBytes(boletoUrl: string): Promise<Buffer> {
     );
   }
 
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  // GAP-2 (camada a): rejeita pelo Content-Length antes de ler o corpo.
+  const contentLengthHeader = response.headers.get('content-length');
+  if (contentLengthHeader !== null) {
+    const declaredBytes = parseInt(contentLengthHeader, 10);
+    if (!isNaN(declaredBytes) && declaredBytes > BOLETO_MAX_DOWNLOAD_BYTES) {
+      throw new ExternalServiceError(
+        `Boleto excede teto de download (content-length=${String(declaredBytes)} > ${String(BOLETO_MAX_DOWNLOAD_BYTES)})`,
+        { upstreamStatus: response.status },
+      );
+    }
+  }
+
+  // GAP-2 (camada b): leitura via stream com corte no teto.
+  // Protege contra content-length ausente ou mentiroso.
+  const body = response.body;
+  if (body === null) {
+    throw new ExternalServiceError('Corpo da resposta do boleto é nulo — re-upload abortado', {
+      upstreamStatus: response.status,
+    });
+  }
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      if (value !== undefined) {
+        totalBytes += value.byteLength;
+        if (totalBytes > BOLETO_MAX_DOWNLOAD_BYTES) {
+          // Cancela a leitura do stream antes de lançar.
+          await reader.cancel('boleto_too_large');
+          throw new ExternalServiceError(
+            `Boleto excede teto de download (bytes lidos=${String(totalBytes)} > ${String(BOLETO_MAX_DOWNLOAD_BYTES)}) — re-upload abortado`,
+            { upstreamStatus: response.status },
+          );
+        }
+        chunks.push(value);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks);
 }
 
 // ---------------------------------------------------------------------------
