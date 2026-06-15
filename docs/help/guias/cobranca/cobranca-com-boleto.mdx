@@ -1,0 +1,114 @@
+---
+title: Cobrança com Boleto Bancário
+description: Como configurar e enviar boletos automaticamente via WhatsApp na régua de cobrança do Banco do Povo.
+audience: [gestor]
+tags: [cobrança, boleto, whatsapp, régua]
+---
+
+# Cobrança com Boleto Bancário
+
+O sistema de cobrança do Banco do Povo pode **anexar o boleto PDF** diretamente na mensagem WhatsApp enviada ao devedor. Quando configurado, o boleto aparece como documento no WhatsApp do cliente — pronto para baixar e pagar.
+
+## Como funciona
+
+A régua de cobrança (D-3, D+0, D+7, D+15…) envia mensagens automáticas via WhatsApp. Quando a parcela tem um boleto anexado **e** o template da régua suporta cabeçalho de documento, o sistema inclui o boleto na mensagem.
+
+### Fluxo resumido
+
+1. O gestor **importa ou anexa** o boleto na parcela (ver [Anexar boleto a uma parcela](#anexar-boleto)).
+2. O sistema de cobrança detecta automaticamente o boleto no envio agendado.
+3. A mensagem WhatsApp é enviada com o boleto como anexo no cabeçalho.
+
+### Exemplo de mensagem recebida pelo devedor
+
+> **[PDF: boleto-BP-2026-00123-p3.pdf]**
+>
+> Olá João, sua parcela 3 de R$ 1.500,00 vence em 15/06/2026. Contrato BP-2026-00123.
+
+---
+
+## Pré-requisitos
+
+Antes de usar a cobrança com boleto, verifique:
+
+- **Feature flag `billing.boleto.enabled`** está ativada (configurar em _Configurações › Feature Flags_).
+- O template WhatsApp da régua tem **tipo de cabeçalho `document`** (ou `image`). Templates com `header_type=none` enviam apenas texto.
+- O boleto está **importado/anexado** na parcela antes do horário de disparo da cobrança.
+
+---
+
+## Anexar boleto a uma parcela
+
+Acesse a ficha do cliente e clique em **Cobrança › Parcelas**. Selecione a parcela desejada e clique em **Anexar Boleto**.
+
+### Opção 1: Upload de arquivo
+
+Arraste o PDF do boleto para a área de upload ou clique em **Selecionar arquivo**. O sistema:
+
+1. Valida o tipo de arquivo (apenas PDF e imagens aceitos).
+2. Faz upload para a Meta e guarda o `media_id`.
+3. Registra o boleto na parcela.
+
+### Opção 2: Referência por URL
+
+Informe a URL controlada do boleto (gerada pelo sistema do Banco do Povo). A URL deve:
+
+- Usar HTTPS obrigatoriamente.
+- Estar no domínio autorizado configurado em `BOLETO_ALLOWED_HOSTS`.
+
+---
+
+## Comportamento do envio
+
+### Quando o boleto está disponível
+
+| Situação | Comportamento |
+|---|---|
+| `boleto_media_id` válido (não expirado) | Envia usando o ID da Meta — caminho preferido (privacidade) |
+| `boleto_media_id` expirado + `boleto_url` presente | Re-faz upload automaticamente e envia com novo ID |
+| Apenas `boleto_url` (sem `media_id`) | Envia usando o link diretamente |
+
+### Quando o boleto está ausente
+
+Se o template da régua **exige** cabeçalho de documento mas a parcela **não tem boleto** (nem URL nem ID), o job de cobrança é marcado como **falha terminal** com erro `boleto_missing`. O sistema **não** envia a mensagem nem retenta — cobrança que exige boleto não cai silenciosamente para texto.
+
+**Resolução:** Anexe o boleto à parcela e crie manualmente um novo job de cobrança, ou aguarde a próxima janela da régua (se configurada com máx. de tentativas > 1).
+
+### Quando a feature flag está desligada
+
+Se `billing.boleto.enabled=disabled`, o sistema ignora o boleto e envia a mensagem **somente com o corpo de texto** (comportamento pré-boleto). O boleto é **aditivo** — desligá-lo não cancela a cobrança.
+
+---
+
+## Validade do media_id
+
+A Meta expira os arquivos enviados por upload após **aproximadamente 30 dias**. O sistema detecta automaticamente quando o `media_id` expirou e realiza novo upload usando a `boleto_url` antes de enviar — sem intervenção manual.
+
+Se o re-upload falhar (URL indisponível, timeout), o job é reagendado para nova tentativa (backoff exponencial). Após esgotar o máximo de tentativas, o job é marcado como falha terminal.
+
+---
+
+## Privacidade e LGPD
+
+O boleto contém dados pessoais (nome, endereço, dados financeiros). Por isso:
+
+- A `boleto_url` deve ser uma URL **controlada e assinada** — nunca um link público permanente.
+- O nome do arquivo exibido no WhatsApp **nunca contém CPF** (ex: `boleto-BP-2026-00123-p3.pdf`).
+- O `media_id` da Meta é o caminho preferido de envio — não expõe a URL do boleto ao destinatário.
+- Logs do sistema não registram URLs, media IDs ou conteúdo do boleto — apenas IDs opacos e flags booleanas.
+
+---
+
+## Perguntas frequentes
+
+**O devedor pode baixar o boleto depois de recebê-lo no WhatsApp?**
+Sim. O WhatsApp permite que o destinatário baixe o documento recebido a qualquer momento (enquanto a mídia não for removida da plataforma).
+
+**O que acontece se o boleto for atualizado após o envio?**
+O boleto já enviado não é substituído. Se a parcela for renegociada e um novo boleto emitido, anexe o novo boleto à parcela e um novo job de cobrança será disparado pela régua.
+
+**Posso usar um template de imagem para enviar um boleto?**
+Sim, templates com `header_type=image` são suportados. O boleto seria enviado como imagem — mas para boletos PDF, `document` é o tipo correto e recomendado.
+
+**O sistema suporta PIX?**
+O campo `pix_copia_cola` pode ser armazenado na parcela. O envio do PIX como texto no corpo da mensagem depende de configuração específica no template (variável `pix_copia_cola`). O cabeçalho de mídia destina-se ao PDF do boleto.
