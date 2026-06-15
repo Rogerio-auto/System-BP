@@ -28,6 +28,8 @@ import * as React from 'react';
 
 import { Badge } from '../../components/ui/Badge';
 import type { BadgeVariant } from '../../components/ui/Badge';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { useAuthStore } from '../../lib/auth-store';
 // BoletoModal importado diretamente — não está no barrel do billing
 import { DUE_STATUS_META } from '../billing';
 import type { PaymentDueResponse } from '../billing';
@@ -101,9 +103,10 @@ function DuesListSkeleton(): React.JSX.Element {
 interface DueRowProps {
   due: PaymentDueResponse;
   onBoletoClick: (due: PaymentDueResponse) => void;
+  showBoletoAction: boolean;
 }
 
-function DueRow({ due, onBoletoClick }: DueRowProps): React.JSX.Element {
+function DueRow({ due, onBoletoClick, showBoletoAction }: DueRowProps): React.JSX.Element {
   const rawMeta = DUE_STATUS_META[due.status] ?? {
     label: due.status,
     variant: 'neutral' as BadgeVariant,
@@ -160,39 +163,41 @@ function DueRow({ due, onBoletoClick }: DueRowProps): React.JSX.Element {
       {/* Status badge */}
       <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
 
-      {/* Boleto — botão de ação */}
-      <button
-        type="button"
-        onClick={() => onBoletoClick(due)}
-        className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xs font-sans font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20"
-        style={{
-          fontSize: 'var(--text-xs)',
-          color: due.has_boleto ? 'var(--brand-azul)' : 'var(--text-3)',
-          background: due.has_boleto ? 'var(--info-bg)' : 'var(--surface-muted)',
-          border: due.has_boleto
-            ? '1px solid color-mix(in srgb, var(--brand-azul) 30%, transparent)'
-            : '1px solid var(--border)',
-        }}
-        aria-label={
-          due.has_boleto
-            ? `Ver boleto da parcela ${due.installment_number}`
-            : `Anexar boleto da parcela ${due.installment_number}`
-        }
-      >
-        {/* Ícone de documento */}
-        <svg
-          viewBox="0 0 16 16"
-          fill="none"
-          className="w-3.5 h-3.5 shrink-0"
-          aria-hidden="true"
-          stroke="currentColor"
-          strokeWidth={1.5}
+      {/* Boleto — botão de ação (visível apenas com permissão billing:boleto:write + flag billing.boleto.enabled) */}
+      {showBoletoAction && (
+        <button
+          type="button"
+          onClick={() => onBoletoClick(due)}
+          className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xs font-sans font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20"
+          style={{
+            fontSize: 'var(--text-xs)',
+            color: due.has_boleto ? 'var(--brand-azul)' : 'var(--text-3)',
+            background: due.has_boleto ? 'var(--info-bg)' : 'var(--surface-muted)',
+            border: due.has_boleto
+              ? '1px solid color-mix(in srgb, var(--brand-azul) 30%, transparent)'
+              : '1px solid var(--border)',
+          }}
+          aria-label={
+            due.has_boleto
+              ? `Ver boleto da parcela ${due.installment_number}`
+              : `Anexar boleto da parcela ${due.installment_number}`
+          }
         >
-          <rect x="3" y="2" width="10" height="12" rx="1.5" />
-          <path d="M5.5 6h5M5.5 8.5h5M5.5 11h3" strokeLinecap="round" />
-        </svg>
-        {due.has_boleto ? 'Boleto' : 'Anexar'}
-      </button>
+          {/* Ícone de documento */}
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            className="w-3.5 h-3.5 shrink-0"
+            aria-hidden="true"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <rect x="3" y="2" width="10" height="12" rx="1.5" />
+            <path d="M5.5 6h5M5.5 8.5h5M5.5 11h3" strokeLinecap="round" />
+          </svg>
+          {due.has_boleto ? 'Boleto' : 'Anexar'}
+        </button>
+      )}
     </div>
   );
 }
@@ -202,16 +207,20 @@ function DueRow({ due, onBoletoClick }: DueRowProps): React.JSX.Element {
 // ---------------------------------------------------------------------------
 
 interface ContractDuesListProps {
-  contractId: string;
   customerId: string;
   contractReference: string;
 }
 
 export function ContractDuesList({
-  contractId: _contractId,
   customerId,
   contractReference,
 }: ContractDuesListProps): React.JSX.Element {
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canBoleto = hasPermission('billing:boleto:write');
+  const { enabled: boletoEnabled } = useFeatureFlag('billing.boleto.enabled');
+  // Gate: botão de boleto visível somente com permissão + feature flag habilitados
+  const showBoletoAction = canBoleto && boletoEnabled;
+
   const [selectedDue, setSelectedDue] = React.useState<PaymentDueResponse | null>(null);
 
   const { dues, isLoading, isError, refetch } = useContractDues(customerId, contractReference);
@@ -259,12 +268,14 @@ export function ContractDuesList({
           >
             Status
           </span>
-          <span
-            className="font-sans font-semibold uppercase text-ink-3 tracking-[0.08em] shrink-0"
-            style={{ fontSize: '0.65rem', minWidth: 72 }}
-          >
-            Boleto
-          </span>
+          {showBoletoAction && (
+            <span
+              className="font-sans font-semibold uppercase text-ink-3 tracking-[0.08em] shrink-0"
+              style={{ fontSize: '0.65rem', minWidth: 72 }}
+            >
+              Boleto
+            </span>
+          )}
         </div>
 
         {/* Estados: loading */}
@@ -336,14 +347,17 @@ export function ContractDuesList({
                   key={due.id}
                   due={due}
                   onBoletoClick={(d: PaymentDueResponse) => setSelectedDue(d)}
+                  showBoletoAction={showBoletoAction}
                 />
               ))}
           </div>
         )}
       </div>
 
-      {/* Modal de boleto (reutiliza BoletoModal de billing — nunca duplicado) */}
-      {selectedDue && (
+      {/* Modal de boleto (reutiliza BoletoModal de billing — nunca duplicado).
+          Gate duplo: showBoletoAction garante que o modal só monta se a permissão
+          e a feature flag estiverem ativas. */}
+      {showBoletoAction && selectedDue && (
         <BoletoModal due={selectedDue} onClose={() => setSelectedDue(null)} />
       )}
     </>

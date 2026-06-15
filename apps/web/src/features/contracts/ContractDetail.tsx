@@ -347,7 +347,6 @@ export function ContractDetail({ contractId, onClose }: ContractDetailProps): Re
                 Parcelas
               </p>
               <ContractDuesList
-                contractId={contract.id}
                 customerId={contract.customer_id}
                 contractReference={contract.contract_reference}
               />
