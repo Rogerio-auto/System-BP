@@ -13,12 +13,12 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F10  | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F12  | 13    | 0   | 1   | 0   | 0   | 0   | 12  |
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
-| F14  | 6     | 0   | 1   | 0   | 0   | 0   | 5   |
+| F14  | 6     | 1   | 0   | 0   | 0   | 0   | 5   |
 | F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
-| F5   | 16    | 1   | 0   | 0   | 0   | 1   | 14  |
+| F5   | 16    | 1   | 0   | 0   | 0   | 0   | 15  |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -136,14 +136,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 14 —
 
-| ID      | Título                                                                         | Status     | Prioridade | Depende de |
-| ------- | ------------------------------------------------------------------------------ | ---------- | ---------- | ---------- |
-| F14-S01 | Schema — lead PJ (CNPJ/razão social) + índice único de email                   | ✅ done    | high       | —          |
-| F14-S02 | Backend — lead PJ + email obrigatório no manual + unicidade + bloqueio interno | ✅ done    | high       | F14-S01    |
-| F14-S03 | Frontend — NewLeadModal com PJ + email obrigatório                             | ✅ done    | high       | F14-S02    |
-| F14-S04 | Email pessoal do agente no 1º login + bloqueio estendido                       | ⏸️ blocked | medium     | F14-S02    |
-| F14-S05 | Backend — disparo de simulação por WhatsApp                                    | ✅ done    | high       | —          |
-| F14-S06 | Frontend — botão "Enviar simulação ao cliente"                                 | ✅ done    | high       | F14-S05    |
+| ID      | Título                                                                         | Status       | Prioridade | Depende de |
+| ------- | ------------------------------------------------------------------------------ | ------------ | ---------- | ---------- |
+| F14-S01 | Schema — lead PJ (CNPJ/razão social) + índice único de email                   | ✅ done      | high       | —          |
+| F14-S02 | Backend — lead PJ + email obrigatório no manual + unicidade + bloqueio interno | ✅ done      | high       | F14-S01    |
+| F14-S03 | Frontend — NewLeadModal com PJ + email obrigatório                             | ✅ done      | high       | F14-S02    |
+| F14-S04 | Email pessoal do agente no 1º login + bloqueio estendido                       | 🟢 available | medium     | F14-S02    |
+| F14-S05 | Backend — disparo de simulação por WhatsApp                                    | ✅ done      | high       | —          |
+| F14-S06 | Frontend — botão "Enviar simulação ao cliente"                                 | ✅ done      | high       | F14-S05    |
 
 ## Fase 16 —
 
@@ -256,7 +256,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F5-S12 | Módulo templates — header_type (texto/documento/imagem) no CRUD + submit de header de mídia   | ✅ done      | high       | F5-S10, F5-S11                                 |
 | F5-S13 | Cobrança — anexar boleto à parcela (endpoint + import) com RBAC, auditoria e LGPD             | ✅ done      | high       | F5-S10, F5-S11, F5-S08                         |
 | F5-S14 | collection-sender — anexar header de boleto no envio de cobrança (re-upload + fallback)       | ✅ done      | high       | F5-S11, F5-S13                                 |
-| F5-S15 | Frontend templates — seletor de header (texto/documento/imagem) + upload de amostra + preview | 🟣 review    | medium     | F5-S12                                         |
+| F5-S15 | Frontend templates — seletor de header (texto/documento/imagem) + upload de amostra + preview | ✅ done      | medium     | F5-S12                                         |
 | F5-S16 | Frontend cobrança — anexar/visualizar boleto na parcela (upload PDF + URL + linha/PIX)        | 🟢 available | medium     | F5-S13                                         |
 
 ## Fase 7 — Hardening final

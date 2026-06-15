@@ -3,13 +3,13 @@ id: F5-S15
 title: Frontend templates — seletor de header (texto/documento/imagem) + upload de amostra + preview
 phase: F5
 task_ref: docs/05-modulos-funcionais.md#cobranca-boleto
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-15T13:13:19Z
 completed_at: 2026-06-15T13:44:23Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/226
 depends_on: [F5-S12]
 blocks: []
 labels: []

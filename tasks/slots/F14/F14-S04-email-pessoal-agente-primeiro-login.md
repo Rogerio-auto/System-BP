@@ -3,7 +3,7 @@ id: F14-S04
 title: Email pessoal do agente no 1º login + bloqueio estendido
 phase: F14
 task_ref: null
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null
