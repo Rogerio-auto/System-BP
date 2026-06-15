@@ -3,13 +3,13 @@ id: F14-S04
 title: Email pessoal do agente no 1º login + bloqueio estendido
 phase: F14
 task_ref: null
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-15T18:00:10Z
 completed_at: 2026-06-15T18:19:31Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/229
 depends_on: [F14-S02]
 blocks: []
 labels: []
