@@ -2,6 +2,13 @@
 // livechat.ts - Tipos puros (nao Zod) do dominio live chat.
 // DTOs publicos sem campos de segredo (channel_secrets nunca exportados aqui).
 // Espelha colunas seguras das tabelas channels/conversations/messages.
+//
+// LGPD (doc 17 §8.1):
+//   - ChannelDto NAO inclui phoneNumber (PII cifrada no DB em phone_number_enc).
+//     Use ConversationDetailDto (permissao crm:contact:phone:read) para obter
+//     o numero decifrado de uma conversa especifica.
+//   - ConversationDto (lista): sem contactPhone — listagem nao exige permissao de PII.
+//   - ConversationDetailDto (detalhe): com contactPhone decifrado, requer permissao.
 // =============================================================================
 
 /** Provider de canal suportado. */
@@ -43,7 +50,15 @@ export type ConversationKind = 'dm' | 'group' | 'comment_thread';
 // DTOs publicos (sem segredos)
 // ---------------------------------------------------------------------------
 
-/** Canal de comunicacao (sem access_token, sem app_secret). */
+/**
+ * Canal de comunicacao (sem access_token, sem app_secret, sem phoneNumber).
+ *
+ * L3: phoneNumber foi removido deste DTO publico.
+ * Motivo: phone_number_enc no DB e PII cifrado (celular pessoal do atendente ou numero do canal).
+ * Expor o numero decifrado aqui exigiria permissao crm:contact:phone:read e endpoint protegido.
+ * O phone_number_id (ID da Meta) continua disponivel — e ID tecnico, nao PII.
+ * Se o front precisar exibir o numero, criar endpoint dedicado com permissao explicita.
+ */
 export interface ChannelDto {
   readonly id: string;
   readonly organizationId: string;
@@ -51,8 +66,7 @@ export interface ChannelDto {
   readonly provider: ChannelProvider;
   readonly name: string;
   readonly displayHandle: string | null;
-  // WhatsApp
-  readonly phoneNumber: string | null;
+  // WhatsApp — phone_number_id e ID tecnico (Meta), nao PII
   readonly phoneNumberId: string | null;
   readonly wabaId: string | null;
   // Instagram
@@ -65,7 +79,14 @@ export interface ChannelDto {
   readonly updatedAt: string;
 }
 
-/** Conversa (inbox). */
+/**
+ * Conversa (lista do inbox).
+ *
+ * M1 (PII): NAO inclui contactPhone.
+ * Listagem de conversas nao requer permissao de PII de telefone.
+ * Para obter o numero decifrado, use ConversationDetailDto (endpoint dedicado
+ * com permissao crm:contact:phone:read verificada no servidor).
+ */
 export interface ConversationDto {
   readonly id: string;
   readonly organizationId: string;
@@ -73,8 +94,6 @@ export interface ConversationDto {
   readonly channelId: string;
   readonly contactRemoteId: string;
   readonly contactName: string | null;
-  /** Telefone do contato - PII cifrado no DB; retornado decifrado apenas com permissao. */
-  readonly contactPhone: string | null;
   readonly leadId: string | null;
   readonly customerId: string | null;
   readonly status: ConversationStatus;
@@ -85,6 +104,23 @@ export interface ConversationDto {
   readonly unreadCount: number;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+/**
+ * Detalhe de conversa — inclui PII decifrada de telefone.
+ *
+ * M1: Retornado APENAS pelo endpoint de detalhe que verifica a permissao
+ * crm:contact:phone:read antes de decifrar e incluir o numero.
+ * NAO usar em listagens. NAO logar sem redact.
+ */
+export interface ConversationDetailDto extends ConversationDto {
+  /**
+   * Telefone do contato decifrado (doc 17 §8.1).
+   * null se o provider nao enviar telefone (ex: Instagram DM)
+   * ou se o campo ainda nao foi preenchido.
+   * LGPD: PII — nao logar sem redact. Permissao: crm:contact:phone:read.
+   */
+  readonly contactPhone: string | null;
 }
 
 /** Payload interativo (jsonb do DB). */

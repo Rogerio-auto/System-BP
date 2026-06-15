@@ -75,6 +75,13 @@ export const InteractiveTemplateSchema = z.object({
   type: z.literal('template'),
   name: z.string().min(1),
   languageCode: z.string().min(2).max(8),
+  // TODO(F16): components mantido como z.array(z.unknown()) intencionalmente.
+  // A estrutura de components dos templates Meta (header/body/button) nao esta
+  // estabilizada — cada tipo de template (TEXT, IMAGE, DOCUMENT, VIDEO, CAROUSEL)
+  // usa shapes diferentes e a Meta muda sem pre-aviso.
+  // Decisao: validar apenas que e um array; a validacao semantica fica no adapter (S04/S05)
+  // que conhece o tipo especifico de template.
+  // Revisar quando F16-S04 estabilizar os shapes de template suportados.
   components: z.array(z.unknown()),
 });
 
@@ -201,6 +208,7 @@ export const OutboundJobSchema = z.discriminatedUnion('type', [
     contactRemoteId: z.string().min(1),
     templateName: z.string().min(1),
     languageCode: z.string().min(2).max(8),
+    // TODO(F16): components mantido como z.array(z.unknown()) — ver comentario em InteractiveTemplateSchema.
     components: z.array(z.unknown()),
   }),
   z.object({
