@@ -3,16 +3,17 @@ id: F15-S08
 title: Backend — worker de inadimplência 15d → cria tarefa SPC + evento de notificação
 phase: F15
 task_ref: null
-status: done
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: 2026-06-15T22:37:06Z
-pr_url: https://github.com/Rogerio-auto/System-BP/pull/249
+claimed_at: 2026-06-15T22:07:18Z
+completed_at: 2026-06-15T22:22:40Z
+pr_url: null
 depends_on: [F15-S05, F15-S06, F15-S07]
 blocks: []
 labels: [worker, outbox, cobranca, spc]
+docs_required: false
 source_docs:
   - docs/planejamento-2026-06-evolucao.md#f2-role-de-cobrança-dashboard-status-spc-item-9
   - docs/04-eventos.md

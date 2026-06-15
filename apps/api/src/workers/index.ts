@@ -45,6 +45,13 @@ export { runCollectionSchedulerTick } from './collection-scheduler.js';
 // Gated por billing.enabled + billing.sender.enabled (default=disabled).
 export { runCollectionSenderTick } from './collection-sender.js';
 
+// F15-S08: worker periódico de varredura de inadimplência 15d.
+// Detecta clientes com spc_status='none' e parcela(s) com 15+ dias de atraso.
+// Cria tarefa spc_inclusion para role='cobranca' + emite evento payment_due.overdue_15d.
+// Iniciado como processo separado: pnpm --filter @elemento/api worker:spc:scan
+// Gated por spc.enabled + spc.scan.enabled (default=disabled).
+export { runSpcOverdueScanTick } from './spc-overdue-scan.js';
+
 /**
  * Registra todos os worker-handlers de domínio no registry do outbox-publisher.
  *

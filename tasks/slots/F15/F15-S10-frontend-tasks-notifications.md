@@ -3,13 +3,13 @@ id: F15-S10
 title: Frontend — painel de tarefas + badge de notificações no header
 phase: F15
 task_ref: null
-status: done
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: 2026-06-15T22:42:52Z
-pr_url: https://github.com/Rogerio-auto/System-BP/pull/251
+claimed_at: 2026-06-15T22:08:15Z
+completed_at: 2026-06-15T22:23:21Z
+pr_url: null
 depends_on: [F15-S04, F15-S05, F15-S06]
 blocks: []
 labels: [frontend, tasks, notifications]
