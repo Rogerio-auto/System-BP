@@ -13,3 +13,12 @@ export * from './leads.js';
 
 // Cities (F1-S06)
 export * from './cities.js';
+
+// Tasks (F15-S03/S04)
+export * from './tasks.js';
+
+// Notifications (F15-S03/S04)
+export * from './notifications.js';
+
+// Billing / SPC / Dashboard cobrança (F15-S02/S04)
+export * from './billing.js';
