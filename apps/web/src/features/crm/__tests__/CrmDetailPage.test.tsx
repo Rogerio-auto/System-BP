@@ -36,6 +36,7 @@ const MOCK_LEAD: LeadResponse = {
   kanban_card_id: null,
   kanban_stage: null,
   agent_id: 'agent-001',
+  customer_id: null,
   name: 'Ana Paula Ferreira',
   phone_e164: '+5569912341234',
   source: 'whatsapp',

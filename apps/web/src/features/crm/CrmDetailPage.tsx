@@ -446,8 +446,8 @@ export function CrmDetailPage(): React.JSX.Element {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Ficha do cliente — disponível quando o lead foi convertido */}
-              {lead.status === 'closed_won' && (
+              {/* Ficha do cliente — disponível somente quando convertido E customer_id existe */}
+              {lead.status === 'closed_won' && lead.customer_id && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -731,9 +731,9 @@ export function CrmDetailPage(): React.JSX.Element {
       </div>
 
       {/* Drawer: ficha consolidada do cliente (contratos, boletos, SPC) */}
-      {customerDrawerOpen && lead && lead.status === 'closed_won' && (
+      {customerDrawerOpen && lead && lead.status === 'closed_won' && lead.customer_id && (
         <CustomerDetailDrawer
-          customerId={leadId}
+          customerId={lead.customer_id}
           customerName={lead.name}
           onClose={() => setCustomerDrawerOpen(false)}
         />

@@ -18,6 +18,14 @@ A ficha do cliente exibe uma visao consolidada de:
 - **Contratos** — lista de contratos com status, valor principal, prazo e saude de boleto.
 - **Ultimas parcelas** — as 10 parcelas mais recentes com numero, data de vencimento, valor e status.
 
+<Callout type="warning" title="Proteção de dados — LGPD §14.2">
+  O Status SPC e as informações de saúde financeira são dados sensíveis de acordo com a
+  política interna do Banco do Povo. Seu acesso e tratamento devem seguir as regras definidas
+  em [`docs/17-lgpd-protecao-dados.md` §14.2](/docs/17-lgpd-protecao-dados#checklist-de-dados-pessoais).
+  Consulte o encarregado (DPO) em caso de dúvida sobre finalidade, consentimento ou prazo
+  de retenção antes de utilizar essas informações.
+</Callout>
+
 Ela e acessivel somente para leads convertidos (status **Convertido**).
 Para leads em outros estagios, o botao nao aparece.
 
@@ -71,8 +79,11 @@ Contratos se ha contratos associados a este cliente.
 
 ## Permissoes necessarias
 
-A ficha do cliente exige permissao **contracts:read**. Agentes sem essa permissao
-nao verao a secao de contratos nem o botao "Ver ficha do cliente".
+<Permission required="contracts:read">
+  A ficha do cliente exige a permissão **contracts:read** — concedida a **Admin**,
+  **Gestor Geral** e **Gestor Regional**. Agentes sem essa permissão não verão a
+  seção de contratos nem o botão "Ver ficha do cliente".
+</Permission>
 
 <Callout type="info">
   A ficha do cliente e somente leitura. Para editar dados do contrato, acesse a pagina
@@ -84,5 +95,3 @@ nao verao a secao de contratos nem o botao "Ver ficha do cliente".
 
 - [Ver e editar detalhes do lead](./detalhes-do-lead.mdx)
 - [Converter lead em cliente](./converter-em-cliente.mdx)
-
-<FeedbackWidget />

@@ -25,6 +25,7 @@ import type {
   ContractStatus,
   CustomerOverviewResponse,
 } from '@elemento/shared-schemas';
+import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 
@@ -34,7 +35,7 @@ import { cn } from '../../../lib/cn';
 import { DUE_STATUS_META } from '../../billing';
 import { CONTRACT_STATUS_META } from '../../contracts/schemas';
 import { SpcStatusBadge } from '../../dashboard/components/SpcStatusBadge';
-import { useCustomerOverview } from '../hooks';
+import { CUSTOMER_OVERVIEW_KEYS, useCustomerOverview } from '../hooks';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -368,10 +369,14 @@ export function CustomerDetailDrawer({
   onClose,
 }: CustomerDetailDrawerProps): React.JSX.Element {
   const { data, isLoading, isError } = useCustomerOverview(customerId);
-  const [retryKey, setRetryKey] = React.useState(0);
+  const queryClient = useQueryClient();
 
-  // Re-mount do query ao retry
-  const handleRetry = React.useCallback(() => setRetryKey((k) => k + 1), []);
+  // Invalida a query do overview forçando refetch imediato
+  const handleRetry = React.useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: CUSTOMER_OVERVIEW_KEYS.detail(customerId),
+    });
+  }, [queryClient, customerId]);
 
   // Fechar com Escape
   React.useEffect(() => {
@@ -456,7 +461,7 @@ export function CustomerDetailDrawer({
         </div>
 
         {/* ── Conteúdo principal (scrollável) ──────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto" key={retryKey}>
+        <div className="flex-1 overflow-y-auto">
           {isLoading ? (
             <DrawerSkeleton />
           ) : isError ? (
