@@ -1,11 +1,12 @@
 // =============================================================================
-// App.tsx â€” Roteador raiz e providers de infraestrutura.
+// App.tsx — Roteador raiz e providers de infraestrutura.
 //
 // Estrutura de rotas:
-//   /login          â†’ pÃºblico
-//   /               â†’ protegido (AuthGuard > AppLayout > DashboardPage)
-//   /leads etc.     â†’ protegido (placeholder)
-//   *               â†’ redireciona /login
+//   /login          → público
+//   /               → protegido (AuthGuard > AppLayout > DashboardPage)
+//   /tarefas        → protegido (F15-S10: painel minhas tarefas)
+//   /leads etc.     → protegido (placeholder)
+//   *               → redireciona /login
 //
 // QueryClient: staleTime 30s, sem refetchOnWindowFocus, retry 1x.
 // =============================================================================
@@ -39,6 +40,8 @@ import { FollowupJobsPage, FollowupRulesPage } from './features/followup';
 import { DocPage } from './features/help/DocPage';
 import { HelpHomePage } from './features/help/HelpHomePage';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
+import { NotificationDropdown } from './features/notifications';
+import { TasksPage } from './features/tasks';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from './features/templates';
 import { AgentsPage } from './pages/admin/Agents';
 import { CitiesPage } from './pages/admin/Cities';
@@ -67,7 +70,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// Placeholder genÃ©rico para rotas ainda nÃ£o implementadas
+// Placeholder genérico para rotas ainda não implementadas
 function PlaceholderPage({ title }: { title: string }): React.JSX.Element {
   return (
     <div className="flex flex-col gap-4">
@@ -120,38 +123,64 @@ function PersonalEmailGuard(): React.JSX.Element | null {
   );
 }
 
+// Offset direito da topbar: HelpButton (~2.5rem) + ThemeToggle (~2.5rem) + UserMenu (~5.5rem) = ~10.5rem
+const HEADER_RIGHT_OFFSET = '10.5rem';
+
+/**
+ * Badge de notificações no header (F15-S10).
+ *
+ * Renderizado via position:fixed alinhado à topbar (h-14 = 3.5rem).
+ * Fica entre o HelpButton e ThemeToggle existentes, à esquerda do UserMenu.
+ * Só exibido em rotas protegidas (dentro do AuthGuard).
+ */
+function HeaderNotificationsOverlay(): React.JSX.Element {
+  return (
+    <div
+      className="fixed z-[45] flex items-center pointer-events-none"
+      style={{ top: 0, right: HEADER_RIGHT_OFFSET, height: '3.5rem' }}
+    >
+      {/* pointer-events-auto restaura interatividade apenas no dropdown */}
+      <div className="pointer-events-auto">
+        <NotificationDropdown />
+      </div>
+    </div>
+  );
+}
+
 function AppRoutes(): React.JSX.Element {
   return (
     <>
       {/* Guard de 1º login — sobrepõe toda a UI quando necessário (F14-S04) */}
       <PersonalEmailGuard />
       <Routes>
-        {/* â”€â”€ PÃºblica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── Pública ────────────────────────────────────────────────────────── */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* â”€â”€ Protegidas (AuthGuard > AppLayout) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── Protegidas (AuthGuard > AppLayout) ───────────────────────────── */}
         <Route
           element={
             <AuthGuard>
+              {/* Badge de notificações no header — F15-S10 */}
+              <HeaderNotificationsOverlay />
               <AppLayout />
             </AuthGuard>
           }
         >
           <Route index element={<DashboardPage />} />
-          {/* Legacy redirects â€” bookmarks antigos preservados */}
+          {/* Legacy redirects — bookmarks antigos preservados */}
           <Route path="/kanban" element={<Navigate to="/crm?view=kanban" replace />} />
           <Route path="/leads" element={<Navigate to="/crm" replace />} />
           <Route path="/crm" element={<CrmListPage />} />
           <Route path="/crm/:id" element={<CrmDetailPage />} />
           <Route path="/imports/leads/new" element={<ImportWizardPage />} />
           <Route path="/simulator" element={<SimulatorPage />} />
-          {/* Legacy redirect â€” /analise era placeholder; a rota real Ã© /credit-analyses (F4-S03) */}
+          {/* Legacy redirect — /analise era placeholder; a rota real é /credit-analyses (F4-S03) */}
           <Route path="/analise" element={<Navigate to="/credit-analyses" replace />} />
-          {/* F4-S03: AnÃ¡lise de crÃ©dito */}
+          {/* F4-S03: Análise de crédito */}
           <Route path="/credit-analyses" element={<CreditAnalysesListPage />} />
           <Route path="/credit-analyses/:id" element={<CreditAnalysisDetailPage />} />
           <Route path="/contratos" element={<ContractsPage />} />
-          <Route path="/relatorios" element={<PlaceholderPage title="RelatÃ³rios" />} />
+          <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
           <Route path="/configuracoes" element={<ConfiguracoesPage />} />
           <Route path="/configuracoes/ia/prompts" element={<PromptsListPage />} />
           <Route path="/configuracoes/ia/prompts/:key" element={<PromptDetailPage />} />
@@ -169,10 +198,10 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/admin/agents" element={<AgentsPage />} />
           {/* F12-S10: Tutoriais em vídeo */}
           <Route path="/admin/tutoriais" element={<TutoriaisPage />} />
-          {/* F5-S05: Follow-up â€” rÃ©guas e jobs */}
+          {/* F5-S05: Follow-up — réguas e jobs */}
           <Route path="/admin/followup/rules" element={<FollowupRulesPage />} />
           <Route path="/admin/followup/jobs" element={<FollowupJobsPage />} />
-          {/* F5-S08: CobranÃ§a â€” parcelas, rÃ©guas, jobs */}
+          {/* F5-S08: Cobrança — parcelas, réguas, jobs */}
           <Route path="/admin/billing/dues" element={<PaymentDuesPage />} />
           <Route path="/admin/billing/rules" element={<CollectionRulesPage />} />
           <Route path="/admin/billing/jobs" element={<CollectionJobsPage />} />
@@ -180,6 +209,8 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/admin/templates" element={<TemplatesListPage />} />
           <Route path="/admin/templates/new" element={<TemplateFormPage />} />
           <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
+          {/* F15-S10: Painel de tarefas */}
+          <Route path="/tarefas" element={<TasksPage />} />
           {/* F10-S02: Central de Ajuda */}
           <Route path="/ajuda" element={<HelpHomePage />} />
           {/* F10-S10: API Reference — ANTES do wildcard /ajuda/* */}
@@ -194,7 +225,7 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/ajuda/*" element={<DocPage />} />
         </Route>
 
-        {/* â”€â”€ Catch-all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── Catch-all ────────────────────────────────────────────────────── */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </>
