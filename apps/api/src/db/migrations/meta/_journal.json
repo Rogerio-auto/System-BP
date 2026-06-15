@@ -379,6 +379,13 @@
       "when": 1779753817000,
       "tag": "0058_customer_spc_status",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1781551857003,
+      "tag": "0059_contracts",
+      "breakpoints": true
     }
   ]
 }
