@@ -38,6 +38,7 @@ export const ASSIGNEE_ROLES = [
   'agente',
   'operador',
   'leitura',
+  'cobranca',
 ] as const;
 
 // ---------------------------------------------------------------------------
