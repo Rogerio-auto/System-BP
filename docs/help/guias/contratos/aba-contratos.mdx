@@ -1,0 +1,69 @@
+---
+title: Aba Contratos
+description: Como visualizar contratos de crédito, filtrar por status e marcar um contrato como assinado.
+order: 10
+keywords: [contrato, contratos, assinar, assinatura, draft, ativo, liquidado, inadimplente, cancelado]
+---
+
+# Aba Contratos
+
+A aba **Contratos** reúne todos os contratos de crédito do Banco do Povo em uma lista filtrável. Aqui você pode acompanhar o ciclo de vida de cada contrato, desde o rascunho até a liquidação, e registrar assinaturas quando necessário.
+
+<Callout type="info" title="Quando um contrato é criado">
+  Contratos são criados automaticamente pelo sistema quando uma análise de crédito é aprovada. Não é possível criar contratos manualmente pela interface.
+</Callout>
+
+## Acessar a aba Contratos
+
+<Step number={1} title="Navegue até Contratos">
+  No menu lateral, clique em **Contratos**. A lista exibe todos os contratos da sua organização, ordenados do mais recente para o mais antigo.
+</Step>
+
+<Step number={2} title="Filtre por status (opcional)">
+  Use o seletor **Status** para ver apenas contratos em um estado específico. As opções disponíveis são:
+
+  - **Rascunho** — contrato gerado mas ainda não assinado.
+  - **Assinado** — assinatura registrada, aguardando liberação das parcelas.
+  - **Ativo** — parcelas em andamento.
+  - **Liquidado** — todas as parcelas pagas.
+  - **Inadimplente** — uma ou mais parcelas em atraso.
+  - **Cancelado** — contrato encerrado antes da conclusão.
+</Step>
+
+<Step number={3} title="Veja os detalhes de um contrato">
+  Clique em qualquer linha da tabela para abrir o painel lateral com todos os dados do contrato: valor principal, prazo, taxa, datas de primeira e última parcela, e histórico de status.
+</Step>
+
+## Marcar um contrato como assinado
+
+Esta ação transita o contrato de **Rascunho** para **Assinado**.
+
+<Callout type="warn" title="Permissão necessária">
+  Apenas usuários com a permissão **contracts:sign** podem executar esta ação. Se o botão não aparecer, consulte o administrador do sistema.
+</Callout>
+
+<Step number={1} title="Abra o contrato no painel lateral">
+  Localize o contrato com status **Rascunho** na lista e clique na linha.
+</Step>
+
+<Step number={2} title="Clique em Marcar como assinado">
+  No rodapé do painel lateral, clique no botão **Marcar como assinado**. Um diálogo de confirmação será exibido com os dados principais do contrato.
+</Step>
+
+<Step number={3} title="Confirme a assinatura">
+  Revise os dados (referência, valor e prazo) e clique em **Confirmar assinatura**. O status do contrato é atualizado imediatamente na lista.
+</Step>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Botão "Marcar como assinado" não aparece | Contrato não está em Rascunho, ou sem permissão | Confirme o status e verifique com o administrador |
+| Erro ao assinar | Falha de rede ou sessão expirada | Recarregue a página e tente novamente |
+| Contrato não aparece na lista | Filtro de status ativo | Clique em "Limpar filtros" e verifique se o contrato existe |
+
+## Veja também
+
+- [Registrar e gerenciar parcelas](/ajuda/guias/cobranca/registrar-parcelas) — gerencie as parcelas geradas pelo contrato.
+- [Configurar réguas de cobrança](/ajuda/guias/cobranca/configurar-reguas) — automatize lembretes de parcelas vencidas.
+- [Análise de crédito](/ajuda/guias/analise/criar-analise) — entenda como a análise gera um contrato.

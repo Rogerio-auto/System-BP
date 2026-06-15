@@ -16,7 +16,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 3   | 0   | 0   | 7   | 2   |
 | F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
-| F17  | 10    | 0   | 6   | 0   | 0   | 4   | 0   |
+| F17  | 10    | 0   | 4   | 0   | 0   | 6   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -194,7 +194,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | 🟣 review  | high       | F17-S01                   |
 | F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | 🟣 review  | high       | F17-S01, F17-S02          |
 | F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | 🟣 review  | medium     | F17-S01, F17-S02, F17-S03 |
-| F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | ⏸️ blocked | high       | F17-S02, F17-S03          |
+| F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | 🟣 review  | high       | F17-S02, F17-S03          |
 | F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ⏸️ blocked | medium     | F17-S04, F17-S05, F5-S16  |
 | F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | 🟣 review  | medium     | F17-S01, F17-S02, F17-S03 |
 | F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ⏸️ blocked | medium     | F17-S02, F17-S07          |
