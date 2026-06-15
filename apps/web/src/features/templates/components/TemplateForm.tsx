@@ -388,6 +388,8 @@ export function TemplateForm({
                 fontSize: 'var(--text-sm)',
               }}
               onChange={(e) => {
+                // Validação client-side apenas para UX (feedback imediato).
+                // O backend revalida MIME, tamanho e feature gate — esta camada não é de segurança.
                 const file = e.target.files?.[0];
                 setFileError(null);
                 if (!file) {

@@ -9,6 +9,14 @@ keywords: [template, templates, whatsapp, header, cabeçalho, documento, imagem,
 
 Templates WhatsApp podem incluir um cabeçalho (header) que aparece antes do corpo da mensagem. O cabeçalho pode ser de **texto** (ex.: "Banco do Povo — Crédito Rural"), **documento** (PDF) ou **imagem** (JPG/PNG). Este guia explica como configurar cabeçalhos em seus templates.
 
+<Callout type="info" title="Política LGPD">
+  Templates WhatsApp **não devem** conter dados pessoais (CPF, e-mail, telefone,
+  nome) em forma bruta. Use variáveis como `{{1}}`, `{{2}}`, que serão
+  substituídas dinamicamente no envio. O sistema bloqueia automaticamente
+  templates com PII hardcoded. Consulte
+  [Proteção de Dados e LGPD](../../../17-lgpd-protecao-dados.md) para detalhes.
+</Callout>
+
 <Callout type="info" title="Pré-requisito">
   Você precisa ter o papel de **gestor** e ter o módulo de Templates WhatsApp
   liberado pelo administrador. Para cabeçalhos de mídia (documento/imagem), a
