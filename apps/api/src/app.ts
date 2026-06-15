@@ -24,6 +24,7 @@ import { authRoutes } from './modules/auth/routes.js';
 import { billingRoutes } from './modules/billing/index.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
 import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
+import { contractsRoutes } from './modules/contracts/index.js';
 import { creditAnalysesRoutes } from './modules/credit-analyses/index.js';
 import { creditProductsRoutes } from './modules/credit-products/routes.js';
 import { dashboardRoutes } from './modules/dashboard/routes.js';
@@ -261,6 +262,8 @@ export async function buildApp() {
   await app.register(tutorialsRoutes);
   // Módulo de tarefas — fila por role + cidade (F15-S05)
   await app.register(tasksRoutes);
+  // Módulo de contratos — CRUD + ciclo de vida de assinatura (F17-S03)
+  await app.register(contractsRoutes);
 
   // Dev-only endpoints (schema-examples, etc.) — NOT registered in production (F10-S11)
   if (process.env['NODE_ENV'] !== 'production') {

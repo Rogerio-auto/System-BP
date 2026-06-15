@@ -177,3 +177,37 @@ export const COBRANCA_PERMISSIONS = [
 ] as const;
 
 export type CobrancaPermissionKey = (typeof COBRANCA_PERMISSIONS)[number]['key'];
+
+/**
+ * Permissões do módulo de contratos (F17-S03).
+ * Corresponde ao SQL da migration 0060_seed_contracts_permissions.sql.
+ *
+ * contracts:read  → leitura de contratos (listagem + detalhe).
+ * contracts:write → criação e edição de contratos (restrito a admin, gestor_geral).
+ * contracts:sign  → transição de status draft→signed→active (admin, gestor_geral, agente).
+ *
+ * Rationale:
+ *   - write restrito a admin/gestor_geral: evitar que agentes criem contratos ad hoc
+ *     sem aprovação de gestão; importação e criação são fluxos controlados.
+ *   - sign disponível ao agente: o agente está presente na assinatura presencial
+ *     e precisa registrar o ato no sistema.
+ */
+export const CONTRACTS_PERMISSIONS = [
+  {
+    key: 'contracts:read',
+    description: 'Leitura de contratos do cliente — listagem e detalhe',
+    roles: ['admin', 'gestor_geral', 'agente'],
+  },
+  {
+    key: 'contracts:write',
+    description: 'Criar e editar contratos — inserção e atualização de dados',
+    roles: ['admin', 'gestor_geral'],
+  },
+  {
+    key: 'contracts:sign',
+    description: 'Marcar contrato como assinado — transição draft→signed→active',
+    roles: ['admin', 'gestor_geral', 'agente'],
+  },
+] as const;
+
+export type ContractsPermissionKey = (typeof CONTRACTS_PERMISSIONS)[number]['key'];
