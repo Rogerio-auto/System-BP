@@ -896,6 +896,86 @@ export async function cancelCollectionJob(
 }
 
 // ---------------------------------------------------------------------------
+// SPC — queries (F15-S07)
+// ---------------------------------------------------------------------------
+
+/**
+ * Retorna o status SPC atual de um customer, validando que pertence à org.
+ *
+ * City-scope: valida via customers → leads (primary_lead_id → city_id).
+ * Lança NotFoundError quando o customer não existe ou está fora do escopo.
+ *
+ * LGPD: retorna customer_id (UUID) + spc_status + spc_changed_at.
+ * Nenhum campo PII (CPF, telefone, nome) é exposto.
+ */
+export async function findCustomerSpcStatus(
+  db: Database,
+  organizationId: string,
+  customerId: string,
+  cityScopeIds: string[] | null,
+): Promise<{ customerId: string; spcStatus: string; spcChangedAt: Date | null }> {
+  const cityScopeCondition = buildCityScopeCondition(cityScopeIds);
+
+  const conditions = [eq(customers.id, customerId), eq(customers.organizationId, organizationId)];
+  if (cityScopeCondition !== null) {
+    conditions.push(cityScopeCondition);
+  }
+
+  const rows = await db
+    .select({
+      customerId: customers.id,
+      spcStatus: customers.spcStatus,
+      spcChangedAt: customers.spcChangedAt,
+    })
+    .from(customers)
+    .leftJoin(leads, eq(customers.primaryLeadId, leads.id))
+    .where(and(...conditions))
+    .limit(1);
+
+  if (rows.length === 0) {
+    throw new NotFoundError('Cliente não encontrado');
+  }
+
+  return rows[0]!;
+}
+
+/**
+ * Atualiza spc_status e spc_changed_at de um customer.
+ * Deve ser chamado DENTRO de uma transação ativa para atomicidade com o audit log.
+ *
+ * Não verifica city-scope — o caller deve ter chamado findCustomerSpcStatus antes.
+ * Não verifica transição — o service valida antes de chamar este método.
+ */
+export async function updateCustomerSpcStatus(
+  db: Database,
+  organizationId: string,
+  customerId: string,
+  newStatus: string,
+): Promise<{ customerId: string; spcStatus: string; spcChangedAt: Date | null }> {
+  const now = new Date();
+
+  const rows = await db
+    .update(customers)
+    .set({
+      spcStatus: newStatus as typeof customers.spcStatus._.data,
+      spcChangedAt: now,
+      updatedAt: now,
+    })
+    .where(and(eq(customers.id, customerId), eq(customers.organizationId, organizationId)))
+    .returning({
+      customerId: customers.id,
+      spcStatus: customers.spcStatus,
+      spcChangedAt: customers.spcChangedAt,
+    });
+
+  if (rows.length === 0) {
+    throw new NotFoundError('Cliente não encontrado');
+  }
+
+  return rows[0]!;
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 

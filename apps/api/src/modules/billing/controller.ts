@@ -31,6 +31,7 @@ import type {
   MarkPaidBody,
   PaymentDuesListQuery,
   RenegotiateBody,
+  SpcUpdateBody,
 } from './schemas.js';
 import { BoletoAttachReferenceBodySchema } from './schemas.js';
 import {
@@ -38,6 +39,7 @@ import {
   attachBoletoUploadService,
   cancelJobService,
   createRuleService,
+  getSpcStatusService,
   listDuesService,
   listJobsService,
   listRulesService,
@@ -45,6 +47,7 @@ import {
   removeBoletoService,
   renegotiateService,
   updateRuleService,
+  updateSpcStatusService,
 } from './service.js';
 
 // ---------------------------------------------------------------------------
@@ -367,5 +370,57 @@ export async function removeBoletoController(
   const { id } = typedParams<{ id: string }>(request);
 
   const result = await removeBoletoService(db, organizationId, id, cityScopeIds, { userId, ip });
+  await reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/billing/customers/:id/spc (F15-S07)
+//
+// RBAC: spc:read
+// City-scope: validado via customers → leads.city_id
+// LGPD: retorna apenas customer_id (UUID) + status + changed_at — sem PII.
+// ---------------------------------------------------------------------------
+
+export async function getSpcStatusController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const { organizationId, cityScopeIds } = getUserContext(request);
+  const { id: customerId } = typedParams<{ id: string }>(request);
+
+  const result = await getSpcStatusService(db, organizationId, customerId, cityScopeIds);
+  await reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/billing/customers/:id/spc (F15-S07)
+//
+// RBAC: spc:manage
+// City-scope: validado via customers → leads.city_id
+// Idempotência: status atual == status novo → 200 no-op
+// Transições válidas:
+//   none → pending_inclusion
+//   pending_inclusion → included
+//   included → removed
+//   pending_inclusion → none
+// LGPD: audit log sem CPF — apenas customer_id (UUID) + from/to status.
+// ---------------------------------------------------------------------------
+
+export async function updateSpcStatusController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const { organizationId, cityScopeIds, userId, ip } = getUserContext(request);
+  const { id: customerId } = typedParams<{ id: string }>(request);
+  const body = typedBody<SpcUpdateBody>(request);
+
+  const result = await updateSpcStatusService(
+    db,
+    organizationId,
+    customerId,
+    cityScopeIds,
+    body.status,
+    { userId, ip },
+  );
   await reply.status(200).send(result);
 }
