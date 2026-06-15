@@ -345,7 +345,7 @@ describe('tipos Drizzle compilacao sem any', () => {
       provider: 'meta_whatsapp',
       name: 'Canal Teste',
       displayHandle: '+5569900000001',
-      phoneNumber: null,
+      phoneNumberEnc: null,
       phoneNumberId: '123456789012345',
       wabaId: null,
       metaAppId: null,
@@ -460,6 +460,7 @@ describe('tipos Drizzle Message e WebhookEvent', () => {
   it('WebhookEvent type tem expiresAt (LGPD 30 dias)', () => {
     const e: WebhookEvent = {
       id: 'e-1',
+      organizationId: null,
       provider: 'meta_whatsapp',
       eventId: 'wh-001',
       eventType: 'message',
@@ -518,6 +519,7 @@ describe('LGPD colunas PII nunca em texto plano', () => {
   it('webhook raw_payload e objeto jsonb nao string', () => {
     const e: WebhookEvent = {
       id: 'e-1',
+      organizationId: null,
       provider: 'meta_whatsapp',
       eventId: 'wh-001',
       eventType: 'message',
@@ -529,5 +531,45 @@ describe('LGPD colunas PII nunca em texto plano', () => {
     };
     expect(typeof e.rawPayload).toBe('object');
     expect(typeof e.rawPayload).not.toBe('string');
+  });
+
+  it('organizationId nullable: insert aceito sem org (ingest pre-routing)', async () => {
+    mockInsertValues.mockResolvedValueOnce([{ id: 'evt-3' }]);
+    // organization_id e NULL durante ingest antes de identificar o canal/org (M4)
+    const e: NewWebhookEvent = {
+      provider: 'meta_whatsapp',
+      eventId: 'wh-003',
+      eventType: 'message',
+      rawPayload: { entry: [] },
+    };
+    expect(await mockDb.insert(webhookEvents).values(e)).toEqual([{ id: 'evt-3' }]);
+  });
+
+  it('phone_number_enc nunca em texto plano (H1 LGPD)', () => {
+    // phoneNumberEnc deve ser Buffer (bytea), nunca string
+    const ch: Channel = {
+      id: CHANNEL_ID,
+      organizationId: ORG_ID,
+      cityId: null,
+      provider: 'meta_whatsapp',
+      name: 'Canal WA Enc',
+      displayHandle: '+5569900000001',
+      phoneNumberEnc: Buffer.from('AES-256-GCM-enc-phone'),
+      phoneNumberId: '123456789012345',
+      wabaId: null,
+      metaAppId: null,
+      igUserId: null,
+      igUsername: null,
+      igAccountType: null,
+      fbPageId: null,
+      wahaSessionId: null,
+      isActive: true,
+      isDefault: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    };
+    expect(typeof ch.phoneNumberEnc).not.toBe('string');
+    expect(ch.phoneNumberEnc).toBeInstanceOf(Buffer);
   });
 });

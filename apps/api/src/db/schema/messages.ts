@@ -24,6 +24,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core';
 
 import { channels } from './channels.js';
@@ -50,7 +51,10 @@ export const messages = pgTable(
       .notNull()
       .references(() => channels.id, { onDelete: 'restrict' }),
 
-    /** Direcao da mensagem: in = recebida do contato; out = enviada pelo sistema/agente. */
+    /**
+     * Direcao da mensagem. Enum validado por CHECK no DB.
+     * in = recebida do contato; out = enviada pelo sistema/agente.
+     */
     direction: text('direction').notNull(),
 
     /**
@@ -99,6 +103,7 @@ export const messages = pgTable(
 
     /**
      * Status de visualizacao/entrega da mensagem.
+     * Enum validado por CHECK no DB.
      * pending: enfileirada mas nao enviada.
      * sent: enviada ao provider.
      * delivered: confirmado entregue ao dispositivo.
@@ -135,6 +140,13 @@ export const messages = pgTable(
     idxConversationDirection: index('messages_conversation_direction_idx').on(
       t.conversationId,
       t.direction,
+    ),
+    /** CHECK de enum: garante apenas direcoes validas no DB. */
+    chkDirection: check('messages_direction_check', sql`direction IN ('in', 'out')`),
+    /** CHECK de enum: garante apenas view_status validos no DB. NULL permitido (inbound). */
+    chkViewStatus: check(
+      'messages_view_status_check',
+      sql`view_status IS NULL OR view_status IN ('pending', 'sent', 'delivered', 'read', 'failed')`,
     ),
   }),
 );

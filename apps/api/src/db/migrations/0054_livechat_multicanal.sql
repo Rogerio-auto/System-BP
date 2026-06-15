@@ -1,5 +1,10 @@
 -- Migration 0054: Schema multicanal do live chat (F16-S02, decisao D2).
 -- LGPD: colunas PII em bytea (enc via encryptPii em app layer).
+-- Remediacao de seguranca (F16-S02 security pass):
+--   H1: phone_number_enc (BYTEA) em vez de phone_number (TEXT) — dado pessoal cifrado.
+--   M1: CHECKs de enum para provider, status, kind, direction, view_status.
+--   M4: organization_id nullable em webhook_events (auditoria multi-tenant).
+--   L1: FKs declaradas para lead_id, customer_id, assigned_user_id ON DELETE SET NULL.
 
 CREATE TABLE IF NOT EXISTS "channels" (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -8,7 +13,10 @@ CREATE TABLE IF NOT EXISTS "channels" (
   "provider" TEXT NOT NULL,
   "name" TEXT NOT NULL,
   "display_handle" TEXT NOT NULL,
-  "phone_number" TEXT,
+  -- LGPD (H1): phone_number_enc — cifrado AES-256-GCM via encryptPii() (doc 17 §8.1).
+  -- Pode ser celular pessoal de atendente. Nunca texto plano.
+  -- Para busca/dedupe: usar hashDocument() sobre o numero E.164 normalizado.
+  "phone_number_enc" BYTEA,
   "phone_number_id" TEXT,
   "waba_id" TEXT,
   "meta_app_id" TEXT,
@@ -22,6 +30,11 @@ CREATE TABLE IF NOT EXISTS "channels" (
   "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
   "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
   "deleted_at" TIMESTAMPTZ,
+  -- M1: enum de provider no DB
+  CONSTRAINT "channels_provider_enum_check" CHECK (
+    provider IN ('meta_whatsapp', 'meta_instagram', 'waha')
+  ),
+  -- M1: campos obrigatorios por provider
   CONSTRAINT "channels_provider_fields_check" CHECK (
     (provider = 'meta_whatsapp' AND phone_number_id IS NOT NULL)
     OR (provider = 'meta_instagram' AND ig_user_id IS NOT NULL)
@@ -51,18 +64,27 @@ CREATE TABLE IF NOT EXISTS "conversations" (
   "contact_remote_id" TEXT NOT NULL,
   "contact_name" TEXT,
   "contact_phone_enc" BYTEA,
-  "lead_id" UUID,
-  "customer_id" UUID,
+  -- L1: FKs declaradas com ON DELETE SET NULL (lead/customer/user deletados nao removem a conversa)
+  "lead_id" UUID REFERENCES "leads" ("id") ON DELETE SET NULL,
+  "customer_id" UUID REFERENCES "customers" ("id") ON DELETE SET NULL,
   "status" TEXT NOT NULL DEFAULT 'open',
   "kind" TEXT NOT NULL DEFAULT 'dm',
-  "assigned_user_id" UUID,
+  "assigned_user_id" UUID REFERENCES "users" ("id") ON DELETE SET NULL,
   "last_inbound_at" TIMESTAMPTZ,
   "last_message_at" TIMESTAMPTZ,
   "unread_count" INTEGER NOT NULL DEFAULT 0,
   "metadata" TEXT,
   "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
   "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  "deleted_at" TIMESTAMPTZ
+  "deleted_at" TIMESTAMPTZ,
+  -- M1: enum de status no DB
+  CONSTRAINT "conversations_status_check" CHECK (
+    status IN ('open', 'pending', 'resolved', 'snoozed')
+  ),
+  -- M1: enum de kind no DB
+  CONSTRAINT "conversations_kind_check" CHECK (
+    kind IN ('dm', 'group', 'comment_thread')
+  )
 );
 
 CREATE INDEX IF NOT EXISTS "conversations_org_channel_last_message_idx" ON "conversations" ("organization_id", "channel_id", "last_message_at");
@@ -87,7 +109,15 @@ CREATE TABLE IF NOT EXISTS "messages" (
   "reply_to_external_id" TEXT,
   "metadata" JSONB,
   "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
-  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now()
+  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- M1: enum de direction no DB
+  CONSTRAINT "messages_direction_check" CHECK (
+    direction IN ('in', 'out')
+  ),
+  -- M1: enum de view_status no DB (NULL permitido para inbound)
+  CONSTRAINT "messages_view_status_check" CHECK (
+    view_status IS NULL OR view_status IN ('pending', 'sent', 'delivered', 'read', 'failed')
+  )
 );
 
 CREATE INDEX IF NOT EXISTS "messages_conversation_created_idx" ON "messages" ("conversation_id", "created_at");
@@ -96,6 +126,8 @@ CREATE INDEX IF NOT EXISTS "messages_conversation_direction_idx" ON "messages" (
 
 CREATE TABLE IF NOT EXISTS "webhook_events" (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- M4: organization_id nullable — NULL durante ingest pre-routing (auditoria multi-tenant)
+  "organization_id" UUID,
   "provider" TEXT NOT NULL,
   "event_id" TEXT NOT NULL,
   "event_type" TEXT NOT NULL,
@@ -110,3 +142,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS "webhook_events_provider_event_id_key" ON "web
 CREATE INDEX IF NOT EXISTS "webhook_events_provider_type_idx" ON "webhook_events" ("provider", "event_type");
 CREATE INDEX IF NOT EXISTS "webhook_events_unprocessed_idx" ON "webhook_events" ("processed_at", "created_at");
 CREATE INDEX IF NOT EXISTS "webhook_events_expires_at_idx" ON "webhook_events" ("expires_at");
+CREATE INDEX IF NOT EXISTS "webhook_events_org_id_idx" ON "webhook_events" ("organization_id");

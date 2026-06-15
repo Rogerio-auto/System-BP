@@ -22,6 +22,14 @@ export const webhookEvents = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()`),
 
+    /**
+     * Organization que recebeu o webhook.
+     * NULL durante ingest, antes de rotear para a org correta.
+     * Deve ser preenchido pelo webhook handler apos identificar o canal.
+     * Auditoria multi-tenant (M4 F16-S02).
+     */
+    organizationId: uuid('organization_id'),
+
     /** Provider de origem (meta_whatsapp | meta_instagram | waha). */
     provider: text('provider').notNull(),
 
@@ -63,6 +71,7 @@ export const webhookEvents = pgTable(
     idxProviderType: index('webhook_events_provider_type_idx').on(t.provider, t.eventType),
     idxUnprocessed: index('webhook_events_unprocessed_idx').on(t.processedAt, t.createdAt),
     idxExpiresAt: index('webhook_events_expires_at_idx').on(t.expiresAt),
+    idxOrgId: index('webhook_events_org_id_idx').on(t.organizationId),
   }),
 );
 

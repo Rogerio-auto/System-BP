@@ -8,14 +8,26 @@
 // LGPD (doc 17 §8.1):
 //   - contact_name: PII — nao logar sem redact.
 //   - contact_phone_enc: telefone cifrado AES-256-GCM via encryptPii().
-//     Se necessario dedupe de telefone, usar hashDocument() para hash HMAC.
+//     Se necessario dedupe de telefone, usar hashDocument() sobre o numero normalizado.
 //   - contact_remote_id: pode ser numero de telefone (meta_whatsapp) — PII indireta.
 // =============================================================================
 import { sql } from 'drizzle-orm';
-import { pgTable, uuid, text, integer, timestamp, index, customType } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  text,
+  integer,
+  timestamp,
+  index,
+  customType,
+  check,
+} from 'drizzle-orm/pg-core';
 
 import { channels } from './channels.js';
+import { customers } from './customers.js';
+import { leads } from './leads.js';
 import { organizations } from './organizations.js';
+import { users } from './users.js';
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() {
@@ -67,16 +79,17 @@ export const conversations = pgTable(
      * NULL = contato desconhecido ou ainda nao vinculado.
      * FK ON DELETE SET NULL: lead deletado nao remove a conversa.
      */
-    leadId: uuid('lead_id'),
+    leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
 
     /**
      * Cliente vinculado (se o lead foi convertido em cliente).
      * FK ON DELETE SET NULL: cliente deletado nao remove a conversa.
      */
-    customerId: uuid('customer_id'),
+    customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
 
     /**
      * Status da conversa no pipeline.
+     * Enum de dominio validado por CHECK no DB.
      * open: aguardando resposta do agente.
      * pending: aguardando resposta do contato.
      * resolved: encerrada.
@@ -86,6 +99,7 @@ export const conversations = pgTable(
 
     /**
      * Tipo de conversa.
+     * Enum de dominio validado por CHECK no DB.
      * dm: mensagem direta (1:1).
      * group: grupo (WhatsApp grupos — roadmap).
      * comment_thread: thread de comentario (Instagram).
@@ -95,9 +109,11 @@ export const conversations = pgTable(
     /**
      * Agente responsavel pelo atendimento.
      * NULL = nao atribuido (inbox nao lido ou roteamento pendente).
-     * FK ON DELETE SET NULL.
+     * FK ON DELETE SET NULL: usuario deletado libera a conversa para reatribuicao.
      */
-    assignedUserId: uuid('assigned_user_id'),
+    assignedUserId: uuid('assigned_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
 
     /** Timestamp do ultimo inbound (para SLA e ordenacao por urgencia). */
     lastInboundAt: timestamp('last_inbound_at', { withTimezone: true }),
@@ -131,6 +147,13 @@ export const conversations = pgTable(
       t.contactRemoteId,
     ),
     idxOrgCity: index('conversations_org_city_idx').on(t.organizationId, t.cityId),
+    /** CHECK de enum: garante apenas status validos no DB. */
+    chkStatus: check(
+      'conversations_status_check',
+      sql`status IN ('open', 'pending', 'resolved', 'snoozed')`,
+    ),
+    /** CHECK de enum: garante apenas kinds validos no DB. */
+    chkKind: check('conversations_kind_check', sql`kind IN ('dm', 'group', 'comment_thread')`),
   }),
 );
 
