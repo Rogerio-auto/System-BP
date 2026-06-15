@@ -7,7 +7,7 @@
 import { and, eq, isNull, ne } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
-import { userRecoveryCodes, userSessions, users } from '../../db/schema/index.js';
+import { roles, userRecoveryCodes, userRoles, userSessions, users } from '../../db/schema/index.js';
 import type { UserRecoveryCode } from '../../db/schema/userRecoveryCodes.js';
 import type { User } from '../../db/schema/users.js';
 
@@ -30,6 +30,23 @@ export async function findUserProfileById(db: Database, userId: string): Promise
 }
 
 /**
+ * Retorna as role keys do usuário (ex: ['agente', 'supervisor']).
+ *
+ * Usado para calcular `requires_personal_email` em getProfile (F14-S04).
+ * Não aplica filtro de soft-delete em userRoles — o usuário já foi validado
+ * como ativo antes desta chamada.
+ */
+export async function findUserRoleKeys(db: Database, userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ key: roles.key })
+    .from(userRoles)
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(eq(userRoles.userId, userId));
+
+  return rows.map((r) => r.key);
+}
+
+/**
  * Atualiza full_name do próprio usuário.
  * Retorna o usuário atualizado ou null se não encontrado/deletado.
  */
@@ -41,6 +58,29 @@ export async function updateUserFullName(
   const rows = await db
     .update(users)
     .set({ fullName, updatedAt: new Date() })
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .returning();
+
+  return rows[0] ?? null;
+}
+
+/**
+ * Atualiza o email pessoal do próprio usuário (F14-S04).
+ *
+ * LGPD (doc 17 §8.1): personal_email é PII — coberto por pino.redact.
+ * Retorna o usuário atualizado ou null se não encontrado/deletado.
+ *
+ * Erros de unique constraint (uq_users_org_personal_email_active) precisam ser
+ * capturados pelo caller (service) e convertidos em erro de negócio.
+ */
+export async function updateUserPersonalEmail(
+  db: Database,
+  userId: string,
+  personalEmail: string,
+): Promise<User | null> {
+  const rows = await db
+    .update(users)
+    .set({ personalEmail, updatedAt: new Date() })
     .where(and(eq(users.id, userId), isNull(users.deletedAt)))
     .returning();
 

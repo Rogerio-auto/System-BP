@@ -7,6 +7,9 @@
 // totp_secret armazenado cifrado com AES-256-GCM (F1-S24 — migration 0008).
 //   A criptografia é feita na service layer usando encryptPii/decryptPii de lib/crypto/pii.ts.
 //   O tipo bytea aqui reflete o armazenamento cifrado em coluna (doc 17 §8.1).
+// personal_email (F14-S04): email pessoal do agente — cobrado no 1º login.
+//   Adicionado à lista de bloqueio no cadastro de lead (evita confusão de identidade).
+//   PII — nunca logar (pino.redact em app.ts). citext nullable.
 // status: 'active' | 'disabled' | 'pending'
 // deleted_at: soft-delete para auditoria e revogação de acesso.
 // =============================================================================
@@ -81,6 +84,20 @@ export const users = pgTable(
       .default('pending'),
 
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+
+    /**
+     * Email pessoal do agente (F14-S04 D3).
+     * Cobrado no 1º login — quando NULL e o papel exige, `requires_personal_email`
+     * é true no GET /api/account/profile, ativando o modal bloqueante no frontend.
+     *
+     * Usado como bloqueio adicional no cadastro de lead: além do email corporativo
+     * (users.email), o email pessoal também é recusado como email de cliente.
+     *
+     * LGPD (doc 17 §8.1): PII — nunca logar. Coberto por pino.redact em app.ts.
+     * citext: comparação case-insensitive sem normalizar na app.
+     * nullable: agentes já existentes preenchem via modal de 1º login.
+     */
+    personalEmail: citext('personal_email'),
 
     /**
      * TOTP secret cifrado com AES-256-GCM pela camada de aplicação (F1-S24).

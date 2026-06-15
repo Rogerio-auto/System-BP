@@ -481,12 +481,16 @@ export async function softDeleteLead(
 /**
  * Verifica se o email fornecido pertence a algum usuário interno da organização.
  *
- * Segurança (F14-S02 D3): bloquear que um agente cadastre seu próprio email
- * (ou de outro colega) como email de contato do lead — evita confusão de
- * identidade e exposição de emails internos no CRM.
+ * Segurança (F14-S02 D3 + F14-S04 D3 extendido): bloquear que um agente
+ * cadastre o próprio email corporativo OU o email pessoal como email de
+ * contato do lead — evita confusão de identidade e exposição de emails
+ * internos no CRM.
  *
- * A comparação usa citext (case-insensitive) via lower() na query, garantindo
- * que "Agente@BDP.gov.br" bate com "agente@bdp.gov.br".
+ * Compara:
+ *   1. users.email         — email corporativo (já feito em F14-S02).
+ *   2. users.personal_email — email pessoal cadastrado no 1º login (F14-S04).
+ *
+ * A comparação usa lower() garantindo case-insensitive mesmo fora do citext.
  *
  * Considera soft-delete de users: usuários deletados não bloqueiam o cadastro
  * (se o agente saiu da organização, o email já pode ser reutilizado pelo lead).
@@ -504,9 +508,15 @@ export async function isInternalEmail(
     .where(
       and(
         eq(users.organizationId, orgId),
-        // lower() no lado direito garante comparação case-insensitive mesmo fora do citext
-        // (o tipo citext já é case-insensitive, mas sql`` torna a intenção explícita).
-        sql`lower(${users.email}) = lower(${email})`,
+        // OR: bate tanto em email corporativo quanto em email pessoal (F14-S04).
+        // lower() garante case-insensitive; citext já faz isso no storage,
+        // mas sql`` torna a intenção explícita para o reviewer.
+        or(
+          sql`lower(${users.email}) = lower(${email})`,
+          // personal_email pode ser null — sql`` com IS NOT NULL implícito no OR;
+          // PostgreSQL avalia o OR corretamente com NULL (NULL = lower(...) → false).
+          sql`lower(${users.personalEmail}) = lower(${email})`,
+        ),
         isNull(users.deletedAt),
       ),
     )

@@ -351,6 +351,13 @@
       "when": 1779753813000,
       "tag": "0054_seed_billing_boleto_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1779753814000,
+      "tag": "0055_user_personal_email",
+      "breakpoints": true
     }
   ]
 }

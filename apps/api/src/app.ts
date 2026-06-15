@@ -146,6 +146,12 @@ export async function buildApp() {
           'req.body.internal_score',
           // Help feedback comment (F10-S12) - PII potencial (doc 17 sec 9)
           'req.body.comment',
+          // Email pessoal do agente (F14-S04) — LGPD §8.1: PII de funcionário.
+          // Cobrado no 1º login e usado como bloqueio no cadastro de lead.
+          'req.body.personalEmail',
+          '*.personalEmail',
+          'req.body.personal_email',
+          '*.personal_email',
           // Boleto (F5-S13) — LGPD §14.2: boleto contém nome, CPF e endereço do devedor.
           // boleto_url: URL controlada/assinada — não deve vazar em logs (host + path podem revelar PII).
           '*.boleto_url',

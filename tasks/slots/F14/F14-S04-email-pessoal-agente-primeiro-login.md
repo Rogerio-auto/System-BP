@@ -3,12 +3,12 @@ id: F14-S04
 title: Email pessoal do agente no 1º login + bloqueio estendido
 phase: F14
 task_ref: null
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-15T18:00:10Z
+completed_at: 2026-06-15T18:19:31Z
 pr_url: null
 depends_on: [F14-S02]
 blocks: []

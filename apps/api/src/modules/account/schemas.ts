@@ -53,9 +53,58 @@ export const profileResponseSchema = z.object({
   email: z.string().email(),
   fullName: z.string(),
   organizationId: z.string().uuid(),
+  /**
+   * true quando o agente ainda não cadastrou o email pessoal e o papel exige.
+   * Disparado pelo guard de 1º login no frontend (App.tsx).
+   * F14-S04 D3.
+   */
+  requiresPersonalEmail: z
+    .boolean()
+    .describe('Indica que o agente deve cadastrar o email pessoal antes de usar o sistema'),
+  /** Email pessoal do agente (null enquanto não preenchido). LGPD: PII. */
+  personalEmail: z.string().email().nullable(),
 });
 
 export type ProfileResponse = z.infer<typeof profileResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /api/account/personal-email — body + response (F14-S04)
+// ---------------------------------------------------------------------------
+
+/**
+ * Papéis que exigem o cadastro do email pessoal.
+ * Agentes de atendimento e supervisores precisam bloquear o próprio email
+ * pessoal no cadastro de leads (D3 F14-S02).
+ *
+ * Nota: 'admin' e 'gestor_geral' operam em nível global — por precaução
+ * incluídos na lista para não deixar gap se um admin também atende leads.
+ */
+export const ROLES_REQUIRING_PERSONAL_EMAIL = new Set([
+  'agente',
+  'supervisor',
+  'admin',
+  'gestor_geral',
+]);
+
+export const setPersonalEmailBodySchema = z.object({
+  /**
+   * Email pessoal do agente (fora do domínio corporativo).
+   * LGPD: PII — nunca logar (coberto por pino.redact em app.ts).
+   */
+  personalEmail: z
+    .string()
+    .email('Informe um email válido')
+    .max(320, 'Email muito longo')
+    .trim()
+    .describe('Email pessoal do agente (ex: nome@gmail.com)'),
+});
+
+export type SetPersonalEmailBody = z.infer<typeof setPersonalEmailBodySchema>;
+
+export const setPersonalEmailResponseSchema = z.object({
+  personalEmail: z.string().email().describe('Email pessoal cadastrado'),
+  requiresPersonalEmail: z.boolean().describe('Sempre false após o cadastro bem-sucedido'),
+});
 
 // ---------------------------------------------------------------------------
 // PATCH /api/account/profile — body + response

@@ -28,7 +28,7 @@ import {
   matchRecoveryCode,
   verifyTotpCode,
 } from '../../lib/totp.js';
-import { NotFoundError, UnauthorizedError } from '../../shared/errors.js';
+import { ConflictError, NotFoundError, UnauthorizedError } from '../../shared/errors.js';
 import { passwordHash, passwordVerify } from '../../shared/password.js';
 
 import {
@@ -36,6 +36,7 @@ import {
   deleteRecoveryCodes,
   disableTotp,
   findUserProfileById,
+  findUserRoleKeys,
   insertRecoveryCodes,
   listAvailableRecoveryCodes,
   markRecoveryCodeUsedAtomic,
@@ -43,9 +44,11 @@ import {
   saveTotpSecretPending,
   updateUserFullName,
   updateUserPasswordHash,
+  updateUserPersonalEmail,
 } from './repository.js';
 import type {
   ProfileResponse,
+  SetPersonalEmailBody,
   UpdateProfileBody,
   ChangePasswordBody,
   TwoFactorStatusResponse,
@@ -54,6 +57,7 @@ import type {
   TwoFactorActivateResponse,
   TwoFactorDisableBody,
 } from './schemas.js';
+import { ROLES_REQUIRING_PERSONAL_EMAIL } from './schemas.js';
 
 // ---------------------------------------------------------------------------
 // Contexto do ator (sempre o próprio usuário — sem role de terceiro)
@@ -76,18 +80,35 @@ export interface AccountActorContext {
 /**
  * Serializa User para ProfileResponse, omitindo campos sensíveis (LGPD).
  * password_hash e totp_secret nunca aparecem.
+ *
+ * F14-S04: `requiresPersonalEmail` é true quando:
+ *   - O papel do usuário está na lista ROLES_REQUIRING_PERSONAL_EMAIL, e
+ *   - personal_email ainda não foi preenchido (null/undefined).
+ * `role` é opcional — sem papel informado, não exige email pessoal (seguro-fail aberto).
  */
-function toProfileResponse(user: {
-  id: string;
-  email: string;
-  fullName: string;
-  organizationId: string;
-}): ProfileResponse {
+function toProfileResponse(
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    organizationId: string;
+    personalEmail?: string | null;
+  },
+  role?: string,
+): ProfileResponse {
+  const roleRequires = role !== undefined && ROLES_REQUIRING_PERSONAL_EMAIL.has(role);
+  // personalEmail é null quando não preenchido (coluna citext nullable).
+  // Verificação explícita === null para satisfazer eqeqeq (sem usar == null).
+  const requiresPersonalEmail =
+    roleRequires && (user.personalEmail === null || user.personalEmail === undefined);
+
   return {
     id: user.id,
     email: user.email,
     fullName: user.fullName,
     organizationId: user.organizationId,
+    requiresPersonalEmail,
+    personalEmail: user.personalEmail ?? null,
   };
 }
 
@@ -99,10 +120,17 @@ export async function getProfile(
   db: Database,
   actor: AccountActorContext,
 ): Promise<ProfileResponse> {
-  const user = await findUserProfileById(db, actor.userId);
+  // Carrega perfil e roles em paralelo (F14-S04: roles necessárias para requires_personal_email)
+  const [user, roleKeys] = await Promise.all([
+    findUserProfileById(db, actor.userId),
+    findUserRoleKeys(db, actor.userId),
+  ]);
   if (!user) throw new NotFoundError('Usuário não encontrado');
 
-  return toProfileResponse(user);
+  // Determina o papel primário para o guard de 1º login.
+  // Se o usuário tem múltiplos papéis e qualquer um exige email pessoal → exige.
+  const primaryRole = roleKeys.find((k) => ROLES_REQUIRING_PERSONAL_EMAIL.has(k)) ?? roleKeys[0];
+  return toProfileResponse(user, primaryRole);
 }
 
 // ---------------------------------------------------------------------------
@@ -114,8 +142,13 @@ export async function updateProfile(
   actor: AccountActorContext,
   body: UpdateProfileBody,
 ): Promise<ProfileResponse> {
-  const before = await findUserProfileById(db, actor.userId);
+  const [before, roleKeys] = await Promise.all([
+    findUserProfileById(db, actor.userId),
+    findUserRoleKeys(db, actor.userId),
+  ]);
   if (!before) throw new NotFoundError('Usuário não encontrado');
+
+  const primaryRole = roleKeys.find((k) => ROLES_REQUIRING_PERSONAL_EMAIL.has(k)) ?? roleKeys[0];
 
   const after = await db.transaction(async (tx) => {
     const updated = await updateUserFullName(
@@ -147,7 +180,92 @@ export async function updateProfile(
     return updated;
   });
 
-  return toProfileResponse(after);
+  return toProfileResponse(after, primaryRole);
+}
+
+// ---------------------------------------------------------------------------
+// Helper interno
+// ---------------------------------------------------------------------------
+
+/**
+ * Verifica se um erro é violação de unique constraint do PostgreSQL (code 23505).
+ * Usado para mapear constraint parcial de personal_email para ConflictError.
+ */
+function isPgUniqueViolation(err: unknown): boolean {
+  if (err === null || typeof err !== 'object') return false;
+  const code = 'code' in err ? (err as { code: unknown }).code : undefined;
+  return code === '23505';
+}
+
+// ---------------------------------------------------------------------------
+// setPersonalEmail (F14-S04)
+//
+// Cadastra ou atualiza o email pessoal do agente.
+// Após salvo, o email é adicionado automaticamente à lista de bloqueio no
+// cadastro de lead via leads/repository.isInternalEmail (consulta personal_email
+// na mesma query que o email corporativo).
+//
+// Segurança:
+//   - Alvo é sempre request.user.id — nunca aceitar de params/body.
+//   - LGPD: personal_email é PII — audit log sem o valor (field-level).
+//   - Unique constraint parcial (org, personal_email) tratada como ValidationError.
+// ---------------------------------------------------------------------------
+
+export async function setPersonalEmail(
+  db: Database,
+  actor: AccountActorContext,
+  body: SetPersonalEmailBody,
+): Promise<ProfileResponse> {
+  const [user, roleKeys] = await Promise.all([
+    findUserProfileById(db, actor.userId),
+    findUserRoleKeys(db, actor.userId),
+  ]);
+  if (!user) throw new NotFoundError('Usuário não encontrado');
+
+  const primaryRole = roleKeys.find((k) => ROLES_REQUIRING_PERSONAL_EMAIL.has(k)) ?? roleKeys[0];
+
+  const after = await db.transaction(async (tx) => {
+    let updated: Awaited<ReturnType<typeof updateUserPersonalEmail>>;
+    try {
+      updated = await updateUserPersonalEmail(
+        tx as unknown as Database,
+        actor.userId,
+        body.personalEmail,
+      );
+    } catch (err: unknown) {
+      // Unique constraint: outro agente da org já cadastrou esse email pessoal.
+      if (isPgUniqueViolation(err)) {
+        throw new ConflictError(
+          'Este email já está registrado como email pessoal de outro agente desta organização',
+          { code: 'PERSONAL_EMAIL_CONFLICT' },
+        );
+      }
+      throw err;
+    }
+
+    if (!updated) throw new NotFoundError('Usuário não encontrado');
+
+    // Audit log — LGPD: personal_email é PII, não logamos o valor.
+    // Registramos apenas o evento (preenchido / atualizado) para rastreabilidade.
+    await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
+      organizationId: actor.organizationId,
+      actor: {
+        userId: actor.userId,
+        role: 'self',
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
+      action: 'account.personal_email_set',
+      resource: { type: 'user', id: actor.userId },
+      before: { personalEmailSet: user.personalEmail !== null },
+      after: { personalEmailSet: true },
+      // LGPD §8.5: intencionalmente não incluímos o valor do email pessoal no log.
+    });
+
+    return updated;
+  });
+
+  return toProfileResponse(after, primaryRole);
 }
 
 // ---------------------------------------------------------------------------
