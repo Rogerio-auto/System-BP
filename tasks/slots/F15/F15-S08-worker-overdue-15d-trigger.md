@@ -3,11 +3,11 @@ id: F15-S08
 title: Backend — worker de inadimplência 15d → cria tarefa SPC + evento de notificação
 phase: F15
 task_ref: null
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T22:07:18Z
 completed_at: null
 pr_url: null
 depends_on: [F15-S05, F15-S06, F15-S07]
@@ -17,7 +17,6 @@ source_docs:
   - docs/planejamento-2026-06-evolucao.md#f2-role-de-cobrança-dashboard-status-spc-item-9
   - docs/04-eventos.md
 ---
-
 # F15-S08 — Worker inadimplência 15d → tarefa + notificação
 
 ## Objetivo
