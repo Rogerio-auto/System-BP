@@ -596,6 +596,32 @@ export interface ContractSignedData {
   signed_at: string;
 }
 
+// --- Domínio: inadimplência SPC (F15-S08) ---
+// LGPD §8.5: payload carrega apenas IDs opacos + contagem operacional.
+// NUNCA incluir CPF, nome, telefone ou qualquer dado de identificação direta.
+// Base legal: Art. 7º V LGPD — execução de contrato / proteção ao crédito.
+
+/**
+ * Emitido pelo worker spc-overdue-scan (F15-S08) ao detectar cliente com 15+ dias
+ * de atraso e spc_status='none', para o qual uma tarefa spc_inclusion foi criada.
+ *
+ * LGPD §8.5: payload sem PII — apenas IDs opacos + contagem de parcelas em atraso.
+ * O consumer hidrata dados via GET /internal/customers/:id com escopo correto.
+ */
+export interface PaymentDueOverdue15dData {
+  /** UUID do customer com parcela(s) 15+ dias em atraso — ID opaco, não PII direta. */
+  customer_id: string;
+  /** UUID da cidade do customer (via lead) — contexto de escopo, não PII. */
+  city_id: string;
+  /** UUID da tarefa spc_inclusion criada para este cliente neste ciclo. */
+  task_id: string;
+  /**
+   * Número de parcelas com 15+ dias de atraso encontradas para este cliente.
+   * Dado financeiro operacional — sem PII.
+   */
+  overdue_count: number;
+}
+
 // --- Domínio: tarefas (F15-S05) ---
 // LGPD §8.5: sem PII bruta — apenas IDs opacos e metadados operacionais.
 
@@ -882,6 +908,8 @@ export interface AppEventDataMap {
   'user.session_revoked': UserEventData;
   // --- Contratos (F17-S03) ---
   'contract.signed': ContractSignedData;
+  // --- Inadimplência SPC (F15-S08): 15+ dias de atraso, spc_status=none ---
+  'payment_due.overdue_15d': PaymentDueOverdue15dData;
   // --- Tarefas (F15-S05) ---
   'task.created': TaskCreatedData;
   // --- Templates WhatsApp (F5-S09) ---
