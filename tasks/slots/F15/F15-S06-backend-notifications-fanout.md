@@ -3,16 +3,17 @@ id: F15-S06
 title: Backend — notificações in-app + fan-out por canal (email/WhatsApp)
 phase: F15
 task_ref: null
-status: blocked
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-15T21:01:40Z
+completed_at: 2026-06-15T21:22:01Z
 pr_url: null
 depends_on: [F15-S01, F15-S03, F15-S04, F15-S05]
 blocks: [F15-S08, F15-S10]
 labels: [notifications, backend, outbox, lgpd]
+docs_required: false
 source_docs:
   - docs/planejamento-2026-06-evolucao.md#f2-role-de-cobrança-dashboard-status-spc-item-9
   - docs/04-eventos.md

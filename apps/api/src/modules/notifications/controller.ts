@@ -1,12 +1,13 @@
 // =============================================================================
-// contracts/controller.ts — Handlers HTTP do módulo de contratos (F17-S03).
+// notifications/controller.ts — Handlers HTTP do módulo de notificações (F15-S06).
 //
 // Responsabilidades:
 //   - Extrair params/body/query do request Fastify.
-//   - Montar organizationId + cityScopeIds + actor a partir de request.user.
-//   - Delegar ao service e enviar resposta.
+//   - Montar organizationId + userId a partir de request.user.
+//   - Delegar ao service; enviar resposta HTTP.
 //
 // request.user é garantido por authenticate() nos preHandlers de cada rota.
+// RBAC é verificado pelo authorize() middleware antes de chegar aqui.
 // =============================================================================
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -14,13 +15,17 @@ import { db } from '../../db/client.js';
 import { UnauthorizedError } from '../../shared/errors.js';
 import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
-import type { ContractCreateBody, ContractIdParam, ContractsListQuery } from './schemas.js';
+import type {
+  NotificationIdParam,
+  NotificationListQuery,
+  NotificationPreferencesBatchUpdate,
+} from './schemas.js';
 import {
-  createContractService,
-  getBoletoHealthService,
-  getContractService,
-  listContractsService,
-  signContractService,
+  getPreferencesService,
+  listNotificationsService,
+  markAllNotificationsReadService,
+  markNotificationReadService,
+  updatePreferencesService,
 } from './service.js';
 
 // ---------------------------------------------------------------------------
@@ -29,9 +34,7 @@ import {
 
 interface UserContext {
   organizationId: string;
-  cityScopeIds: string[] | null;
   userId: string;
-  ip: string | null;
 }
 
 function getUserContext(request: FastifyRequest): UserContext {
@@ -40,78 +43,74 @@ function getUserContext(request: FastifyRequest): UserContext {
   }
   return {
     organizationId: request.user.organizationId,
-    cityScopeIds: request.user.cityScopeIds ?? null,
     userId: request.user.id,
-    ip: request.ip ?? null,
   };
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/contracts
+// GET /api/notifications — minhas notificações
 // ---------------------------------------------------------------------------
 
-export async function listContractsController(
+export async function listNotificationsController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const { organizationId, cityScopeIds } = getUserContext(request);
-  const query = typedQuery<ContractsListQuery>(request);
-  const result = await listContractsService(db, organizationId, cityScopeIds, query);
+  const { organizationId, userId } = getUserContext(request);
+  const query = typedQuery<NotificationListQuery>(request);
+  const result = await listNotificationsService(db, organizationId, userId, query);
   await reply.status(200).send(result);
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/contracts
+// POST /api/notifications/:id/read — marcar notificação como lida
 // ---------------------------------------------------------------------------
 
-export async function createContractController(
+export async function markReadController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const { organizationId, userId, ip } = getUserContext(request);
-  const body = typedBody<ContractCreateBody>(request);
-  const result = await createContractService(db, organizationId, body, { userId, ip });
-  await reply.status(201).send(result);
-}
-
-// ---------------------------------------------------------------------------
-// GET /api/contracts/:id
-// ---------------------------------------------------------------------------
-
-export async function getContractController(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<void> {
-  const { organizationId, cityScopeIds } = getUserContext(request);
-  const { id } = typedParams<ContractIdParam>(request);
-  const result = await getContractService(db, organizationId, id, cityScopeIds);
+  const { organizationId, userId } = getUserContext(request);
+  const { id } = typedParams<NotificationIdParam>(request);
+  const result = await markNotificationReadService(db, organizationId, userId, id);
   await reply.status(200).send(result);
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/contracts/:id/sign
+// POST /api/notifications/read-all — marcar todas como lidas
 // ---------------------------------------------------------------------------
 
-export async function signContractController(
+export async function markAllReadController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const { organizationId, cityScopeIds, userId, ip } = getUserContext(request);
-  const { id } = typedParams<ContractIdParam>(request);
-  const result = await signContractService(db, organizationId, id, cityScopeIds, { userId, ip });
+  const { organizationId, userId } = getUserContext(request);
+  const result = await markAllNotificationsReadService(db, organizationId, userId);
   await reply.status(200).send(result);
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/contracts/:id/health (F17-S04)
+// GET /api/notifications/preferences — ver preferências
 // ---------------------------------------------------------------------------
 
-export async function getBoletoHealthController(
+export async function getPreferencesController(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const { organizationId, cityScopeIds } = getUserContext(request);
-  const { id } = typedParams<ContractIdParam>(request);
-  const result = await getBoletoHealthService(db, organizationId, id, cityScopeIds);
+  const { organizationId, userId } = getUserContext(request);
+  const result = await getPreferencesService(db, organizationId, userId);
+  await reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// PUT /api/notifications/preferences — atualizar preferências
+// ---------------------------------------------------------------------------
+
+export async function updatePreferencesController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const { organizationId, userId } = getUserContext(request);
+  const body = typedBody<NotificationPreferencesBatchUpdate>(request);
+  const result = await updatePreferencesService(db, organizationId, userId, body);
   await reply.status(200).send(result);
 }

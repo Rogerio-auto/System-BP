@@ -25,9 +25,11 @@ import type { Database } from '../../db/client.js';
 import { contracts } from '../../db/schema/contracts.js';
 import { customers } from '../../db/schema/customers.js';
 import { leads } from '../../db/schema/leads.js';
+import { paymentDues } from '../../db/schema/paymentDues.js';
 import { NotFoundError } from '../../shared/errors.js';
 
 import type {
+  BoletoHealthResponse,
   ContractCreateBody,
   ContractResponse,
   ContractStatus,
@@ -239,6 +241,110 @@ export async function signContract(
   }
 
   return mapContractRow(rows[0]!);
+}
+
+// ---------------------------------------------------------------------------
+// getBoletoHealthByContractId — agregação de saúde de boletos (F17-S04)
+//
+// Uma única query SQL com COUNT FILTER e SUM FILTER agrupa todas as parcelas
+// do contrato em uma passada (sem N+1). Os valores numéricos (amount) são
+// retornados como string para evitar float drift (numeric → text via SQL).
+//
+// Também conta parcelas overdue com vencimento >= 15 dias atrás para
+// calcular o indicador 'defaulted' vs 'at_risk'.
+//
+// City-scope: não aplicado aqui — o caller (service) deve verificar
+// que o contrato pertence ao escopo do usuário antes de chamar esta função
+// (via verifyContractScope).
+// ---------------------------------------------------------------------------
+
+/**
+ * Tipos internos da row retornada pela query de agregação.
+ * Os campos COUNT retornam bigint (string em pg) — convertidos para number.
+ * Os campos SUM retornam numeric — mantidos como string.
+ * Index signature requerida por db.execute<T> do Drizzle (constraint Record<string, unknown>).
+ */
+interface BoletoHealthRow extends Record<string, unknown> {
+  total: string;
+  paid_count: string;
+  overdue_count: string;
+  pending_count: string;
+  paid_amount: string | null;
+  overdue_amount: string | null;
+  pending_amount: string | null;
+  overdue_15d_count: string;
+}
+
+export async function getBoletoHealthByContractId(
+  db: Database,
+  contractId: string,
+): Promise<BoletoHealthResponse> {
+  // Uma única query de agregação — sem N+1.
+  // Drizzle não suporta FILTER nativo, portanto usamos sql`` parametrizado.
+  // `as` justificado: sql<BoletoHealthRow> não tem outro mecanismo de tipagem em Drizzle.
+  const rows = await db.execute<BoletoHealthRow>(sql`
+    SELECT
+      COUNT(*)::text                                                              AS total,
+      COUNT(*) FILTER (WHERE ${paymentDues.status} = 'paid')::text               AS paid_count,
+      COUNT(*) FILTER (WHERE ${paymentDues.status} = 'overdue')::text             AS overdue_count,
+      COUNT(*) FILTER (WHERE ${paymentDues.status} = 'pending')::text             AS pending_count,
+      COALESCE(SUM(${paymentDues.amount}) FILTER (WHERE ${paymentDues.status} = 'paid'),  0)::text AS paid_amount,
+      COALESCE(SUM(${paymentDues.amount}) FILTER (WHERE ${paymentDues.status} = 'overdue'), 0)::text AS overdue_amount,
+      COALESCE(SUM(${paymentDues.amount}) FILTER (WHERE ${paymentDues.status} = 'pending'), 0)::text AS pending_amount,
+      COUNT(*) FILTER (
+        WHERE ${paymentDues.status} = 'overdue'
+          AND ${paymentDues.dueDate} <= (NOW() - INTERVAL '15 days')::date
+      )::text AS overdue_15d_count
+    FROM ${paymentDues}
+    WHERE ${paymentDues.contractId} = ${contractId}
+  `);
+
+  const row = rows.rows[0] as BoletoHealthRow | undefined;
+
+  // Se a query não retornar nenhuma linha (impossível com COUNT mas defensivo)
+  // retornamos saúde zerada.
+  const total = row ? parseInt(row.total, 10) : 0;
+  const paidCount = row ? parseInt(row.paid_count, 10) : 0;
+  const overdueCount = row ? parseInt(row.overdue_count, 10) : 0;
+  const pendingCount = row ? parseInt(row.pending_count, 10) : 0;
+  const overdue15dCount = row ? parseInt(row.overdue_15d_count, 10) : 0;
+
+  const paidAmount = row?.paid_amount ?? '0';
+  const overdueAmount = row?.overdue_amount ?? '0';
+  const pendingAmount = row?.pending_amount ?? '0';
+
+  // Percentual pago — divisão inteira segura; 0 se sem parcelas.
+  const percentPaid = total === 0 ? 0 : Math.round((paidCount / total) * 100);
+
+  // Indicador sintético de saúde:
+  //   settled:   todas as parcelas pagas (ou sem parcelas e percentPaid == 100 — impossível)
+  //   defaulted: ≥1 parcela overdue há ≥ 15 dias
+  //   at_risk:   ≥1 parcela overdue mas todas há < 15 dias
+  //   healthy:   sem parcelas overdue (paid ou pending apenas)
+  let health: BoletoHealthResponse['health'];
+
+  if (total > 0 && percentPaid === 100) {
+    health = 'settled';
+  } else if (overdue15dCount > 0) {
+    health = 'defaulted';
+  } else if (overdueCount > 0) {
+    health = 'at_risk';
+  } else {
+    health = 'healthy';
+  }
+
+  return {
+    contract_id: contractId,
+    total_installments: total,
+    paid_count: paidCount,
+    overdue_count: overdueCount,
+    pending_count: pendingCount,
+    paid_amount: paidAmount,
+    overdue_amount: overdueAmount,
+    pending_amount: pendingAmount,
+    percent_paid: percentPaid,
+    health,
+  };
 }
 
 // ---------------------------------------------------------------------------

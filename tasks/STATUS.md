@@ -14,9 +14,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F12  | 13    | 0   | 1   | 0   | 0   | 0   | 12  |
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
-| F15  | 12    | 0   | 4   | 0   | 0   | 6   | 2   |
+| F15  | 12    | 0   | 3   | 0   | 0   | 7   | 2   |
 | F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
-| F17  | 10    | 0   | 6   | 0   | 0   | 4   | 0   |
+| F17  | 10    | 0   | 4   | 0   | 0   | 6   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -156,7 +156,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F15-S03 | Schema — tabelas `tasks`, `notifications`, `notification_preferences`           | ✅ done    | high       | —                                  |
 | F15-S04 | Contratos compartilhados — tarefas, notificações, SPC, dashboard cobrança       | 🟣 review  | high       | F15-S03                            |
 | F15-S05 | Backend — módulo de tarefas (CRUD + assumir + concluir + "minhas tarefas")      | 🟣 review  | high       | F15-S01, F15-S03, F15-S04          |
-| F15-S06 | Backend — notificações in-app + fan-out por canal (email/WhatsApp)              | ⏸️ blocked | high       | F15-S01, F15-S03, F15-S04, F15-S05 |
+| F15-S06 | Backend — notificações in-app + fan-out por canal (email/WhatsApp)              | 🟣 review  | high       | F15-S01, F15-S03, F15-S04, F15-S05 |
 | F15-S07 | Backend — service de status SPC (transições + auditoria)                        | 🟣 review  | medium     | F15-S01, F15-S02, F15-S04          |
 | F15-S08 | Backend — worker de inadimplência 15d → cria tarefa SPC + evento de notificação | ⏸️ blocked | medium     | F15-S05, F15-S06, F15-S07          |
 | F15-S09 | Backend — métricas do dashboard de cobrança                                     | 🟣 review  | medium     | F15-S01, F15-S02, F15-S04          |
@@ -193,10 +193,10 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F17-S01 | Schema — entidade `contracts` + migração `contract_reference` → `contract_id` | 🟣 review  | high       | —                         |
 | F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | 🟣 review  | high       | F17-S01                   |
 | F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | 🟣 review  | high       | F17-S01, F17-S02          |
-| F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | ⏸️ blocked | medium     | F17-S01, F17-S02, F17-S03 |
+| F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | 🟣 review  | medium     | F17-S01, F17-S02, F17-S03 |
 | F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | 🟣 review  | high       | F17-S02, F17-S03          |
 | F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ⏸️ blocked | medium     | F17-S04, F17-S05, F5-S16  |
-| F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | ⏸️ blocked | medium     | F17-S01, F17-S02, F17-S03 |
+| F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | 🟣 review  | medium     | F17-S01, F17-S02, F17-S03 |
 | F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ⏸️ blocked | medium     | F17-S02, F17-S07          |
 | F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked | low        | F17-S01, F17-S03, F15-S05 |
 | F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked | low        | F17-S09, F15-S10          |

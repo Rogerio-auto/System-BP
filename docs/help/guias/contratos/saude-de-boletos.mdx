@@ -1,0 +1,69 @@
+---
+title: "Saúde de boletos do contrato"
+description: "Entenda como o Elemento calcula o indicador de saúde de pagamento de um contrato e o que cada status significa"
+order: 20
+keywords: [contrato, boleto, inadimplência, parcelas, saúde financeira, quitado, em risco]
+---
+
+Use este guia quando você precisar entender o que significa o indicador de saúde de um contrato
+e como interpretar os status **Quitado**, **Inadimplente**, **Em risco** e **Em dia**.
+
+## O que é a saúde de boletos
+
+Cada contrato ativo no Banco do Povo possui parcelas cadastradas no sistema.
+O indicador de saúde resume o estado atual dessas parcelas em um único valor
+para que gestores e analistas possam identificar rapidamente contratos que precisam de atenção.
+
+## Os quatro status
+
+| Status | Significado |
+|--------|-------------|
+| **Em dia** (`healthy`) | Nenhuma parcela vencida. O contrato está sendo pago dentro do prazo. |
+| **Em risco** (`at_risk`) | Existe ao menos uma parcela vencida há menos de 15 dias. O mutuário ainda pode regularizar sem penalidade adicional. |
+| **Inadimplente** (`defaulted`) | Existe ao menos uma parcela vencida há 15 dias ou mais. Pode acionar cobrança judicial ou inclusão em cadastro de restrição. |
+| **Quitado** (`settled`) | Todas as parcelas foram pagas. O contrato foi liquidado. |
+
+<Callout type="info" title="Como o prazo de 15 dias é calculado">
+  O sistema compara a data de vencimento de cada parcela com a data atual.
+  Uma parcela com vencimento em 01/06 passa a contar como "inadimplente"
+  a partir do dia 16/06 — independente de feriados.
+</Callout>
+
+## O que é exibido no painel do contrato
+
+Ao abrir um contrato, o painel de saúde exibe:
+
+- **Total de parcelas** — quantidade cadastrada no contrato.
+- **Pagas** — parcelas confirmadas como quitadas.
+- **Vencidas** — parcelas com data de vencimento ultrapassada e sem confirmação de pagamento.
+- **Pendentes** — parcelas dentro do prazo ainda não pagas.
+- **Percentual pago** — proporção de parcelas pagas em relação ao total.
+- **Valores** — somatório em reais de cada grupo (pago, vencido, pendente).
+
+## Quando o status muda
+
+O status é calculado em tempo real a cada consulta — ele não é armazenado separadamente.
+Isso significa que:
+
+- Uma parcela paga hoje atualiza o indicador imediatamente.
+- Uma parcela que venceu ontem passa de **Em dia** para **Em risco** na próxima consulta.
+- Após 15 dias de vencimento sem pagamento, passa automaticamente para **Inadimplente**.
+
+<Callout type="warn" title="Status do contrato x saúde de boletos">
+  O campo **status do contrato** (`draft`, `signed`, `active`, `settled`, `defaulted`)
+  é gerenciado manualmente pelos gestores e segue o ciclo de vida de assinatura e desembolso.
+  A **saúde de boletos** é derivada automaticamente das parcelas — os dois campos
+  podem divergir temporariamente durante a transição.
+</Callout>
+
+## Permissões necessárias
+
+<Permission requires="contracts:read" />
+
+Gestores regionais visualizam apenas contratos de clientes de suas cidades.
+Administradores e gestores gerais têm acesso a todos os contratos da organização.
+
+## Veja também
+
+- [Parcelas e cobrança](/ajuda/guias/cobranca) — entenda como a régua de cobrança funciona.
+- [Contratos](/ajuda/conceitos/papeis-e-cidades) — papéis e permissões do módulo de contratos.
