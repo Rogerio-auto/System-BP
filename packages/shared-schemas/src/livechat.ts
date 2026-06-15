@@ -1,6 +1,11 @@
 // =============================================================================
 // livechat.ts - Schemas Zod compartilhados do dominio live chat.
 // Portado do tagix (packages/channels/src/types.ts + packages/shared/src/types/interactive.ts).
+//
+// Multi-tenant: organizationId obrigatorio em InboundEvent e OutboundJob para
+// roteamento por tenant em fila/socket. channelId obrigatorio em InboundEvent
+// para lookup do adapter correto sem round-trip ao DB no worker.
+//
 // LGPD doc 17: Message.content pode ter PII - redact e responsabilidade do consumidor.
 // Sem any. Tipos inferidos via z.infer.
 // =============================================================================
@@ -35,6 +40,10 @@ export type MessageType = z.infer<typeof MessageTypeSchema>;
 
 export const ViewStatusSchema = z.enum(['pending', 'sent', 'delivered', 'read', 'failed']);
 export type ViewStatus = z.infer<typeof ViewStatusSchema>;
+
+// ---------------------------------------------------------------------------
+// Interactive payload schemas
+// ---------------------------------------------------------------------------
 
 export const InteractiveButtonsSchema = z.object({
   type: z.literal('buttons'),
@@ -77,9 +86,9 @@ export const InteractiveTemplateSchema = z.object({
   languageCode: z.string().min(2).max(8),
   // TODO(F16): components mantido como z.array(z.unknown()) intencionalmente.
   // A estrutura de components dos templates Meta (header/body/button) nao esta
-  // estabilizada — cada tipo de template (TEXT, IMAGE, DOCUMENT, VIDEO, CAROUSEL)
-  // usa shapes diferentes e a Meta muda sem pre-aviso.
-  // Decisao: validar apenas que e um array; a validacao semantica fica no adapter (S04/S05)
+  // estabilizada — cada tipo (TEXT, IMAGE, DOCUMENT, VIDEO, CAROUSEL) usa shapes
+  // diferentes e a Meta muda sem pre-aviso.
+  // Decisao: validar apenas que e um array; validacao semantica fica no adapter (S04/S05)
   // que conhece o tipo especifico de template.
   // Revisar quando F16-S04 estabilizar os shapes de template suportados.
   components: z.array(z.unknown()),
@@ -92,6 +101,10 @@ export const InteractivePayloadSchema = z.discriminatedUnion('type', [
 ]);
 export type InteractivePayload = z.infer<typeof InteractivePayloadSchema>;
 
+// ---------------------------------------------------------------------------
+// Media ref (inbound)
+// ---------------------------------------------------------------------------
+
 const MediaRefSchema = z.object({
   refOrUrl: z.string().min(1),
   mimeType: z.string().optional(),
@@ -100,9 +113,19 @@ const MediaRefSchema = z.object({
 });
 export type MediaRef = z.infer<typeof MediaRefSchema>;
 
+// ---------------------------------------------------------------------------
+// InboundEvent — discriminated union com organizationId + channelId obrigatorios.
+//
+// organizationId: roteamento por tenant (fila/socket).
+// channelId: UUID do channel no DB; permite ao worker recuperar o adapter correto
+//   e validar assinatura HMAC por-canal sem round-trip adicional.
+// ---------------------------------------------------------------------------
+
 export const InboundEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('message'),
+    organizationId: z.string().uuid(),
+    channelId: z.string().uuid(),
     provider: ChannelProviderSchema,
     contactRemoteId: z.string().min(1),
     externalId: z.string().min(1),
@@ -114,6 +137,8 @@ export const InboundEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('status'),
+    organizationId: z.string().uuid(),
+    channelId: z.string().uuid(),
     provider: ChannelProviderSchema,
     externalId: z.string().min(1),
     status: z.enum(['sent', 'delivered', 'read', 'failed']),
@@ -121,6 +146,8 @@ export const InboundEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('story_mention'),
+    organizationId: z.string().uuid(),
+    channelId: z.string().uuid(),
     provider: z.literal('meta_instagram'),
     contactRemoteId: z.string().min(1),
     externalId: z.string().min(1),
@@ -129,6 +156,8 @@ export const InboundEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('story_reply'),
+    organizationId: z.string().uuid(),
+    channelId: z.string().uuid(),
     provider: z.literal('meta_instagram'),
     contactRemoteId: z.string().min(1),
     externalId: z.string().min(1),
@@ -137,6 +166,8 @@ export const InboundEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('share'),
+    organizationId: z.string().uuid(),
+    channelId: z.string().uuid(),
     provider: z.literal('meta_instagram'),
     contactRemoteId: z.string().min(1),
     externalId: z.string().min(1),
@@ -144,6 +175,8 @@ export const InboundEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('comment'),
+    organizationId: z.string().uuid(),
+    channelId: z.string().uuid(),
     provider: z.literal('meta_instagram'),
     mediaId: z.string().min(1),
     mediaKind: z.enum(['post', 'reel', 'story']).optional(),
@@ -155,6 +188,8 @@ export const InboundEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('postback'),
+    organizationId: z.string().uuid(),
+    channelId: z.string().uuid(),
     provider: z.literal('meta_instagram'),
     contactRemoteId: z.string().min(1),
     externalId: z.string().min(1),
@@ -163,6 +198,8 @@ export const InboundEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('reaction'),
+    organizationId: z.string().uuid(),
+    channelId: z.string().uuid(),
     provider: ChannelProviderSchema,
     contactRemoteId: z.string().min(1),
     targetExternalId: z.string().min(1),
@@ -170,6 +207,8 @@ export const InboundEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('referral'),
+    organizationId: z.string().uuid(),
+    channelId: z.string().uuid(),
     provider: z.literal('meta_instagram'),
     contactRemoteId: z.string().min(1),
     source: z.string().min(1),
@@ -178,9 +217,17 @@ export const InboundEventSchema = z.discriminatedUnion('type', [
 ]);
 export type InboundEvent = z.infer<typeof InboundEventSchema>;
 
+// ---------------------------------------------------------------------------
+// OutboundJob — discriminated union com organizationId obrigatorio.
+//
+// organizationId: roteamento por tenant e auditoria.
+// channelId + conversationId + messageId: lookup no DB e idempotencia.
+// ---------------------------------------------------------------------------
+
 export const OutboundJobSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('text'),
+    organizationId: z.string().uuid(),
     channelId: z.string().uuid(),
     conversationId: z.string().uuid(),
     messageId: z.string().uuid(),
@@ -190,6 +237,7 @@ export const OutboundJobSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('media'),
+    organizationId: z.string().uuid(),
     channelId: z.string().uuid(),
     conversationId: z.string().uuid(),
     messageId: z.string().uuid(),
@@ -202,6 +250,7 @@ export const OutboundJobSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('template'),
+    organizationId: z.string().uuid(),
     channelId: z.string().uuid(),
     conversationId: z.string().uuid(),
     messageId: z.string().uuid(),
@@ -213,6 +262,7 @@ export const OutboundJobSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('interactive'),
+    organizationId: z.string().uuid(),
     channelId: z.string().uuid(),
     conversationId: z.string().uuid(),
     messageId: z.string().uuid(),
@@ -222,6 +272,7 @@ export const OutboundJobSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('ig_private_reply'),
+    organizationId: z.string().uuid(),
     channelId: z.string().uuid(),
     conversationId: z.string().uuid(),
     messageId: z.string().uuid(),
@@ -230,6 +281,7 @@ export const OutboundJobSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('ig_public_reply'),
+    organizationId: z.string().uuid(),
     channelId: z.string().uuid(),
     conversationId: z.string().uuid(),
     messageId: z.string().uuid(),
@@ -238,6 +290,7 @@ export const OutboundJobSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('typing_indicator'),
+    organizationId: z.string().uuid(),
     channelId: z.string().uuid(),
     conversationId: z.string().uuid(),
     contactRemoteId: z.string().min(1),
@@ -245,6 +298,10 @@ export const OutboundJobSchema = z.discriminatedUnion('type', [
   }),
 ]);
 export type OutboundJob = z.infer<typeof OutboundJobSchema>;
+
+// ---------------------------------------------------------------------------
+// SendResult — resultado do envio pelo adapter
+// ---------------------------------------------------------------------------
 
 export const SendResultSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), externalId: z.string().min(1), raw: z.unknown().optional() }),

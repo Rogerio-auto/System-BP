@@ -53,10 +53,11 @@ export type ConversationKind = 'dm' | 'group' | 'comment_thread';
 /**
  * Canal de comunicacao (sem access_token, sem app_secret, sem phoneNumber).
  *
- * L3: phoneNumber foi removido deste DTO publico.
- * Motivo: phone_number_enc no DB e PII cifrado (celular pessoal do atendente ou numero do canal).
- * Expor o numero decifrado aqui exigiria permissao crm:contact:phone:read e endpoint protegido.
- * O phone_number_id (ID da Meta) continua disponivel — e ID tecnico, nao PII.
+ * LGPD L3: phoneNumber removido deste DTO publico.
+ * Motivo: phone_number_enc no DB e PII cifrada (numero do canal/atendente).
+ * Expor o numero decifrado aqui exigiria permissao crm:contact:phone:read
+ * e endpoint protegido dedicado.
+ * O phoneNumberId (ID tecnico da Meta) continua disponivel — nao e PII.
  * Se o front precisar exibir o numero, criar endpoint dedicado com permissao explicita.
  */
 export interface ChannelDto {
@@ -66,7 +67,7 @@ export interface ChannelDto {
   readonly provider: ChannelProvider;
   readonly name: string;
   readonly displayHandle: string | null;
-  // WhatsApp — phone_number_id e ID tecnico (Meta), nao PII
+  // WhatsApp — phoneNumberId e ID tecnico (Meta), nao PII
   readonly phoneNumberId: string | null;
   readonly wabaId: string | null;
   // Instagram
@@ -82,7 +83,7 @@ export interface ChannelDto {
 /**
  * Conversa (lista do inbox).
  *
- * M1 (PII): NAO inclui contactPhone.
+ * LGPD M1: NAO inclui contactPhone.
  * Listagem de conversas nao requer permissao de PII de telefone.
  * Para obter o numero decifrado, use ConversationDetailDto (endpoint dedicado
  * com permissao crm:contact:phone:read verificada no servidor).
@@ -109,7 +110,7 @@ export interface ConversationDto {
 /**
  * Detalhe de conversa — inclui PII decifrada de telefone.
  *
- * M1: Retornado APENAS pelo endpoint de detalhe que verifica a permissao
+ * LGPD M1: Retornado APENAS pelo endpoint de detalhe que verifica a permissao
  * crm:contact:phone:read antes de decifrar e incluir o numero.
  * NAO usar em listagens. NAO logar sem redact.
  */

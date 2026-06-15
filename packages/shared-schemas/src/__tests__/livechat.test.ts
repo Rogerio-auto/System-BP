@@ -10,6 +10,19 @@ import {
   ViewStatusSchema,
 } from '../livechat.js';
 
+// ---------------------------------------------------------------------------
+// Fixtures reutilizaveis
+// ---------------------------------------------------------------------------
+
+const ORG_ID = '00000000-0000-0000-0000-000000000000';
+const CHANNEL_ID = '00000000-0000-0000-0000-000000000001';
+const CONVERSATION_ID = '00000000-0000-0000-0000-000000000002';
+const MESSAGE_ID = '00000000-0000-0000-0000-000000000003';
+
+// ---------------------------------------------------------------------------
+// ChannelProviderSchema
+// ---------------------------------------------------------------------------
+
 describe('ChannelProviderSchema', () => {
   it('aceita providers validos', () => {
     expect(ChannelProviderSchema.parse('meta_whatsapp')).toBe('meta_whatsapp');
@@ -20,6 +33,10 @@ describe('ChannelProviderSchema', () => {
     expect(() => ChannelProviderSchema.parse('chatwoot')).toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// MessageTypeSchema
+// ---------------------------------------------------------------------------
 
 describe('MessageTypeSchema', () => {
   it('aceita todos os 21 tipos', () => {
@@ -54,6 +71,10 @@ describe('MessageTypeSchema', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// InteractivePayloadSchema
+// ---------------------------------------------------------------------------
+
 describe('InteractivePayloadSchema', () => {
   it('aceita botoes valido', () => {
     const r = InteractivePayloadSchema.parse({
@@ -77,6 +98,15 @@ describe('InteractivePayloadSchema', () => {
       }),
     ).toThrow();
   });
+  it('rejeita botoes com lista vazia', () => {
+    expect(() =>
+      InteractivePayloadSchema.parse({
+        type: 'buttons',
+        body: 'x',
+        buttons: [],
+      }),
+    ).toThrow();
+  });
   it('aceita lista valida', () => {
     const r = InteractivePayloadSchema.parse({
       type: 'list',
@@ -85,6 +115,16 @@ describe('InteractivePayloadSchema', () => {
       sections: [{ title: 'S1', rows: [{ id: 'r1', title: 'Item' }] }],
     });
     expect(r.type).toBe('list');
+  });
+  it('rejeita lista com rows vazio', () => {
+    expect(() =>
+      InteractivePayloadSchema.parse({
+        type: 'list',
+        body: 'x',
+        button: 'Ver',
+        sections: [{ title: 'S1', rows: [] }],
+      }),
+    ).toThrow();
   });
   it('aceita template valido', () => {
     const r = InteractivePayloadSchema.parse({
@@ -100,10 +140,16 @@ describe('InteractivePayloadSchema', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// InboundEventSchema
+// ---------------------------------------------------------------------------
+
 describe('InboundEventSchema', () => {
-  it('aceita evento de mensagem', () => {
+  it('aceita evento de mensagem com organizationId e channelId', () => {
     const e = InboundEventSchema.parse({
       type: 'message',
+      organizationId: ORG_ID,
+      channelId: CHANNEL_ID,
       provider: 'meta_whatsapp',
       contactRemoteId: '+5511999990000',
       externalId: 'wamid.x',
@@ -111,20 +157,44 @@ describe('InboundEventSchema', () => {
       rawTimestamp: '2026-06-14T00:00:00Z',
     });
     expect(e.type).toBe('message');
+    expect(e.organizationId).toBe(ORG_ID);
+    expect(e.channelId).toBe(CHANNEL_ID);
+  });
+  it('aceita evento de mensagem com midia', () => {
+    const e = InboundEventSchema.parse({
+      type: 'message',
+      organizationId: ORG_ID,
+      channelId: CHANNEL_ID,
+      provider: 'meta_whatsapp',
+      contactRemoteId: '+5511999990000',
+      externalId: 'wamid.y',
+      messageType: 'image',
+      mediaRef: { refOrUrl: 'https://example.com/img.jpg', mimeType: 'image/jpeg' },
+      rawTimestamp: '2026-06-14T00:00:00Z',
+    });
+    expect(e.type).toBe('message');
+    if (e.type === 'message') {
+      expect(e.messageType).toBe('image');
+    }
   });
   it('aceita evento de status', () => {
     const e = InboundEventSchema.parse({
       type: 'status',
+      organizationId: ORG_ID,
+      channelId: CHANNEL_ID,
       provider: 'meta_whatsapp',
       externalId: 'wamid.x',
       status: 'delivered',
       rawTimestamp: '2026-06-14T00:00:00Z',
     });
     expect(e.type).toBe('status');
+    expect(e.organizationId).toBe(ORG_ID);
   });
   it('aceita comment IG', () => {
     const e = InboundEventSchema.parse({
       type: 'comment',
+      organizationId: ORG_ID,
+      channelId: CHANNEL_ID,
       provider: 'meta_instagram',
       mediaId: 'mid123',
       commentId: 'cid456',
@@ -135,6 +205,8 @@ describe('InboundEventSchema', () => {
   it('aceita reacao', () => {
     const e = InboundEventSchema.parse({
       type: 'reaction',
+      organizationId: ORG_ID,
+      channelId: CHANNEL_ID,
       provider: 'meta_whatsapp',
       contactRemoteId: '+5511999990000',
       targetExternalId: 'wamid.t',
@@ -145,6 +217,8 @@ describe('InboundEventSchema', () => {
   it('aceita story_mention IG', () => {
     const e = InboundEventSchema.parse({
       type: 'story_mention',
+      organizationId: ORG_ID,
+      channelId: CHANNEL_ID,
       provider: 'meta_instagram',
       contactRemoteId: '+5511999990000',
       externalId: 'wamid.sm',
@@ -153,15 +227,71 @@ describe('InboundEventSchema', () => {
     });
     expect(e.type).toBe('story_mention');
   });
+  it('aceita story_reply IG', () => {
+    const e = InboundEventSchema.parse({
+      type: 'story_reply',
+      organizationId: ORG_ID,
+      channelId: CHANNEL_ID,
+      provider: 'meta_instagram',
+      contactRemoteId: '+5511999990000',
+      externalId: 'wamid.sr',
+      storyId: 'sid2',
+      content: 'Adorei!',
+    });
+    expect(e.type).toBe('story_reply');
+  });
+  it('aceita postback IG', () => {
+    const e = InboundEventSchema.parse({
+      type: 'postback',
+      organizationId: ORG_ID,
+      channelId: CHANNEL_ID,
+      provider: 'meta_instagram',
+      contactRemoteId: '+5511999990000',
+      externalId: 'wamid.pb',
+      payload: 'MENU_PRINCIPAL',
+    });
+    expect(e.type).toBe('postback');
+  });
+  it('aceita referral IG', () => {
+    const e = InboundEventSchema.parse({
+      type: 'referral',
+      organizationId: ORG_ID,
+      channelId: CHANNEL_ID,
+      provider: 'meta_instagram',
+      contactRemoteId: '+5511999990000',
+      source: 'https://instagram.com/p/abc',
+      referralData: { ref: 'promo' },
+    });
+    expect(e.type).toBe('referral');
+  });
+  it('aceita share IG', () => {
+    const e = InboundEventSchema.parse({
+      type: 'share',
+      organizationId: ORG_ID,
+      channelId: CHANNEL_ID,
+      provider: 'meta_instagram',
+      contactRemoteId: '+5511999990000',
+      externalId: 'wamid.sh',
+      mediaRef: { refOrUrl: 'https://cdn.ig.com/share.mp4' },
+    });
+    expect(e.type).toBe('share');
+  });
   it('rejeita tipo desconhecido', () => {
     expect(() =>
-      InboundEventSchema.parse({ type: 'unknown', provider: 'meta_whatsapp' }),
+      InboundEventSchema.parse({
+        type: 'unknown',
+        organizationId: ORG_ID,
+        channelId: CHANNEL_ID,
+        provider: 'meta_whatsapp',
+      }),
     ).toThrow();
   });
   it('rejeita mensagem sem externalId', () => {
     expect(() =>
       InboundEventSchema.parse({
         type: 'message',
+        organizationId: ORG_ID,
+        channelId: CHANNEL_ID,
         provider: 'meta_whatsapp',
         contactRemoteId: '+5511999990000',
         messageType: 'text',
@@ -169,27 +299,73 @@ describe('InboundEventSchema', () => {
       }),
     ).toThrow();
   });
+  it('rejeita evento sem organizationId', () => {
+    expect(() =>
+      InboundEventSchema.parse({
+        type: 'message',
+        channelId: CHANNEL_ID,
+        provider: 'meta_whatsapp',
+        contactRemoteId: '+5511999990000',
+        externalId: 'wamid.x',
+        messageType: 'text',
+        rawTimestamp: '2026-06-14T00:00:00Z',
+      }),
+    ).toThrow();
+  });
+  it('rejeita evento sem channelId', () => {
+    expect(() =>
+      InboundEventSchema.parse({
+        type: 'message',
+        organizationId: ORG_ID,
+        provider: 'meta_whatsapp',
+        contactRemoteId: '+5511999990000',
+        externalId: 'wamid.x',
+        messageType: 'text',
+        rawTimestamp: '2026-06-14T00:00:00Z',
+      }),
+    ).toThrow();
+  });
+  it('rejeita organizationId com formato invalido (nao UUID)', () => {
+    expect(() =>
+      InboundEventSchema.parse({
+        type: 'message',
+        organizationId: 'nao-um-uuid',
+        channelId: CHANNEL_ID,
+        provider: 'meta_whatsapp',
+        contactRemoteId: '+5511999990000',
+        externalId: 'wamid.x',
+        messageType: 'text',
+        rawTimestamp: '2026-06-14T00:00:00Z',
+      }),
+    ).toThrow();
+  });
 });
 
-const BASE = {
-  channelId: '00000000-0000-0000-0000-000000000001',
-  conversationId: '00000000-0000-0000-0000-000000000002',
-  messageId: '00000000-0000-0000-0000-000000000003',
+// ---------------------------------------------------------------------------
+// OutboundJobSchema
+// ---------------------------------------------------------------------------
+
+const BASE_OUTBOUND = {
+  organizationId: ORG_ID,
+  channelId: CHANNEL_ID,
+  conversationId: CONVERSATION_ID,
+  messageId: MESSAGE_ID,
 };
 
 describe('OutboundJobSchema', () => {
-  it('aceita job de texto', () => {
+  it('aceita job de texto com organizationId', () => {
     const j = OutboundJobSchema.parse({
-      ...BASE,
+      ...BASE_OUTBOUND,
       type: 'text',
       contactRemoteId: '+5511999990000',
       content: 'Ola',
     });
     expect(j.type).toBe('text');
+    expect(j.organizationId).toBe(ORG_ID);
   });
   it('aceita job de midia', () => {
     const j = OutboundJobSchema.parse({
-      ...BASE,
+      ...BASE_OUTBOUND,
       type: 'media',
       contactRemoteId: '+5511999990000',
       mediaKind: 'image',
@@ -198,9 +374,33 @@ describe('OutboundJobSchema', () => {
     });
     expect(j.type).toBe('media');
   });
+  it('aceita job de template', () => {
+    const j = OutboundJobSchema.parse({
+      ...BASE_OUTBOUND,
+      type: 'template',
+      contactRemoteId: '+5511999990000',
+      templateName: 'boas_vindas',
+      languageCode: 'pt_BR',
+      components: [],
+    });
+    expect(j.type).toBe('template');
+  });
+  it('aceita job interativo', () => {
+    const j = OutboundJobSchema.parse({
+      ...BASE_OUTBOUND,
+      type: 'interactive',
+      contactRemoteId: '+5511999990000',
+      payload: {
+        type: 'buttons',
+        body: 'Escolha',
+        buttons: [{ id: 'b1', text: 'Opcao A' }],
+      },
+    });
+    expect(j.type).toBe('interactive');
+  });
   it('aceita typing_indicator', () => {
     const j = OutboundJobSchema.parse({
-      ...BASE,
+      ...BASE_OUTBOUND,
       type: 'typing_indicator',
       contactRemoteId: '+5511999990000',
       kind: 'typing',
@@ -209,17 +409,26 @@ describe('OutboundJobSchema', () => {
   });
   it('aceita ig_private_reply', () => {
     const j = OutboundJobSchema.parse({
-      ...BASE,
+      ...BASE_OUTBOUND,
       type: 'ig_private_reply',
       commentId: 'cid123',
       content: 'Obrigado!',
     });
     expect(j.type).toBe('ig_private_reply');
   });
+  it('aceita ig_public_reply', () => {
+    const j = OutboundJobSchema.parse({
+      ...BASE_OUTBOUND,
+      type: 'ig_public_reply',
+      commentId: 'cid456',
+      content: 'Respondendo publicamente.',
+    });
+    expect(j.type).toBe('ig_public_reply');
+  });
   it('rejeita mediaUrl invalida', () => {
     expect(() =>
       OutboundJobSchema.parse({
-        ...BASE,
+        ...BASE_OUTBOUND,
         type: 'media',
         contactRemoteId: '+5511999990000',
         mediaKind: 'image',
@@ -228,23 +437,67 @@ describe('OutboundJobSchema', () => {
       }),
     ).toThrow();
   });
-  it('rejeita channelId invalido', () => {
+  it('rejeita channelId invalido (nao UUID)', () => {
     expect(() =>
       OutboundJobSchema.parse({
-        type: 'text',
+        organizationId: ORG_ID,
         channelId: 'nao-uuid',
-        conversationId: BASE.conversationId,
-        messageId: BASE.messageId,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_ID,
+        type: 'text',
         contactRemoteId: '+5511999990000',
         content: 'x',
       }),
     ).toThrow();
   });
+  it('rejeita outbound sem organizationId', () => {
+    expect(() =>
+      OutboundJobSchema.parse({
+        channelId: CHANNEL_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_ID,
+        type: 'text',
+        contactRemoteId: '+5511999990000',
+        content: 'x',
+      }),
+    ).toThrow();
+  });
+  it('rejeita organizationId com formato invalido (nao UUID)', () => {
+    expect(() =>
+      OutboundJobSchema.parse({
+        organizationId: 'nao-uuid',
+        channelId: CHANNEL_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_ID,
+        type: 'text',
+        contactRemoteId: '+5511999990000',
+        content: 'x',
+      }),
+    ).toThrow();
+  });
+  it('rejeita typing_indicator com kind invalido', () => {
+    expect(() =>
+      OutboundJobSchema.parse({
+        ...BASE_OUTBOUND,
+        type: 'typing_indicator',
+        contactRemoteId: '+5511999990000',
+        kind: 'idle',
+      }),
+    ).toThrow();
+  });
 });
+
+// ---------------------------------------------------------------------------
+// SendResultSchema
+// ---------------------------------------------------------------------------
 
 describe('SendResultSchema', () => {
   it('aceita sucesso com externalId', () => {
     const r = SendResultSchema.parse({ ok: true, externalId: 'wamid.x' });
+    expect(r.ok).toBe(true);
+  });
+  it('aceita sucesso com raw opcional', () => {
+    const r = SendResultSchema.parse({ ok: true, externalId: 'wamid.y', raw: { meta: true } });
     expect(r.ok).toBe(true);
   });
   it('aceita falha com errorCode', () => {
@@ -261,7 +514,14 @@ describe('SendResultSchema', () => {
   it('rejeita falha sem errorCode', () => {
     expect(() => SendResultSchema.parse({ ok: false, errorMessage: 'x' })).toThrow();
   });
+  it('rejeita falha sem errorMessage', () => {
+    expect(() => SendResultSchema.parse({ ok: false, errorCode: 'ERR_X' })).toThrow();
+  });
 });
+
+// ---------------------------------------------------------------------------
+// ViewStatusSchema
+// ---------------------------------------------------------------------------
 
 describe('ViewStatusSchema', () => {
   it('aceita todos os status validos', () => {
