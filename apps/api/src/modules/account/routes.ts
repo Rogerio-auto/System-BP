@@ -26,11 +26,13 @@ import {
   enroll2faController,
   get2faStatusController,
   getProfileController,
+  setPersonalEmailController,
   updateProfileController,
 } from './controller.js';
 import {
   changePasswordBodySchema,
   profileResponseSchema,
+  setPersonalEmailBodySchema,
   twoFactorActivateBodySchema,
   twoFactorActivateResponseSchema,
   twoFactorDisableBodySchema,
@@ -61,6 +63,36 @@ export const accountRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     getProfileController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/account/personal-email — cadastra/atualiza email pessoal (F14-S04)
+  //
+  // Chamado pelo modal bloqueante de 1º login quando requires_personal_email=true.
+  // Após o cadastro, GET /api/account/profile retornará requiresPersonalEmail=false
+  // e o frontend libera a navegação completa.
+  //
+  // LGPD: personal_email é PII — coberto por pino.redact. O log de auditoria
+  //   (account.personal_email_set) não persiste o valor do email.
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/account/personal-email',
+    {
+      schema: {
+        tags: ['Account'],
+        summary: 'Cadastrar email pessoal',
+        description:
+          'Registra o email pessoal do agente. Obrigatório no primeiro acesso — ' +
+          'o email pessoal é adicionado à lista de bloqueio no cadastro de leads ' +
+          'para evitar que o agente use o próprio email no lugar do email do cliente.',
+        security: [{ bearerAuth: [] }],
+        body: setPersonalEmailBodySchema,
+        response: {
+          200: profileResponseSchema,
+        },
+      },
+    },
+    setPersonalEmailController,
   );
 
   // ---------------------------------------------------------------------------

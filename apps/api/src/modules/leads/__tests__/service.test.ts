@@ -813,3 +813,92 @@ describe('listLeads com search — regressão F8-S16', () => {
     expect(query).not.toHaveProperty('cpfHash');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Bloqueio de email pessoal do agente no cadastro de lead (F14-S04)
+//
+// isInternalEmail agora cobre TAMBÉM o email pessoal do agente (personal_email).
+// Os testes abaixo validam o comportamento do service: quando isInternalEmail
+// retorna true (independente se bateu em email corporativo ou pessoal),
+// a criação e atualização de lead devem rejeitar com LeadEmailInternalError.
+// ---------------------------------------------------------------------------
+
+describe('Bloqueio de email pessoal do agente no cadastro de lead (F14-S04)', () => {
+  it('18. createLead com email pessoal do agente → 422 LeadEmailInternalError', async () => {
+    // isInternalEmail retorna true (simula que o email é o email pessoal do agente)
+    mockIsInternalEmail.mockResolvedValueOnce(true);
+    mockFindLeadByPhoneInOrg.mockResolvedValueOnce(null);
+    mockFindInitialStage.mockResolvedValueOnce(null);
+
+    const { createLead, LeadEmailInternalError } = await import('../service.js');
+
+    await expect(
+      createLead(mockDb as unknown as Parameters<typeof createLead>[0], ACTOR, {
+        ...CREATE_BODY,
+        // email pessoal do agente sendo usado no lugar do email do cliente
+        email: 'agente.pessoal@gmail.com',
+        cpf: null,
+        notes: null,
+        metadata: {},
+        agent_id: null,
+      }),
+    ).rejects.toBeInstanceOf(LeadEmailInternalError);
+
+    // isInternalEmail foi consultado com o email informado
+    expect(mockIsInternalEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      'agente.pessoal@gmail.com',
+    );
+  });
+
+  it('19. updateLead alterando email para email pessoal do agente → 422', async () => {
+    const beforeLead = makeLead({ email: 'antigo@example.com' });
+    mockFindLeadById.mockResolvedValueOnce(beforeLead);
+    // isInternalEmail retorna true para o novo email (personal_email do agente)
+    mockIsInternalEmail.mockResolvedValueOnce(true);
+
+    const { updateLeadService, LeadEmailInternalError } = await import('../service.js');
+
+    await expect(
+      updateLeadService(
+        mockDb as unknown as Parameters<typeof updateLeadService>[0],
+        ACTOR,
+        LEAD_ID,
+        { email: 'meu.pessoal@gmail.com' },
+      ),
+    ).rejects.toBeInstanceOf(LeadEmailInternalError);
+
+    expect(mockIsInternalEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      'meu.pessoal@gmail.com',
+    );
+  });
+
+  it('20. createLead com email que não é interno (pessoal nem corporativo) → sucesso', async () => {
+    // isInternalEmail retorna false — email do cliente legítimo
+    mockIsInternalEmail.mockResolvedValueOnce(false);
+    mockFindLeadByPhoneInOrg.mockResolvedValueOnce(null);
+    mockInsertLead.mockResolvedValueOnce(makeLead({ email: 'cliente@example.com' }));
+    mockFindInitialStage.mockResolvedValueOnce(null);
+
+    const { createLead } = await import('../service.js');
+
+    const result = await createLead(mockDb as unknown as Parameters<typeof createLead>[0], ACTOR, {
+      ...CREATE_BODY,
+      email: 'cliente@example.com',
+      cpf: null,
+      notes: null,
+      metadata: {},
+      agent_id: null,
+    });
+
+    expect(result).toBeDefined();
+    expect(mockIsInternalEmail).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      'cliente@example.com',
+    );
+  });
+});

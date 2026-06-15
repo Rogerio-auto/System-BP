@@ -62,6 +62,7 @@ vi.mock('../../../db/client.js', () => ({
 const mockGetProfile = vi.fn();
 const mockUpdateProfile = vi.fn();
 const mockChangePassword = vi.fn();
+const mockSetPersonalEmail = vi.fn();
 
 vi.mock('../service.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -70,6 +71,7 @@ vi.mock('../service.js', async (importOriginal) => {
     getProfile: (...args: unknown[]) => mockGetProfile(...args),
     updateProfile: (...args: unknown[]) => mockUpdateProfile(...args),
     changePassword: (...args: unknown[]) => mockChangePassword(...args),
+    setPersonalEmail: (...args: unknown[]) => mockSetPersonalEmail(...args),
   };
 });
 
@@ -85,6 +87,8 @@ const FIXTURE_PROFILE = {
   email: 'agente@bdp.ro.gov.br',
   fullName: 'Agente Teste',
   organizationId: FIXTURE_ORG_ID,
+  requiresPersonalEmail: false,
+  personalEmail: null as string | null,
 };
 
 // ---------------------------------------------------------------------------
@@ -393,5 +397,93 @@ describe('POST /api/account/password', () => {
     const [_db, actor] = mockChangePassword.mock.calls[0]!;
     expect(actor.userId).toBe(FIXTURE_USER_ID);
     expect(actor.userId).not.toBe('atacante-uuid-qualquer');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/account/personal-email (F14-S04)
+// ---------------------------------------------------------------------------
+
+describe('POST /api/account/personal-email', () => {
+  it('12. cadastra email pessoal com sucesso → 200 com requiresPersonalEmail=false', async () => {
+    const afterSet = {
+      ...FIXTURE_PROFILE,
+      personalEmail: 'maria@gmail.com',
+      requiresPersonalEmail: false,
+    };
+    mockSetPersonalEmail.mockResolvedValueOnce(afterSet);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/account/personal-email',
+      headers: { 'content-type': 'application/json' },
+      payload: { personalEmail: 'maria@gmail.com' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.requiresPersonalEmail).toBe(false);
+    // LGPD: personalEmail pode aparecer no response (é mostrado ao próprio agente)
+    // mas nunca em logs (coberto pelo pino.redact de app.ts)
+    expect(body.personalEmail).toBe('maria@gmail.com');
+    // Garantia self-service: service recebeu userId do request.user
+    const [_db, actor] = mockSetPersonalEmail.mock.calls[0]!;
+    expect(actor.userId).toBe(FIXTURE_USER_ID);
+  });
+
+  it('13. email inválido → 400 (Zod)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/account/personal-email',
+      headers: { 'content-type': 'application/json' },
+      payload: { personalEmail: 'nao-e-um-email' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(mockSetPersonalEmail).not.toHaveBeenCalled();
+  });
+
+  it('14. email ausente no body → 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/account/personal-email',
+      headers: { 'content-type': 'application/json' },
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('15. conflito: email já cadastrado por outro agente → 409', async () => {
+    // Importar a classe real para que isAppError retorne true no handler
+    const { ConflictError } = await import('../../../shared/errors.js');
+    mockSetPersonalEmail.mockRejectedValueOnce(
+      new ConflictError(
+        'Este email já está registrado como email pessoal de outro agente desta organização',
+        { code: 'PERSONAL_EMAIL_CONFLICT' },
+      ),
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/account/personal-email',
+      headers: { 'content-type': 'application/json' },
+      payload: { personalEmail: 'colega@gmail.com' },
+    });
+
+    // O error handler converte ConflictError para 409
+    expect(res.statusCode).toBe(409);
+  });
+
+  it('16. sem autenticação → acesso negado (não retorna 200)', async () => {
+    const res = await appNoUser.inject({
+      method: 'POST',
+      url: '/api/account/personal-email',
+      headers: { 'content-type': 'application/json' },
+      payload: { personalEmail: 'atacante@gmail.com' },
+    });
+
+    expect(res.statusCode).not.toBe(200);
+    expect(mockSetPersonalEmail).not.toHaveBeenCalled();
   });
 });

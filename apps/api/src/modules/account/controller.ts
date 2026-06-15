@@ -21,6 +21,7 @@ import { db } from '../../db/client.js';
 
 import type {
   ChangePasswordBody,
+  SetPersonalEmailBody,
   TwoFactorActivateBody,
   TwoFactorDisableBody,
   UpdateProfileBody,
@@ -32,6 +33,7 @@ import {
   enroll2fa,
   get2faStatus,
   getProfile,
+  setPersonalEmail,
   updateProfile,
 } from './service.js';
 
@@ -57,6 +59,34 @@ function extractSessionId(request: FastifyRequest): string {
   } catch {
     return 'unknown';
   }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/account/personal-email (F14-S04)
+// ---------------------------------------------------------------------------
+
+export async function setPersonalEmailController(
+  request: FastifyRequest<{ Body: SetPersonalEmailBody }>,
+  reply: FastifyReply,
+): Promise<void> {
+  // `!` justificado: authenticate() garante que request.user está definido
+  const userId = request.user!.id;
+  const organizationId = request.user!.organizationId;
+  const sessionId = extractSessionId(request);
+
+  const profile = await setPersonalEmail(
+    db,
+    {
+      userId,
+      organizationId,
+      sessionId,
+      ip: request.ip,
+      userAgent: request.headers['user-agent'] ?? null,
+    },
+    request.body,
+  );
+
+  return reply.status(200).send(profile);
 }
 
 // ---------------------------------------------------------------------------

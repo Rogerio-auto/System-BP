@@ -18,6 +18,8 @@ import { AppLayout } from './app/AppLayout';
 import { AuthGuard } from './app/AuthGuard';
 import { SessionBootstrap } from './app/SessionBootstrap';
 import { ToastProvider } from './components/ui/Toast';
+import { PersonalEmailModal } from './features/account/PersonalEmailModal';
+import { usePersonalEmailGuard } from './features/account/usePersonalEmailGuard';
 import { LoginPage } from './features/auth/LoginPage';
 import { CollectionJobsPage, CollectionRulesPage, PaymentDuesPage } from './features/billing';
 import {
@@ -93,79 +95,107 @@ export function App(): React.JSX.Element {
   );
 }
 
+/**
+ * Guard de 1º login — exibe o modal bloqueante de email pessoal quando necessário.
+ *
+ * Renderizado DENTRO do AppRoutes para ter acesso ao QueryClient e ao
+ * estado de autenticação. O modal sobrepõe toda a UI via position:fixed z-50,
+ * então não importa qual rota está ativa — o agente não consegue interagir.
+ *
+ * F14-S04 D3: fluxo obrigatório antes de qualquer uso do sistema.
+ */
+function PersonalEmailGuard(): React.JSX.Element | null {
+  const { requiresPersonalEmail, refetch } = usePersonalEmailGuard();
+
+  if (!requiresPersonalEmail) return null;
+
+  return (
+    <PersonalEmailModal
+      onSuccess={() => {
+        // Revalida o perfil — após o cadastro, requiresPersonalEmail deve ser false
+        refetch();
+      }}
+    />
+  );
+}
+
 function AppRoutes(): React.JSX.Element {
   return (
-    <Routes>
-      {/* â”€â”€ PÃºblica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <Route path="/login" element={<LoginPage />} />
+    <>
+      {/* Guard de 1º login — sobrepõe toda a UI quando necessário (F14-S04) */}
+      <PersonalEmailGuard />
+      <Routes>
+        {/* â”€â”€ PÃºblica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <Route path="/login" element={<LoginPage />} />
 
-      {/* â”€â”€ Protegidas (AuthGuard > AppLayout) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <Route
-        element={
-          <AuthGuard>
-            <AppLayout />
-          </AuthGuard>
-        }
-      >
-        <Route index element={<DashboardPage />} />
-        {/* Legacy redirects â€” bookmarks antigos preservados */}
-        <Route path="/kanban" element={<Navigate to="/crm?view=kanban" replace />} />
-        <Route path="/leads" element={<Navigate to="/crm" replace />} />
-        <Route path="/crm" element={<CrmListPage />} />
-        <Route path="/crm/:id" element={<CrmDetailPage />} />
-        <Route path="/imports/leads/new" element={<ImportWizardPage />} />
-        <Route path="/simulator" element={<SimulatorPage />} />
-        {/* Legacy redirect â€” /analise era placeholder; a rota real Ã© /credit-analyses (F4-S03) */}
-        <Route path="/analise" element={<Navigate to="/credit-analyses" replace />} />
-        {/* F4-S03: AnÃ¡lise de crÃ©dito */}
-        <Route path="/credit-analyses" element={<CreditAnalysesListPage />} />
-        <Route path="/credit-analyses/:id" element={<CreditAnalysisDetailPage />} />
-        <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
-        <Route path="/relatorios" element={<PlaceholderPage title="RelatÃ³rios" />} />
-        <Route path="/configuracoes" element={<ConfiguracoesPage />} />
-        <Route path="/configuracoes/ia/prompts" element={<PromptsListPage />} />
-        <Route path="/configuracoes/ia/prompts/:key" element={<PromptDetailPage />} />
-        <Route path="/configuracoes/ia/decisoes" element={<DecisionsListPage />} />
+        {/* â”€â”€ Protegidas (AuthGuard > AppLayout) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <Route
-          path="/configuracoes/ia/decisoes/conversa/:conversationId"
-          element={<ConversationTimelinePage />}
-        />
-        <Route path="/configuracoes/ia/playground" element={<PlaygroundPage />} />
-        <Route path="/admin/cities" element={<CitiesPage />} />
-        <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
-        <Route path="/admin/products" element={<ProductsPage />} />
-        <Route path="/admin/products/:id" element={<ProductDetailPage />} />
-        <Route path="/admin/users" element={<UsersPage />} />
-        <Route path="/admin/agents" element={<AgentsPage />} />
-        {/* F12-S10: Tutoriais em vídeo */}
-        <Route path="/admin/tutoriais" element={<TutoriaisPage />} />
-        {/* F5-S05: Follow-up â€” rÃ©guas e jobs */}
-        <Route path="/admin/followup/rules" element={<FollowupRulesPage />} />
-        <Route path="/admin/followup/jobs" element={<FollowupJobsPage />} />
-        {/* F5-S08: CobranÃ§a â€” parcelas, rÃ©guas, jobs */}
-        <Route path="/admin/billing/dues" element={<PaymentDuesPage />} />
-        <Route path="/admin/billing/rules" element={<CollectionRulesPage />} />
-        <Route path="/admin/billing/jobs" element={<CollectionJobsPage />} />
-        {/* F5-S09: Templates WhatsApp */}
-        <Route path="/admin/templates" element={<TemplatesListPage />} />
-        <Route path="/admin/templates/new" element={<TemplateFormPage />} />
-        <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
-        {/* F10-S02: Central de Ajuda */}
-        <Route path="/ajuda" element={<HelpHomePage />} />
-        {/* F10-S10: API Reference — ANTES do wildcard /ajuda/* */}
-        <Route
-          path="/ajuda/api/:resource?"
           element={
-            <React.Suspense fallback={null}>
-              <ApiReferencePage />
-            </React.Suspense>
+            <AuthGuard>
+              <AppLayout />
+            </AuthGuard>
           }
-        />
-        <Route path="/ajuda/*" element={<DocPage />} />
-      </Route>
+        >
+          <Route index element={<DashboardPage />} />
+          {/* Legacy redirects â€” bookmarks antigos preservados */}
+          <Route path="/kanban" element={<Navigate to="/crm?view=kanban" replace />} />
+          <Route path="/leads" element={<Navigate to="/crm" replace />} />
+          <Route path="/crm" element={<CrmListPage />} />
+          <Route path="/crm/:id" element={<CrmDetailPage />} />
+          <Route path="/imports/leads/new" element={<ImportWizardPage />} />
+          <Route path="/simulator" element={<SimulatorPage />} />
+          {/* Legacy redirect â€” /analise era placeholder; a rota real Ã© /credit-analyses (F4-S03) */}
+          <Route path="/analise" element={<Navigate to="/credit-analyses" replace />} />
+          {/* F4-S03: AnÃ¡lise de crÃ©dito */}
+          <Route path="/credit-analyses" element={<CreditAnalysesListPage />} />
+          <Route path="/credit-analyses/:id" element={<CreditAnalysisDetailPage />} />
+          <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
+          <Route path="/relatorios" element={<PlaceholderPage title="RelatÃ³rios" />} />
+          <Route path="/configuracoes" element={<ConfiguracoesPage />} />
+          <Route path="/configuracoes/ia/prompts" element={<PromptsListPage />} />
+          <Route path="/configuracoes/ia/prompts/:key" element={<PromptDetailPage />} />
+          <Route path="/configuracoes/ia/decisoes" element={<DecisionsListPage />} />
+          <Route
+            path="/configuracoes/ia/decisoes/conversa/:conversationId"
+            element={<ConversationTimelinePage />}
+          />
+          <Route path="/configuracoes/ia/playground" element={<PlaygroundPage />} />
+          <Route path="/admin/cities" element={<CitiesPage />} />
+          <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
+          <Route path="/admin/products" element={<ProductsPage />} />
+          <Route path="/admin/products/:id" element={<ProductDetailPage />} />
+          <Route path="/admin/users" element={<UsersPage />} />
+          <Route path="/admin/agents" element={<AgentsPage />} />
+          {/* F12-S10: Tutoriais em vídeo */}
+          <Route path="/admin/tutoriais" element={<TutoriaisPage />} />
+          {/* F5-S05: Follow-up â€” rÃ©guas e jobs */}
+          <Route path="/admin/followup/rules" element={<FollowupRulesPage />} />
+          <Route path="/admin/followup/jobs" element={<FollowupJobsPage />} />
+          {/* F5-S08: CobranÃ§a â€” parcelas, rÃ©guas, jobs */}
+          <Route path="/admin/billing/dues" element={<PaymentDuesPage />} />
+          <Route path="/admin/billing/rules" element={<CollectionRulesPage />} />
+          <Route path="/admin/billing/jobs" element={<CollectionJobsPage />} />
+          {/* F5-S09: Templates WhatsApp */}
+          <Route path="/admin/templates" element={<TemplatesListPage />} />
+          <Route path="/admin/templates/new" element={<TemplateFormPage />} />
+          <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
+          {/* F10-S02: Central de Ajuda */}
+          <Route path="/ajuda" element={<HelpHomePage />} />
+          {/* F10-S10: API Reference — ANTES do wildcard /ajuda/* */}
+          <Route
+            path="/ajuda/api/:resource?"
+            element={
+              <React.Suspense fallback={null}>
+                <ApiReferencePage />
+              </React.Suspense>
+            }
+          />
+          <Route path="/ajuda/*" element={<DocPage />} />
+        </Route>
 
-      {/* â”€â”€ Catch-all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+        {/* â”€â”€ Catch-all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </>
   );
 }
