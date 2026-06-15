@@ -41,6 +41,7 @@ import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/rout
 import internalPlugin from './modules/internal/index.js';
 import { kanbanRoutes } from './modules/kanban/routes.js';
 import { leadsRoutes } from './modules/leads/routes.js';
+import { notificationsRoutes } from './modules/notifications/index.js';
 import { rolesRoutes } from './modules/roles/routes.js';
 import { internalSimulationsRoutes } from './modules/simulations/internal-routes.js';
 import { simulationsRoutes } from './modules/simulations/routes.js';
@@ -262,6 +263,8 @@ export async function buildApp() {
   await app.register(tutorialsRoutes);
   // Módulo de tarefas — fila por role + cidade (F15-S05)
   await app.register(tasksRoutes);
+  // Módulo de notificações in-app + preferências de canal (F15-S06)
+  await app.register(notificationsRoutes);
   // Módulo de contratos — CRUD + ciclo de vida de assinatura (F17-S03)
   await app.register(contractsRoutes);
 
