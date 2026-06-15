@@ -1,10 +1,12 @@
 // =============================================================================
-// features/contracts/ContractDetail.tsx — Drawer de ficha do contrato (F17-S05).
+// features/contracts/ContractDetail.tsx — Drawer de ficha do contrato (F17-S05, F17-S06).
 //
 // Exibe todos os campos do ContractSchema.
 // Botão "Marcar como assinado" visível apenas quando:
 //   - status === 'draft'
 //   - usuário tem permissão contracts:sign
+//
+// F17-S06: adiciona seção "Saúde" (ContractHealthBadge) e seção "Parcelas" (ContractDuesList).
 //
 // DS:
 //   - Drawer lateral: elev-5, border, bg-elev-1 (DS §9 modal).
@@ -23,6 +25,8 @@ import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
 import { useAuthStore } from '../../lib/auth-store';
 
+import { ContractDuesList } from './ContractDuesList';
+import { ContractHealthBadge } from './ContractHealthBadge';
 import { ContractSignModal } from './ContractSignModal';
 import { useContract, useSignContract } from './hooks';
 import { CONTRACT_STATUS_META } from './schemas';
@@ -325,6 +329,28 @@ export function ContractDetail({ contractId, onClose }: ContractDetailProps): Re
                   {contract.id}
                 </span>
               </DetailRow>
+
+              {/* Seção: Saúde (F17-S06) */}
+              <p
+                className="font-sans font-semibold uppercase text-ink-3 tracking-[0.08em] mb-1 mt-4"
+                style={{ fontSize: '0.68rem' }}
+              >
+                Saúde
+              </p>
+              <ContractHealthBadge contractId={contract.id} />
+
+              {/* Seção: Parcelas (F17-S06) */}
+              <p
+                className="font-sans font-semibold uppercase text-ink-3 tracking-[0.08em] mb-1 mt-4"
+                style={{ fontSize: '0.68rem' }}
+              >
+                Parcelas
+              </p>
+              <ContractDuesList
+                contractId={contract.id}
+                customerId={contract.customer_id}
+                contractReference={contract.contract_reference}
+              />
             </div>
           )}
         </div>

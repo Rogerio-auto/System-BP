@@ -1,15 +1,16 @@
 // =============================================================================
-// features/contracts/schemas.ts — Tipos locais da feature Contratos (F17-S05).
+// features/contracts/schemas.ts — Tipos locais da feature Contratos (F17-S05, F17-S06).
 //
 // Reutiliza os tipos inferidos de @elemento/shared-schemas.
 // Define filtros de listagem e tipo de resposta paginada (espelha a API).
+// F17-S06: adiciona BoletoHealth + meta de health + ContractDuesFilters.
 // =============================================================================
 
-import type { Contract, ContractSign, ContractStatus } from '@elemento/shared-schemas';
+import type { BoletoHealth, Contract, ContractSign, ContractStatus } from '@elemento/shared-schemas';
 
 import type { BadgeVariant } from '../../components/ui/Badge';
 
-export type { Contract, ContractSign, ContractStatus };
+export type { BoletoHealth, Contract, ContractSign, ContractStatus };
 
 // ---------------------------------------------------------------------------
 // Filtros de listagem
@@ -55,6 +56,52 @@ export const CONTRACT_STATUS_META: Record<ContractStatus, StatusMeta> = {
   defaulted: { label: 'Inadimplente', variant: 'danger' },
   cancelled: { label: 'Cancelado', variant: 'neutral' },
 };
+
+// ---------------------------------------------------------------------------
+// Saúde de boletos (F17-S06) — meta de UI para o badge de saúde
+// ---------------------------------------------------------------------------
+
+export type HealthVariant = 'success' | 'warning' | 'danger' | 'neutral';
+
+export interface HealthMeta {
+  label: string;
+  variant: HealthVariant;
+  description: string;
+}
+
+export const HEALTH_META: Record<BoletoHealth['health'], HealthMeta> = {
+  healthy: {
+    label: 'Saudável',
+    variant: 'success',
+    description: 'Sem parcelas em atraso',
+  },
+  at_risk: {
+    label: 'Em risco',
+    variant: 'warning',
+    description: 'Parcela(s) vencida(s) recentemente',
+  },
+  defaulted: {
+    label: 'Inadimplente',
+    variant: 'danger',
+    description: 'Parcela(s) vencida(s) há 15+ dias',
+  },
+  settled: {
+    label: 'Quitado',
+    variant: 'neutral',
+    description: 'Todas as parcelas foram pagas',
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Filtros de parcelas por contrato (F17-S06)
+// ---------------------------------------------------------------------------
+
+/** Filtro de listagem de parcelas via GET /api/billing/payment-dues?customer_id=... */
+export interface ContractDuesFilters {
+  customerId: string;
+  /** contract_reference do contrato para filtro client-side */
+  contractReference: string;
+}
 
 export const CONTRACT_STATUS_OPTIONS = [
   { value: '', label: 'Todos os status' },

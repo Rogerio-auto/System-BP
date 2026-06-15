@@ -1,0 +1,118 @@
+---
+title: Ficha do Contrato — Saúde e Parcelas
+description: Como visualizar a saúde de pagamento de um contrato, consultar parcelas e gerenciar boletos diretamente na ficha do contrato.
+order: 20
+keywords: [contrato, ficha, saúde, boleto, parcela, parcelas, inadimplente, vencido, pagamento, boleto bancário]
+---
+
+# Ficha do Contrato — Saúde e Parcelas
+
+A ficha do contrato exibe, além dos dados cadastrais, um **indicador de saúde** de pagamento e a **lista de parcelas** com possibilidade de anexar ou visualizar boletos. Isso permite acompanhar a situação financeira do contrato sem precisar sair da tela.
+
+<Callout type="info" title="Pré-requisito">
+  Você precisa da permissão **contracts:read** para visualizar a ficha. Para anexar boletos, é necessária também a permissão **billing.boleto.enabled**.
+</Callout>
+
+## Abrir a ficha de um contrato
+
+<Step number={1} title="Acesse a aba Contratos">
+  No menu lateral, clique em **Contratos**. A lista exibe todos os contratos da sua organização.
+</Step>
+
+<Step number={2} title="Clique em um contrato">
+  Clique na linha do contrato desejado. Um painel lateral (drawer) será aberto à direita com todos os detalhes do contrato.
+</Step>
+
+## Indicador de saúde
+
+O campo **Saúde** resume a situação de pagamento do contrato com base nas parcelas registradas:
+
+| Status | Significado |
+|---|---|
+| Saudável | Nenhuma parcela em atraso |
+| Em risco | Ao menos uma parcela vencida recentemente (menos de 15 dias) |
+| Inadimplente | Ao menos uma parcela vencida há 15 dias ou mais |
+| Quitado | Todas as parcelas foram pagas |
+
+O indicador também mostra:
+- **Barra de progresso**: percentual de parcelas pagas
+- **Valor pago**: total já quitado pelo cliente
+- **Valor em atraso**: total de parcelas vencidas (quando houver)
+- **Valor pendente**: total ainda a vencer
+
+<Callout type="warning" title="Atraso recente">
+  Um contrato classificado como **Em risco** ainda pode ser regularizado. Contratos **Inadimplentes** devem ser tratados com prioridade pela equipe de cobrança.
+</Callout>
+
+## Lista de parcelas
+
+Abaixo do indicador de saúde, a seção **Parcelas** lista todas as prestações do contrato com:
+
+- **Numero da parcela** (ex: 1, 2, 3...)
+- **Data de vencimento**
+- **Valor** da parcela
+- **Status**: Pendente, Vencida, Paga, Renegociada ou Cancelada
+- **Botão de boleto**: indica se o boleto está anexado ou permite anexar
+
+### Consultar um boleto
+
+<Step number={1} title="Localize a parcela">
+  Encontre a parcela desejada na lista. Parcelas com boleto já anexado exibem o botão **Boleto** em azul.
+</Step>
+
+<Step number={2} title="Clique em Boleto">
+  Clique no botão ao lado da parcela. Um modal será aberto exibindo os dados do boleto: arquivo, linha digitável e PIX copia-e-cola (quando disponíveis).
+</Step>
+
+<Step number={3} title="Use as informações">
+  Copie a linha digitável ou o PIX copia-e-cola usando os botões de cópia. Para abrir o arquivo em nova aba, clique em **Abrir**.
+</Step>
+
+### Anexar um boleto
+
+<Step number={1} title="Localize a parcela sem boleto">
+  Parcelas sem boleto exibem o botão **Anexar** em cinza.
+</Step>
+
+<Step number={2} title="Clique em Anexar">
+  Clique no botão. O modal de boleto abrirá com duas abas: **Upload PDF** e **Referência**.
+</Step>
+
+<Step number={3} title="Escolha o modo de anexo">
+  - **Upload PDF**: arraste um arquivo PDF, JPG ou PNG (max 10 MB) ou clique na area de upload para selecionar.
+  - **Referência**: preencha ao menos um dos campos — URL do boleto, linha digitável ou PIX copia-e-cola.
+</Step>
+
+<Step number={4} title="Confirme o anexo">
+  Clique em **Enviar boleto** (upload) ou **Salvar referencia** (referencia). O botão da parcela ficara azul indicando que o boleto foi registrado.
+</Step>
+
+<Callout type="warning" title="Nome de arquivo">
+  Nunca inclua CPF, nome completo ou outros dados pessoais no nome do arquivo ao fazer upload.
+</Callout>
+
+## Substituir ou remover um boleto
+
+No modal de um boleto ja anexado:
+
+- Clique em **Substituir boleto** para fazer um novo upload ou informar uma nova referencia.
+- Clique em **Remover boleto** para desvincular o arquivo da parcela. Esta acao nao cancela a parcela.
+
+## Erros comuns
+
+**Parcelas nao aparecem na ficha**
+As parcelas sao importadas pelo sistema a partir dos dados do contrato. Se a lista estiver vazia, pode ser que o contrato nao tenha parcelas registradas ainda. Contate o administrador.
+
+**Botao de boleto desativado**
+A funcionalidade de boleto pode estar desabilitada para sua organizacao. O banner "Gestao de boletos nao habilitada" aparecera na parte superior da lista de parcelas.
+
+**Erro ao carregar saude do contrato**
+Se o indicador de saude exibir erro, clique em **Tentar novamente**. Caso o problema persista, verifique sua conexao e recarregue a pagina.
+
+## Veja tambem
+
+- [Aba Contratos](/guias/contratos/aba-contratos) — como listar e filtrar contratos
+- [Saude de boletos](/guias/contratos/saude-de-boletos) — calculo do indicador de saude
+- [Gestao de parcelas](/guias/cobranca/parcelas) — modulo completo de cobranca
+
+<FeedbackWidget />
