@@ -3,11 +3,11 @@ id: F17-S05
 title: Frontend — aba Contratos + ação "marcar como assinado"
 phase: F17
 task_ref: null
-status: blocked
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T21:28:04Z
 completed_at: null
 pr_url: null
 depends_on: [F17-S02, F17-S03]
