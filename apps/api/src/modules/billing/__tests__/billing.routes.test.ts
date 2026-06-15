@@ -132,6 +132,9 @@ const SAMPLE_DUE = {
   created_by: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
+  // Boleto (F5-S13) — campos obrigatórios no PaymentDueResponseSchema
+  has_boleto: false,
+  boleto_filename: null,
 };
 
 const SAMPLE_RULE = {

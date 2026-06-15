@@ -1,0 +1,159 @@
+---
+title: Anexar boleto à parcela
+description: Como vincular um boleto (PDF ou referência) a uma parcela de cobrança para que ele seja enviado automaticamente pelo WhatsApp.
+---
+
+# Anexar boleto à parcela
+
+<Permission required="billing:boleto:write">
+  Esta funcionalidade é exclusiva para usuários com a permissão **billing:boleto:write**
+  (concedida a **Admin**, **Gestor Geral** e **Gestor Regional**).
+  Se você não vê a opção de anexar boleto, fale com o administrador do sistema.
+</Permission>
+
+<Callout type="warning" title="Proteção de dados — LGPD §14.2">
+  O boleto contém dados pessoais do devedor (nome, CPF, endereço). O tratamento dessas
+  informações segue as regras definidas em
+  [`docs/17-lgpd-protecao-dados.md` §14.2](/docs/17-lgpd-protecao-dados#checklist-de-dados-pessoais).
+  Em caso de dúvida sobre consentimento, finalidade ou prazo de retenção, consulte o
+  encarregado (DPO) antes de prosseguir.
+</Callout>
+
+A funcionalidade de boleto permite vincular um documento de cobrança a uma parcela (`payment_due`).
+Quando o boleto está anexado, o envio automático pela régua de cobrança inclui o arquivo no template WhatsApp.
+
+## Pré-requisitos
+
+- Flag `billing.boleto.enabled` habilitada pelo administrador.
+- Permissão `billing:boleto:write` (concedida a **Admin**, **Gestor Geral** e **Gestor Regional**).
+- Gestores Regionais só podem anexar boletos em parcelas dentro de sua cidade de atuação.
+
+---
+
+## Modo 1 — Upload de arquivo (PDF/imagem)
+
+Envie um arquivo PDF, JPG ou PNG (máximo 10 MB) via `multipart/form-data`.
+O arquivo é enviado para a Meta WhatsApp Cloud API e o `media_id` retornado é salvo na parcela.
+**Os bytes do arquivo não são armazenados no banco** (conformidade LGPD §14.2).
+
+```http
+POST /api/billing/payment-dues/{id}/boleto
+Content-Type: multipart/form-data
+Idempotency-Key: <uuid-v4>
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="boleto-parcela-3.pdf"
+Content-Type: application/pdf
+
+<bytes do PDF>
+--boundary--
+```
+
+**Tipos aceitos:** `application/pdf`, `image/jpeg`, `image/png`
+
+O campo `boleto_filename` recebe o nome do arquivo enviado.
+O `media_id` da Meta é válido por aproximadamente 30 dias — o campo `boleto_media_expires_at` indica a expiração.
+
+---
+
+## Modo 2 — Referência (URL / linha digitável / PIX)
+
+Envie os dados de referência do boleto via `application/json`.
+Ao menos um dos campos (`boletoUrl`, `digitableLine` ou `pixCopiaCola`) é obrigatório.
+
+```http
+POST /api/billing/payment-dues/{id}/boleto
+Content-Type: application/json
+Idempotency-Key: <uuid-v4>
+
+{
+  "boletoUrl": "https://boletos.bdp.ro.gov.br/boleto-001.pdf",
+  "digitableLine": "12345.67890 12345.678901 12345.678901 1 23450000012000",
+  "pixCopiaCola": "00020126330014br.gov.bcb.pix01...",
+  "filename": "boleto-parcela-3.pdf"
+}
+```
+
+**Restrição de `boletoUrl`:** somente URLs com hostname cadastrado em `BOLETO_ALLOWED_HOSTS` são aceitas.
+URLs públicas arbitrárias são bloqueadas para proteção dos dados do devedor (LGPD §14.2).
+
+---
+
+## Remover o boleto
+
+```http
+DELETE /api/billing/payment-dues/{id}/boleto
+```
+
+Remove todos os campos de boleto da parcela.
+Operação idempotente: se a parcela não possui boleto, retorna o estado atual sem erro.
+
+---
+
+## Resposta
+
+Ambos os endpoints retornam o estado atual do boleto da parcela:
+
+```json
+{
+  "payment_due_id": "uuid-da-parcela",
+  "boleto_url": null,
+  "boleto_media_id": "wam-media-id-123",
+  "boleto_media_expires_at": "2026-07-14T12:00:00Z",
+  "boleto_digitable_line": null,
+  "pix_copia_cola": null,
+  "boleto_filename": "boleto-parcela-3.pdf",
+  "boleto_attached_at": "2026-06-14T09:30:00Z",
+  "has_boleto": true
+}
+```
+
+O campo `has_boleto` é `true` quando `boleto_media_id` **ou** `boleto_url` estão preenchidos.
+
+---
+
+## Importação em lote (planilha)
+
+A importação de parcelas via CSV/XLSX suporta colunas opcionais de boleto:
+
+| Coluna             | Aliases aceitos                              | Descrição                               |
+|--------------------|----------------------------------------------|-----------------------------------------|
+| `boleto_url`       | `url_boleto`, `link_boleto`                  | URL do PDF do boleto                    |
+| `linha_digitavel`  | `digitable_line`, `codigo_barras`            | Linha digitável (código de barras)      |
+| `pix_copia_cola`   | `pix`, `pix_code`, `qr_code`                | Payload PIX copia-e-cola (BR Code)      |
+
+A `boleto_url` na importação também é validada contra `BOLETO_ALLOWED_HOSTS`.
+Upload de arquivo em lote **não** é suportado — use o endpoint individual para arquivos.
+
+---
+
+## Idempotência
+
+O header `Idempotency-Key` (UUID v4) é obrigatório no `POST`.
+Re-enviar a mesma chave é seguro: a operação não será duplicada.
+
+---
+
+## Privacidade e LGPD
+
+O boleto contém dados pessoais do devedor (nome, CPF, endereço).
+Por isso:
+
+- Bytes do arquivo **nunca são armazenados** no banco — apenas o `media_id` da Meta.
+- `boleto_url` deve apontar para servidor controlado pelo Banco do Povo (allowlist de host).
+- Os campos de boleto **não aparecem** na listagem geral de parcelas (`GET /payment-dues`).
+- A auditoria registra apenas IDs e modo de anexo — sem dados do boleto.
+- Eventos de outbox carregam apenas IDs opacos — sem URL, linha ou PIX.
+
+---
+
+## Erros comuns
+
+| Código | Situação                                                |
+|--------|---------------------------------------------------------|
+| 400    | `Idempotency-Key` ausente ou `boletoUrl` com host bloqueado |
+| 403    | Permissão `billing:boleto:write` ausente ou flag desabilitada |
+| 404    | Parcela não encontrada ou fora do escopo do usuário      |
+| 413    | Arquivo maior que 10 MB                                  |
+| 415    | Tipo de arquivo não suportado (use PDF, JPG ou PNG)     |
+| 502    | Falha na comunicação com a Meta WhatsApp API             |

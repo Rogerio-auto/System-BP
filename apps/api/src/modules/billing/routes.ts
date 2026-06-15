@@ -1,38 +1,47 @@
 // =============================================================================
-// billing/routes.ts — Rotas do módulo de cobrança (F5-S08).
+// billing/routes.ts — Rotas do módulo de cobrança (F5-S08, F5-S13).
 //
 // Rotas:
-//   GET    /api/billing/payment-dues              (billing:read)
+//   GET    /api/billing/payment-dues                (billing:read)
 //   POST   /api/billing/payment-dues/:id/mark-paid  (billing:mark_paid)
 //   POST   /api/billing/payment-dues/:id/renegotiate (billing:mark_paid)
-//   GET    /api/billing/rules                     (billing:read)
-//   POST   /api/billing/rules                     (billing:write)
-//   PATCH  /api/billing/rules/:id                 (billing:write)
-//   GET    /api/billing/jobs                      (billing:read)
-//   POST   /api/billing/jobs/:id/cancel           (billing:cancel_job)
+//   POST   /api/billing/payment-dues/:id/boleto      (billing:boleto:write) — F5-S13
+//   DELETE /api/billing/payment-dues/:id/boleto      (billing:boleto:write) — F5-S13
+//   GET    /api/billing/rules                       (billing:read)
+//   POST   /api/billing/rules                       (billing:write)
+//   PATCH  /api/billing/rules/:id                   (billing:write)
+//   GET    /api/billing/jobs                        (billing:read)
+//   POST   /api/billing/jobs/:id/cancel             (billing:cancel_job)
 //
 // RBAC:
-//   - billing:read       → listagem de dues + rules + jobs.
-//   - billing:write      → criação e edição de rules.
-//   - billing:mark_paid  → marcar pago/renegociado.
-//   - billing:cancel_job → cancelamento manual de job agendado.
+//   - billing:read          → listagem de dues + rules + jobs.
+//   - billing:write         → criação e edição de rules.
+//   - billing:mark_paid     → marcar pago/renegociado.
+//   - billing:cancel_job    → cancelamento manual de job agendado.
+//   - billing:boleto:write  → anexar/remover boleto (upload + referência).
+//
+// Gate: billing.boleto.enabled (feature flag — disabled por default).
 // =============================================================================
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
+import { featureGate } from '../../plugins/featureGate.js';
 import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
 
 import {
+  attachBoletoController,
   cancelJobController,
   createRuleController,
   listDuesController,
   listJobsController,
   listRulesController,
   markPaidController,
+  removeBoletoController,
   renegotiateController,
   updateRuleController,
 } from './controller.js';
 import {
+  BoletoResponseSchema,
   CollectionJobResponseSchema,
   CollectionJobsListQuerySchema,
   CollectionJobsListResponseSchema,
@@ -117,6 +126,87 @@ export const billingRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: ['billing:mark_paid'] })],
     },
     renegotiateController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/billing/payment-dues/:id/boleto (F5-S13)
+  //
+  // Aceita dois modos de body:
+  //   - multipart/form-data: campo 'file' (PDF/JPG/PNG, máx 10 MB).
+  //   - application/json: { boletoUrl?, digitableLine?, pixCopiaCola?, filename? }.
+  //
+  // Idempotency-Key obrigatório no header.
+  // Gate: billing.boleto.enabled (disabled por default — habilitar após sign-off).
+  // RBAC: billing:boleto:write + city scope (gestor_regional só acessa sua cidade).
+  //
+  // LGPD §14.2: o boleto contém PII (nome, CPF, endereço do devedor).
+  //   - Modo upload: bytes não persistem (apenas boleto_media_id + filename).
+  //   - Modo referência: boleto_url deve ser host da allowlist (BOLETO_ALLOWED_HOSTS).
+  //   - auditLog sem PII; outbox sem PII; pino.redact cobre boleto_url/linha/PIX.
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/billing/payment-dues/:id/boleto',
+    {
+      schema: {
+        tags: ['Billing'],
+        summary: 'Anexar boleto à parcela',
+        description:
+          'Anexa ou substitui o boleto de uma parcela de cobrança. ' +
+          'Aceita dois modos:\n\n' +
+          '**Modo upload** (`multipart/form-data`): enviar campo `file` (PDF, JPG ou PNG, máx 10 MB). ' +
+          'O arquivo é enviado para a Meta WhatsApp Cloud API via `POST /{phone_number_id}/media` ' +
+          'e o `media_id` retornado é persistido na parcela. Os bytes **não são armazenados** no banco (LGPD §14.2).\n\n' +
+          '**Modo referência** (`application/json`): enviar `boletoUrl` (URL controlada/assinada ' +
+          'do host cadastrado em `BOLETO_ALLOWED_HOSTS`), `digitableLine` e/ou `pixCopiaCola`.\n\n' +
+          'Requer header `Idempotency-Key` (UUID). ' +
+          'Gate: `billing.boleto.enabled` deve estar habilitado.',
+        security: [{ bearerAuth: [] }],
+        params: dueIdParamSchema,
+        response: {
+          200: BoletoResponseSchema,
+        },
+      },
+      preHandler: [
+        authorize({ permissions: ['billing:boleto:write'] }),
+        featureGate('billing.boleto.enabled'),
+      ],
+    },
+    attachBoletoController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // DELETE /api/billing/payment-dues/:id/boleto (F5-S13)
+  //
+  // Remove o boleto da parcela (todos os campos de boleto → null).
+  // Idempotente: parcela sem boleto retorna estado atual sem erro.
+  // Gate: billing.boleto.enabled.
+  // RBAC: billing:boleto:write + city scope.
+  //
+  // LGPD §14.2: auditLog registra a remoção sem expor PII.
+  //   Não emite outbox (remoção não tem downstream relevante em F5-S14).
+  // ---------------------------------------------------------------------------
+  app.delete(
+    '/api/billing/payment-dues/:id/boleto',
+    {
+      schema: {
+        tags: ['Billing'],
+        summary: 'Remover boleto da parcela',
+        description:
+          'Remove o boleto anexado a uma parcela, limpando todos os campos de boleto. ' +
+          'Operação idempotente: parcela sem boleto retorna o estado atual sem erro. ' +
+          'Gate: `billing.boleto.enabled` deve estar habilitado.',
+        security: [{ bearerAuth: [] }],
+        params: dueIdParamSchema,
+        response: {
+          200: BoletoResponseSchema,
+        },
+      },
+      preHandler: [
+        authorize({ permissions: ['billing:boleto:write'] }),
+        featureGate('billing.boleto.enabled'),
+      ],
+    },
+    removeBoletoController,
   );
 
   // ---------------------------------------------------------------------------

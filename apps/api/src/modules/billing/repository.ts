@@ -1,5 +1,5 @@
 // =============================================================================
-// billing/repository.ts — Queries Drizzle para cobrança (F5-S08).
+// billing/repository.ts — Queries Drizzle para cobrança (F5-S08, F5-S13).
 //
 // Cobre:
 //   - Listagem paginada de payment_dues com filtros + JOINs (sem PII completa)
@@ -7,11 +7,14 @@
 //   - CRUD de collection_rules (com validação cross-tenant de template)
 //   - Listagem paginada de collection_jobs com filtros + JOINs
 //   - Cancel de collection_job
+//   - Attach / remove boleto de payment_due (F5-S13)
 //
 // LGPD (doc 17):
 //   - payment_dues listadas: customer_id, contract_reference, amount, status.
 //   - customer_name: primeiro nome apenas (split_part em ' ')[0]) — redução de PII.
 //   - Sem CPF, telefone, email em qualquer query deste repositório.
+//   - boleto_url / boleto_digitable_line / pix_copia_cola: PII indireta — não
+//     expostos na listagem geral. Retornados apenas por getBoletoByDueId.
 //
 // City-scope:
 //   - payment_dues filtradas via customers → leads.city_id (gestor_regional).
@@ -29,6 +32,7 @@ import { whatsappTemplates } from '../../db/schema/whatsappTemplates.js';
 import { AppError, NotFoundError } from '../../shared/errors.js';
 
 import type {
+  BoletoResponse,
   CollectionJobResponse,
   CollectionJobsListQuery,
   CollectionJobsListResponse,
@@ -112,6 +116,12 @@ function mapDueRow(row: {
   created_by: string | null;
   created_at: Date;
   updated_at: Date;
+  // Boleto (F5-S13) — campos não-PII para listagem geral
+  boleto_media_id: string | null;
+  boleto_url: string | null;
+  boleto_filename: string | null;
+  // MEDIUM-02: necessário para has_boleto correto (parcelas só com linha/PIX)
+  boleto_attached_at: Date | null;
 }): PaymentDueResponse {
   return {
     id: row.id,
@@ -128,6 +138,12 @@ function mapDueRow(row: {
     created_by: row.created_by ?? null,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
+    // LGPD: expõe apenas indicadores de presença — não a URL/linha/PIX em si.
+    // MEDIUM-02: inclui boleto_attached_at para cobrir parcelas com apenas
+    // linha digitável ou PIX (sem media_id nem URL).
+    has_boleto:
+      row.boleto_media_id !== null || row.boleto_url !== null || row.boleto_attached_at !== null,
+    boleto_filename: row.boleto_filename ?? null,
   };
 }
 
@@ -202,6 +218,12 @@ export async function listPaymentDues(
       created_by: paymentDues.createdBy,
       created_at: paymentDues.createdAt,
       updated_at: paymentDues.updatedAt,
+      // Boleto (F5-S13): indicadores de presença para listagem (sem PII)
+      boleto_media_id: paymentDues.boletoMediaId,
+      boleto_url: paymentDues.boletoUrl,
+      boleto_filename: paymentDues.boletoFilename,
+      // MEDIUM-02: necessário para has_boleto correto (parcelas só com linha/PIX)
+      boleto_attached_at: paymentDues.boletoAttachedAt,
     })
     .from(paymentDues)
     .leftJoin(customers, eq(paymentDues.customerId, customers.id))
@@ -247,6 +269,12 @@ export async function getPaymentDueById(
       created_by: paymentDues.createdBy,
       created_at: paymentDues.createdAt,
       updated_at: paymentDues.updatedAt,
+      // Boleto (F5-S13)
+      boleto_media_id: paymentDues.boletoMediaId,
+      boleto_url: paymentDues.boletoUrl,
+      boleto_filename: paymentDues.boletoFilename,
+      // MEDIUM-02: necessário para has_boleto correto
+      boleto_attached_at: paymentDues.boletoAttachedAt,
     })
     .from(paymentDues)
     .leftJoin(customers, eq(paymentDues.customerId, customers.id))
@@ -259,6 +287,164 @@ export async function getPaymentDueById(
   }
 
   return mapDueRow(rows[0]!);
+}
+
+// ---------------------------------------------------------------------------
+// Boleto — get full fields (F5-S13)
+//
+// LGPD: expõe boleto_url / boleto_digitable_line / pix_copia_cola — PII indireta.
+// Só chamado pelo endpoint dedicado POST/DELETE /boleto, nunca pela listagem.
+// Validação de city-scope via cityScopeIds.
+// ---------------------------------------------------------------------------
+
+/**
+ * Retorna os campos completos de boleto de uma parcela.
+ * Inclui boleto_url, boleto_digitable_line, pix_copia_cola (PII indireta).
+ *
+ * City-scope: valida que a parcela pertence ao scope do gestor (via leads.city_id).
+ * Lança NotFoundError se não encontrar (inclui caso fora do scope — não revela existência).
+ */
+export async function getBoletoByDueId(
+  db: Database,
+  organizationId: string,
+  dueId: string,
+  cityScopeIds: string[] | null,
+): Promise<BoletoResponse> {
+  const cityScopeCondition = buildCityScopeCondition(cityScopeIds);
+
+  const conditions = [eq(paymentDues.id, dueId), eq(paymentDues.organizationId, organizationId)];
+  if (cityScopeCondition !== null) {
+    conditions.push(cityScopeCondition);
+  }
+
+  const rows = await db
+    .select({
+      id: paymentDues.id,
+      boleto_url: paymentDues.boletoUrl,
+      boleto_media_id: paymentDues.boletoMediaId,
+      boleto_media_expires_at: paymentDues.boletoMediaExpiresAt,
+      boleto_digitable_line: paymentDues.boletoDigitableLine,
+      pix_copia_cola: paymentDues.pixCopiaCola,
+      boleto_filename: paymentDues.boletoFilename,
+      boleto_attached_at: paymentDues.boletoAttachedAt,
+    })
+    .from(paymentDues)
+    .leftJoin(customers, eq(paymentDues.customerId, customers.id))
+    .leftJoin(leads, eq(customers.primaryLeadId, leads.id))
+    .where(and(...conditions))
+    .limit(1);
+
+  if (rows.length === 0) {
+    throw new NotFoundError('Parcela não encontrada');
+  }
+
+  const row = rows[0]!;
+  return {
+    payment_due_id: row.id,
+    boleto_url: row.boleto_url ?? null,
+    boleto_media_id: row.boleto_media_id ?? null,
+    boleto_media_expires_at: row.boleto_media_expires_at?.toISOString() ?? null,
+    boleto_digitable_line: row.boleto_digitable_line ?? null,
+    pix_copia_cola: row.pix_copia_cola ?? null,
+    boleto_filename: row.boleto_filename ?? null,
+    boleto_attached_at: row.boleto_attached_at?.toISOString() ?? null,
+    // MEDIUM-02: inclui boleto_attached_at para cobrir parcelas com apenas linha/PIX.
+    has_boleto:
+      row.boleto_media_id !== null || row.boleto_url !== null || row.boleto_attached_at !== null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Boleto — set fields (F5-S13)
+// ---------------------------------------------------------------------------
+
+export interface BoletoFields {
+  boletoUrl?: string | null;
+  boletoMediaId?: string | null;
+  boletoMediaExpiresAt?: Date | null;
+  boletoDigitableLine?: string | null;
+  pixCopiaCola?: string | null;
+  boletoFilename?: string | null;
+  boletoAttachedAt?: Date | null;
+}
+
+/**
+ * Verifica se a parcela existe e pertence ao scope do usuário.
+ * Retorna o registro mínimo necessário para gate de boleto.
+ * Lança NotFoundError se fora do scope ou inexistente.
+ *
+ * MEDIUM-01: não usa SELECT FOR UPDATE pois esta função é chamada FORA de transação
+ * (fail-fast antes de chamar a Meta / iniciar a tx). O lock real ocorre implicitamente
+ * no UPDATE dentro de updatePaymentDueBoleto (Postgres row lock em UPDATE).
+ */
+export async function verifyPaymentDueScope(
+  db: Database,
+  organizationId: string,
+  dueId: string,
+  cityScopeIds: string[] | null,
+): Promise<{ id: string; status: string }> {
+  const cityScopeCondition = buildCityScopeCondition(cityScopeIds);
+
+  const conditions = [eq(paymentDues.id, dueId), eq(paymentDues.organizationId, organizationId)];
+  if (cityScopeCondition !== null) {
+    conditions.push(cityScopeCondition);
+  }
+
+  const rows = await db
+    .select({ id: paymentDues.id, status: paymentDues.status })
+    .from(paymentDues)
+    .leftJoin(customers, eq(paymentDues.customerId, customers.id))
+    .leftJoin(leads, eq(customers.primaryLeadId, leads.id))
+    .where(and(...conditions))
+    .limit(1);
+
+  if (rows.length === 0) {
+    throw new NotFoundError('Parcela não encontrada');
+  }
+
+  return rows[0]!;
+}
+
+/**
+ * Atualiza os campos de boleto de uma parcela.
+ * Deve ser chamado DENTRO de uma transação ativa para atomicidade.
+ *
+ * Não verifica city-scope — o caller deve ter chamado lockPaymentDueForBoleto antes.
+ */
+export async function updatePaymentDueBoleto(
+  db: Database,
+  organizationId: string,
+  dueId: string,
+  fields: BoletoFields,
+): Promise<void> {
+  // exactOptionalPropertyTypes: constrói patch omitindo chaves com valor undefined.
+  // Drizzle aceita null (limpar campo) mas rejeita undefined explícito em .set().
+  // Tipo inline para satisfazer o .set() do Drizzle (apenas colunas de boleto + updatedAt).
+  type BoletoPatch = {
+    updatedAt?: Date;
+    boletoUrl?: string | null;
+    boletoMediaId?: string | null;
+    boletoMediaExpiresAt?: Date | null;
+    boletoDigitableLine?: string | null;
+    pixCopiaCola?: string | null;
+    boletoFilename?: string | null;
+    boletoAttachedAt?: Date | null;
+  };
+  const patch: BoletoPatch = { updatedAt: new Date() };
+  if (fields.boletoUrl !== undefined) patch.boletoUrl = fields.boletoUrl;
+  if (fields.boletoMediaId !== undefined) patch.boletoMediaId = fields.boletoMediaId;
+  if (fields.boletoMediaExpiresAt !== undefined)
+    patch.boletoMediaExpiresAt = fields.boletoMediaExpiresAt;
+  if (fields.boletoDigitableLine !== undefined)
+    patch.boletoDigitableLine = fields.boletoDigitableLine;
+  if (fields.pixCopiaCola !== undefined) patch.pixCopiaCola = fields.pixCopiaCola;
+  if (fields.boletoFilename !== undefined) patch.boletoFilename = fields.boletoFilename;
+  if (fields.boletoAttachedAt !== undefined) patch.boletoAttachedAt = fields.boletoAttachedAt;
+
+  await db
+    .update(paymentDues)
+    .set(patch)
+    .where(and(eq(paymentDues.id, dueId), eq(paymentDues.organizationId, organizationId)));
 }
 
 // ---------------------------------------------------------------------------

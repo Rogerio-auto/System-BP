@@ -555,6 +555,28 @@ export interface BillingDueRenegotiatedData {
   due_date: string;
 }
 
+/**
+ * Emitido quando um boleto é anexado a uma parcela (F5-S13).
+ * LGPD §8.5: payload carrega apenas IDs opacos + modo de anexo.
+ * NUNCA incluir boleto_url, boleto_digitable_line, pix_copia_cola ou filename.
+ */
+export interface BillingBoletoAttachedData {
+  /** UUID opaco da parcela — não é PII direta. */
+  payment_due_id: string;
+  /** UUID do customer (aponta para entidade com PII — não logar diretamente). */
+  customer_id: string;
+  /**
+   * Modo de anexo: 'upload' (arquivo enviado para a Meta) ou 'reference' (URL/linha/PIX).
+   * Não é PII — apenas descreve o mecanismo de integração.
+   */
+  mode: 'upload' | 'reference';
+  /**
+   * Indica se o boleto foi obtido via uploadMedia (boleto_media_id preenchido).
+   * Não revela o media_id em si — apenas sua presença.
+   */
+  has_media: boolean;
+}
+
 // --- Domínio: templates WhatsApp (F5-S09) ---
 
 /**
@@ -794,6 +816,8 @@ export interface AppEventDataMap {
   // F5-S08: mark-paid / renegotiate (LGPD §8.5 — payload sem PII bruta)
   'billing.due_paid': BillingDuePaidData;
   'billing.due_renegotiated': BillingDueRenegotiatedData;
+  // F5-S13: boleto anexado a parcela (LGPD §8.5 — sem boleto_url/linha/PIX)
+  'billing.boleto_attached': BillingBoletoAttachedData;
   'import.batch_created': ImportBatchData;
   'import.batch_validated': ImportBatchData;
   'import.batch_completed': ImportBatchData;

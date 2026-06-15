@@ -3,12 +3,12 @@ id: F5-S13
 title: Cobrança — anexar boleto à parcela (endpoint + import) com RBAC, auditoria e LGPD
 phase: F5
 task_ref: docs/05-modulos-funcionais.md#cobranca-boleto
-status: available
+status: review
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: null
-completed_at: null
+completed_at: 2026-06-14T17:35:35Z
 pr_url: null
 depends_on: [F5-S10, F5-S11, F5-S08]
 blocks: [F5-S14, F5-S16]
