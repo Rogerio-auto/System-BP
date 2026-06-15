@@ -38,16 +38,18 @@ import {
   cancelCollectionJob,
   checkTemplateInOrg,
   createCollectionRule,
+  findCustomerSpcStatus,
   getBoletoByDueId,
   getCollectionRuleById,
   listCollectionJobs,
   listCollectionRules,
   listPaymentDues,
-  verifyPaymentDueScope,
   markPaymentDuePaid,
   renegotiatePaymentDue,
   updateCollectionRule,
+  updateCustomerSpcStatus,
   updatePaymentDueBoleto,
+  verifyPaymentDueScope,
 } from './repository.js';
 import type {
   BoletoAttachReferenceBody,
@@ -62,6 +64,7 @@ import type {
   PaymentDueResponse,
   PaymentDuesListQuery,
   PaymentDuesListResponse,
+  SpcStatusResponse,
 } from './schemas.js';
 
 // ---------------------------------------------------------------------------
@@ -819,6 +822,134 @@ export async function removeBoletoService(
   });
 
   return getBoletoByDueId(db, organizationId, dueId, cityScopeIds);
+}
+
+// ---------------------------------------------------------------------------
+// SPC service (F15-S07)
+// ---------------------------------------------------------------------------
+
+// Transições de status SPC válidas:
+//   none → pending_inclusion   (aciona inclusão manual)
+//   pending_inclusion → included  (inclusão confirmada)
+//   included → removed          (remoção do SPC)
+//   pending_inclusion → none    (cancelamento antes de incluir)
+//
+// Regra derivada da decisão D13 (F15).
+
+const VALID_SPC_TRANSITIONS: Record<string, readonly string[]> = {
+  none: ['pending_inclusion'],
+  pending_inclusion: ['included', 'none'],
+  included: ['removed'],
+  removed: [],
+} as const;
+
+/**
+ * Valida que a transição de status SPC é permitida.
+ *
+ * @throws AppError(422) se a transição for inválida.
+ */
+function assertSpcTransitionValid(currentStatus: string, nextStatus: string): void {
+  const allowed = VALID_SPC_TRANSITIONS[currentStatus] ?? [];
+  if (!allowed.includes(nextStatus)) {
+    // VALIDATION_ERROR usado para transição de estado inválida (422 = Unprocessable Entity).
+    throw new AppError(
+      422,
+      'VALIDATION_ERROR',
+      `Transição SPC inválida: '${currentStatus}' → '${nextStatus}'. ` +
+        `Transições permitidas a partir de '${currentStatus}': ${
+          allowed.length > 0 ? allowed.join(', ') : '(nenhuma)'
+        }`,
+    );
+  }
+}
+
+/**
+ * Retorna o status SPC atual de um cliente.
+ *
+ * RBAC: spc:read — verificado na rota.
+ * City-scope: propagado ao repository via cityScopeIds.
+ * LGPD: retorna apenas customer_id (UUID), status e changed_at — sem PII.
+ */
+export async function getSpcStatusService(
+  db: Database,
+  organizationId: string,
+  customerId: string,
+  cityScopeIds: string[] | null,
+): Promise<SpcStatusResponse> {
+  const row = await findCustomerSpcStatus(db, organizationId, customerId, cityScopeIds);
+  return {
+    customer_id: row.customerId,
+    current_status: row.spcStatus as SpcStatusResponse['current_status'],
+    changed_at: row.spcChangedAt ? row.spcChangedAt.toISOString() : null,
+  };
+}
+
+/**
+ * Atualiza o status SPC de um cliente.
+ *
+ * Fluxo:
+ *   1. findCustomerSpcStatus: busca status atual + valida city-scope (fora da tx).
+ *   2. Idempotência: se status atual == status novo → 200 (no-op).
+ *   3. assertSpcTransitionValid: valida transição antes de qualquer IO.
+ *   4. Transação:
+ *      a. updateCustomerSpcStatus
+ *      b. auditLog (sem PII)
+ *
+ * RBAC: spc:manage — verificado na rota.
+ * City-scope: propagado ao repository.
+ * LGPD: audit log contém apenas customer_id (UUID) + from/to status — sem CPF.
+ */
+export async function updateSpcStatusService(
+  db: Database,
+  organizationId: string,
+  customerId: string,
+  cityScopeIds: string[] | null,
+  newStatus: string,
+  actor: { userId: string; ip: string | null },
+): Promise<SpcStatusResponse> {
+  // Busca status atual + valida scope (fora da tx — fail-fast)
+  const current = await findCustomerSpcStatus(db, organizationId, customerId, cityScopeIds);
+
+  // Idempotência: mesmo status → no-op
+  if (current.spcStatus === newStatus) {
+    return {
+      customer_id: current.customerId,
+      current_status: current.spcStatus as SpcStatusResponse['current_status'],
+      changed_at: current.spcChangedAt ? current.spcChangedAt.toISOString() : null,
+    };
+  }
+
+  // Valida transição antes de abrir transação
+  assertSpcTransitionValid(current.spcStatus, newStatus);
+
+  let result!: SpcStatusResponse;
+
+  await db.transaction(async (tx) => {
+    // `as` justificado: Drizzle não exporta tipo público da transação.
+    const txDb = tx as unknown as Database;
+    const txForAudit = tx as unknown as AuditTx;
+
+    const updated = await updateCustomerSpcStatus(txDb, organizationId, customerId, newStatus);
+
+    // LGPD: audit log contém apenas IDs e status — sem PII bruta (sem CPF, sem nome).
+    await auditLog(txForAudit, {
+      organizationId,
+      actor: { userId: actor.userId, role: 'user', ip: actor.ip },
+      action: 'customer.spc_status_changed',
+      resource: { type: 'customer', id: customerId },
+      before: { spc_status: current.spcStatus },
+      after: { spc_status: newStatus },
+      correlationId: null,
+    });
+
+    result = {
+      customer_id: updated.customerId,
+      current_status: updated.spcStatus as SpcStatusResponse['current_status'],
+      changed_at: updated.spcChangedAt ? updated.spcChangedAt.toISOString() : null,
+    };
+  });
+
+  return result;
 }
 
 // Re-export AppError/NotFoundError para facilitar uso nos testes

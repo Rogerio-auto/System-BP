@@ -1,5 +1,5 @@
 // =============================================================================
-// billing/routes.ts — Rotas do módulo de cobrança (F5-S08, F5-S13).
+// billing/routes.ts — Rotas do módulo de cobrança (F5-S08, F5-S13, F15-S07).
 //
 // Rotas:
 //   GET    /api/billing/payment-dues                (billing:read)
@@ -12,6 +12,8 @@
 //   PATCH  /api/billing/rules/:id                   (billing:write)
 //   GET    /api/billing/jobs                        (billing:read)
 //   POST   /api/billing/jobs/:id/cancel             (billing:cancel_job)
+//   GET    /api/billing/customers/:id/spc           (spc:read)     — F15-S07
+//   POST   /api/billing/customers/:id/spc           (spc:manage)   — F15-S07
 //
 // RBAC:
 //   - billing:read          → listagem de dues + rules + jobs.
@@ -19,6 +21,8 @@
 //   - billing:mark_paid     → marcar pago/renegociado.
 //   - billing:cancel_job    → cancelamento manual de job agendado.
 //   - billing:boleto:write  → anexar/remover boleto (upload + referência).
+//   - spc:read              → consultar status SPC do cliente.
+//   - spc:manage            → alterar status SPC do cliente (transições válidas).
 //
 // Gate: billing.boleto.enabled (feature flag — disabled por default).
 // =============================================================================
@@ -32,6 +36,7 @@ import {
   attachBoletoController,
   cancelJobController,
   createRuleController,
+  getSpcStatusController,
   listDuesController,
   listJobsController,
   listRulesController,
@@ -39,6 +44,7 @@ import {
   removeBoletoController,
   renegotiateController,
   updateRuleController,
+  updateSpcStatusController,
 } from './controller.js';
 import {
   BoletoResponseSchema,
@@ -54,6 +60,9 @@ import {
   PaymentDuesListQuerySchema,
   PaymentDuesListResponseSchema,
   RenegotiateBodySchema,
+  SpcStatusResponseSchema,
+  SpcUpdateBodySchema,
+  customerIdParamSchema,
   dueIdParamSchema,
   jobIdParamSchema,
   ruleIdParamSchema,
@@ -312,5 +321,78 @@ export const billingRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: ['billing:cancel_job'] })],
     },
     cancelJobController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // GET /api/billing/customers/:id/spc (F15-S07)
+  //
+  // Retorna o status SPC atual do cliente.
+  //
+  // RBAC: spc:read
+  // City-scope: customer deve pertencer a uma cidade do scope do gestor_regional.
+  // LGPD: expõe apenas customer_id (UUID) + status + changed_at — sem PII.
+  // ---------------------------------------------------------------------------
+  app.get(
+    '/api/billing/customers/:id/spc',
+    {
+      schema: {
+        tags: ['Billing', 'SPC'],
+        summary: 'Consultar status SPC do cliente',
+        description:
+          'Retorna o status atual do cliente no SPC (Serviço de Proteção ao Crédito). ' +
+          'O status segue o ciclo de vida: `none` → `pending_inclusion` → `included` → `removed`. ' +
+          '`changed_at` indica quando ocorreu a última transição (null se nunca houve ação de SPC). ' +
+          'Requer permissão `spc:read`. Respeita escopo de cidade do gestor regional.',
+        security: [{ bearerAuth: [] }],
+        params: customerIdParamSchema,
+        response: {
+          200: SpcStatusResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['spc:read'] })],
+    },
+    getSpcStatusController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/billing/customers/:id/spc (F15-S07)
+  //
+  // Atualiza o status SPC do cliente.
+  //
+  // Transições válidas:
+  //   none → pending_inclusion   (solicita inclusão)
+  //   pending_inclusion → included  (confirma inclusão)
+  //   included → removed          (remove do SPC)
+  //   pending_inclusion → none    (cancela antes de incluir)
+  //
+  // Idempotência: status atual == status novo → 200 (no-op, sem auditoria).
+  // RBAC: spc:manage
+  // City-scope: customer deve pertencer a uma cidade do scope do gestor_regional.
+  // LGPD: audit log registra apenas customer_id (UUID) + from/to status — sem CPF.
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/billing/customers/:id/spc',
+    {
+      schema: {
+        tags: ['Billing', 'SPC'],
+        summary: 'Atualizar status SPC do cliente',
+        description:
+          'Atualiza o status do cliente no SPC conforme o ciclo de vida definido. ' +
+          'Transições válidas: `none` → `pending_inclusion`, `pending_inclusion` → `included`, ' +
+          '`included` → `removed`, `pending_inclusion` → `none` (cancelamento). ' +
+          'Transições inválidas retornam HTTP 422 com mensagem descritiva. ' +
+          'Se o status atual já for igual ao status solicitado, retorna 200 sem modificar (idempotente). ' +
+          'A operação é auditada sem exposição de dados pessoais (CPF não consta no log). ' +
+          'Requer permissão `spc:manage`. Respeita escopo de cidade do gestor regional.',
+        security: [{ bearerAuth: [] }],
+        params: customerIdParamSchema,
+        body: SpcUpdateBodySchema,
+        response: {
+          200: SpcStatusResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['spc:manage'] })],
+    },
+    updateSpcStatusController,
   );
 };

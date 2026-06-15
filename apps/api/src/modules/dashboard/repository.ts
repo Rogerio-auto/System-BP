@@ -1,5 +1,6 @@
 // =============================================================================
-// dashboard/repository.ts — Queries Drizzle agregadas para KPIs do dashboard.
+// dashboard/repository.ts — Queries Drizzle agregadas para KPIs do dashboard
+//                           e dashboard de cobrança (F15-S09).
 //
 // Todas as queries recebem `db` por injeção de dependência para facilitar
 // testes unitários (mock do db).
@@ -25,6 +26,7 @@ import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Database } from '../../db/client.js';
 import { agents } from '../../db/schema/agents.js';
 import { cities } from '../../db/schema/cities.js';
+import { customers } from '../../db/schema/customers.js';
 import { interactions } from '../../db/schema/interactions.js';
 import { kanbanCards } from '../../db/schema/kanbanCards.js';
 import { kanbanStages } from '../../db/schema/kanbanStages.js';
@@ -717,4 +719,287 @@ export async function getTopAgentsByLeadsClosed(
     displayName: r.displayName,
     closedWon: r.closedWon,
   }));
+}
+
+// =============================================================================
+// Cobrança — Dashboard de métricas (F15-S09)
+//
+// Todas as queries filtram por organization_id.
+// city_id é opcional — quando fornecido, filtra via JOIN em customers→leads.
+//
+// LGPD (doc 17):
+//   - Retornam apenas count + total_amount agregados — sem PII individual.
+//   - customer_id, contract_reference: IDs opacos ou dado financeiro operacional.
+//   - Nenhuma query expõe CPF, nome, telefone, email.
+//
+// Performance:
+//   - Usa índices: idx_payment_dues_status_due, idx_payment_dues_customer.
+//   - Queries com NOT EXISTS são executadas via SQL nativo para controle fino.
+//   - Promise.all no service paralleliza as 5 queries independentes.
+// =============================================================================
+
+/**
+ * Resultado de um card do dashboard de cobrança.
+ * `total_amount` é string para preservar precisão numeric(14,2) do PostgreSQL.
+ */
+export interface CollectionCardResult {
+  count: number;
+  total_amount: string;
+}
+
+// ---------------------------------------------------------------------------
+// due_soon: parcelas vencendo em até 7 dias
+// ---------------------------------------------------------------------------
+
+/**
+ * Conta parcelas status IN ('pending','overdue') com due_date entre hoje e today+7.
+ * Usa índice idx_payment_dues_status_due (status, due_date).
+ *
+ * city_id opcional: quando fornecido, aplica JOIN em customers→leads para filtrar
+ * pela cidade do lead original do customer.
+ */
+export async function countDueSoon(
+  db: Database,
+  organizationId: string,
+  cityId?: string,
+): Promise<CollectionCardResult> {
+  // Calculamos as datas no lado da aplicação — evita depender de now() imutável em testes
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayPlus7 = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const cityFragment =
+    cityId !== undefined
+      ? sql`
+          AND pd.customer_id IN (
+            SELECT c.id FROM customers c
+            INNER JOIN leads l ON l.id = c.primary_lead_id
+            WHERE l.city_id = ${cityId}
+              AND l.deleted_at IS NULL
+          )`
+      : sql``;
+
+  const result = await db.execute(sql`
+    SELECT
+      COUNT(*)::int AS count,
+      COALESCE(SUM(pd.amount), 0)::text AS total_amount
+    FROM payment_dues pd
+    WHERE pd.organization_id = ${organizationId}
+      AND pd.status IN ('pending', 'overdue')
+      AND pd.due_date >= ${today.toISOString().slice(0, 10)}
+      AND pd.due_date <= ${todayPlus7.toISOString().slice(0, 10)}
+      ${cityFragment}
+  `);
+
+  const row = result.rows[0] as { count: number; total_amount: string } | undefined;
+  return { count: row?.count ?? 0, total_amount: row?.total_amount ?? '0' };
+}
+
+// ---------------------------------------------------------------------------
+// overdue_uncollected: vencidos sem collection_job ativo
+// ---------------------------------------------------------------------------
+
+/**
+ * Conta parcelas vencidas (status='overdue') SEM collection_job ativo.
+ * "Ativo" = status IN ('scheduled', 'triggered', 'sent').
+ * Parcelas com jobs apenas em ('failed', 'cancelled', 'paid_before_send')
+ * também contam como "uncollected" — job falhou ou foi cancelado.
+ *
+ * Usa NOT EXISTS para evitar N+1 e aproveitar idx_collection_jobs_payment_due.
+ */
+export async function countOverdueUncollected(
+  db: Database,
+  organizationId: string,
+  cityId?: string,
+): Promise<CollectionCardResult> {
+  const cityFragment =
+    cityId !== undefined
+      ? sql`
+          AND pd.customer_id IN (
+            SELECT c.id FROM customers c
+            INNER JOIN leads l ON l.id = c.primary_lead_id
+            WHERE l.city_id = ${cityId}
+              AND l.deleted_at IS NULL
+          )`
+      : sql``;
+
+  const result = await db.execute(sql`
+    SELECT
+      COUNT(*)::int AS count,
+      COALESCE(SUM(pd.amount), 0)::text AS total_amount
+    FROM payment_dues pd
+    WHERE pd.organization_id = ${organizationId}
+      AND pd.status = 'overdue'
+      AND NOT EXISTS (
+        SELECT 1 FROM collection_jobs cj
+        WHERE cj.payment_due_id = pd.id
+          AND cj.status IN ('scheduled', 'triggered', 'sent')
+      )
+      ${cityFragment}
+  `);
+
+  const row = result.rows[0] as { count: number; total_amount: string } | undefined;
+  return { count: row?.count ?? 0, total_amount: row?.total_amount ?? '0' };
+}
+
+// ---------------------------------------------------------------------------
+// in_collection: parcelas com collection_job ativo
+// ---------------------------------------------------------------------------
+
+/**
+ * Conta parcelas (qualquer status ativo de cobrança) COM collection_job ativo.
+ * "Ativo" = status IN ('scheduled', 'triggered', 'sent').
+ * Agrupa por payment_due_id para não contar a mesma parcela múltiplas vezes
+ * quando há mais de um job ativo (raro, mas possível em reenvios).
+ */
+export async function countInCollection(
+  db: Database,
+  organizationId: string,
+  cityId?: string,
+): Promise<CollectionCardResult> {
+  const cityFragment =
+    cityId !== undefined
+      ? sql`
+          AND pd.customer_id IN (
+            SELECT c.id FROM customers c
+            INNER JOIN leads l ON l.id = c.primary_lead_id
+            WHERE l.city_id = ${cityId}
+              AND l.deleted_at IS NULL
+          )`
+      : sql``;
+
+  const result = await db.execute(sql`
+    SELECT
+      COUNT(DISTINCT pd.id)::int AS count,
+      COALESCE(SUM(DISTINCT pd.amount), 0)::text AS total_amount
+    FROM payment_dues pd
+    WHERE pd.organization_id = ${organizationId}
+      AND pd.status IN ('pending', 'overdue')
+      AND EXISTS (
+        SELECT 1 FROM collection_jobs cj
+        WHERE cj.payment_due_id = pd.id
+          AND cj.status IN ('scheduled', 'triggered', 'sent')
+      )
+      ${cityFragment}
+  `);
+
+  const row = result.rows[0] as { count: number; total_amount: string } | undefined;
+  return { count: row?.count ?? 0, total_amount: row?.total_amount ?? '0' };
+}
+
+// ---------------------------------------------------------------------------
+// overdue_15d: inadimplentes há 15+ dias
+// ---------------------------------------------------------------------------
+
+/**
+ * Conta parcelas vencidas há 15 dias ou mais (status='overdue' AND due_date <= today-15).
+ * Candidatos prioritários para inclusão no SPC ou escalonamento jurídico.
+ */
+export async function countOverdue15d(
+  db: Database,
+  organizationId: string,
+  cityId?: string,
+): Promise<CollectionCardResult> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const cutoff = new Date(today.getTime() - 15 * 24 * 60 * 60 * 1000);
+
+  const cityFragment =
+    cityId !== undefined
+      ? sql`
+          AND pd.customer_id IN (
+            SELECT c.id FROM customers c
+            INNER JOIN leads l ON l.id = c.primary_lead_id
+            WHERE l.city_id = ${cityId}
+              AND l.deleted_at IS NULL
+          )`
+      : sql``;
+
+  const result = await db.execute(sql`
+    SELECT
+      COUNT(*)::int AS count,
+      COALESCE(SUM(pd.amount), 0)::text AS total_amount
+    FROM payment_dues pd
+    WHERE pd.organization_id = ${organizationId}
+      AND pd.status = 'overdue'
+      AND pd.due_date <= ${cutoff.toISOString().slice(0, 10)}
+      ${cityFragment}
+  `);
+
+  const row = result.rows[0] as { count: number; total_amount: string } | undefined;
+  return { count: row?.count ?? 0, total_amount: row?.total_amount ?? '0' };
+}
+
+// ---------------------------------------------------------------------------
+// in_spc: clientes negativados no SPC
+// ---------------------------------------------------------------------------
+
+/**
+ * Conta clientes com spc_status='included' e soma suas parcelas ativas (status IN
+ * ('pending','overdue')) como total_amount de risco.
+ *
+ * Retorna count de clientes (não de parcelas) — alinhado com o significado do card.
+ * total_amount = soma de payment_dues pending/overdue dos clientes incluídos.
+ *
+ * city_id opcional: filtra clientes via JOIN em leads.
+ */
+export async function countInSpc(
+  db: Database,
+  organizationId: string,
+  cityId?: string,
+): Promise<CollectionCardResult> {
+  // city_id filtra clientes via JOIN customers→leads
+  if (cityId !== undefined) {
+    // Com filtro de cidade: duas queries paralelas (count + sum)
+    const [countResult, amountResult] = await Promise.all([
+      db.execute(sql`
+        SELECT COUNT(*)::int AS count
+        FROM customers c
+        INNER JOIN leads l ON l.id = c.primary_lead_id
+        WHERE c.organization_id = ${organizationId}
+          AND c.spc_status = 'included'
+          AND l.city_id = ${cityId}
+          AND l.deleted_at IS NULL
+      `),
+      db.execute(sql`
+        SELECT COALESCE(SUM(pd.amount), 0)::text AS total_amount
+        FROM payment_dues pd
+        INNER JOIN customers c ON c.id = pd.customer_id
+        INNER JOIN leads l ON l.id = c.primary_lead_id
+        WHERE pd.organization_id = ${organizationId}
+          AND pd.status IN ('pending', 'overdue')
+          AND c.spc_status = 'included'
+          AND l.city_id = ${cityId}
+          AND l.deleted_at IS NULL
+      `),
+    ]);
+
+    const cRow = countResult.rows[0] as { count: number } | undefined;
+    const aRow = amountResult.rows[0] as { total_amount: string } | undefined;
+    return { count: cRow?.count ?? 0, total_amount: aRow?.total_amount ?? '0' };
+  }
+
+  // Sem filtro de cidade: query mais simples com JOIN em payment_dues
+  const [countResult, amountResult] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(customers)
+      .where(
+        and(eq(customers.organizationId, organizationId), eq(customers.spcStatus, 'included')),
+      ),
+    db.execute(sql`
+      SELECT COALESCE(SUM(pd.amount), 0)::text AS total_amount
+      FROM payment_dues pd
+      INNER JOIN customers c ON c.id = pd.customer_id
+      WHERE pd.organization_id = ${organizationId}
+        AND pd.status IN ('pending', 'overdue')
+        AND c.spc_status = 'included'
+    `),
+  ]);
+
+  const aRow = amountResult.rows[0] as { total_amount: string } | undefined;
+  return {
+    count: countResult[0]?.count ?? 0,
+    total_amount: aRow?.total_amount ?? '0',
+  };
 }
