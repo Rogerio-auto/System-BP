@@ -16,7 +16,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 8   | 0   | 0   | 2   | 2   |
 | F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
-| F17  | 10    | 0   | 9   | 0   | 0   | 1   | 0   |
+| F17  | 10    | 0   | 8   | 0   | 0   | 2   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -191,7 +191,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ID      | Título                                                                        | Status     | Prioridade | Depende de                |
 | ------- | ----------------------------------------------------------------------------- | ---------- | ---------- | ------------------------- |
 | F17-S01 | Schema — entidade `contracts` + migração `contract_reference` → `contract_id` | 🟣 review  | high       | —                         |
-| F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | ⏸️ blocked | high       | F17-S01                   |
+| F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | 🟣 review  | high       | F17-S01                   |
 | F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | ⏸️ blocked | high       | F17-S01, F17-S02          |
 | F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | ⏸️ blocked | medium     | F17-S01, F17-S02, F17-S03 |
 | F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | ⏸️ blocked | high       | F17-S02, F17-S03          |
