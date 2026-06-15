@@ -3,11 +3,11 @@ id: F5-S14
 title: collection-sender — anexar header de boleto no envio de cobrança (re-upload + fallback)
 phase: F5
 task_ref: docs/05-modulos-funcionais.md#cobranca-boleto
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T03:48:27Z
 completed_at: null
 pr_url: null
 depends_on: [F5-S11, F5-S13]
