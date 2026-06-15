@@ -3,16 +3,17 @@ id: F15-S03
 title: Schema — tabelas `tasks`, `notifications`, `notification_preferences`
 phase: F15
 task_ref: null
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-15T18:47:53Z
-completed_at: null
+completed_at: 2026-06-15T18:53:46Z
 pr_url: null
 depends_on: []
 blocks: [F15-S04, F15-S05, F15-S06, F15-S08]
 labels: [tasks, notifications, schema, foundation]
+docs_required: false
 source_docs:
   - docs/planejamento-2026-06-evolucao.md#f2-role-de-cobrança-dashboard-status-spc-item-9
   - docs/10-seguranca-permissoes.md
