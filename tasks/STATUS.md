@@ -16,6 +16,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F14  | 6     | 1   | 0   | 0   | 0   | 0   | 5   |
 | F15  | 12    | 3   | 9   | 0   | 0   | 0   | 0   |
 | F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
+| F17  | 10    | 1   | 9   | 0   | 0   | 0   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -184,6 +185,21 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | ⏸️ blocked   | high       | F16-S03, F16-S12, F16-S14          |
 | F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | ⏸️ blocked   | high       | F16-S15                            |
 | F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | ⏸️ blocked   | high       | F16-S15, F16-S13                   |
+
+## Fase 17 —
+
+| ID      | Título                                                                        | Status       | Prioridade | Depende de                |
+| ------- | ----------------------------------------------------------------------------- | ------------ | ---------- | ------------------------- |
+| F17-S01 | Schema — entidade `contracts` + migração `contract_reference` → `contract_id` | 🟢 available | high       | —                         |
+| F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | ⏸️ blocked   | high       | F17-S01                   |
+| F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | ⏸️ blocked   | high       | F17-S01, F17-S02          |
+| F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | ⏸️ blocked   | medium     | F17-S01, F17-S02, F17-S03 |
+| F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | ⏸️ blocked   | high       | F17-S02, F17-S03          |
+| F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ⏸️ blocked   | medium     | F17-S04, F17-S05, F5-S16  |
+| F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | ⏸️ blocked   | medium     | F17-S01, F17-S02, F17-S03 |
+| F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ⏸️ blocked   | medium     | F17-S02, F17-S07          |
+| F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked   | low        | F17-S01, F17-S03, F15-S05 |
+| F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked   | low        | F17-S09, F15-S10          |
 
 ## Fase 2 — Crédito e simulação
 
