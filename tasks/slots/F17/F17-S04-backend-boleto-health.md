@@ -15,6 +15,8 @@ blocks: [F17-S06]
 labels: [contracts, billing, backend]
 source_docs:
   - docs/planejamento-2026-06-evolucao.md#épico-e--contratos-boletos-e-renovação-item-5--épico
+docs_artifacts:
+  - docs/help/guias/contratos/saude-de-boletos.mdx
 ---
 
 # F17-S04 — Saúde de boletos do contrato
