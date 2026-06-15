@@ -14,7 +14,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F12  | 13    | 0   | 1   | 0   | 0   | 0   | 12  |
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
-| F15  | 12    | 0   | 5   | 0   | 0   | 5   | 2   |
+| F15  | 12    | 0   | 4   | 0   | 0   | 6   | 2   |
 | F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
 | F17  | 10    | 0   | 8   | 0   | 0   | 2   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
@@ -161,7 +161,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F15-S08 | Backend — worker de inadimplência 15d → cria tarefa SPC + evento de notificação | ⏸️ blocked | medium     | F15-S05, F15-S06, F15-S07          |
 | F15-S09 | Backend — métricas do dashboard de cobrança                                     | 🟣 review  | medium     | F15-S01, F15-S02, F15-S04          |
 | F15-S10 | Frontend — painel de tarefas + badge de notificações no header                  | ⏸️ blocked | high       | F15-S04, F15-S05, F15-S06          |
-| F15-S11 | Frontend — dashboard de cobrança + tag/ação de SPC                              | ⏸️ blocked | medium     | F15-S04, F15-S07, F15-S09          |
+| F15-S11 | Frontend — dashboard de cobrança + tag/ação de SPC                              | 🟣 review  | medium     | F15-S04, F15-S07, F15-S09          |
 | F15-S12 | Importar relatório de baixa — conciliação CPF + nº da parcela (BLOCKED — D10)   | ⏸️ blocked | medium     | —                                  |
 
 ## Fase 16 —

@@ -3,12 +3,12 @@ id: F15-S11
 title: Frontend — dashboard de cobrança + tag/ação de SPC
 phase: F15
 task_ref: null
-status: blocked
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-15T20:41:07Z
+completed_at: 2026-06-15T20:52:41Z
 pr_url: null
 depends_on: [F15-S04, F15-S07, F15-S09]
 blocks: []
