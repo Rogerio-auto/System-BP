@@ -93,3 +93,8 @@ export * from './docFeedback.js';
 
 // Tutoriais em vídeo — registro global feature_key → vídeo + artigo (F12-S01)
 export * from './featureTutorials.js';
+
+// Tarefas + notificações (F15-S03)
+export * from './tasks.js';
+export * from './notifications.js';
+export * from './notificationPreferences.js';
