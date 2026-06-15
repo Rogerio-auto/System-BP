@@ -452,14 +452,14 @@ describe('spc-overdue-scan', () => {
         insert: vi.fn().mockImplementation(() => {
           insertCount++;
           if (insertCount === 1) {
-            // tasks insert
+            // tasks insert — precisa de .returning()
             return {
               values: vi.fn().mockReturnValue({
                 returning: vi.fn().mockResolvedValue([{ id: TASK_UUID }]),
               }),
             };
           }
-          // idempotencyKeys insert
+          // auditLogs insert (M3) e idempotencyKeys insert — só .values()
           return { values: vi.fn().mockResolvedValue(undefined) };
         }),
       };
@@ -472,8 +472,8 @@ describe('spc-overdue-scan', () => {
 
       const taskId = await processOverdueCustomer(mockDb as never, customer, idempotencyKey);
 
-      // Tarefa criada com tipo e role corretos
-      expect(txDb.insert).toHaveBeenCalledTimes(2); // tasks + idempotencyKeys
+      // Tarefa criada com tipo e role corretos (M3: +1 insert de auditoria)
+      expect(txDb.insert).toHaveBeenCalledTimes(3); // tasks + auditLogs + idempotencyKeys
       expect(taskId).toBe(TASK_UUID);
 
       // Evento emitido sem PII
@@ -712,16 +712,22 @@ describe('spc-overdue-scan', () => {
             throw new Error('DB transient error');
           }
 
-          // Cliente B — sucesso
+          // Cliente B — sucesso (3 inserts: tasks + auditLogs + idempotencyKeys)
           const txDb = {
             insert: vi
               .fn()
               .mockReturnValueOnce({
+                // tasks insert — requer .returning()
                 values: vi.fn().mockReturnValue({
                   returning: vi.fn().mockResolvedValue([{ id: TASK_UUID }]),
                 }),
               })
               .mockReturnValueOnce({
+                // auditLogs insert (M3) — só .values()
+                values: vi.fn().mockResolvedValue(undefined),
+              })
+              .mockReturnValueOnce({
+                // idempotencyKeys insert — só .values()
                 values: vi.fn().mockResolvedValue(undefined),
               }),
           };

@@ -52,6 +52,7 @@ import { customers, idempotencyKeys, leads, paymentDues, tasks } from '../db/sch
 import { emit } from '../events/emit.js';
 import type { DrizzleTx } from '../events/emit.js';
 import type { PaymentDueOverdue15dData } from '../events/types.js';
+import { auditLog } from '../lib/audit.js';
 import { isFlagEnabled } from '../modules/featureFlags/service.js';
 import { AppError } from '../shared/errors.js';
 
@@ -329,6 +330,23 @@ export async function processOverdueCustomer(
 
     const taskId = taskRow.id;
 
+    // 1b. Registrar auditoria da criação da tarefa (M3 — F15-S08).
+    //     actor: null — ação de sistema (worker), sem usuário autenticado.
+    //     after: apenas IDs opacos e classificação — sem PII (LGPD §8.5).
+    await auditLog(txDb, {
+      organizationId: customer.organizationId,
+      actor: null,
+      action: 'task.created',
+      resource: { type: 'task', id: taskId },
+      after: {
+        task_id: taskId,
+        type: TASK_TYPE,
+        assignee_role: COBRANCA_ROLE,
+        city_id: customer.cityId,
+        status: 'open',
+      },
+    });
+
     // 2. Emitir evento payment_due.overdue_15d no outbox (sem PII bruta).
     const eventData: PaymentDueOverdue15dData = {
       customer_id: customer.customerId,
@@ -356,8 +374,8 @@ export async function processOverdueCustomer(
       endpoint: 'worker:spc-overdue-scan',
       requestHash,
       responseStatus: 201,
-      // LGPD: apenas IDs opacos — sem PII.
-      responseBody: { task_id: taskId, customer_id: customer.customerId },
+      // LGPD: apenas task_id — sem customer_id para minimizar dados em repouso (B1 — F15-S08).
+      responseBody: { task_id: taskId },
     });
 
     return taskId;
@@ -488,15 +506,22 @@ export async function runSpcOverdueScanTick(
       // Criar tarefa + emitir evento em transação atômica
       const taskId = await processOverdueCustomer(database, customer, idempotencyKey);
 
+      // B2 (F15-S08): nível info sem customer_id (PII por correlação). Correlação em debug.
       logger.info(
         {
           event: 'spc_overdue_scan.customer_processed',
-          customer_id: customer.customerId,
           task_id: taskId,
-          overdue_count: customer.overdueCount,
           city_id: customer.cityId,
         },
         'tarefa spc_inclusion criada e evento emitido',
+      );
+      logger.debug(
+        {
+          event: 'spc_overdue_scan.customer_processed.detail',
+          customer_id: customer.customerId,
+          task_id: taskId,
+        },
+        'detalhe spc-overdue-scan — customer_id disponível apenas em debug',
       );
 
       processedCount++;
