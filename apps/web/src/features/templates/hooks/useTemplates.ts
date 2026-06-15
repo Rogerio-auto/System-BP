@@ -80,14 +80,18 @@ interface MutationCallbacks<T = TemplateResponse> {
   onError?: (message: string) => void;
 }
 
+/**
+ * F5-S15 — Hook de criação de template com suporte a upload de arquivo.
+ */
 export function useCreateTemplate(callbacks?: MutationCallbacks): {
-  createTemplate: (body: TemplateCreateForm) => void;
+  createTemplate: (body: TemplateCreateForm, sampleFile: File | null) => void;
   isPending: boolean;
 } {
   const queryClient = useQueryClient();
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (body: TemplateCreateForm) => createTemplate(body, crypto.randomUUID()),
+    mutationFn: ({ body, sampleFile }: { body: TemplateCreateForm; sampleFile: File | null }) =>
+      createTemplate(body, sampleFile, crypto.randomUUID()),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: TEMPLATES_KEYS.lists() });
       callbacks?.onSuccess?.(data);
@@ -97,22 +101,29 @@ export function useCreateTemplate(callbacks?: MutationCallbacks): {
     },
   });
 
-  return { createTemplate: mutate, isPending };
+  return {
+    createTemplate: (body, sampleFile) => mutate({ body, sampleFile }),
+    isPending,
+  };
 }
 
 // ─── useUpdateTemplate ────────────────────────────────────────────────────────
 
+/**
+ * F5-S15 — Hook de atualização de template com suporte a upload de arquivo.
+ */
 export function useUpdateTemplate(
   id: string,
   callbacks?: MutationCallbacks,
 ): {
-  updateTemplate: (body: TemplateUpdateForm) => void;
+  updateTemplate: (body: TemplateUpdateForm, sampleFile?: File | null) => void;
   isPending: boolean;
 } {
   const queryClient = useQueryClient();
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (body: TemplateUpdateForm) => updateTemplate(id, body),
+    mutationFn: ({ body, sampleFile }: { body: TemplateUpdateForm; sampleFile?: File | null }) =>
+      updateTemplate(id, body, sampleFile ?? null),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: TEMPLATES_KEYS.detail(id) });
       void queryClient.invalidateQueries({ queryKey: TEMPLATES_KEYS.lists() });
@@ -123,7 +134,10 @@ export function useUpdateTemplate(
     },
   });
 
-  return { updateTemplate: mutate, isPending };
+  return {
+    updateTemplate: (body, sampleFile) => mutate({ body, sampleFile: sampleFile ?? null }),
+    isPending,
+  };
 }
 
 // ─── useDeleteTemplate ────────────────────────────────────────────────────────

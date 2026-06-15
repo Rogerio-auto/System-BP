@@ -1,0 +1,118 @@
+---
+title: Template com cabeçalho de mídia ou texto
+description: Como criar templates WhatsApp com cabeçalho de texto, documento PDF ou imagem para mensagens mais ricas e impactantes.
+order: 15
+keywords: [template, templates, whatsapp, header, cabeçalho, documento, imagem, PDF, mídia, anexo, arquivo]
+---
+
+# Template com cabeçalho de mídia ou texto
+
+Templates WhatsApp podem incluir um cabeçalho (header) que aparece antes do corpo da mensagem. O cabeçalho pode ser de **texto** (ex.: "Banco do Povo — Crédito Rural"), **documento** (PDF) ou **imagem** (JPG/PNG). Este guia explica como configurar cabeçalhos em seus templates.
+
+<Callout type="info" title="Pré-requisito">
+  Você precisa ter o papel de **gestor** e ter o módulo de Templates WhatsApp
+  liberado pelo administrador. Para cabeçalhos de mídia (documento/imagem), a
+  funcionalidade `templates.media.enabled` deve estar ativa.
+</Callout>
+
+## Tipos de cabeçalho
+
+| Tipo | Descrição | Quando usar |
+|---|---|---|
+| **Sem cabeçalho** | Template padrão, apenas corpo (body) | Mensagens simples e diretas |
+| **Texto** | Linha de texto em negrito no topo (até 60 caracteres) | Título de programa, saudação institucional |
+| **Documento (PDF)** | Arquivo PDF anexado à mensagem | Enviar contrato, proposta, informativo oficial |
+| **Imagem** | Foto ou ilustração (JPG/PNG, até 5MB) | Anúncio de campanha, cartaz institucional, banner |
+
+## Passo a passo — Cabeçalho de texto
+
+<Step number={1} title="Acesse o editor de template">
+  No menu lateral, clique em **Configurações → Gestão → Templates WhatsApp** e
+  depois em **Novo template** (ou edite um template existente com status
+  **Pendente** ou **Rejeitado**).
+</Step>
+
+<Step number={2} title="Selecione 'Texto' como tipo de cabeçalho">
+  Na seção **Cabeçalho (header)**, no campo **Tipo de cabeçalho**, escolha
+  **Texto** no dropdown.
+</Step>
+
+<Step number={3} title="Digite o texto do cabeçalho">
+  No campo **Texto do cabeçalho**, digite o texto que aparecerá em negrito no
+  topo da mensagem. Máximo de 60 caracteres.
+
+  **Exemplo:** `Banco do Povo — Programa de Crédito Rural`
+</Step>
+
+<Step number={4} title="Preencha o corpo e salve">
+  Complete o corpo do template normalmente com variáveis `{{1}}`, `{{2}}` se
+  necessário. Clique em **Salvar e enviar para Meta**.
+</Step>
+
+<Callout type="warning" title="Validação de texto">
+  O texto do cabeçalho **não pode** conter CPF, e-mail ou telefone em forma
+  bruta. Use variáveis `{{N}}` se precisar referenciar esses dados. A validação
+  é a mesma que para o corpo da mensagem (regra LGPD).
+</Callout>
+
+## Passo a passo — Cabeçalho com documento ou imagem
+
+<Callout type="info" title="Funcionalidade em desenvolvimento">
+  Se você não vê as opções **Documento (PDF)** ou **Imagem (JPG/PNG)** no
+  dropdown, a funcionalidade de mídia ainda não foi ativada para sua organização.
+  Entre em contato com o administrador do sistema.
+</Callout>
+
+<Step number={1} title="Acesse o editor de template">
+  No menu lateral, clique em **Configurações → Gestão → Templates WhatsApp** e
+  depois em **Novo template**.
+</Step>
+
+<Step number={2} title="Selecione o tipo de mídia">
+  Na seção **Cabeçalho (header)**, no campo **Tipo de cabeçalho**, escolha:
+  - **Documento (PDF)** para anexar um arquivo PDF, ou
+  - **Imagem (JPG/PNG)** para anexar uma foto ou ilustração.
+</Step>
+
+<Step number={3} title="Faça o upload da amostra">
+  Um campo de upload aparece. Clique em **Escolher arquivo** e selecione o
+  arquivo no seu computador.
+
+  **Restrições:**
+  - Documento: arquivo `.pdf`, até 5MB
+  - Imagem: `.jpg` ou `.png`, até 5MB
+  - A validação de tipo e tamanho é feita instantaneamente no navegador.
+
+  O arquivo enviado é uma **amostra** — ele é enviado à Meta para aprovação do
+  template. Quando a régua de follow-up disparar mensagens reais, você poderá
+  anexar documentos ou imagens específicas para cada lead.
+</Step>
+
+<Step number={4} title="Preencha o corpo e salve">
+  Complete o corpo do template normalmente. Clique em **Salvar e enviar para Meta**.
+  O sistema envia o template **e** a amostra de mídia para a Meta em um único
+  envio (multipart/form-data).
+</Step>
+
+<Callout type="tip" title="Preview do cabeçalho">
+  A seção de **Preview** mostra um chip visual indicando o tipo de mídia anexada
+  (📎 Documento ou 🖼 Imagem). O preview não exibe o arquivo real — apenas indica
+  que um anexo foi configurado.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| "Arquivo muito grande" | Arquivo acima de 5MB | Comprima o PDF ou a imagem e tente novamente |
+| "Tipo de arquivo inválido" | Formato não suportado (ex.: `.docx`, `.heic`) | Converta para `.pdf`, `.jpg` ou `.png` |
+| "Texto do cabeçalho obrigatório" | Você selecionou tipo 'Texto' mas deixou o campo vazio | Preencha o campo ou altere o tipo para 'Sem cabeçalho' |
+| "Arquivo de amostra obrigatório" | Você selecionou tipo 'Documento' ou 'Imagem' mas não fez upload | Faça o upload da amostra ou altere o tipo para 'Sem cabeçalho' |
+| Template rejeitado pela Meta | Imagem inadequada (ex.: baixa qualidade, conteúdo ofensivo) | Revise a amostra seguindo as [diretrizes da Meta](https://business.whatsapp.com/policy) e reenvie |
+
+## Veja também
+
+- [Criar um template WhatsApp](/ajuda/guias/templates/criar-template) — estrutura básica de templates.
+- [Aprovação de template](/ajuda/guias/templates/aprovacao-de-template) — o que acontece depois de enviar.
+- [Usar um template](/ajuda/guias/templates/usar-template) — onde o template aparece nas réguas.
+- [Anexar boleto a uma parcela](/ajuda/guias/cobranca/anexar-boleto) — como anexar documentos a mensagens individuais de cobrança.

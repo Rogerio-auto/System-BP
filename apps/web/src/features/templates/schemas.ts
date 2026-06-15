@@ -45,39 +45,113 @@ export type TemplateCategory = z.infer<typeof TemplateCategorySchema>;
 export const TemplateStatusSchema = z.enum(['pending', 'approved', 'rejected', 'paused']);
 export type TemplateStatus = z.infer<typeof TemplateStatusSchema>;
 
+/**
+ * F5-S15 — headerType espelhado do backend (camelCase).
+ * 'none'     → sem header (padrão).
+ * 'text'     → header de texto (requer headerText).
+ * 'document' → header de documento PDF (requer amostra).
+ * 'image'    → header de imagem JPG/PNG (requer amostra).
+ */
+export const TemplateHeaderTypeSchema = z.enum(['none', 'text', 'document', 'image']);
+export type TemplateHeaderType = z.infer<typeof TemplateHeaderTypeSchema>;
+
 // ─── Form de criação ──────────────────────────────────────────────────────────
 
-export const TemplateCreateFormSchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Nome obrigatório')
-    .max(255)
-    .regex(/^[a-z0-9_]+$/, 'Apenas letras minúsculas, números e underscores'),
-  category: TemplateCategorySchema,
-  language: z
-    .string()
-    .regex(/^[a-z]{2}_[A-Z]{2}$/, 'Formato inválido (ex: pt_BR)')
-    .default('pt_BR'),
-  body: z
-    .string()
-    .min(1, 'Corpo do template obrigatório')
-    .max(1024, 'Máximo 1024 caracteres')
-    .superRefine(rejectPiiInTemplateBody),
-  variables: z.array(z.string().min(1).max(100)).default([]),
-});
+export const TemplateCreateFormSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, 'Nome obrigatório')
+      .max(255)
+      .regex(/^[a-z0-9_]+$/, 'Apenas letras minúsculas, números e underscores'),
+    category: TemplateCategorySchema,
+    language: z
+      .string()
+      .regex(/^[a-z]{2}_[A-Z]{2}$/, 'Formato inválido (ex: pt_BR)')
+      .default('pt_BR'),
+    body: z
+      .string()
+      .min(1, 'Corpo do template obrigatório')
+      .max(1024, 'Máximo 1024 caracteres')
+      .superRefine(rejectPiiInTemplateBody),
+    variables: z.array(z.string().min(1).max(100)).default([]),
+
+    /**
+     * F5-S15 — headerType (espelha backend F5-S12).
+     * Default 'none' para compatibilidade com forms existentes.
+     */
+    headerType: TemplateHeaderTypeSchema.default('none'),
+
+    /**
+     * F5-S15 — headerText (obrigatório quando headerType='text').
+     * Máximo 60 chars, validação DLP aplicada.
+     */
+    headerText: z.string().min(1).max(60, 'Máximo 60 caracteres').optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.headerType === 'text') {
+      if (!data.headerText) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['headerText'],
+          message: "Texto do cabeçalho é obrigatório quando o tipo é 'Texto'.",
+        });
+      } else {
+        rejectPiiInTemplateBody(data.headerText, ctx);
+      }
+    } else if (data.headerText !== undefined && data.headerText !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['headerText'],
+        message: "Texto do cabeçalho só é permitido quando o tipo é 'Texto'.",
+      });
+    }
+  });
 export type TemplateCreateForm = z.infer<typeof TemplateCreateFormSchema>;
 
 // ─── Form de edição ───────────────────────────────────────────────────────────
 
-export const TemplateUpdateFormSchema = z.object({
-  body: z.string().min(1).max(1024).superRefine(rejectPiiInTemplateBody).optional(),
-  variables: z.array(z.string().min(1).max(100)).optional(),
-  category: TemplateCategorySchema.optional(),
-  language: z
-    .string()
-    .regex(/^[a-z]{2}_[A-Z]{2}$/, 'Formato inválido (ex: pt_BR)')
-    .optional(),
-});
+export const TemplateUpdateFormSchema = z
+  .object({
+    body: z.string().min(1).max(1024).superRefine(rejectPiiInTemplateBody).optional(),
+    variables: z.array(z.string().min(1).max(100)).optional(),
+    category: TemplateCategorySchema.optional(),
+    language: z
+      .string()
+      .regex(/^[a-z]{2}_[A-Z]{2}$/, 'Formato inválido (ex: pt_BR)')
+      .optional(),
+    /** F5-S15 — headerType (opcional ao editar, validação cruzada no backend). */
+    headerType: TemplateHeaderTypeSchema.optional(),
+    /** F5-S15 — headerText (validação DLP). */
+    headerText: z.string().min(1).max(60, 'Máximo 60 caracteres').optional(),
+  })
+  .superRefine((data, ctx) => {
+    // Validação cruzada somente quando ao menos um dos dois campos for fornecido.
+    if (data.headerType === undefined && data.headerText === undefined) return;
+
+    if (data.headerType === 'text') {
+      if (!data.headerText) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['headerText'],
+          message: "Texto do cabeçalho é obrigatório quando o tipo é 'Texto'.",
+        });
+      } else {
+        rejectPiiInTemplateBody(data.headerText, ctx);
+      }
+    } else if (data.headerType !== undefined) {
+      if (data.headerText !== undefined && data.headerText !== null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['headerText'],
+          message: "Texto do cabeçalho só é permitido quando o tipo é 'Texto'.",
+        });
+      }
+    } else if (data.headerText !== undefined) {
+      // headerType undefined mas headerText presente — validar DLP apenas
+      rejectPiiInTemplateBody(data.headerText, ctx);
+    }
+  });
 export type TemplateUpdateForm = z.infer<typeof TemplateUpdateFormSchema>;
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
@@ -102,6 +176,10 @@ export interface TemplateResponse {
   body: string;
   variables: string[];
   status: TemplateStatus;
+  /** F5-S15 — tipo do cabeçalho do template. */
+  headerType: TemplateHeaderType;
+  /** F5-S15 — texto do cabeçalho quando headerType='text'; null nos demais. */
+  headerText: string | null;
   createdAt: string;
   updatedAt: string;
 }
