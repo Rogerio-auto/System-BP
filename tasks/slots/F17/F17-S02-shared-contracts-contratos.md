@@ -3,11 +3,11 @@ id: F17-S02
 title: Contratos compartilhados — Zod de contrato + saúde de boletos
 phase: F17
 task_ref: null
-status: blocked
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T19:55:59Z
 completed_at: null
 pr_url: null
 depends_on: [F17-S01]
