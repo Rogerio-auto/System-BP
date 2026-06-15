@@ -1,33 +1,37 @@
 // =============================================================================
-// db/seed/permissions.ts — Seed de permissões RBAC para módulo ai-console
-//                         (F9-S01 / F9-S02 / F9-S04).
+// db/seed/permissions.ts — Catálogo TypeScript de permissões RBAC.
 //
-// Permissões criadas:
-//   ai-console/prompts (F9-S01):
+// Cada constante espelha o SQL de seed da migration correspondente.
+// Este arquivo serve como referência tipada para automação/CI e como
+// documentação viva do RBAC. Não substitui as migrations SQL.
+//
+// Permissões por módulo/fase:
+//
+//   ai-console/prompts (F9-S01 — 0027_seed_ai_prompts_permissions.sql):
 //   - ai_prompts:read     — leitura de prompt_versions (admin + gestor_geral)
 //   - ai_prompts:write    — criação de novas versões (admin)
 //   - ai_prompts:activate — ativação transacional de versões (admin)
 //
-//   ai-console/decisions (F9-S02):
+//   ai-console/decisions (F9-S02 — 0028_seed_ai_decisions_permission.sql):
 //   - ai_decisions:read   — leitura de ai_decision_logs (admin + gestor_geral + gestor_regional)
 //
-//   ai-console/playground (F9-S04):
+//   ai-console/playground (F9-S04 — 0029_seed_ai_playground_permission.sql):
 //   - ai_playground:run   — execução do playground dry-run (admin only)
 //
-// Atribuições (doc 10 §3.2 + §74):
-//   - admin:           ai_prompts:read + ai_prompts:write + ai_prompts:activate
-//                      + ai_decisions:read + ai_playground:run
-//   - gestor_geral:    ai_prompts:read + ai_decisions:read
-//   - gestor_regional: ai_decisions:read (city-scoped via leads.city_id no código)
+//   simulações/envio (F?-S?? — 0053_seed_simulation_template_flag.sql):
+//   - simulations:send    — disparo de simulação por WhatsApp (admin only)
 //
-// Uso: este arquivo documenta o SQL de seed correspondente às migrations
-// 0027_seed_ai_prompts_permissions.sql, 0028_seed_ai_decisions_permission.sql e
-// 0029_seed_ai_playground_permission.sql.
-// O seed pode ser executado diretamente em ambiente de desenvolvimento ou via
-// script de inicialização do banco.
+//   cobrança + tarefas + notificações (F15-S01 — 0056_seed_cobranca_role_permissions.sql):
+//   - billing:reconcile   — reconciliação/baixa manual (admin + gestor_geral + cobranca)
+//   - spc:read            — visualizar status SPC (admin + gestor_geral + cobranca)
+//   - spc:manage          — inserir/remover do SPC (admin + gestor_geral + cobranca)
+//   - tasks:read          — listar tarefas do role (admin + gestor_geral + cobranca)
+//   - tasks:write         — criar tarefas (admin + gestor_geral + cobranca)
+//   - tasks:claim         — assumir tarefa (admin + gestor_geral + cobranca)
+//   - tasks:complete      — concluir tarefa (admin + gestor_geral + cobranca)
+//   - notifications:read  — ler notificações in-app (admin + gestor_geral + cobranca)
 //
 // IMPORTANTE: as migrations SQL devem ser criadas separadamente em db/migrations/.
-// Este arquivo serve como referência TypeScript para automação/CI.
 // =============================================================================
 
 /**
@@ -106,3 +110,70 @@ export const SIMULATIONS_SEND_PERMISSIONS = [
 ] as const;
 
 export type SimulationsSendPermissionKey = (typeof SIMULATIONS_SEND_PERMISSIONS)[number]['key'];
+
+/**
+ * Permissões do módulo de cobrança avançada (F15-S01).
+ * Corresponde ao SQL da migration 0056_seed_cobranca_role_permissions.sql.
+ *
+ * Role `cobranca` criado com scope = 'global' (decisão D11: cobrança centralizada,
+ * sem city_scope obrigatório).
+ *
+ * billing:reconcile distingue-se de billing:mark_paid (0044): reconcile é
+ * voltado ao time de cobrança que opera importações e ajustes manuais na régua;
+ * mark_paid é operação administrativa pontual.
+ *
+ * tasks:* e notifications:read são fundação transversal — as tabelas `tasks` e
+ * `notifications` serão criadas em slots subsequentes; as permissões ficam
+ * pré-registradas para que o RBAC já funcione no dia em que as rotas subirem.
+ */
+export const COBRANCA_PERMISSIONS = [
+  {
+    key: 'billing:reconcile',
+    description:
+      'Reconciliação/baixa manual de cobranças — marca parcela como conciliada via importação ou ajuste avulso',
+    roles: ['admin', 'gestor_geral', 'cobranca'],
+  },
+  {
+    key: 'spc:read',
+    description:
+      'Visualização do status SPC do cliente (none/pending_inclusion/included/removed) e histórico de alterações',
+    roles: ['admin', 'gestor_geral', 'cobranca'],
+  },
+  {
+    key: 'spc:manage',
+    description:
+      'Inserção, remoção e atualização do status SPC do cliente; dispara evento de outbox para auditoria',
+    roles: ['admin', 'gestor_geral', 'cobranca'],
+  },
+  {
+    key: 'tasks:read',
+    description:
+      'Listagem de tarefas atribuídas ao próprio role (filtradas por cidade via user_city_scopes quando role não é global)',
+    roles: ['admin', 'gestor_geral', 'cobranca'],
+  },
+  {
+    key: 'tasks:write',
+    description:
+      'Criação de tarefas — usada pelo sistema (scheduler/outbox) e por usuários com permissão explícita',
+    roles: ['admin', 'gestor_geral', 'cobranca'],
+  },
+  {
+    key: 'tasks:claim',
+    description:
+      'Assumir uma tarefa pendente (muda claimed_by para o usuário atual; status→in_progress)',
+    roles: ['admin', 'gestor_geral', 'cobranca'],
+  },
+  {
+    key: 'tasks:complete',
+    description: 'Concluir uma tarefa assumida (status→done; registra completed_at + completed_by)',
+    roles: ['admin', 'gestor_geral', 'cobranca'],
+  },
+  {
+    key: 'notifications:read',
+    description:
+      'Leitura das notificações in-app do usuário autenticado (badge + listagem); canal fan-out de outbox',
+    roles: ['admin', 'gestor_geral', 'cobranca'],
+  },
+] as const;
+
+export type CobrancaPermissionKey = (typeof COBRANCA_PERMISSIONS)[number]['key'];
