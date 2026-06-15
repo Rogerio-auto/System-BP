@@ -308,3 +308,45 @@ export const BoletoResponseSchema = z.object({
 });
 
 export type BoletoResponse = z.infer<typeof BoletoResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// SPC schemas (F15-S07)
+//
+// Reexporta SpcStatusSchema / SpcUpdateSchema de @elemento/shared-schemas
+// e define os tipos de resposta e body para os endpoints do billing.
+//
+// LGPD: customer_id é UUID opaco — sem PII bruta exposta.
+//   spc_changed_at é dado financeiro operacional, não PII estrito.
+// ---------------------------------------------------------------------------
+
+/** Status do cliente no SPC. */
+export const SpcStatusSchema = z
+  .enum(['none', 'pending_inclusion', 'included', 'removed'], {
+    errorMap: () => ({ message: 'status SPC inválido' }),
+  })
+  .describe('Status atual do cliente no SPC');
+export type SpcStatus = z.infer<typeof SpcStatusSchema>;
+
+/** Param schema para endpoints SPC (reutiliza customer UUID). */
+export const customerIdParamSchema = z.object({
+  id: z.string().uuid('id deve ser UUID'),
+});
+
+/** Body do POST /customers/:id/spc — novo status desejado. */
+export const SpcUpdateBodySchema = z.object({
+  status: SpcStatusSchema.describe(
+    'Novo status SPC desejado. A transição é validada pelo serviço.',
+  ),
+});
+export type SpcUpdateBody = z.infer<typeof SpcUpdateBodySchema>;
+
+/** Resposta do GET e POST /customers/:id/spc. */
+export const SpcStatusResponseSchema = z.object({
+  customer_id: z.string().uuid().describe('UUID do cliente'),
+  current_status: SpcStatusSchema.describe('Status SPC atual do cliente'),
+  changed_at: z
+    .string()
+    .nullable()
+    .describe('ISO 8601 da última transição de status SPC, null se nunca houve ação'),
+});
+export type SpcStatusResponse = z.infer<typeof SpcStatusResponseSchema>;
