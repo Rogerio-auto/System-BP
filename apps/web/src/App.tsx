@@ -123,6 +123,9 @@ function PersonalEmailGuard(): React.JSX.Element | null {
   );
 }
 
+// Offset direito da topbar: HelpButton (~2.5rem) + ThemeToggle (~2.5rem) + UserMenu (~5.5rem) = ~10.5rem
+const HEADER_RIGHT_OFFSET = '10.5rem';
+
 /**
  * Badge de notificações no header (F15-S10).
  *
@@ -134,8 +137,7 @@ function HeaderNotificationsOverlay(): React.JSX.Element {
   return (
     <div
       className="fixed z-[45] flex items-center pointer-events-none"
-      style={{ top: 0, right: '10.5rem', height: '3.5rem' }}
-      aria-hidden="false"
+      style={{ top: 0, right: HEADER_RIGHT_OFFSET, height: '3.5rem' }}
     >
       {/* pointer-events-auto restaura interatividade apenas no dropdown */}
       <div className="pointer-events-auto">

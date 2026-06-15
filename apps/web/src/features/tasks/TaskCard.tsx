@@ -11,6 +11,7 @@ import type { Task } from '@elemento/shared-schemas';
 import * as React from 'react';
 
 import { Button } from '../../components/ui/Button';
+import { useAuthStore } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
 
 import { useCancelTask, useClaimTask, useCompleteTask } from './hooks';
@@ -44,6 +45,11 @@ export function TaskCard({ task }: TaskCardProps): React.JSX.Element {
   const claim = useClaimTask();
   const complete = useCompleteTask();
   const cancel = useCancelTask();
+
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canClaim = hasPermission('tasks:claim');
+  const canComplete = hasPermission('tasks:complete');
+  const canCancel = hasPermission('tasks:cancel');
 
   const isClaimed = task.claimed_by !== null;
   const dueDateStr = formatDate(task.due_date);
@@ -150,8 +156,8 @@ export function TaskCard({ task }: TaskCardProps): React.JSX.Element {
 
       {/* Ações */}
       <div className="flex items-center gap-2 flex-wrap pt-1">
-        {/* Assumir — só exibe se não foi assumida ainda */}
-        {!isClaimed && task.status === 'open' && (
+        {/* Assumir — só exibe se o usuário tem permissão e a tarefa não foi assumida */}
+        {canClaim && !isClaimed && task.status === 'open' && (
           <Button
             variant="outline"
             size="sm"
@@ -162,8 +168,8 @@ export function TaskCard({ task }: TaskCardProps): React.JSX.Element {
           </Button>
         )}
 
-        {/* Concluir — disponível quando open ou in_progress */}
-        {(task.status === 'open' || task.status === 'in_progress') && (
+        {/* Concluir — disponível quando open ou in_progress e usuário tem permissão */}
+        {canComplete && (task.status === 'open' || task.status === 'in_progress') && (
           <Button
             variant="secondary"
             size="sm"
@@ -174,8 +180,8 @@ export function TaskCard({ task }: TaskCardProps): React.JSX.Element {
           </Button>
         )}
 
-        {/* Cancelar — disponível quando open ou in_progress */}
-        {(task.status === 'open' || task.status === 'in_progress') && (
+        {/* Cancelar — disponível quando open ou in_progress e usuário tem permissão */}
+        {canCancel && (task.status === 'open' || task.status === 'in_progress') && (
           <Button
             variant="ghost"
             size="sm"
