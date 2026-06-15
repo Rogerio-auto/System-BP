@@ -3,12 +3,12 @@ id: F17-S04
 title: Backend — saúde de boletos do contrato (agregação)
 phase: F17
 task_ref: null
-status: in-progress
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-15T21:27:56Z
-completed_at: null
+completed_at: 2026-06-15T21:38:02Z
 pr_url: null
 depends_on: [F17-S01, F17-S02, F17-S03]
 blocks: [F17-S06]
