@@ -577,6 +577,25 @@ export interface BillingBoletoAttachedData {
   has_media: boolean;
 }
 
+// --- Domínio: contratos (F17-S03) ---
+// LGPD §8.5: payload sem PII bruta — apenas IDs opacos + metadados operacionais.
+// principal_amount é dado financeiro operacional (base legal: Art. 7º V LGPD — execução de contrato).
+
+/**
+ * Emitido ao assinar um contrato (draft→signed ou signed→active) (F17-S03).
+ * LGPD §8.5: sem nome, CPF ou endereço — apenas IDs opacos e metadados operacionais.
+ */
+export interface ContractSignedData {
+  /** UUID opaco do contrato — não é PII direta. */
+  contract_id: string;
+  /** UUID do customer titular (aponta para entidade com PII — não logar diretamente). */
+  customer_id: string;
+  /** UUID da organização dona do contrato. */
+  organization_id: string;
+  /** ISO 8601 do momento da assinatura (dado operacional, não PII). */
+  signed_at: string;
+}
+
 // --- Domínio: tarefas (F15-S05) ---
 // LGPD §8.5: sem PII bruta — apenas IDs opacos e metadados operacionais.
 
@@ -861,6 +880,8 @@ export interface AppEventDataMap {
   'user.role_assigned': UserRoleAssignedData;
   'user.city_scope_changed': UserCityScopeChangedData;
   'user.session_revoked': UserEventData;
+  // --- Contratos (F17-S03) ---
+  'contract.signed': ContractSignedData;
   // --- Tarefas (F15-S05) ---
   'task.created': TaskCreatedData;
   // --- Templates WhatsApp (F5-S09) ---
