@@ -13,7 +13,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F10  | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
 | F12  | 13    | 0   | 1   | 0   | 0   | 0   | 12  |
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
-| F14  | 6     | 1   | 0   | 0   | 0   | 0   | 5   |
+| F14  | 6     | 0   | 0   | 0   | 1   | 0   | 5   |
 | F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
@@ -136,14 +136,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 14 —
 
-| ID      | Título                                                                         | Status       | Prioridade | Depende de |
-| ------- | ------------------------------------------------------------------------------ | ------------ | ---------- | ---------- |
-| F14-S01 | Schema — lead PJ (CNPJ/razão social) + índice único de email                   | ✅ done      | high       | —          |
-| F14-S02 | Backend — lead PJ + email obrigatório no manual + unicidade + bloqueio interno | ✅ done      | high       | F14-S01    |
-| F14-S03 | Frontend — NewLeadModal com PJ + email obrigatório                             | ✅ done      | high       | F14-S02    |
-| F14-S04 | Email pessoal do agente no 1º login + bloqueio estendido                       | 🟢 available | medium     | F14-S02    |
-| F14-S05 | Backend — disparo de simulação por WhatsApp                                    | ✅ done      | high       | —          |
-| F14-S06 | Frontend — botão "Enviar simulação ao cliente"                                 | ✅ done      | high       | F14-S05    |
+| ID      | Título                                                                         | Status         | Prioridade | Depende de |
+| ------- | ------------------------------------------------------------------------------ | -------------- | ---------- | ---------- |
+| F14-S01 | Schema — lead PJ (CNPJ/razão social) + índice único de email                   | ✅ done        | high       | —          |
+| F14-S02 | Backend — lead PJ + email obrigatório no manual + unicidade + bloqueio interno | ✅ done        | high       | F14-S01    |
+| F14-S03 | Frontend — NewLeadModal com PJ + email obrigatório                             | ✅ done        | high       | F14-S02    |
+| F14-S04 | Email pessoal do agente no 1º login + bloqueio estendido                       | 🔵 in-progress | medium     | F14-S02    |
+| F14-S05 | Backend — disparo de simulação por WhatsApp                                    | ✅ done        | high       | —          |
+| F14-S06 | Frontend — botão "Enviar simulação ao cliente"                                 | ✅ done        | high       | F14-S05    |
 
 ## Fase 16 —
 
