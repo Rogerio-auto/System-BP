@@ -27,6 +27,7 @@ import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
 import { contractsRoutes } from './modules/contracts/index.js';
 import { creditAnalysesRoutes } from './modules/credit-analyses/index.js';
 import { creditProductsRoutes } from './modules/credit-products/routes.js';
+import { customersRoutes } from './modules/customers/index.js';
 import { dashboardRoutes } from './modules/dashboard/routes.js';
 import { devRoutes } from './modules/dev/routes.js';
 import { featureFlagsRoutes } from './modules/featureFlags/routes.js';
@@ -267,6 +268,8 @@ export async function buildApp() {
   await app.register(notificationsRoutes);
   // Módulo de contratos — CRUD + ciclo de vida de assinatura (F17-S03)
   await app.register(contractsRoutes);
+  // Módulo de customers — visão consolidada do cliente (F17-S07)
+  await app.register(customersRoutes);
 
   // Dev-only endpoints (schema-examples, etc.) — NOT registered in production (F10-S11)
   if (process.env['NODE_ENV'] !== 'production') {
