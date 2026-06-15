@@ -1,5 +1,5 @@
 // =============================================================================
-// contracts/schemas.ts — Zod schemas do módulo de contratos (F17-S03).
+// contracts/schemas.ts — Zod schemas do módulo de contratos (F17-S03 / F17-S04).
 //
 // Valida todas as bordas HTTP (query, params, body, response).
 //
@@ -150,3 +150,61 @@ export const ContractCreateBodySchema = z
   });
 
 export type ContractCreateBody = z.infer<typeof ContractCreateBodySchema>;
+
+// ---------------------------------------------------------------------------
+// GET /api/contracts/:id/health — resposta de saúde de boletos (F17-S04)
+//
+// Espelha BoletoHealthSchema de @elemento/shared-schemas/contracts.ts,
+// mas definido localmente para que a rota seja completamente auto-contida
+// e não dependa do pacote shared-schemas em tempo de execução da API.
+//
+// Lógica de `health`:
+//   settled:   total > 0 && percent_paid == 100 (todas pagas)
+//   defaulted: overdue há >= 15 dias (overdue_15d_count > 0)
+//   at_risk:   overdue mas < 15 dias (overdue_count > 0 && overdue_15d_count == 0)
+//   healthy:   sem overdue (tudo paid ou pending)
+// ---------------------------------------------------------------------------
+
+export const BoletoHealthResponseSchema = z
+  .object({
+    contract_id: z.string().uuid().describe('UUID do contrato'),
+    total_installments: z
+      .number()
+      .int()
+      .min(0)
+      .describe('Total de parcelas vinculadas ao contrato'),
+    paid_count: z.number().int().min(0).describe('Parcelas pagas'),
+    overdue_count: z.number().int().min(0).describe('Parcelas vencidas (qualquer prazo)'),
+    pending_count: z.number().int().min(0).describe('Parcelas pendentes (dentro do prazo)'),
+    /** Somatório dos valores pagos — string numérica para preservar precisão decimal. */
+    paid_amount: z.string().describe('Somatório dos valores pagos (string numérica)'),
+    overdue_amount: z.string().describe('Somatório dos valores vencidos (string numérica)'),
+    pending_amount: z.string().describe('Somatório dos valores pendentes (string numérica)'),
+    percent_paid: z
+      .number()
+      .min(0)
+      .max(100)
+      .describe('Percentual de parcelas pagas em relação ao total (0–100)'),
+    health: z
+      .enum(['healthy', 'at_risk', 'defaulted', 'settled'])
+      .describe(
+        'Indicador sintético: settled=todas pagas; defaulted=vencida ≥15d; ' +
+          'at_risk=vencida <15d; healthy=sem vencimento',
+      ),
+  })
+  .openapi({
+    example: {
+      contract_id: 'a0000001-0000-0000-0000-000000000001',
+      total_installments: 24,
+      paid_count: 12,
+      overdue_count: 1,
+      pending_count: 11,
+      paid_amount: '7500.00',
+      overdue_amount: '625.00',
+      pending_amount: '6875.00',
+      percent_paid: 50,
+      health: 'at_risk',
+    },
+  });
+
+export type BoletoHealthResponse = z.infer<typeof BoletoHealthResponseSchema>;
