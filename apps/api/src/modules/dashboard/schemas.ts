@@ -1,12 +1,32 @@
 // =============================================================================
-// dashboard/schemas.ts — Schemas Zod para o endpoint de métricas (F8-S03).
+// dashboard/schemas.ts — Schemas Zod para o endpoint de métricas (F8-S03)
+//                        e métricas de cobrança (F15-S09).
 //
 // Importações reexportadas de shared-schemas quando aplicável.
 // Não retorna PII de leads — somente contagens e IDs opacos de agentes.
 //
 // LGPD: nenhum dos shapes aqui expõe name/phone/email/cpf de leads.
 // =============================================================================
+import { CollectionDashboardResponseSchema } from '@elemento/shared-schemas';
 import { z } from 'zod';
+
+export { CollectionDashboardResponseSchema };
+export type CollectionDashboardResponse = z.infer<typeof CollectionDashboardResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Query params para o endpoint de métricas de cobrança
+// ---------------------------------------------------------------------------
+
+export const CollectionDashboardQuerySchema = z.object({
+  /**
+   * UUID de uma cidade específica (opcional).
+   * Se omitido, agrega todas as parcelas da organização (sem filtro de cidade).
+   * Suporte para role cobranca global + gestor_regional filtrar por cidade.
+   */
+  city_id: z.string().uuid().optional(),
+});
+
+export type CollectionDashboardQuery = z.infer<typeof CollectionDashboardQuerySchema>;
 
 // ---------------------------------------------------------------------------
 // Enums canônicos (replicam os da DB para validação nas bordas HTTP)

@@ -159,7 +159,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F15-S06 | Backend — notificações in-app + fan-out por canal (email/WhatsApp)              | ⏸️ blocked | high       | F15-S01, F15-S03, F15-S04, F15-S05 |
 | F15-S07 | Backend — service de status SPC (transições + auditoria)                        | 🟣 review  | medium     | F15-S01, F15-S02, F15-S04          |
 | F15-S08 | Backend — worker de inadimplência 15d → cria tarefa SPC + evento de notificação | ⏸️ blocked | medium     | F15-S05, F15-S06, F15-S07          |
-| F15-S09 | Backend — métricas do dashboard de cobrança                                     | ⏸️ blocked | medium     | F15-S01, F15-S02, F15-S04          |
+| F15-S09 | Backend — métricas do dashboard de cobrança                                     | 🟣 review  | medium     | F15-S01, F15-S02, F15-S04          |
 | F15-S10 | Frontend — painel de tarefas + badge de notificações no header                  | ⏸️ blocked | high       | F15-S04, F15-S05, F15-S06          |
 | F15-S11 | Frontend — dashboard de cobrança + tag/ação de SPC                              | ⏸️ blocked | medium     | F15-S04, F15-S07, F15-S09          |
 | F15-S12 | Importar relatório de baixa — conciliação CPF + nº da parcela (BLOCKED — D10)   | ⏸️ blocked | medium     | —                                  |

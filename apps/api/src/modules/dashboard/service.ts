@@ -22,6 +22,9 @@ import type { AuditActor } from '../../lib/audit.js';
 import { ForbiddenError } from '../../shared/errors.js';
 
 import {
+  countDueSoon,
+  countInCollection,
+  countInSpc,
   countInteractionsByChannel,
   countInteractionsByDirection,
   countInteractionsInRange,
@@ -30,12 +33,20 @@ import {
   countLeadsBySource,
   countLeadsByStatus,
   countNewLeadsInRange,
+  countOverdue15d,
+  countOverdueUncollected,
   countStaleLeads,
   countTotalLeads,
   getAvgDaysInStage,
   getTopAgentsByLeadsClosed,
 } from './repository.js';
-import type { DashboardMetricsQuery, DashboardMetricsResponse, Range } from './schemas.js';
+import type {
+  CollectionDashboardQuery,
+  CollectionDashboardResponse,
+  DashboardMetricsQuery,
+  DashboardMetricsResponse,
+  Range,
+} from './schemas.js';
 
 // ---------------------------------------------------------------------------
 // Contexto do ator
@@ -234,6 +245,64 @@ export async function getDashboardMetrics(
     },
     agents: {
       topByLeadsClosed: topAgents,
+    },
+  };
+}
+
+// =============================================================================
+// Dashboard de cobrança (F15-S09)
+// =============================================================================
+
+/**
+ * Agrega os 5 cards do dashboard de cobrança para o role `cobranca`.
+ *
+ * city_id é opcional — sem ele, agrega toda a organização (acesso global).
+ * Queries independentes executadas em paralelo via Promise.all.
+ *
+ * LGPD: retorna apenas contagens e totais agregados — sem PII individual.
+ */
+export async function getCollectionDashboard(
+  db: Database,
+  actor: ActorContext,
+  query: CollectionDashboardQuery,
+): Promise<CollectionDashboardResponse> {
+  const { organizationId } = actor;
+  const cityId = query.city_id;
+
+  // Executar as 5 queries em paralelo — todas independentes
+  const [dueSoon, overdueUncollected, inCollection, overdue15d, inSpc] = await Promise.all([
+    countDueSoon(db, organizationId, cityId),
+    countOverdueUncollected(db, organizationId, cityId),
+    countInCollection(db, organizationId, cityId),
+    countOverdue15d(db, organizationId, cityId),
+    countInSpc(db, organizationId, cityId),
+  ]);
+
+  return {
+    due_soon: {
+      label: 'Vencendo nos próximos 7 dias',
+      count: dueSoon.count,
+      total_amount: dueSoon.total_amount,
+    },
+    overdue_uncollected: {
+      label: 'Vencidos sem cobrança ativa',
+      count: overdueUncollected.count,
+      total_amount: overdueUncollected.total_amount,
+    },
+    in_collection: {
+      label: 'Em cobrança ativa',
+      count: inCollection.count,
+      total_amount: inCollection.total_amount,
+    },
+    overdue_15d: {
+      label: 'Inadimplentes há 15+ dias',
+      count: overdue15d.count,
+      total_amount: overdue15d.total_amount,
+    },
+    in_spc: {
+      label: 'Clientes no SPC',
+      count: inSpc.count,
+      total_amount: inSpc.total_amount,
     },
   };
 }

@@ -1,10 +1,11 @@
 // =============================================================================
-// dashboard/controller.ts — Handler HTTP para o endpoint de métricas (F8-S03).
+// dashboard/controller.ts — Handlers HTTP para os endpoints de métricas (F8-S03)
+//                           e dashboard de cobrança (F15-S09).
 //
 // Responsabilidades:
 //   - Extrair query params do request.
 //   - Montar ActorContext a partir de request.user (garantido por authenticate()).
-//   - Chamar getDashboardMetrics e enviar resposta tipada.
+//   - Chamar o service correspondente e enviar resposta tipada.
 //
 // request.user é garantidamente definido (authenticate() + authorize() nos
 // preHandlers da rota).
@@ -15,9 +16,9 @@ import { db } from '../../db/client.js';
 import { ForbiddenError } from '../../shared/errors.js';
 import { typedQuery } from '../../shared/fastify-types.js';
 
-import type { DashboardMetricsQuery } from './schemas.js';
+import type { CollectionDashboardQuery, DashboardMetricsQuery } from './schemas.js';
 import type { ActorContext } from './service.js';
-import { getDashboardMetrics } from './service.js';
+import { getCollectionDashboard, getDashboardMetrics } from './service.js';
 
 // ---------------------------------------------------------------------------
 // Helper: ActorContext de request.user
@@ -52,5 +53,22 @@ export async function getDashboardMetricsController(
 ): Promise<void> {
   const actor = getActorContext(request);
   const result = await getDashboardMetrics(db, actor, typedQuery<DashboardMetricsQuery>(request));
+  return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/dashboard/collection
+// ---------------------------------------------------------------------------
+
+export async function getCollectionDashboardController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const result = await getCollectionDashboard(
+    db,
+    actor,
+    typedQuery<CollectionDashboardQuery>(request),
+  );
   return reply.status(200).send(result);
 }
