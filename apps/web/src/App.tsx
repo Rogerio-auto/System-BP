@@ -30,6 +30,7 @@ import {
   PromptsListPage,
 } from './features/configuracoes/ai-console';
 import { ConfiguracoesPage } from './features/configuracoes/ConfiguracoesPage';
+import { ContractsPage } from './features/contracts';
 import { CreditAnalysesListPage, CreditAnalysisDetailPage } from './features/credit-analyses';
 import { CrmDetailPage } from './features/crm/CrmDetailPage';
 import { CrmListPage } from './features/crm/CrmListPage';
@@ -149,7 +150,7 @@ function AppRoutes(): React.JSX.Element {
           {/* F4-S03: AnÃ¡lise de crÃ©dito */}
           <Route path="/credit-analyses" element={<CreditAnalysesListPage />} />
           <Route path="/credit-analyses/:id" element={<CreditAnalysisDetailPage />} />
-          <Route path="/contratos" element={<PlaceholderPage title="Contratos" />} />
+          <Route path="/contratos" element={<ContractsPage />} />
           <Route path="/relatorios" element={<PlaceholderPage title="RelatÃ³rios" />} />
           <Route path="/configuracoes" element={<ConfiguracoesPage />} />
           <Route path="/configuracoes/ia/prompts" element={<PromptsListPage />} />
