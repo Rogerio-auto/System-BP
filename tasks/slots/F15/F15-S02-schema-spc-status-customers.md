@@ -3,11 +3,11 @@ id: F15-S02
 title: Schema — status SPC dedicado em `customers`
 phase: F15
 task_ref: null
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-15T19:13:13Z
 completed_at: null
 pr_url: null
 depends_on: []
