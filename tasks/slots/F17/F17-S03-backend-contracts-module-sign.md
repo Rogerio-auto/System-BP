@@ -3,12 +3,12 @@ id: F17-S03
 title: Backend — módulo de contratos (CRUD + "marcar como assinado")
 phase: F17
 task_ref: null
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-15T20:40:45Z
-completed_at: null
+completed_at: 2026-06-15T20:52:55Z
 pr_url: null
 depends_on: [F17-S01, F17-S02]
 blocks: [F17-S04, F17-S05, F17-S07, F17-S09]
