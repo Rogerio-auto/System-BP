@@ -3,12 +3,12 @@ id: F17-S13
 title: Backend — handler auto-contrato por análise aprovada/recusada
 phase: F17
 task_ref: null
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T05:20:56Z
-completed_at: null
+completed_at: 2026-06-16T05:31:13Z
 pr_url: null
 depends_on: [F17-S12, F17-S03]
 blocks: [F17-S14]
