@@ -14,7 +14,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Database } from '../../db/client.js';
+import type { Database } from '../../../db/client.js';
 import type { ComposerState } from '../schemas.js';
 import {
   EnsureContactConversationInputSchema,
@@ -53,7 +53,7 @@ const mockTx = {
   update: vi.fn().mockReturnValue({ set: mockUpdateSet }),
 };
 
-vi.mock('../../db/client.js', () => ({
+vi.mock('../../../db/client.js', () => ({
   db: {
     insert: vi.fn().mockReturnValue({ values: mockInsertValues }),
     select: vi.fn().mockReturnValue({ from: mockSelectFrom }),
