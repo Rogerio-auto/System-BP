@@ -145,3 +145,22 @@ export const TRIGGER_TYPE_LABEL: Record<TriggerType, string> = {
 };
 
 export const CANCELLABLE_STATUSES: FollowupJobStatus[] = ['scheduled'];
+
+// ---------------------------------------------------------------------------
+// Outcome options for applies_to_outcome
+// ---------------------------------------------------------------------------
+
+export const OUTCOME_OPTIONS = [
+  { value: '', label: 'Qualquer outcome' },
+  { value: 'closed_won', label: 'Ganho' },
+  { value: 'closed_lost', label: 'Perdido' },
+  { value: 'archived', label: 'Arquivado' },
+] as const;
+
+export type OutcomeValue = (typeof OUTCOME_OPTIONS)[number]['value'];
+
+export const OUTCOME_LABEL: Record<string, string> = {
+  closed_won: 'Ganho',
+  closed_lost: 'Perdido',
+  archived: 'Arquivado',
+};
