@@ -3,11 +3,11 @@ id: F17-S09
 title: Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação)
 phase: F17
 task_ref: null
-status: available
+status: in-progress
 priority: low
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-16T14:51:36Z
 completed_at: null
 pr_url: null
 depends_on: [F17-S01, F17-S03, F15-S05]
