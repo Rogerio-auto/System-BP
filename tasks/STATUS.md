@@ -17,7 +17,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
 | F16  | 17    | 0   | 0   | 0   | 0   | 0   | 17  |
 | F17  | 14    | 0   | 2   | 0   | 0   | 0   | 12  |
-| F18  | 12    | 0   | 0   | 0   | 0   | 1   | 11  |
+| F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -208,20 +208,20 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 18 —
 
-| ID      | Título                                                                                        | Status    | Prioridade | Depende de |
-| ------- | --------------------------------------------------------------------------------------------- | --------- | ---------- | ---------- |
-| F18-S01 | Backend — city_name em LeadResponse (Onda 1 item 1)                                           | ✅ done   | high       | —          |
-| F18-S02 | Frontend — cidade visível no CRM e no Kanban (Onda 1 item 1)                                  | ✅ done   | high       | F18-S01    |
-| F18-S03 | Frontend — CurrencyInput canônico + fix bug de moeda (Onda 1 item 3)                          | ✅ done   | high       | —          |
-| F18-S04 | Backend — endpoint activateRuleVersion (Onda 1 item 6)                                        | ✅ done   | medium     | —          |
-| F18-S05 | Frontend — "Usar esta versão" na RuleTimeline (Onda 1 item 6)                                 | ✅ done   | medium     | F18-S04    |
-| F18-S06 | Frontend — follow-up por estágio e outcome (Onda 1 item 8)                                    | ✅ done   | medium     | —          |
-| F18-S07 | Frontend — avgDaysInStage no dashboard + estágio Kanban no CRM (Onda 1 item 11)               | ✅ done   | medium     | —          |
-| F18-S08 | Schema — lead PJ + personal_email usuários (Onda 2 item 4)                                    | ✅ done   | high       | —          |
-| F18-S09 | Backend — lead PJ validações + email blocklist (Onda 2 item 4)                                | ✅ done   | high       | F18-S08    |
-| F18-S10 | Frontend — NewLeadModal campos PJ + email obrigatório + personal_email agente (Onda 2 item 4) | 🟣 review | high       | F18-S09    |
-| F18-S11 | Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)                            | ✅ done   | medium     | —          |
-| F18-S12 | Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)                             | ✅ done   | medium     | F18-S11    |
+| ID      | Título                                                                                        | Status  | Prioridade | Depende de |
+| ------- | --------------------------------------------------------------------------------------------- | ------- | ---------- | ---------- |
+| F18-S01 | Backend — city_name em LeadResponse (Onda 1 item 1)                                           | ✅ done | high       | —          |
+| F18-S02 | Frontend — cidade visível no CRM e no Kanban (Onda 1 item 1)                                  | ✅ done | high       | F18-S01    |
+| F18-S03 | Frontend — CurrencyInput canônico + fix bug de moeda (Onda 1 item 3)                          | ✅ done | high       | —          |
+| F18-S04 | Backend — endpoint activateRuleVersion (Onda 1 item 6)                                        | ✅ done | medium     | —          |
+| F18-S05 | Frontend — "Usar esta versão" na RuleTimeline (Onda 1 item 6)                                 | ✅ done | medium     | F18-S04    |
+| F18-S06 | Frontend — follow-up por estágio e outcome (Onda 1 item 8)                                    | ✅ done | medium     | —          |
+| F18-S07 | Frontend — avgDaysInStage no dashboard + estágio Kanban no CRM (Onda 1 item 11)               | ✅ done | medium     | —          |
+| F18-S08 | Schema — lead PJ + personal_email usuários (Onda 2 item 4)                                    | ✅ done | high       | —          |
+| F18-S09 | Backend — lead PJ validações + email blocklist (Onda 2 item 4)                                | ✅ done | high       | F18-S08    |
+| F18-S10 | Frontend — NewLeadModal campos PJ + email obrigatório + personal_email agente (Onda 2 item 4) | ✅ done | high       | F18-S09    |
+| F18-S11 | Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)                            | ✅ done | medium     | —          |
+| F18-S12 | Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)                             | ✅ done | medium     | F18-S11    |
 
 ## Fase 2 — Crédito e simulação
 
