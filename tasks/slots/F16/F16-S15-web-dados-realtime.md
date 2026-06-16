@@ -3,13 +3,13 @@ id: F16-S15
 title: Web — camada de dados + realtime (queries, types, SocketProvider, rota)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#7-ui-conversationspage
-status: available
+status: done
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
-pr_url: null
+claimed_at: 2026-06-16T13:07:35Z
+completed_at: 2026-06-16T13:25:03Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/278
 depends_on: [F16-S03, F16-S12, F16-S14]
 blocks: [F16-S16, F16-S17]
 labels: []

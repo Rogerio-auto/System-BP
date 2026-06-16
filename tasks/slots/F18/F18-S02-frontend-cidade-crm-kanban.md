@@ -3,13 +3,13 @@ id: F18-S02
 title: Frontend — cidade visível no CRM e no Kanban (Onda 1 item 1)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#a1--cidade-do-lead-visível-no-crm-e-no-kanban-item-1
-status: available
+status: done
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
-pr_url: null
+claimed_at: 2026-06-16T13:07:54Z
+completed_at: 2026-06-16T13:14:05Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/275
 depends_on: [F18-S01]
 blocks: []
 labels: [frontend, crm, kanban]

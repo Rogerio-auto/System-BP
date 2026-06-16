@@ -25,6 +25,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
 import { useAuthStore } from '../../lib/auth-store';
+import { LinkedContractBadge } from '../contracts/LinkedContractBadge';
 
 import { AddVersionModal, DecideModal, RequestReviewModal } from './components/CreditAnalysisForm';
 import { CreditAnalysisStatusBadge } from './components/CreditAnalysisStatusBadge';
@@ -353,26 +354,39 @@ export function CreditAnalysisDetailPage(): React.JSX.Element {
 
                 {/* Campos de aprovação — exibidos quando aprovado */}
                 {analysis.status === 'aprovado' && (
-                  <div className="mt-4 pt-4 border-t border-border-subtle grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <MetaRow
-                      label="Valor aprovado"
-                      value={formatBRL(analysis.approved_amount)}
-                      mono
-                    />
-                    <MetaRow
-                      label="Prazo"
-                      value={
-                        analysis.approved_term_months
-                          ? `${analysis.approved_term_months} meses`
-                          : '—'
-                      }
-                    />
-                    <MetaRow
-                      label="Taxa mensal"
-                      value={formatRate(analysis.approved_rate_monthly)}
-                      mono
-                    />
-                  </div>
+                  <>
+                    <div className="mt-4 pt-4 border-t border-border-subtle grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <MetaRow
+                        label="Valor aprovado"
+                        value={formatBRL(analysis.approved_amount)}
+                        mono
+                      />
+                      <MetaRow
+                        label="Prazo"
+                        value={
+                          analysis.approved_term_months
+                            ? `${analysis.approved_term_months} meses`
+                            : '—'
+                        }
+                      />
+                      <MetaRow
+                        label="Taxa mensal"
+                        value={formatRate(analysis.approved_rate_monthly)}
+                        mono
+                      />
+                    </div>
+
+                    {/* Contrato vinculado — gerado automaticamente pela aprovação (F17-S14) */}
+                    <div className="mt-3 pt-3 border-t border-border-subtle flex items-center gap-3">
+                      <p
+                        className="font-sans font-semibold text-ink-3 uppercase shrink-0"
+                        style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+                      >
+                        Contrato vinculado
+                      </p>
+                      <LinkedContractBadge analysisId={analysis.id} />
+                    </div>
+                  </>
                 )}
               </div>
 

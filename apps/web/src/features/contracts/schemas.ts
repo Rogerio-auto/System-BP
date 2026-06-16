@@ -24,6 +24,8 @@ export type { BoletoHealth, Contract, ContractSign, ContractStatus };
 export interface ContractsFilters {
   status?: string;
   customer_id?: string;
+  /** Filtrar por UUID da análise de crédito que originou o contrato (F17-S13/S14). */
+  analysis_id?: string;
   page?: number;
   per_page?: number;
 }
