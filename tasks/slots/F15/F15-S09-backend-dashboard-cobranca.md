@@ -3,13 +3,13 @@ id: F15-S09
 title: Backend — métricas do dashboard de cobrança
 phase: F15
 task_ref: null
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-15T20:10:00Z
 completed_at: 2026-06-15T20:21:47Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/239
 depends_on: [F15-S01, F15-S02, F15-S04]
 blocks: [F15-S11]
 labels: [dashboard, cobranca, backend]

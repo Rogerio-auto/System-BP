@@ -3,13 +3,13 @@ id: F15-S04
 title: Contratos compartilhados — tarefas, notificações, SPC, dashboard cobrança
 phase: F15
 task_ref: null
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-15T19:44:25Z
 completed_at: 2026-06-15T19:48:06Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/234
 depends_on: [F15-S03]
 blocks: [F15-S05, F15-S06, F15-S07, F15-S09, F15-S10, F15-S11]
 labels: [shared-schemas, contracts, cobranca]

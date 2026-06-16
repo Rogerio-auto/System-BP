@@ -3,13 +3,13 @@ id: F15-S02
 title: Schema — status SPC dedicado em `customers`
 phase: F15
 task_ref: null
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-15T19:13:13Z
 completed_at: 2026-06-15T19:19:52Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/232
 depends_on: []
 blocks: [F15-S07, F15-S09, F15-S11]
 labels: [spc, cobranca, schema, lgpd]

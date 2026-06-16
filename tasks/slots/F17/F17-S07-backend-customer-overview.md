@@ -3,13 +3,13 @@ id: F17-S07
 title: Backend — visão cliente (dados + histórico + contratos + boletos)
 phase: F17
 task_ref: null
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-15T21:30:05Z
 completed_at: 2026-06-15T21:39:49Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/245
 depends_on: [F17-S01, F17-S02, F17-S03]
 blocks: [F17-S08]
 labels: [contracts, crm, backend]
