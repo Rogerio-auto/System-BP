@@ -3,11 +3,11 @@ id: F16-S04
 title: packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#53-consequencias-arquiteturais-do-app-por-cliente
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-16T04:51:10Z
 completed_at: null
 pr_url: null
 depends_on: [F16-S02, F16-S03]
