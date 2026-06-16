@@ -236,8 +236,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F19-S02 | Backend — CRUD law_firms + suggest por cidade                          | ✅ done      | high       | F19-S01          |
 | F19-S03 | Backend — ação "encaminhar para advocacia" + /internal/law-firm-status | ✅ done      | high       | F19-S01, F19-S02 |
 | F19-S04 | Frontend — admin cadastro de escritórios de advocacia                  | ✅ done      | high       | F19-S02          |
-| F19-S05 | Frontend — botão "Encaminhar para advocacia" na ficha do inadimplente  | 🟢 available | high       | F19-S03, F19-S04 |
-| F19-S06 | LangGraph — nó lawyer_handoff (envio autônomo do contato do advogado)  | 🟣 review    | medium     | F19-S03          |
+| F19-S05 | Frontend — botão "Encaminhar para advocacia" na ficha do inadimplente  | 🟣 review    | high       | F19-S03, F19-S04 |
+| F19-S06 | LangGraph — nó lawyer_handoff (envio autônomo do contato do advogado)  | 🟢 available | medium     | F19-S03          |
 
 ## Fase 2 — Crédito e simulação
 

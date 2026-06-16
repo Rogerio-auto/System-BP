@@ -41,6 +41,7 @@ import { useKanbanStages } from '../../hooks/kanban/useKanbanStages';
 import { api, ApiError } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import { useAuth } from '../auth/useAuth';
+import { LawFirmReferralButton } from '../customers/components/LawFirmReferralButton';
 import { LeadCreditAnalysisTab } from '../leads/components/LeadCreditAnalysisTab';
 
 import { CustomerDetailDrawer } from './components/CustomerDetailDrawer';
@@ -645,6 +646,11 @@ export function CrmDetailPage(): React.JSX.Element {
                 currentNotes={lead.notes}
                 onClose={() => setEditOpen(false)}
               />
+            )}
+
+            {/* Ação: encaminhar para advocacia (F19-S05) — visível quando convertido */}
+            {lead && lead.status === 'closed_won' && lead.customer_id && (
+              <LawFirmReferralButton customerId={lead.customer_id} customerName={lead.name} />
             )}
 
             {/* Histórico de simulações de crédito (F2-S08 / F14-S06) */}
