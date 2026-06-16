@@ -1,0 +1,93 @@
+---
+title: "Oportunidades de win-back"
+description: "Entenda como o Elemento identifica clientes que podem ser reativados e como usar o atalho de nova simulação"
+order: 30
+keywords: [win-back, reativação, contrato, lead, simulação, oportunidade, recuperação]
+---
+
+Use este guia quando você quiser entender as oportunidades de win-back exibidas no painel de tarefas
+e como usar o atalho de nova simulação para agilizar o atendimento.
+
+## O que é win-back
+
+Win-back é o processo de reativação de um cliente ou lead que está em risco de ser perdido ou já deixou de avançar no funil.
+
+O Elemento identifica automaticamente três situações que geram oportunidades de win-back:
+
+| Tipo | Quando é gerado |
+|------|----------------|
+| **Contrato perto do fim** | Contrato ativo com vencimento nos próximos 60 dias sem renovação em aberto |
+| **Lead recuperável** | Lead marcado como perdido nos últimos 90 dias que pode ser abordado novamente |
+| **Lead estagnado** | Lead no kanban sem movimentação por mais de 30 dias |
+
+## Como funciona
+
+O worker de win-back roda diariamente e analisa contratos e leads da sua cidade.
+Quando encontra uma situação enquadrável, cria uma tarefa do tipo **Recuperação** com:
+
+- Título descritivo da situação (ex: "Contrato BP-2026-00123 vence em 15 dias")
+- Badge indicando o tipo de oportunidade
+- Atalho direto para nova simulação pré-preenchida com os dados do cliente
+
+As oportunidades aparecem no painel "Oportunidades de Reativação" na tela de contratos
+e também na lista geral de tarefas com o tipo "Recuperação".
+
+## Como usar o atalho de simulação
+
+<Step number="1" title="Abra o painel de oportunidades">
+  Acesse a tela de Contratos. As oportunidades de win-back ficam na seção
+  "Oportunidades de Reativação", acima da lista principal.
+</Step>
+
+<Step number="2" title="Leia o card da oportunidade">
+  Cada card mostra o tipo da oportunidade (contrato, lead recuperável ou lead estagnado),
+  o título com o contexto (nome do contrato ou lead) e a descrição da ação recomendada.
+</Step>
+
+<Step number="3" title="Clique em Nova simulação">
+  O botão "Nova simulação" abre a tela de simulação já com o cliente pré-selecionado
+  quando o sistema conseguiu identificar o cliente a partir da tarefa.
+  Ajuste os parâmetros conforme a conversa com o cliente e salve.
+</Step>
+
+<Step number="4" title="Marque como visto após o contato">
+  Após abordar o cliente (por qualquer canal), clique em "Marcar como visto".
+  Isso conclui a tarefa e retira a oportunidade do painel.
+  Se o cliente não puder ser contatado, você pode deixar a tarefa em aberto
+  e retornar mais tarde.
+</Step>
+
+<Callout type="info" title="Cliente não pré-preenchido">
+  Em alguns casos o sistema não consegue identificar o cliente diretamente a partir da tarefa
+  (por exemplo, se a tarefa foi gerada a partir de um lead ainda não convertido em cliente).
+  Nessa situação, a simulação abre sem pré-seleção e você escolhe o cliente manualmente.
+</Callout>
+
+## Erros comuns
+
+**O painel de oportunidades está vazio**
+O sistema gera oportunidades automaticamente todo dia. Se o painel está vazio, significa que não há
+contratos vencendo em breve, leads perdidos recentes ou leads estagnados na sua cidade — isso é positivo.
+
+**Cliquei em "Nova simulação" mas o cliente não apareceu pré-selecionado**
+O pré-preenchimento depende de o lead ou contrato estar vinculado a um cliente no sistema.
+Se o lead ainda não foi convertido, selecione o cliente manualmente na tela de simulação.
+
+**A oportunidade sumiu antes de eu usar**
+Outro agente da sua cidade pode ter marcado a mesma oportunidade como vista.
+As tarefas de win-back são compartilhadas entre todos os agentes da cidade.
+
+## Permissões necessárias
+
+<Permission requires="tasks:claim" />
+<Permission requires="tasks:complete" />
+
+Agentes visualizam oportunidades de sua cidade. Gestores veem oportunidades de todas as cidades da organização.
+
+## Veja também
+
+- [Contratos — visão geral](/ajuda/guias/contratos/aba-contratos) — entenda a aba de contratos.
+- [Criar contrato](/ajuda/guias/contratos/criar-contrato) — crie um contrato a partir de uma simulação aprovada.
+- [Saúde de boletos](/ajuda/guias/contratos/saude-de-boletos) — entenda o indicador de saúde do contrato.
+
+<FeedbackWidget />
