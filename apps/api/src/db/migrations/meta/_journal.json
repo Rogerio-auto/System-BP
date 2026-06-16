@@ -400,6 +400,13 @@
       "when": 1781554500000,
       "tag": "0061_livechat_multicanal",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1781724800000,
+      "tag": "0062_contracts_analysis_id",
+      "breakpoints": true
     }
   ]
 }

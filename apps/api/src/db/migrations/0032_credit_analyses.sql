@@ -195,7 +195,7 @@ END;
 $$;
 --> statement-breakpoint
 
-CREATE TRIGGER "trg_credit_analyses_updated_at"
+CREATE OR REPLACE TRIGGER "trg_credit_analyses_updated_at"
   BEFORE UPDATE ON "credit_analyses"
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 --> statement-breakpoint
@@ -301,7 +301,7 @@ END;
 $$;
 --> statement-breakpoint
 
-CREATE TRIGGER "trg_prevent_credit_analysis_version_upd"
+CREATE OR REPLACE TRIGGER "trg_prevent_credit_analysis_version_upd"
   BEFORE UPDATE ON "credit_analysis_versions"
   FOR EACH ROW EXECUTE FUNCTION prevent_credit_analysis_version_update();
 --> statement-breakpoint

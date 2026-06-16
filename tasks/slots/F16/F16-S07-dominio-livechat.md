@@ -3,12 +3,12 @@ id: F16-S07
 title: Domínio livechat — repository + service de persistência (contact/conversation/message + janela)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#4-dados-schema-multicanal-decisao-d2
-status: available
+status: review
 priority: high
 estimated_size: L
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-16T04:51:34Z
+completed_at: 2026-06-16T05:09:53Z
 pr_url: null
 depends_on: [F16-S02, F16-S03]
 blocks: [F16-S08, F16-S10, F16-S12, F16-S14]
