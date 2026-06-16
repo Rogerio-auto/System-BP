@@ -3,12 +3,12 @@ id: F17-S12
 title: Schema — analysis_id em contracts (migration + Drizzle + shared)
 phase: F17
 task_ref: null
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-16T04:26:29Z
-completed_at: null
+completed_at: 2026-06-16T04:33:26Z
 pr_url: null
 depends_on: [F17-S01, F17-S02]
 blocks: [F17-S13, F17-S14]
