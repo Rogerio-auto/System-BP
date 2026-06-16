@@ -3,7 +3,7 @@ id: F19-S04
 title: Frontend — admin cadastro de escritórios de advocacia
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: blocked
+status: available
 priority: high
 estimated_size: M
 agent_id: null
