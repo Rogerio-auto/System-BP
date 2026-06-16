@@ -37,7 +37,6 @@ from app.nodes.lawyer_handoff_node import (
 from app.tools.lawyer_handoff import (
     LawFirmReferralCooldown,
     LawFirmReferralDisabled,
-    LawFirmReferralError,
     LawFirmReferralSuccess,
     LawFirmStatusError,
     LawFirmStatusIneligible,
@@ -45,7 +44,6 @@ from app.tools.lawyer_handoff import (
     check_law_firm_status,
     send_law_firm_referral_ai,
 )
-from app.tools._base import InternalApiClient
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -717,3 +715,100 @@ def test_should_lawyer_handoff_flag_false() -> None:
         "conversation_id": str(uuid.uuid4()),
     }
     assert should_lawyer_handoff(state2) == "continue"
+
+
+# ---------------------------------------------------------------------------
+# Testes de segurança: C1 — X-Organization-Id, M3 — 401 / token não logado
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_check_law_firm_status_sends_organization_id_header() -> None:
+    """C1: X-Organization-Id deve estar presente no GET /internal/law-firm-status."""
+    customer_id = str(uuid.uuid4())
+    org_id = str(uuid.uuid4())
+    firm = _make_law_firm()
+
+    with respx.mock:
+        route = respx.get(_status_url()).mock(
+            return_value=httpx.Response(200, json=_eligible_response(firm))
+        )
+        await check_law_firm_status(
+            customer_id=customer_id,
+            organization_id=org_id,
+        )
+
+    sent_org_id = route.calls.last.request.headers.get("x-organization-id")
+    assert sent_org_id == org_id, (
+        f"X-Organization-Id ausente ou incorreto na chamada GET. Recebido: {sent_org_id!r}"
+    )
+
+
+@pytest.mark.asyncio()
+async def test_send_law_firm_referral_ai_sends_organization_id_header() -> None:
+    """C1: X-Organization-Id deve estar presente no POST de referral."""
+    customer_id = str(uuid.uuid4())
+    law_firm_id = str(uuid.uuid4())
+    org_id = str(uuid.uuid4())
+
+    with respx.mock:
+        route = respx.post(_referral_url(customer_id)).mock(
+            return_value=httpx.Response(
+                201, json={"ok": True, "referral_id": str(uuid.uuid4())}
+            )
+        )
+        await send_law_firm_referral_ai(
+            customer_id=customer_id,
+            law_firm_id=law_firm_id,
+            organization_id=org_id,
+        )
+
+    sent_org_id = route.calls.last.request.headers.get("x-organization-id")
+    assert sent_org_id == org_id, (
+        f"X-Organization-Id ausente ou incorreto na chamada POST. Recebido: {sent_org_id!r}"
+    )
+
+
+@pytest.mark.asyncio()
+async def test_check_law_firm_status_401_returns_backend_error() -> None:
+    """M3: GET retorna 401 → LawFirmStatusError (BACKEND_ERROR), sem retry.
+
+    Verifica:
+    1. Resultado é LawFirmStatusError com reason=BACKEND_ERROR.
+    2. 401 não é reexecutado (_RETRYABLE_STATUS_CODES exclui 4xx).
+    3. X-Internal-Token NÃO aparece no campo 'message' do erro (não logado em texto claro).
+    """
+    from app.tools._base import _RETRYABLE_STATUS_CODES
+
+    customer_id = str(uuid.uuid4())
+    org_id = str(uuid.uuid4())
+
+    # Garantir que 401 não está nos status reexecutáveis
+    assert 401 not in _RETRYABLE_STATUS_CODES, (
+        "401 NÃO deve estar em _RETRYABLE_STATUS_CODES — autenticação não deve ser retentada."
+    )
+
+    with respx.mock:
+        route = respx.get(_status_url()).mock(
+            return_value=httpx.Response(401, json={"error": "Unauthorized"})
+        )
+        result = await check_law_firm_status(
+            customer_id=customer_id,
+            organization_id=org_id,
+        )
+
+    # 1. Resultado correto
+    assert isinstance(result, LawFirmStatusError)
+    assert result.reason == "BACKEND_ERROR"
+    assert result.eligible is False
+
+    # 2. Apenas 1 chamada realizada (sem retry)
+    assert route.call_count == 1, (
+        f"401 foi retentado {route.call_count - 1} vez(es) — não deve ser retentado."
+    )
+
+    # 3. Token não exposto na mensagem de erro
+    token_value = settings.internal_token.get_secret_value()
+    assert token_value not in result.message, (
+        "X-Internal-Token não deve aparecer na mensagem de erro (vazamento de credencial)."
+    )

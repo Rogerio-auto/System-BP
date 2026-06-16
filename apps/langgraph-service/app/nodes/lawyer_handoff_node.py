@@ -93,9 +93,11 @@ def _msg_greet(first_name: str) -> str:
     )
 
 
-def _msg_confirm_identity(first_name: str, last_name_part: str) -> str:
+def _msg_confirm_identity(first_name: str) -> str:
+    # LGPD §3.4 minimização: usa apenas o primeiro nome. Sobrenome removido
+    # para não expor PII adicional no canal de mensagens (fix M1).
     return (
-        f"Estou falando com {first_name} {last_name_part}? "
+        f"Estou falando com {first_name}? "
         "Confirme com 'sim' ou 'não'."
     )
 
@@ -112,17 +114,6 @@ def _msg_cooldown(cooldown_until: str) -> str:
         "Seu processo já foi encaminhado recentemente para o escritório de advocacia. "
         f"Um novo encaminhamento poderá ser feito após {cooldown_until}."
     )
-
-
-def _last_name_part(full_name: str | None) -> str:
-    """Retorna o sobrenome (primeira palavra após o primeiro nome) para confirmação de identidade.
-
-    Usa apenas a segunda palavra para minimizar PII exposta ao nó LLM.
-    """
-    if not full_name or not full_name.strip():
-        return ""
-    parts = full_name.strip().split()
-    return parts[1] if len(parts) > 1 else ""
 
 
 # ---------------------------------------------------------------------------
@@ -341,9 +332,8 @@ async def lawyer_handoff_node(
         # (o orquestrador chama com last_user_message="" quando entra pela primeira vez)
         if not inp.last_user_message.strip() and state.identity_attempts == 0:
             first_name = _first_name(inp.customer_name)
-            last_name = _last_name_part(inp.customer_name)
             state = state.model_copy(update={"identity_attempts": 1})
-            reply = _msg_confirm_identity(first_name, last_name)
+            reply = _msg_confirm_identity(first_name)
 
             latency_ms = (time.monotonic() - start) * 1000
             log.info(
@@ -487,8 +477,7 @@ async def lawyer_handoff_node(
             )
 
         first_name = _first_name(inp.customer_name)
-        last_name = _last_name_part(inp.customer_name)
-        reply = _msg_confirm_identity(first_name, last_name)
+        reply = _msg_confirm_identity(first_name)
 
         latency_ms = (time.monotonic() - start) * 1000
         log.info(

@@ -109,16 +109,21 @@ async def check_law_firm_status(
     Returns:
         LawFirmStatusSuccess    → elegível, law_firm preenchido.
         LawFirmStatusIneligible → não elegível, cooldown_until e reason presentes.
-        LawFirmStatusError      → falha de infra (timeout / 5xx).
+        LawFirmStatusError      → falha de infra (timeout / 4xx / 5xx).
 
     LGPD: NÃO loga customer_id em nível info nem expõe nenhum dado do customer.
     """
     _client = client or InternalApiClient()
 
     try:
-        data = await _client.get(
+        # Passa X-Organization-Id via _request para escopo multi-tenant.
+        # InternalApiClient._request aceita extra_headers (private, intencional —
+        # padrão de analysis_tools.py linha ~174).
+        data = await _client._request(
+            "GET",
             _STATUS_ENDPOINT,
             params={"customer_id": customer_id},
+            extra_headers={"X-Organization-Id": organization_id},
         )
     except httpx.HTTPStatusError as exc:
         status = exc.response.status_code
@@ -248,7 +253,7 @@ async def send_law_firm_referral_ai(
     Args:
         customer_id: UUID opaco do customer.
         law_firm_id: UUID do escritório de advocacia.
-        organization_id: UUID da organização para logging.
+        organization_id: UUID da organização para escopo multi-tenant e logging.
         client: InternalApiClient injetável em testes; cria instância se None.
 
     Returns:
@@ -258,15 +263,37 @@ async def send_law_firm_referral_ai(
         LawFirmReferralError    → erro inesperado de infra.
 
     LGPD Art. 20: o backend persiste o registro de decisão automatizada.
+
+    Segurança (M2 — anti-duplo-encaminhamento): este POST NÃO é reexecutado em
+    caso de 5xx. Usamos _execute() diretamente para contornar o retry automático
+    de _request(). Motivo: se o backend commitar antes do 500, um retry
+    same-second criaria dois registros de referral. O cooldown de 7 dias é guard
+    de negócio, mas não cobre a janela de retry sub-segundo.
     """
+    from app.tools._base import _auth_headers, _correlation_headers
+
     _client = client or InternalApiClient()
     path = _REFERRAL_ENDPOINT_TPL.format(customer_id=customer_id)
+    idempotency_key = f"law_firm_referral_ai_{customer_id}_{law_firm_id}"
+
+    # Monta headers completos (auth + correlation + org-id + idempotency) e chama
+    # _execute() diretamente, contornando o loop de retry de _request().
+    # Private, intencional — ver analysis_tools.py para precedente análogo com _request().
+    headers: dict[str, str] = {
+        **_auth_headers(),
+        **_correlation_headers(),
+        "X-Organization-Id": organization_id,
+        "Idempotency-Key": idempotency_key,
+    }
+    url = _client._build_url(path)
 
     try:
-        data = await _client.post(
-            path,
+        data = await _client._execute(
+            "POST",
+            url,
+            headers=headers,
             json={"law_firm_id": law_firm_id, "channel": "ai"},
-            idempotency_key=f"law_firm_referral_ai_{customer_id}_{law_firm_id}",
+            params=None,
         )
     except httpx.HTTPStatusError as exc:
         status = exc.response.status_code
