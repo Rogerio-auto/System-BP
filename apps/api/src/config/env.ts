@@ -192,6 +192,32 @@ const envSchema = z.object({
             .filter(Boolean)
         : [],
     ),
+
+  // ---- Redis (F16-S01 live chat) ------------------------------------------
+  // URL de conexao Redis (formato: redis://:password@host:6379).
+  // Usado para locks distribuidos (Redlock single-instance) e cache de socket.
+  // Opcional em desenvolvimento sem live chat; obrigatorio em producao.
+  REDIS_URL: z.string().url().optional().default('redis://localhost:6379'),
+
+  // ---- RabbitMQ (F16-S01 live chat) ----------------------------------------
+  // URL de conexao AMQP (formato: amqp://user:pass@host:5672).
+  // Fila de inbound/outbound/media/socket-relay do live chat.
+  // Opcional em desenvolvimento sem live chat; obrigatorio em producao.
+  RABBITMQ_URL: z.string().optional().default('amqp://localhost:5672'),
+
+  // ---- Cloudflare R2 (F16-S01 live chat) -----------------------------------
+  // Storage de midia (imagens, audio, video, documentos) recebida/enviada no live chat.
+  // Compativel com S3 SDK (endpoint customizado).
+  // R2_ACCOUNT_ID: ID da conta Cloudflare (encontrado em Cloudflare Dashboard > R2).
+  // R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY: token de API com permissao R2.
+  // R2_BUCKET: nome do bucket criado na conta.
+  // R2_PUBLIC_URL: URL base publica do bucket (ex: https://media.elemento.app).
+  // Todas opcionais em dev; obrigatorias se live chat estiver ativo.
+  R2_ACCOUNT_ID: z.string().min(1).optional(),
+  R2_ACCESS_KEY_ID: z.string().min(1).optional(),
+  R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  R2_BUCKET: z.string().min(1).optional(),
+  R2_PUBLIC_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
