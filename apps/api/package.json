@@ -25,10 +25,13 @@
     "worker:outbox": "tsx --env-file-if-exists=../../.env src/workers/outbox-publisher.ts",
     "worker:import": "tsx --env-file-if-exists=../../.env src/workers/import-processor.ts",
     "worker:followup": "tsx --env-file-if-exists=../../.env src/workers/followup-scheduler.ts",
+    "worker:livechat-inbound": "tsx --env-file-if-exists=../../.env src/workers/livechat-inbound.ts",
+    "worker:livechat-media": "tsx --env-file-if-exists=../../.env src/workers/livechat-media.ts",
     "db:check-migrations": "node scripts/check-migration-journal.mjs",
     "db:check-drift": "tsx --env-file-if-exists=../../.env scripts/check-schema-drift.ts",
     "openapi:validate": "tsx --env-file-if-exists=../../.env scripts/validate-openapi.ts",
-    "openapi:examples": "tsx --env-file-if-exists=../../.env scripts/generate-schema-examples.ts"
+    "openapi:examples": "tsx --env-file-if-exists=../../.env scripts/generate-schema-examples.ts",
+    "worker:livechat-outbound": "tsx --env-file-if-exists=../../.env src/workers/livechat-outbound.ts"
   },
   "dependencies": {
     "@elemento/shared-schemas": "workspace:*",
@@ -52,6 +55,7 @@
     "fastify-type-provider-zod": "4.0.1",
     "fastify-zod-openapi": "4.1.2",
     "jose": "5.9.3",
+    "socket.io": "^4.7.5",
     "libphonenumber-js": "^1.13.1",
     "otpauth": "^9.5.1",
     "pg": "8.13.0",
