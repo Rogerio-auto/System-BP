@@ -262,6 +262,26 @@ function IconTemplates(): React.JSX.Element {
   );
 }
 
+// Advocacia: balança da justiça
+function IconAdvocacia(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="M12 4v16" strokeLinecap="round" />
+      <path d="M5 18h14" strokeLinecap="round" />
+      <path d="M5 4h14" strokeLinecap="round" />
+      <path d="M5 4l-3 7a4 4 0 0 0 6 0L5 4Z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M19 4l-3 7a4 4 0 0 0 6 0L19 4Z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Tab = 'conta' | 'administracao';
@@ -463,6 +483,18 @@ function AdminSection(): React.JSX.Element {
             description: 'Gerencie modelos de mensagem aprovados pelo Meta para envios em massa.',
             icon: <IconTemplates />,
             href: '/admin/templates',
+          },
+        ]
+      : []),
+    // Advocacia: gated por law_firms:manage (admin + gestor_geral)
+    ...(hasPermission('law_firms:manage')
+      ? [
+          {
+            title: 'Advocacia',
+            description:
+              'Escritórios de advocacia parceiros para encaminhamento de processos por cidade.',
+            icon: <IconAdvocacia />,
+            href: '/configuracoes/advocacia',
           },
         ]
       : []),

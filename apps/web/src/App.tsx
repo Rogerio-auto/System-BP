@@ -41,6 +41,7 @@ import { FollowupJobsPage, FollowupRulesPage } from './features/followup';
 import { DocPage } from './features/help/DocPage';
 import { HelpHomePage } from './features/help/HelpHomePage';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
+import { LawFirmsPage } from './features/law-firms/LawFirmsPage';
 import { NotificationDropdown } from './features/notifications';
 import { TasksPage } from './features/tasks';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from './features/templates';
@@ -185,6 +186,7 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/contratos" element={<ContractsPage />} />
           <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
           <Route path="/configuracoes" element={<ConfiguracoesPage />} />
+          <Route path="/configuracoes/advocacia" element={<LawFirmsPage />} />
           <Route path="/configuracoes/ia/prompts" element={<PromptsListPage />} />
           <Route path="/configuracoes/ia/prompts/:key" element={<PromptDetailPage />} />
           <Route path="/configuracoes/ia/decisoes" element={<DecisionsListPage />} />

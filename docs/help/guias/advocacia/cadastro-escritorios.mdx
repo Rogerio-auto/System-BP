@@ -1,0 +1,110 @@
+---
+title: Cadastro de escritórios de advocacia
+description: Como cadastrar, editar e remover escritórios de advocacia parceiros para encaminhamento de processos de inadimplentes por cidade.
+order: 1
+keywords: [advocacia, escritório, escritórios, law firms, parceiros, cobertura, cidade, encaminhamento, inadimplência, gestão]
+---
+
+# Cadastro de escritórios de advocacia
+
+<Permission required="law_firms:manage">
+  Esta seção é exclusiva para administradores com a permissão **law_firms:manage**.
+  Se você não vê o card **Advocacia** em Configurações, fale com o responsável pelo sistema.
+</Permission>
+
+O módulo de escritórios de advocacia permite vincular escritórios parceiros a cidades específicas.
+Quando um contrato entra em processo judicial, o sistema utiliza este cadastro para sugerir o
+escritório responsável pela cidade do cliente.
+
+## Quando usar
+
+- Ao firmar parceria com um novo escritório de advocacia.
+- Ao atualizar o telefone ou cidades de cobertura de um escritório.
+- Ao remover um escritório que deixou de ser parceiro.
+
+## Passo a passo
+
+<Step number={1} title="Acesse o painel de escritórios">
+  No menu lateral, vá em **Configurações** e clique no card **Advocacia**.
+  Você verá a lista de todos os escritórios cadastrados.
+</Step>
+
+<Step number={2} title="Clique em Novo escritório">
+  Botão azul no canto superior direito. Um modal se abre com o formulário de cadastro.
+</Step>
+
+<Step number={3} title="Preencha o nome do escritório">
+  O **nome** é obrigatório. Use o nome comercial completo do escritório
+  (ex.: "Souza & Associados Advocacia"). Máximo de 255 caracteres.
+</Step>
+
+<Step number={4} title="Informe o telefone de contato (opcional)">
+  Telefone público do escritório — use o formato **(69) 99999-9999**.
+  O campo aplica máscara automática. Este é o contato da PJ, não de uma pessoa física.
+
+  <Callout type="warning" title="Dado de PJ — não PII">
+    O campo de telefone é para o número comercial do escritório (CNPJ). Não cadastre
+    celulares pessoais de advogados. Dados pessoais não devem constar aqui (norma LGPD § 4.1).
+  </Callout>
+</Step>
+
+<Step number={5} title="Selecione as cidades de cobertura">
+  No campo **Cidades de cobertura**, busque e selecione as cidades onde o escritório atua.
+  Clique na cidade para adicioná-la; clique no **×** no chip para removê-la.
+  Um escritório pode cobrir várias cidades simultaneamente.
+</Step>
+
+<Step number={6} title="Defina o escritório como padrão (opcional)">
+  Ative a opção **Escritório padrão para cidades de cobertura** quando este escritório deve
+  ser selecionado automaticamente para clientes das cidades marcadas.
+
+  <Callout type="info" title="Regra de seleção automática">
+    Apenas um escritório pode ser padrão por cidade. Se já houver um escritório padrão
+    para uma cidade, o sistema usará o mais recente. Revise os cadastros existentes antes
+    de ativar esta opção em múltiplos escritórios.
+  </Callout>
+</Step>
+
+<Step number={7} title="Adicione notas internas (opcional)">
+  Use o campo **Notas internas** para registrar especialidades, horários de atendimento
+  ou contatos secundários do escritório.
+
+  <Callout type="warning" title="Proibido incluir PII de clientes">
+    Não inclua CPFs, nomes completos de clientes ou qualquer dado pessoal de clientes
+    nas notas. Este campo é para informações do escritório (PJ), não de clientes (PF).
+  </Callout>
+</Step>
+
+<Step number={8} title="Salve">
+  Clique em **Criar escritório**. A lista é atualizada automaticamente.
+</Step>
+
+## Editar um escritório
+
+Na lista, clique no ícone de **lápis** ao lado do escritório que deseja editar.
+O modal abre pré-preenchido com os dados atuais. Faça as alterações e clique em
+**Salvar alterações**.
+
+## Remover um escritório
+
+Clique no ícone de **lixeira** ao lado do escritório. Uma caixa de confirmação aparece.
+Confirme a exclusão clicando em **Excluir**. A remoção é permanente.
+
+<Callout type="danger" title="Atenção">
+  Remover um escritório não desfaz vínculos já registrados em processos anteriores.
+  Verifique se há contratos em processo judicial vinculados ao escritório antes de removê-lo.
+</Callout>
+
+## Erros comuns
+
+| Erro | Causa | Solução |
+|------|-------|---------|
+| "Nome é obrigatório" | O campo nome foi deixado em branco | Preencha o nome do escritório |
+| "Nome deve ter no máximo 255 caracteres" | Nome muito longo | Abrevie se necessário |
+| "Telefone deve ter no máximo 20 caracteres" | Telefone com muitos dígitos | Verifique o número informado |
+| Escritório não aparece na sugestão | Cidade não cadastrada na cobertura | Edite o escritório e adicione a cidade |
+
+## Veja também
+
+- [Cidades atendidas](/ajuda/guias/admin/cidades) — cadastre as cidades antes de vincular escritórios
+- [Contratos](/ajuda/guias/contratos) — como processos judiciais são vinculados a escritórios

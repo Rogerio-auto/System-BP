@@ -759,6 +759,35 @@ export interface ImportCompletedData {
   failure_count: number;
 }
 
+// --- Domínio: advocacia — encaminhamento para escritório (F19-S03) ---
+// LGPD §8.5: payload carrega apenas IDs opacos + canal + timestamp.
+// NUNCA incluir nome, CPF, telefone ou qualquer PII do customer.
+// O worker que consome o evento hidrata dados via /internal/customers/:id.
+// Base legal: Art. 7º V LGPD — execução de contrato (cobrança judicial).
+
+/**
+ * Emitido ao encaminhar cliente a escritório de advocacia (F19-S03).
+ * Canal 'human' (operador via UI) ou 'ai' (LangGraph automaticamente).
+ * LGPD §8.5: payload sem PII bruta — apenas IDs opacos + metadados de fluxo.
+ */
+export interface CustomerLawFirmReferredData {
+  /** UUID opaco do encaminhamento — chave primária do registro em customer_law_firm_referrals. */
+  referral_id: string;
+  /** UUID do customer encaminhado — ID opaco, não PII direta. */
+  customer_id: string;
+  /** UUID do escritório destinatário. */
+  law_firm_id: string;
+  /** UUID da organização — contexto multi-tenant. */
+  organization_id: string;
+  /**
+   * Canal que originou o encaminhamento.
+   * 'human' = operador/gestor via UI; 'ai' = agente LangGraph.
+   */
+  channel: 'human' | 'ai';
+  /** ISO 8601 do momento do encaminhamento (linked_at). */
+  sent_at: string;
+}
+
 // --- Domínio: feature flags ---
 
 export interface FeatureFlagChangedData {
@@ -983,6 +1012,9 @@ export interface AppEventDataMap {
   'contract.auto_updated': ContractAutoUpdatedData;
   // F17-S09: contrato perto do fim — ≤2 parcelas restantes (winback_renovation)
   'contract.near_end': ContractNearEndData;
+  // --- Advocacia: encaminhamento para escritório (F19-S03) ---
+  // LGPD §8.5: sem PII — apenas IDs opacos + canal + sent_at (dado operacional).
+  'customer.law_firm_referred': CustomerLawFirmReferredData;
   // --- Inadimplência SPC (F15-S08): 15+ dias de atraso, spc_status=none ---
   'payment_due.overdue_15d': PaymentDueOverdue15dData;
   // --- Tarefas (F15-S05) ---
