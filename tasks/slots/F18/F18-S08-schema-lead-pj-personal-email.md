@@ -3,11 +3,11 @@ id: F18-S08
 title: Schema — lead PJ + personal_email usuários (Onda 2 item 4)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#a2--lead-pj-email-obrigatório-no-manual-unicidade-e-bloqueio-do-email-do-agente-item-4
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-16T05:21:47Z
 completed_at: null
 pr_url: null
 depends_on: []
@@ -17,7 +17,6 @@ source_docs:
   - docs/planejamento-2026-06-evolucao.md
 docs_required: false
 ---
-
 # F18-S08 — Schema: lead PJ + personal_email usuários
 
 ## Objetivo
