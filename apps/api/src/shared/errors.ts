@@ -22,7 +22,9 @@ export type ErrorCode =
   | 'EXTERNAL_SERVICE_ERROR'
   | 'CHATWOOT_API_ERROR'
   | 'FEATURE_DISABLED'
-  | 'FEATURE_HIDDEN';
+  | 'FEATURE_HIDDEN'
+  // F19-S03: encaminhamento advocacia — cooldown de 7 dias entre encaminhamentos
+  | 'LAW_FIRM_COOLDOWN';
 
 // ---------------------------------------------------------------------------
 // Classe base

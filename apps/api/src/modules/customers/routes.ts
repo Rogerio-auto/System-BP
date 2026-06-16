@@ -1,20 +1,24 @@
 // =============================================================================
-// customers/routes.ts — Rotas do módulo customers (F17-S07).
+// customers/routes.ts — Rotas do módulo customers (F17-S07 + F19-S03).
 //
 // Rotas:
-//   GET /api/customers/:id/overview  (contracts:read)
+//   GET  /api/customers/:id/overview           (contracts:read)
+//   POST /api/customers/:id/law-firm-referral  (law_firms:referral)
 //
 // RBAC:
-//   - contracts:read → visão consolidada do cliente (contratos, parcelas, SPC).
+//   - contracts:read        → visão consolidada do cliente (contratos, parcelas, SPC).
+//   - law_firms:referral    → encaminhar cliente a escritório de advocacia.
 //
 // City-scope: filtrado via customers → leads (primary_lead_id → city_id).
 //   gestor_regional só acessa clientes de sua(s) cidade(s).
 //
-// LGPD (doc 17 §8.1):
+// LGPD (doc 17 §8.1 + §12):
 //   - name do cliente é PII (vem do lead). Exposto apenas a usuários autenticados
 //     com permissão contracts:read — base legal: execução de contrato (Art. 7º V LGPD).
 //   - Nenhum CPF/document_number é retornado neste endpoint.
 //   - spc_status é dado operacional de crédito; não é PII estrito.
+//   - Encaminhamento advocacia (§12): base legal execução de contrato/cobrança judicial.
+//     Evento outbox sem PII bruta do customer.
 // =============================================================================
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
@@ -22,6 +26,12 @@ import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
 
 import { getCustomerOverviewController } from './controller.js';
+import { postCreateReferralController } from './law-firm-referral.controller.js';
+import {
+  CreateReferralBodySchema,
+  CreateReferralResponseSchema,
+  CustomerReferralParamsSchema,
+} from './law-firm-referral.schemas.js';
 import { CustomerOverviewParamsSchema, CustomerOverviewResponseSchema } from './schemas.js';
 
 export const customersRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -61,5 +71,50 @@ export const customersRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: ['contracts:read'] })],
     },
     getCustomerOverviewController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/customers/:id/law-firm-referral (F19-S03)
+  //
+  // Encaminha um cliente a um escritório de advocacia parceiro (canal humano).
+  //
+  // Regras de negócio:
+  //   - Feature flag law_firm.referral.enabled → 403 FEATURE_DISABLED se off.
+  //   - Cooldown de 7 dias → 409 LAW_FIRM_COOLDOWN se bloqueado.
+  //   - Customer e law_firm devem pertencer à org → 404 se não encontrado.
+  //   - Emite evento outbox 'customer.law_firm_referred' (sem PII do customer).
+  //   - Registra em audit_logs.
+  //
+  // LGPD (doc 17 §12):
+  //   Compartilhamento com escritório de advocacia = base legal execução de contrato
+  //   (cobrança judicial). Evento outbox carrega apenas IDs opacos.
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/customers/:id/law-firm-referral',
+    {
+      schema: {
+        tags: ['Customers'],
+        summary: 'Encaminhar cliente a escritório de advocacia',
+        description:
+          'Registra o encaminhamento de um cliente inadimplente a um escritório de advocacia ' +
+          'parceiro para cobrança judicial.\n\n' +
+          'Aplica cooldown de 7 dias: novo encaminhamento do mesmo cliente antes do prazo ' +
+          'retorna 409 `LAW_FIRM_COOLDOWN` com `cooldown_until`.\n\n' +
+          'A feature flag `law_firm.referral.enabled` deve estar habilitada — ' +
+          '403 `FEATURE_DISABLED` se desligada.\n\n' +
+          'Emite evento `customer.law_firm_referred` no outbox para que o worker de ' +
+          'notificação envie WhatsApp ao escritório (sem PII do cliente no payload).\n\n' +
+          'Requer permissão `law_firms:referral`.\n\n' +
+          'Base legal LGPD: Art. 7º V — execução de contrato (cobrança judicial).',
+        security: [{ bearerAuth: [] }],
+        params: CustomerReferralParamsSchema,
+        body: CreateReferralBodySchema,
+        response: {
+          201: CreateReferralResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['law_firms:referral'] })],
+    },
+    postCreateReferralController,
   );
 };

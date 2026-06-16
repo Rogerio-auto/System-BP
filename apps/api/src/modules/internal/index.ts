@@ -112,6 +112,8 @@ const internalPlugin: FastifyPluginAsync = async (fastify) => {
     const { default: internalHandoffsRoutes } = await import('./handoffs/routes.js');
     const { default: internalLeadsRoutes } = await import('./leads/routes.js');
     const { default: internalPromptsRoutes } = await import('./prompts/routes.js');
+    // F19-S03: encaminhamento advocacia + status de elegibilidade para LangGraph
+    const { default: internalLawFirmStatusRoutes } = await import('./law-firm-status/routes.js');
 
     await fastify.register(internalAiRoutes, { prefix: '/ai' });
     await fastify.register(internalChatwootRoutes, { prefix: '/chatwoot' });
@@ -122,6 +124,7 @@ const internalPlugin: FastifyPluginAsync = async (fastify) => {
     await fastify.register(internalHandoffsRoutes, { prefix: '/handoffs' });
     await fastify.register(internalLeadsRoutes, { prefix: '/leads' });
     await fastify.register(internalPromptsRoutes, { prefix: '/prompts' });
+    await fastify.register(internalLawFirmStatusRoutes, { prefix: '/law-firm-status' });
   } else {
     // -----------------------------------------------------------------------
     // Caminho de produção/dev: autoload dinâmico.
