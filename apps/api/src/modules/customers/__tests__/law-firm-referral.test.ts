@@ -22,6 +22,7 @@ import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import internalLawFirmStatusRoutes from '../../internal/law-firm-status/routes.js';
 import { customersRoutes } from '../routes.js';
 
 // ---------------------------------------------------------------------------
@@ -66,13 +67,15 @@ vi.mock('../../../db/client.js', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock service (canal humano)
+// Mock service (canal humano + canal IA)
 // ---------------------------------------------------------------------------
 const mockCreateReferralService = vi.fn();
+const mockCheckLawFirmStatusService = vi.fn();
+const mockCreateAiReferralService = vi.fn();
 vi.mock('../law-firm-referral.service.js', () => ({
   createReferralService: (...args: unknown[]) => mockCreateReferralService(...args),
-  checkLawFirmStatusService: vi.fn(),
-  createAiReferralService: vi.fn(),
+  checkLawFirmStatusService: (...args: unknown[]) => mockCheckLawFirmStatusService(...args),
+  createAiReferralService: (...args: unknown[]) => mockCreateAiReferralService(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -85,6 +88,7 @@ const LAW_FIRM_ID = 'a0000003-0000-0000-0000-000000000003';
 const USER_ID = 'a0000004-0000-0000-0000-000000000004';
 const CITY_ID = 'a0000005-0000-0000-0000-000000000005';
 const REFERRAL_ID = 'b0000001-0000-0000-0000-000000000001';
+const INTERNAL_TOKEN = 'test-langgraph-token-vitest-only-00';
 
 const COOLDOWN_UNTIL = '2026-06-23T00:00:00.000Z';
 
@@ -316,11 +320,171 @@ describe('F19-S03 — POST /api/customers/:id/law-firm-referral (canal humano)',
 });
 
 // ---------------------------------------------------------------------------
-// Testes: GET /internal/law-firm-status (via plugin interno separado)
+// Factory para o plugin interno (/internal/law-firm-status)
 // ---------------------------------------------------------------------------
-// Os testes do endpoint interno são testados via service (unit tests) pois
-// o plugin interno usa sua própria factory e X-Internal-Token.
-// Os testes abaixo verificam a lógica do service diretamente.
+
+async function buildInternalTestApp(): Promise<FastifyInstance> {
+  const app = Fastify({ logger: false });
+  const typedApp = app.withTypeProvider();
+  typedApp.setValidatorCompiler(validatorCompiler);
+  typedApp.setSerializerCompiler(serializerCompiler);
+  registerErrorHandler(typedApp);
+  await typedApp.register(internalLawFirmStatusRoutes, { prefix: '/internal/law-firm-status' });
+  await typedApp.ready();
+  return typedApp;
+}
+
+// ---------------------------------------------------------------------------
+// Testes HTTP: /internal/law-firm-status (M1 — security reviewer finding)
+// ---------------------------------------------------------------------------
+
+describe('F19-S03 — /internal/law-firm-status (HTTP-level)', () => {
+  let internalApp: FastifyInstance;
+
+  beforeAll(async () => {
+    internalApp = await buildInternalTestApp();
+  });
+
+  afterAll(async () => {
+    await internalApp.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // ---- GET / — autenticação ----
+
+  it('401 GET sem X-Internal-Token', async () => {
+    const res = await internalApp.inject({
+      method: 'GET',
+      url: `/internal/law-firm-status?customer_id=${CUSTOMER_ID}`,
+      headers: { 'x-organization-id': ORG_ID },
+    });
+
+    expect(res.statusCode).toBe(401);
+    const body = res.json<{ error: string }>();
+    expect(body.error).toBe('UNAUTHORIZED');
+  });
+
+  it('401 GET com X-Internal-Token inválido', async () => {
+    const res = await internalApp.inject({
+      method: 'GET',
+      url: `/internal/law-firm-status?customer_id=${CUSTOMER_ID}`,
+      headers: {
+        'x-internal-token': 'wrong-token-000000000000000000000000000',
+        'x-organization-id': ORG_ID,
+      },
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('400 GET sem X-Organization-Id', async () => {
+    const res = await internalApp.inject({
+      method: 'GET',
+      url: `/internal/law-firm-status?customer_id=${CUSTOMER_ID}`,
+      headers: { 'x-internal-token': INTERNAL_TOKEN },
+    });
+
+    expect(res.statusCode).toBe(400);
+    const body = res.json<{ error: string }>();
+    expect(body.error).toBe('VALIDATION_ERROR');
+  });
+
+  it('200 GET retorna eligible:true quando customer é elegível', async () => {
+    mockCheckLawFirmStatusService.mockResolvedValue({
+      eligible: true,
+      law_firm: { id: LAW_FIRM_ID, name: 'Escritório Teste', contact_phone: '(69) 99999-9999' },
+      cooldown_until: null,
+      reason: 'ok',
+    });
+
+    const res = await internalApp.inject({
+      method: 'GET',
+      url: `/internal/law-firm-status?customer_id=${CUSTOMER_ID}`,
+      headers: { 'x-internal-token': INTERNAL_TOKEN, 'x-organization-id': ORG_ID },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ eligible: boolean; reason: string; law_firm: { id: string } | null }>();
+    expect(body.eligible).toBe(true);
+    expect(body.reason).toBe('ok');
+    expect(body.law_firm?.id).toBe(LAW_FIRM_ID);
+    expect(mockCheckLawFirmStatusService).toHaveBeenCalledWith(
+      expect.anything(), // db (mocked)
+      CUSTOMER_ID,
+      ORG_ID,
+    );
+  });
+
+  it('200 GET retorna eligible:false reason:flag_disabled quando flag desabilitada', async () => {
+    mockCheckLawFirmStatusService.mockResolvedValue({
+      eligible: false,
+      law_firm: null,
+      cooldown_until: null,
+      reason: 'flag_disabled',
+    });
+
+    const res = await internalApp.inject({
+      method: 'GET',
+      url: `/internal/law-firm-status?customer_id=${CUSTOMER_ID}`,
+      headers: { 'x-internal-token': INTERNAL_TOKEN, 'x-organization-id': ORG_ID },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ eligible: boolean; reason: string }>();
+    expect(body.eligible).toBe(false);
+    expect(body.reason).toBe('flag_disabled');
+    // LGPD: resposta NÃO contém PII do customer
+    expect(body).not.toHaveProperty('customer_id');
+    expect(body).not.toHaveProperty('cpf');
+  });
+
+  // ---- POST /customers/:id/law-firm-referral — autenticação ----
+
+  it('401 POST sem X-Internal-Token', async () => {
+    const res = await internalApp.inject({
+      method: 'POST',
+      url: `/internal/law-firm-status/customers/${CUSTOMER_ID}/law-firm-referral`,
+      headers: { 'x-organization-id': ORG_ID },
+      payload: { law_firm_id: LAW_FIRM_ID, channel: 'ai' },
+    });
+
+    expect(res.statusCode).toBe(401);
+    const body = res.json<{ error: string }>();
+    expect(body.error).toBe('UNAUTHORIZED');
+  });
+
+  it('201 POST canal IA cria encaminhamento com X-Internal-Token válido', async () => {
+    mockCreateAiReferralService.mockResolvedValue({ ok: true, referral_id: REFERRAL_ID });
+
+    const res = await internalApp.inject({
+      method: 'POST',
+      url: `/internal/law-firm-status/customers/${CUSTOMER_ID}/law-firm-referral`,
+      headers: { 'x-internal-token': INTERNAL_TOKEN, 'x-organization-id': ORG_ID },
+      payload: { law_firm_id: LAW_FIRM_ID, channel: 'ai' },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json<{ ok: boolean; referral_id: string }>();
+    expect(body.ok).toBe(true);
+    expect(body.referral_id).toBe(REFERRAL_ID);
+    expect(mockCreateAiReferralService).toHaveBeenCalledWith(
+      expect.anything(), // db
+      CUSTOMER_ID,
+      LAW_FIRM_ID,
+      ORG_ID,
+      expect.any(String), // correlationId
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Testes: GET /internal/law-firm-status (contratos de service — shape)
+// ---------------------------------------------------------------------------
+// Os testes abaixo verificam os contratos de dados via shape assertions.
+// A cobertura de autenticação HTTP está no bloco acima.
 
 describe('F19-S03 — checkLawFirmStatusService (lógica de elegibilidade)', () => {
   beforeEach(() => {

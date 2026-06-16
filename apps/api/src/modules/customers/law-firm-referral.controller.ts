@@ -1,15 +1,14 @@
 // =============================================================================
-// customers/law-firm-referral.controller.ts — Handlers HTTP para encaminhamento
-// de clientes para advocacia (F19-S03).
+// customers/law-firm-referral.controller.ts — Handler HTTP para encaminhamento
+// de clientes para advocacia — canal humano (F19-S03).
 //
 // Responsabilidades:
 //   - postCreateReferralController: POST /api/customers/:id/law-firm-referral
 //     * Extrai contexto do usuário autenticado (request.user).
 //     * Delega ao service e retorna 201.
-//   - postCreateAiReferralController: POST /internal/customers/:id/law-firm-referral
-//     * Extrai organizationId do header X-Organization-Id.
-//     * Usa correlation_id como identificador de conversa para ai_decision_logs.
-//     * Delega ao service e retorna 201.
+//
+// Nota: handlers do canal IA (/internal/*) estão em
+//   modules/internal/law-firm-status/routes.ts (inline, M2M sem JWT).
 //
 // LGPD: controller não acessa nem loga PII do customer.
 //   Toda serialização segura é feita no service (outbox sem PII).
@@ -18,19 +17,11 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
-import { AppError, UnauthorizedError } from '../../shared/errors.js';
+import { UnauthorizedError } from '../../shared/errors.js';
 import { typedParams } from '../../shared/fastify-types.js';
 
-import type {
-  CustomerReferralParams,
-  CreateReferralBody,
-  CreateAiReferralBody,
-} from './law-firm-referral.schemas.js';
-import {
-  checkLawFirmStatusService,
-  createAiReferralService,
-  createReferralService,
-} from './law-firm-referral.service.js';
+import type { CustomerReferralParams, CreateReferralBody } from './law-firm-referral.schemas.js';
+import { createReferralService } from './law-firm-referral.service.js';
 
 // ---------------------------------------------------------------------------
 // Helper — contexto do usuário autenticado
@@ -99,83 +90,4 @@ export async function postCreateReferralController(
   );
 
   await reply.status(201).send(result);
-}
-
-// ---------------------------------------------------------------------------
-// POST /internal/customers/:id/law-firm-referral (canal IA)
-// ---------------------------------------------------------------------------
-
-/**
- * Handler para criação de encaminhamento pelo LangGraph (canal IA).
- *
- * Autenticado via X-Internal-Token (verificado na rota antes deste controller).
- * Usa X-Organization-Id para isolamento multi-tenant (regra inviolável #3).
- * correlationId é o X-Correlation-Id do header (ou UUID gerado se ausente).
- */
-export async function postCreateAiReferralController(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<void> {
-  // X-Organization-Id obrigatório para multi-tenant
-  const orgHeader = request.headers['x-organization-id'];
-  if (typeof orgHeader !== 'string' || orgHeader.trim() === '') {
-    throw new AppError(
-      400,
-      'VALIDATION_ERROR',
-      'Header X-Organization-Id obrigatório para escopo multi-tenant (regra inviolável #3).',
-    );
-  }
-
-  const { id: customerId } = typedParams<CustomerReferralParams>(request);
-  // `as` justificado: Fastify com ZodTypeProvider garante o tipo do body após validação.
-  const body = request.body as CreateAiReferralBody;
-
-  // correlationId: X-Correlation-Id do header, ou gerar um novo UUID
-  const corrHeader = request.headers['x-correlation-id'];
-  const correlationId =
-    typeof corrHeader === 'string' && corrHeader.trim() !== '' ? corrHeader : crypto.randomUUID();
-
-  const result = await createAiReferralService(
-    db,
-    customerId,
-    body.law_firm_id,
-    orgHeader,
-    correlationId,
-  );
-
-  await reply.status(201).send(result);
-}
-
-// ---------------------------------------------------------------------------
-// GET /internal/law-firm-status (verificação de elegibilidade para o LangGraph)
-// ---------------------------------------------------------------------------
-
-/**
- * Handler para verificação de elegibilidade de encaminhamento.
- *
- * Autenticado via X-Internal-Token (verificado na rota antes deste controller).
- * Usa X-Organization-Id para isolamento multi-tenant.
- *
- * LGPD: resposta NÃO contém PII do customer.
- */
-export async function getLawFirmStatusController(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<void> {
-  // X-Organization-Id obrigatório para multi-tenant
-  const orgHeader = request.headers['x-organization-id'];
-  if (typeof orgHeader !== 'string' || orgHeader.trim() === '') {
-    throw new AppError(
-      400,
-      'VALIDATION_ERROR',
-      'Header X-Organization-Id obrigatório para escopo multi-tenant (regra inviolável #3).',
-    );
-  }
-
-  // `as` justificado: Fastify com ZodTypeProvider garante o tipo do query após validação.
-  const query = request.query as { customer_id: string };
-
-  const result = await checkLawFirmStatusService(db, query.customer_id, orgHeader);
-
-  await reply.status(200).send(result);
 }

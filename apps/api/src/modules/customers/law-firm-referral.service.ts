@@ -322,6 +322,12 @@ export async function createAiReferralService(
   organizationId: string,
   correlationId: string,
 ): Promise<CreateAiReferralResponse> {
+  // 0. Feature flag — bloqueia se AI handoff estiver desligado
+  const { enabled: aiHandoffEnabled } = await isFlagEnabled(db, 'law_firm.ai_handoff.enabled');
+  if (!aiHandoffEnabled) {
+    throw new FeatureDisabledError('law_firm.ai_handoff.enabled');
+  }
+
   // 1. Cooldown — verificar antes de inserir
   const cooldown = await checkReferralCooldown(db, customerId, organizationId);
   if (cooldown.active && cooldown.cooldownUntil !== null) {
