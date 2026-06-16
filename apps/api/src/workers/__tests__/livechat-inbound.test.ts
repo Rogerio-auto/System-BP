@@ -109,22 +109,26 @@ vi.mock('../../db/client.js', () => ({
 // Mock db/schema/messages (apenas o objeto de referência de tabela)
 // ---------------------------------------------------------------------------
 vi.mock('../../db/schema/messages.js', () => ({
-  messages: { id: 'messages.id', externalId: 'messages.external_id', conversationId: 'messages.conversation_id' },
+  messages: {
+    id: 'messages.id',
+    externalId: 'messages.external_id',
+    conversationId: 'messages.conversation_id',
+  },
 }));
 
 // ---------------------------------------------------------------------------
 // Mock lib/queue (RabbitMQ client)
 // ---------------------------------------------------------------------------
 const mockPublish = vi.fn().mockResolvedValue(undefined);
-const mockMakeEnvelope = vi.fn().mockImplementation(
-  (_type: string, orgId: string, payload: unknown) => ({
+const mockMakeEnvelope = vi
+  .fn()
+  .mockImplementation((_type: string, orgId: string, payload: unknown) => ({
     id: 'envelope-uuid',
     type: _type,
     organizationId: orgId,
     payload,
     ts: Date.now(),
-  }),
-);
+  }));
 
 vi.mock('../../lib/queue/index.js', () => ({
   connectRabbitMQ: vi.fn().mockResolvedValue(undefined),
@@ -469,9 +473,7 @@ describe('processMessage', () => {
     mockDbSelect.mockReturnValueOnce({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([
-            { id: MESSAGE_ID, conversationId: CONVERSATION_ID },
-          ]),
+          limit: vi.fn().mockResolvedValue([{ id: MESSAGE_ID, conversationId: CONVERSATION_ID }]),
         }),
       }),
     });

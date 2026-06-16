@@ -3,12 +3,12 @@ id: F16-S11
 title: Canais — connect manual (provider-discriminado, segredo cifrado) + list
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#5-onboarding-coexistencia-decisao-d3
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-16T05:15:46Z
+completed_at: 2026-06-16T05:39:25Z
 pr_url: null
 depends_on: [F16-S02, F16-S03, F16-S04]
 blocks: []

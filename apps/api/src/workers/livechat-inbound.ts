@@ -414,8 +414,10 @@ async function main(): Promise<void> {
 }
 
 // Executa apenas quando iniciado diretamente (não em imports de teste)
-if (process.argv[1]?.endsWith('livechat-inbound.ts') === true ||
-    process.argv[1]?.endsWith('livechat-inbound.js') === true) {
+if (
+  process.argv[1]?.endsWith('livechat-inbound.ts') === true ||
+  process.argv[1]?.endsWith('livechat-inbound.js') === true
+) {
   main().catch((err: unknown) => {
     log.fatal({ err }, 'livechat-inbound: fatal error in main');
     process.exit(1);
