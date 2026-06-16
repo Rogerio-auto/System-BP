@@ -1,16 +1,31 @@
+// =============================================================================
+// components/ui/CurrencyInput.tsx — Campo de moeda canônico (DS §9.2) — F18-S03.
+//
+// Representação interna: REAIS como number (float, 2 casas — decisão D5 revisada).
+// Exibição: formatBRL(reais) via Intl.NumberFormat('pt-BR').
+//
+// Comportamento:
+//   - onFocus: exibe o valor editável sem máscara (ex: "10000" ou "10000,50").
+//   - onChange: parseia o texto e propaga o valor em REAIS via callback.
+//   - onBlur: formata o valor com máscara completa (ex: "R$ 10.000,00").
+//
+// Props: value em REAIS (number | null), onChange(reais: number | null).
+// Formulários NÃO devem converter para centavos — o CurrencyInput é a borda.
+// =============================================================================
+
 import * as React from 'react';
 
 import { cn } from '../../lib/cn';
-import { formatBRL } from '../../lib/format/money';
+import { formatBRL, parseBRLInput } from '../../lib/format/money';
 
 import { Label } from './Label';
 
-interface CurrencyInputProps {
+export interface CurrencyInputProps {
   id: string;
-  /** Valor em CENTAVOS inteiros (null = vazio). */
+  /** Valor em REAIS (null = campo vazio). */
   value: number | null;
-  /** Callback com o novo valor em CENTAVOS inteiros (null = vazio). */
-  onChange: (cents: number | null) => void;
+  /** Callback com o novo valor em REAIS (null = campo vazio/inválido). */
+  onChange: (reais: number | null) => void;
   label?: string | undefined;
   error?: string | undefined;
   hint?: string | undefined;
@@ -24,13 +39,18 @@ interface CurrencyInputProps {
 }
 
 /**
- * CurrencyInput — campo de moeda canônico (DS §9.2) — F13-S01/S02.
+ * CurrencyInput — campo de moeda canônico (DS §9.2).
  *
- * Máscara estilo app de banco / PIX: o usuário digita e os dígitos ocupam as
- * casas decimais da direita para a esquerda. Internamente o valor é mantido em
- * CENTAVOS inteiros (decisão D5 — sem float).
+ * Recebe e emite valores em REAIS (não centavos).
+ * Digitar "10000" → exibe "R$ 10.000,00" → propaga 10000 (reais).
  *
- * Ex.: digitar "1" → R$ 0,01 ; "100" → R$ 1,00 ; "1000000" → R$ 10.000,00.
+ * Uso:
+ *   <CurrencyInput
+ *     id="amount"
+ *     label="Valor"
+ *     value={amount}           // number | null em REAIS
+ *     onChange={(v) => setAmount(v)}  // v em REAIS
+ *   />
  */
 export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
   function CurrencyInput(
@@ -47,24 +67,50 @@ export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputPro
       className,
       wrapperClassName,
       name,
-      onBlur,
+      onBlur: onBlurProp,
     },
     ref,
   ) {
     const hasError = Boolean(error);
 
-    // Sempre formatado (estilo banco): o valor exibido é derivado dos centavos.
-    const display = value !== null ? formatBRL(value) : '';
+    // Estado interno do texto exibido.
+    // Quando em foco: texto bruto (editável, sem máscara).
+    // Quando fora de foco: formatado com R$ e separadores.
+    const [focused, setFocused] = React.useState(false);
+    const [editText, setEditText] = React.useState<string>('');
+
+    // Sincroniza o texto editável com o valor externo quando fora de foco.
+    // Evita sobrescrever o que o usuário está digitando.
+    const displayValue = React.useMemo(() => {
+      if (focused) return editText;
+      if (value === null || value === undefined) return '';
+      return formatBRL(value);
+    }, [focused, value, editText]);
+
+    function handleFocus(): void {
+      // Ao entrar em foco, mostra o valor sem formatação para edição fácil.
+      if (value !== null && value !== undefined) {
+        // Exibe inteiro sem casas se for número redondo, com vírgula se tiver centavos.
+        const cents = Math.round(value * 100);
+        const reais = cents / 100;
+        const text = Number.isInteger(reais) ? String(reais) : reais.toFixed(2).replace('.', ',');
+        setEditText(text);
+      } else {
+        setEditText('');
+      }
+      setFocused(true);
+    }
+
+    function handleBlur(): void {
+      setFocused(false);
+      onBlurProp?.();
+    }
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
-      const digits = e.target.value.replace(/\D/g, '');
-      if (digits === '') {
-        onChange(null);
-        return;
-      }
-      // Os dígitos representam centavos (casas ocupam da direita).
-      // parseInt evita estouro de precisão para valores realistas (<= 13 dígitos).
-      onChange(Number.parseInt(digits, 10));
+      const raw = e.target.value;
+      setEditText(raw);
+      const parsed = parseBRLInput(raw);
+      onChange(parsed);
     }
 
     return (
@@ -80,16 +126,17 @@ export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputPro
           id={id}
           name={name}
           type="text"
-          inputMode="numeric"
+          inputMode="decimal"
           autoComplete="off"
-          value={display}
+          value={displayValue}
           placeholder={placeholder ?? 'R$ 0,00'}
           required={required}
           disabled={disabled}
           aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
           aria-invalid={hasError || undefined}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           onChange={handleChange}
-          onBlur={onBlur}
           className={cn(
             'w-full font-sans text-sm font-medium text-ink',
             'bg-surface-1 rounded-sm px-[14px] py-[11px]',

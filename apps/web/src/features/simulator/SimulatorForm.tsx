@@ -200,15 +200,15 @@ export function SimulatorForm({
           disabled={isPending}
         />
 
-        {/* Valor — máscara de moeda (centavos progressivo, estilo banco/PIX) */}
+        {/* Valor — CurrencyInput canônico em REAIS (F18-S03) */}
         <CurrencyInput
           id="amount-input"
           label="Valor solicitado (R$)"
           required
           disabled={isPending}
-          value={Number.isNaN(watchedAmount) ? null : Math.round(watchedAmount * 100)}
-          onChange={(cents) =>
-            setValue('amount', cents === null ? NaN : cents / 100, { shouldValidate: true })
+          value={Number.isNaN(watchedAmount) ? null : watchedAmount}
+          onChange={(reais) =>
+            setValue('amount', reais === null ? NaN : reais, { shouldValidate: true })
           }
           error={errors.amount?.message}
           hint={

@@ -1,63 +1,96 @@
 // =============================================================================
-// lib/format/money.ts — Helpers canônicos de moeda (BRL) — F13-S01.
+// lib/format/money.ts — Helpers canônicos de moeda (BRL) — F18-S03.
 //
-// Representação interna: CENTAVOS inteiros (decisão D5 do planejamento) — nunca
-// float em reais, evitando erros de ponto flutuante.
+// DECISÃO D5 (revisada F18-S03):
+//   Representação interna: REAIS como number (float arredondado a 2 casas).
+//   Exibição: Intl.NumberFormat('pt-BR') — fonte única de verdade. SEM toLocaleString ad-hoc.
 //
-// Convenção de digitação (corrige o bug ×10): o usuário digita o valor em
-// REAIS. Ex: digitar "10000" → R$ 10.000,00 (e NÃO R$ 100.000,00).
+// REGRA DE ENTRADA NO CurrencyInput:
+//   O usuário digita o valor em reais. Ex: "10000" → R$ 10.000,00 (NÃO R$ 100.000,00).
+//   Separador de milhar = ponto (pt-BR). Separador decimal = vírgula.
 // =============================================================================
 
 /**
- * Formata centavos inteiros para BRL.
- * formatBRL(1000000) → "R$ 10.000,00"
+ * Formata um valor em REAIS para string BRL.
+ * Fonte única de verdade para exibição — usa Intl.NumberFormat (não toLocaleString ad-hoc).
+ *
+ * formatBRL(10000)    → "R$ 10.000,00"
+ * formatBRL(10000.50) → "R$ 10.000,50"
+ * formatBRL(0)        → "R$ 0,00"
  */
-export function formatBRL(valueInCents: number): string {
-  return (valueInCents / 100).toLocaleString('pt-BR', {
+export function formatBRL(reais: number): string {
+  return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  });
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(reais);
 }
 
 /**
- * Formata um valor já em REAIS (ex: vindo da API como numeric) para BRL.
+ * Parseia um texto de input BRL para number em REAIS.
+ * Aceita o que o usuário digita (com ou sem máscara).
+ *
+ * Regras:
+ *   - Remove R$, espaços e pontos (separadores de milhar em pt-BR).
+ *   - Troca vírgula decimal por ponto.
+ *   - "10000"      → 10000    (R$ 10.000,00)
+ *   - "10.000,50"  → 10000.50 (R$ 10.000,50)
+ *   - "10000,50"   → 10000.50
+ *   - ""           → null
+ *   - texto inválido → null
+ *
+ * @returns reais como number arredondado a 2 casas, ou null se vazio/inválido.
+ */
+export function parseBRLInput(raw: string): number | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (trimmed === '') return null;
+
+  // Remove símbolo, espaços e separadores de milhar (ponto em pt-BR).
+  let s = trimmed
+    .replace(/[R$\s]/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.');
+
+  if (s === '' || s === '-') return null;
+
+  const n = parseFloat(s);
+  if (isNaN(n)) return null;
+
+  // Arredonda a 2 casas decimais para evitar problemas de float.
+  return Math.round(n * 100) / 100;
+}
+
+// ─── Helpers legados — mantidos por backward-compat com testes existentes ─────
+
+/**
+ * @deprecated Usar formatBRL(reais) diretamente.
+ * Formata centavos inteiros para BRL (legado de F13-S01).
+ * formatBRLFromCents(1000000) → "R$ 10.000,00"
+ */
+export function formatBRLFromCents(valueInCents: number): string {
+  return formatBRL(valueInCents / 100);
+}
+
+/**
+ * Formata um valor em REAIS (alias semântico — mantém compat com F13-S01).
  * formatBRLNumber(10000) → "R$ 10.000,00"
  */
 export function formatBRLNumber(reais: number): string {
-  return reais.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
+  return formatBRL(reais);
 }
 
 /**
- * Converte um texto digitado/mascarado em CENTAVOS inteiros.
+ * Converte um texto digitado/mascarado em CENTAVOS inteiros (legado F13-S01).
+ * Preferir parseBRLInput() que retorna reais.
  *
- * Regras:
- *   - O número digitado é interpretado em REAIS (vírgula = separador decimal,
- *     ponto = separador de milhar, convenção pt-BR).
- *   - "10000"      → 1000000 centavos (R$ 10.000,00)
- *   - "10.000,50"  → 1000050 centavos
- *   - "1234,5"     → 123450 centavos
- *   - ""           → null
- *
- * @returns centavos inteiros, ou null se vazio/ inválido.
+ * "10000"      → 1000000 centavos (R$ 10.000,00)
+ * "10.000,50"  → 1000050 centavos
  */
 export function parseBRLToCents(masked: string): number | null {
-  if (masked === undefined || masked === null) return null;
-  const trimmed = masked.trim();
-  if (trimmed === '') return null;
-
-  // Mantém apenas dígitos, vírgula e ponto.
-  let s = trimmed.replace(/[^\d,.]/g, '');
-  if (s === '') return null;
-
-  // pt-BR: ponto = milhar (removido), vírgula = decimal (→ ponto).
-  s = s.replace(/\./g, '').replace(',', '.');
-
-  const reais = Number.parseFloat(s);
-  if (Number.isNaN(reais)) return null;
-
+  const reais = parseBRLInput(masked);
+  if (reais === null) return null;
   return Math.round(reais * 100);
 }
 
@@ -73,7 +106,7 @@ export function reaisToCents(reais: number): number {
 
 /**
  * Representação "editável" (sem R$ nem separador de milhar) de um valor em
- * centavos — usada enquanto o campo está em foco.
+ * centavos — usada enquanto o campo está em foco (legado F13-S01).
  * 1000000 → "10000"  |  1000050 → "10000,50"
  */
 export function centsToEditable(cents: number): string {
