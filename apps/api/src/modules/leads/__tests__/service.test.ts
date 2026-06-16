@@ -68,6 +68,8 @@ const mockUpdateLead = vi.fn();
 const mockSoftDeleteLead = vi.fn();
 const mockRestoreLead = vi.fn();
 const mockIsInternalEmail = vi.fn();
+// F13-S03 / F18-S01: enriquecimento CRM com cidade — controlável por teste.
+const mockFindCityNamesByIds = vi.fn();
 
 vi.mock('../repository.js', () => ({
   findLeads: (...args: unknown[]) => mockFindLeads(...args),
@@ -79,8 +81,8 @@ vi.mock('../repository.js', () => ({
   softDeleteLead: (...args: unknown[]) => mockSoftDeleteLead(...args),
   restoreLead: (...args: unknown[]) => mockRestoreLead(...args),
   isInternalEmail: (...args: unknown[]) => mockIsInternalEmail(...args),
-  // F13-S03/S07: enriquecimento CRM — mocks retornam vazio (não afetam asserts existentes).
-  findCityNamesByIds: () => Promise.resolve(new Map()),
+  // F13-S03/S07: enriquecimento CRM — mock vi.fn() controlável por teste (F18-S01).
+  findCityNamesByIds: (...args: unknown[]) => mockFindCityNamesByIds(...args),
   findCurrentStagesByLeadIds: () => Promise.resolve(new Map()),
   // F17-S08: customer_id — retorna mapa vazio (nenhum lead convertido nos fixtures de teste).
   findCustomerIdsByLeadIds: () => Promise.resolve(new Map()),
@@ -229,6 +231,8 @@ beforeEach(() => {
   mockAuditLog.mockResolvedValue('mock-audit-id');
   // Default: email não é interno — a maioria dos testes não testa esse caminho.
   mockIsInternalEmail.mockResolvedValue(false);
+  // Default: mapa vazio de nomes de cidade — testes de city_name sobrescrevem.
+  mockFindCityNamesByIds.mockResolvedValue(new Map());
   // Stage inicial padrão para testes — createLead em sucesso cria card.
   mockFindInitialStage.mockResolvedValue({
     id: 'stage-pre-atendimento',
@@ -813,6 +817,84 @@ describe('listLeads com search — regressão F8-S16', () => {
     const query = callArgs[3] as Record<string, unknown>;
     expect(query).not.toHaveProperty('cpf_hash');
     expect(query).not.toHaveProperty('cpfHash');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite F18-S01: city_name em LeadResponse e LeadListResponse
+//
+// Valida que listLeads e getLeadById enriquecem o response com city_name via
+// findCityNamesByIds em batch (sem N+1). O mock padrão retorna Map vazio;
+// estes testes sobrescrevem para validar o caminho com cidade configurada.
+// ---------------------------------------------------------------------------
+
+describe('F18-S01 — city_name em LeadResponse', () => {
+  const CITY_NAME = 'Porto Velho';
+
+  it('getLeadById retorna city_name quando cidade existe no mapa', async () => {
+    const lead = makeLead({ cityId: CITY_A });
+    mockFindLeadById.mockResolvedValueOnce(lead);
+    // Sobrescreve para retornar o nome da cidade neste teste específico
+    mockFindCityNamesByIds.mockResolvedValueOnce(new Map([[CITY_A, CITY_NAME]]));
+
+    const { getLeadById } = await import('../service.js');
+    const result = await getLeadById(
+      mockDb as unknown as Parameters<typeof getLeadById>[0],
+      ACTOR,
+      LEAD_ID,
+    );
+
+    expect(result.city_name).toBe(CITY_NAME);
+    expect(result.city_id).toBe(CITY_A);
+  });
+
+  it('getLeadById retorna city_name null quando lead não tem cityId', async () => {
+    const lead = makeLead({ cityId: null });
+    mockFindLeadById.mockResolvedValueOnce(lead);
+    // findCityNamesByIds não é chamado quando cityId é null — default mock suficiente
+
+    const { getLeadById } = await import('../service.js');
+    const result = await getLeadById(
+      mockDb as unknown as Parameters<typeof getLeadById>[0],
+      ACTOR,
+      LEAD_ID,
+    );
+
+    expect(result.city_name).toBeNull();
+    expect(result.city_id).toBeNull();
+  });
+
+  it('listLeads retorna city_name em cada item quando cidade existe no mapa', async () => {
+    const lead = makeLead({ cityId: CITY_A });
+    mockFindLeads.mockResolvedValueOnce({ data: [lead], total: 1 });
+    // Sobrescreve para retornar o nome da cidade neste teste específico
+    mockFindCityNamesByIds.mockResolvedValueOnce(new Map([[CITY_A, CITY_NAME]]));
+
+    const { listLeads } = await import('../service.js');
+    const result = await listLeads(
+      mockDb as unknown as Parameters<typeof listLeads>[0],
+      ACTOR_ADMIN,
+      { page: 1, limit: 20 },
+    );
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.city_name).toBe(CITY_NAME);
+  });
+
+  it('listLeads retorna city_name null para lead sem cityId', async () => {
+    const lead = makeLead({ cityId: null });
+    mockFindLeads.mockResolvedValueOnce({ data: [lead], total: 1 });
+    // cityId null → service não chama findCityNamesByIds; city_name deve ser null
+
+    const { listLeads } = await import('../service.js');
+    const result = await listLeads(
+      mockDb as unknown as Parameters<typeof listLeads>[0],
+      ACTOR_ADMIN,
+      { page: 1, limit: 20 },
+    );
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.city_name).toBeNull();
   });
 });
 

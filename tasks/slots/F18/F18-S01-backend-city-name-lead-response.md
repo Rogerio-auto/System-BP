@@ -3,12 +3,12 @@ id: F18-S01
 title: Backend — city_name em LeadResponse (Onda 1 item 1)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#a1--cidade-do-lead-visível-no-crm-e-no-kanban-item-1
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-16T05:06:41Z
+completed_at: 2026-06-16T05:12:00Z
 pr_url: null
 depends_on: []
 blocks: [F18-S02]
@@ -17,7 +17,6 @@ source_docs:
   - docs/planejamento-2026-06-evolucao.md
 docs_required: false
 ---
-
 # F18-S01 — Backend: city_name em LeadResponse
 
 ## Objetivo
