@@ -183,7 +183,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S12 | API conversas (read) — list, get, messages (cursor), window state                                   | ✅ done      | high       | F16-S03, F16-S07                   |
 | F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ✅ done      | high       | F16-S07, F16-S10, F16-S12          |
 | F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ✅ done      | medium     | F16-S01, F16-S03, F16-S07          |
-| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | 🟢 available | high       | F16-S03, F16-S12, F16-S14          |
+| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | 🟣 review    | high       | F16-S03, F16-S12, F16-S14          |
 | F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | 🟢 available | high       | F16-S15                            |
 | F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | 🟢 available | high       | F16-S15, F16-S13                   |
 

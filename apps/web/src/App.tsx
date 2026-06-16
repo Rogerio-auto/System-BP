@@ -5,6 +5,7 @@
 //   /login          → público
 //   /               → protegido (AuthGuard > AppLayout > DashboardPage)
 //   /tarefas        → protegido (F15-S10: painel minhas tarefas)
+//   /conversas      → protegido (F16-S15: inbox live chat — UI em S16/S17)
 //   /leads etc.     → protegido (placeholder)
 //   *               → redireciona /login
 //
@@ -209,6 +210,8 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/admin/templates" element={<TemplatesListPage />} />
           <Route path="/admin/templates/new" element={<TemplateFormPage />} />
           <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
+          {/* F16-S15: Inbox live chat — SocketProvider + camada de dados (UI vem em S16/S17) */}
+          <Route path="/conversas" element={<PlaceholderPage title="Conversas" />} />
           {/* F15-S10: Painel de tarefas */}
           <Route path="/tarefas" element={<TasksPage />} />
           {/* F10-S02: Central de Ajuda */}

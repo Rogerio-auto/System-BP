@@ -13,7 +13,7 @@
 //   - Loading: skeleton full-page. Erro: card retry.
 // =============================================================================
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { Link, useParams } from 'react-router-dom';
 
@@ -23,10 +23,11 @@ import { useToast } from '../../components/ui/Toast';
 import { ProductDrawer } from '../../features/admin/products/ProductDrawer';
 import { PublishRuleDrawer } from '../../features/admin/products/PublishRuleDrawer';
 import { RuleTimeline } from '../../features/admin/products/RuleTimeline';
-import { useProduct } from '../../hooks/admin/useProducts';
+import { PRODUCTS_QUERY_KEY, useProduct } from '../../hooks/admin/useProducts';
 import { useCitiesList } from '../../hooks/useCitiesList';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { activateRuleVersion } from '../../lib/api/credit-products';
+import { useAuthStore } from '../../lib/auth-store';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -232,18 +233,22 @@ export function ProductDetailPage(): React.JSX.Element {
   const [editDrawerOpen, setEditDrawerOpen] = React.useState(false);
   const [publishDrawerOpen, setPublishDrawerOpen] = React.useState(false);
 
+  const queryClient = useQueryClient();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canWrite = hasPermission('products:write');
+
   const { data: product, isLoading, isError, refetch } = useProduct(id);
   const { cities } = useCitiesList();
   const { enabled: simulationEnabled } = useFeatureFlag('credit_simulation.enabled');
   const { toast } = useToast();
 
-  // Ativar/usar uma versão de regra (F13-S06) — confirmação + clone.
+  // Ativar/usar uma versão de regra — confirmação + clone. Gate: products:write + flag on.
   const [confirmVersion, setConfirmVersion] = React.useState<number | null>(null);
   const activateMutation = useMutation({
     mutationFn: (version: number) => activateRuleVersion(id ?? '', version),
     onSuccess: () => {
       setConfirmVersion(null);
-      void refetch();
+      void queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY.all });
       toast('Versão ativada com sucesso!', 'success');
     },
     onError: (err: Error) => {
@@ -452,9 +457,9 @@ export function ProductDetailPage(): React.JSX.Element {
                 <RuleTimeline
                   rules={product.rules}
                   citiesMap={citiesMap}
-                  onActivateVersion={(v) => setConfirmVersion(v)}
+                  onActivateVersion={canWrite ? (v) => setConfirmVersion(v) : undefined}
                   activatingVersion={activateMutation.isPending ? confirmVersion : null}
-                  canActivate={simulationEnabled}
+                  canActivate={simulationEnabled && canWrite}
                 />
               </div>
             </div>
