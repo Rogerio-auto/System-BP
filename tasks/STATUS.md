@@ -15,9 +15,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 17    | 13  | 0   | 0   | 0   | 1   | 3   |
-| F17  | 14    | 2   | 4   | 0   | 0   | 0   | 8   |
-| F18  | 7     | 5   | 2   | 0   | 0   | 0   | 0   |
+| F16  | 17    | 14  | 0   | 0   | 0   | 0   | 3   |
+| F17  | 14    | 1   | 4   | 0   | 0   | 1   | 8   |
+| F18  | 12    | 7   | 5   | 0   | 0   | 0   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -175,7 +175,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | 🟢 available | high       | F16-S02, F16-S03                   |
 | F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | 🟢 available | high       | F16-S04                            |
 | F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | 🟢 available | high       | F16-S02, F16-S03, F16-S04          |
-| F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | 🟣 review    | high       | F16-S02, F16-S03                   |
+| F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | 🟢 available | high       | F16-S02, F16-S03                   |
 | F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | 🟢 available | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
 | F16-S09 | Worker media — download via adapter, dedup SHA-256, upload R2, media_ready                          | 🟢 available | medium     | F16-S01, F16-S05, F16-S07          |
 | F16-S10 | Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status                  | 🟢 available | high       | F16-S01, F16-S05, F16-S07          |
@@ -201,22 +201,27 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ✅ done      | medium     | F17-S02, F17-S07          |
 | F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked   | low        | F17-S01, F17-S03, F15-S05 |
 | F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked   | low        | F17-S09, F15-S10          |
-| F17-S11 | Frontend — modal de criação de contrato                                       | 🟢 available | high       | F17-S02, F17-S03, F17-S06 |
+| F17-S11 | Frontend — modal de criação de contrato                                       | 🟣 review    | high       | F17-S02, F17-S03, F17-S06 |
 | F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | 🟢 available | high       | F17-S01, F17-S02          |
 | F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ⏸️ blocked   | high       | F17-S12, F17-S03          |
 | F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | ⏸️ blocked   | medium     | F17-S12, F17-S13, F17-S06 |
 
 ## Fase 18 —
 
-| ID      | Título                                                                          | Status       | Prioridade | Depende de |
-| ------- | ------------------------------------------------------------------------------- | ------------ | ---------- | ---------- |
-| F18-S01 | Backend — city_name em LeadResponse (Onda 1 item 1)                             | 🟢 available | high       | —          |
-| F18-S02 | Frontend — cidade visível no CRM e no Kanban (Onda 1 item 1)                    | ⏸️ blocked   | high       | F18-S01    |
-| F18-S03 | Frontend — CurrencyInput canônico + fix bug de moeda (Onda 1 item 3)            | 🟢 available | high       | —          |
-| F18-S04 | Backend — endpoint activateRuleVersion (Onda 1 item 6)                          | 🟢 available | medium     | —          |
-| F18-S05 | Frontend — "Usar esta versão" na RuleTimeline (Onda 1 item 6)                   | ⏸️ blocked   | medium     | F18-S04    |
-| F18-S06 | Frontend — follow-up por estágio e outcome (Onda 1 item 8)                      | 🟢 available | medium     | —          |
-| F18-S07 | Frontend — avgDaysInStage no dashboard + estágio Kanban no CRM (Onda 1 item 11) | 🟢 available | medium     | —          |
+| ID      | Título                                                                                        | Status       | Prioridade | Depende de |
+| ------- | --------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------- |
+| F18-S01 | Backend — city_name em LeadResponse (Onda 1 item 1)                                           | 🟢 available | high       | —          |
+| F18-S02 | Frontend — cidade visível no CRM e no Kanban (Onda 1 item 1)                                  | ⏸️ blocked   | high       | F18-S01    |
+| F18-S03 | Frontend — CurrencyInput canônico + fix bug de moeda (Onda 1 item 3)                          | 🟢 available | high       | —          |
+| F18-S04 | Backend — endpoint activateRuleVersion (Onda 1 item 6)                                        | 🟢 available | medium     | —          |
+| F18-S05 | Frontend — "Usar esta versão" na RuleTimeline (Onda 1 item 6)                                 | ⏸️ blocked   | medium     | F18-S04    |
+| F18-S06 | Frontend — follow-up por estágio e outcome (Onda 1 item 8)                                    | 🟢 available | medium     | —          |
+| F18-S07 | Frontend — avgDaysInStage no dashboard + estágio Kanban no CRM (Onda 1 item 11)               | 🟢 available | medium     | —          |
+| F18-S08 | Schema — lead PJ + personal_email usuários (Onda 2 item 4)                                    | 🟢 available | high       | —          |
+| F18-S09 | Backend — lead PJ validações + email blocklist (Onda 2 item 4)                                | ⏸️ blocked   | high       | F18-S08    |
+| F18-S10 | Frontend — NewLeadModal campos PJ + email obrigatório + personal_email agente (Onda 2 item 4) | ⏸️ blocked   | high       | F18-S09    |
+| F18-S11 | Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)                            | 🟢 available | medium     | —          |
+| F18-S12 | Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)                             | ⏸️ blocked   | medium     | F18-S11    |
 
 ## Fase 2 — Crédito e simulação
 
