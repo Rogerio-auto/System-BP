@@ -139,6 +139,19 @@ export const users = pgTable(
     uqOrgEmailActive: uniqueIndex('uq_users_org_email_active')
       .on(table.organizationId, table.email)
       .where(sql`${table.deletedAt} IS NULL`),
+
+    /**
+     * Unique parcial (org, personal_email) para registros não deletados.
+     * Evita dois agentes da mesma org com o mesmo email pessoal — tornaria
+     * a blocklist de email de lead ambígua e dificultaria eliminação LGPD por titular.
+     *
+     * NOTA: índice real criado na migration SQL (0063_lead_pj_personal_email.sql
+     * + 0055_user_personal_email.sql) com CONCURRENTLY e WHERE parcial.
+     * Esta declaração reflete a constraint no type system do Drizzle sem gerar DDL.
+     */
+    uqOrgPersonalEmailActive: uniqueIndex('uq_users_org_personal_email_active')
+      .on(table.organizationId, table.personalEmail)
+      .where(sql`${table.deletedAt} IS NULL AND ${table.personalEmail} IS NOT NULL`),
   }),
 );
 
