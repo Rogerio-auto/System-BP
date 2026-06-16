@@ -17,7 +17,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
 | F16  | 17    | 2   | 0   | 0   | 0   | 0   | 15  |
 | F17  | 14    | 0   | 2   | 0   | 0   | 0   | 12  |
-| F18  | 12    | 2   | 1   | 0   | 0   | 0   | 9   |
+| F18  | 12    | 1   | 1   | 0   | 0   | 1   | 9   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -221,7 +221,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F18-S09 | Backend — lead PJ validações + email blocklist (Onda 2 item 4)                                | 🟢 available | high       | F18-S08    |
 | F18-S10 | Frontend — NewLeadModal campos PJ + email obrigatório + personal_email agente (Onda 2 item 4) | ⏸️ blocked   | high       | F18-S09    |
 | F18-S11 | Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)                            | ✅ done      | medium     | —          |
-| F18-S12 | Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)                             | 🟢 available | medium     | F18-S11    |
+| F18-S12 | Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)                             | 🟣 review    | medium     | F18-S11    |
 
 ## Fase 2 — Crédito e simulação
 
