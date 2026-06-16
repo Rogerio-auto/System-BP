@@ -3,11 +3,11 @@ id: F18-S11
 title: Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#épico-b--disparo-de-simulação-por-whatsapp-item-2
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-16T13:10:16Z
 completed_at: null
 pr_url: null
 depends_on: []
