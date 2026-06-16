@@ -3,11 +3,11 @@ id: F18-S09
 title: Backend — lead PJ validações + email blocklist (Onda 2 item 4)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#a2--lead-pj-email-obrigatório-no-manual-unicidade-e-bloqueio-do-email-do-agente-item-4
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-16T13:08:10Z
 completed_at: null
 pr_url: null
 depends_on: [F18-S08]
