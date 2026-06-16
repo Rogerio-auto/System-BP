@@ -36,8 +36,7 @@ interface TemplatesResponse {
 // ---------------------------------------------------------------------------
 
 export const templateKeys = {
-  byConversation: (conversationId: string) =>
-    ['conversation-templates', conversationId] as const,
+  byConversation: (conversationId: string) => ['conversation-templates', conversationId] as const,
 } as const;
 
 // ---------------------------------------------------------------------------

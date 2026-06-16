@@ -20,6 +20,7 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
+
 # F16-S19 — Composer: seletor de template
 
 ## Objetivo

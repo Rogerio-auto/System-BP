@@ -31,7 +31,6 @@ import { messages } from '../../db/schema/messages.js';
 import { whatsappTemplates } from '../../db/schema/whatsappTemplates.js';
 import { decryptPii } from '../../lib/crypto/pii.js';
 import type { UserScopeCtx } from '../../shared/scope.js';
-import { NotFoundError } from '../../shared/errors.js';
 import type { ComposerState } from '../livechat/schemas.js';
 import {
   findChannel,

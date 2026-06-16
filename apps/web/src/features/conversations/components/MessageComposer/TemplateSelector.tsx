@@ -64,7 +64,10 @@ function TemplateSkeleton(): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2 px-3 py-2" aria-hidden="true">
       {[1, 2, 3].map((n) => (
-        <div key={n} className="rounded-sm border border-border bg-surface-hover animate-pulse h-16" />
+        <div
+          key={n}
+          className="rounded-sm border border-border bg-surface-hover animate-pulse h-16"
+        />
       ))}
     </div>
   );
@@ -245,9 +248,7 @@ export function TemplateSelector({
               <circle cx="10" cy="10" r="8" />
               <path d="M10 6v5M10 13.5v.5" strokeLinecap="round" />
             </svg>
-            <p className="font-sans text-xs text-ink-3">
-              Não foi possível carregar os templates.
-            </p>
+            <p className="font-sans text-xs text-ink-3">Não foi possível carregar os templates.</p>
           </div>
         )}
 
@@ -305,17 +306,12 @@ export function TemplateSelector({
             )}
 
             {placeholders.map((pos) => {
-              const label =
-                selectedTemplate.variables[Number(pos) - 1] ?? `Variável ${pos}`;
+              const label = selectedTemplate.variables[Number(pos) - 1] ?? `Variável ${pos}`;
               const inputId = `tmpl-var-${pos}`;
               return (
                 <div key={pos} className="flex flex-col gap-1">
-                  <label
-                    htmlFor={inputId}
-                    className="font-sans text-xs font-medium text-ink-2"
-                  >
-                    {label}{' '}
-                    <span className="font-mono text-ink-4 font-normal">{`{{${pos}}}`}</span>
+                  <label htmlFor={inputId} className="font-sans text-xs font-medium text-ink-2">
+                    {label} <span className="font-mono text-ink-4 font-normal">{`{{${pos}}}`}</span>
                   </label>
                   <input
                     id={inputId}
