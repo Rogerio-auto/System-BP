@@ -47,7 +47,7 @@ import {
 import { passwordVerify } from '../../shared/password.js';
 import { listAvailableRecoveryCodes, markRecoveryCodeUsedAtomic } from '../account/repository.js';
 
-import { queryUserPermissions } from './middlewares/user-context.repository.js';
+import { queryUserPermissions, queryUserRoleKeys } from './middlewares/user-context.repository.js';
 import {
   createSession,
   createTotpChallenge,
@@ -265,9 +265,13 @@ async function _issueSession(
 
   await updateUserLastLogin(db, user.id);
 
-  // Carrega permissões RBAC consolidadas para o frontend popular o store de auth
-  // e fazer gating de UI sem precisar de um endpoint /me dedicado.
-  const userPermissions = await queryUserPermissions(db, user.id);
+  // Carrega permissões RBAC + role keys consolidados para o frontend.
+  // Role keys (ex: 'admin', 'gestor_geral') são mesclados nas permissions para
+  // que o frontend possa fazer gating de UI baseado em role sem endpoint /me dedicado.
+  const [userPermissions, userRoleKeys] = await Promise.all([
+    queryUserPermissions(db, user.id),
+    queryUserRoleKeys(db, user.id),
+  ]);
 
   log.info(
     {
@@ -292,7 +296,7 @@ async function _issueSession(
       email: user.email,
       fullName: user.fullName,
       organizationId: user.organizationId,
-      permissions: userPermissions,
+      permissions: [...userPermissions, ...userRoleKeys],
     },
   };
 }
@@ -513,9 +517,12 @@ export async function refresh(
     expiresAt: newExpiresAt,
   });
 
-  // Ressincroniza permissões RBAC — mudanças de role aplicadas após o login
-  // original passam a valer no próximo refresh (sem exigir logout/login do user).
-  const userPermissions = await queryUserPermissions(db, user.id);
+  // Ressincroniza permissões RBAC + role keys no refresh — mudanças de role
+  // aplicadas após o login original passam a valer sem exigir logout/login.
+  const [userPermissions, userRoleKeys] = await Promise.all([
+    queryUserPermissions(db, user.id),
+    queryUserRoleKeys(db, user.id),
+  ]);
 
   log.info(
     {
@@ -539,7 +546,7 @@ export async function refresh(
       email: user.email,
       fullName: user.fullName,
       organizationId: user.organizationId,
-      permissions: userPermissions,
+      permissions: [...userPermissions, ...userRoleKeys],
     },
   };
 }

@@ -61,7 +61,7 @@ export async function queryUserPermissions(db: Database, userId: string): Promis
   return rows.map((r) => r.key);
 }
 
-async function queryUserRoleKeys(db: Database, userId: string): Promise<string[]> {
+export async function queryUserRoleKeys(db: Database, userId: string): Promise<string[]> {
   const rows = await db
     .select({ key: roles.key })
     .from(userRoles)
@@ -118,7 +118,9 @@ export async function loadUserAuthContext(
 
   return {
     organizationId: userRow.organizationId,
-    permissions: userPermissions,
+    // Role keys mesclados nas permissions para que o frontend e o feature-flag
+    // controller possam verificar role (ex: 'admin', 'gestor_geral') via hasPermission.
+    permissions: [...userPermissions, ...roleKeys],
     cityScopeIds: hasGlobalScope ? null : cityScopeIds,
   };
 }
