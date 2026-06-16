@@ -59,11 +59,11 @@ Item 5 / Épico E.5. A oportunidade chega como **tarefa** `winback` (painel de F
 - [ ] DS aplicado; doc mdx + `<FeedbackWidget />`
 - [ ] `pnpm --filter @elemento/web typecheck && lint && test` verdes
 
-## Comandos de validação
+## Validação
 
 ```powershell
 pnpm --filter @elemento/web typecheck
-pnpm --filter @elemento/web test -- contracts
+pnpm --filter @elemento/web lint
 ```
 
 ## Notas para o agente
