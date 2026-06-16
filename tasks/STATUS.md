@@ -16,8 +16,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
 | F16  | 17    | 0   | 0   | 0   | 0   | 0   | 17  |
-| F17  | 14    | 0   | 2   | 0   | 0   | 0   | 12  |
+| F17  | 14    | 1   | 1   | 0   | 0   | 0   | 12  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
+| F19  | 6     | 1   | 5   | 0   | 0   | 0   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -189,22 +190,22 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 17 —
 
-| ID      | Título                                                                        | Status     | Prioridade | Depende de                |
-| ------- | ----------------------------------------------------------------------------- | ---------- | ---------- | ------------------------- |
-| F17-S01 | Schema — entidade `contracts` + migração `contract_reference` → `contract_id` | ✅ done    | high       | —                         |
-| F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | ✅ done    | high       | F17-S01                   |
-| F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | ✅ done    | high       | F17-S01, F17-S02          |
-| F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | ✅ done    | medium     | F17-S01, F17-S02, F17-S03 |
-| F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | ✅ done    | high       | F17-S02, F17-S03          |
-| F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ✅ done    | medium     | F17-S04, F17-S05, F5-S16  |
-| F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | ✅ done    | medium     | F17-S01, F17-S02, F17-S03 |
-| F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ✅ done    | medium     | F17-S02, F17-S07          |
-| F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked | low        | F17-S01, F17-S03, F15-S05 |
-| F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked | low        | F17-S09, F15-S10          |
-| F17-S11 | Frontend — modal de criação de contrato                                       | ✅ done    | high       | F17-S02, F17-S03, F17-S06 |
-| F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | ✅ done    | high       | F17-S01, F17-S02          |
-| F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ✅ done    | high       | F17-S12, F17-S03          |
-| F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | ✅ done    | medium     | F17-S12, F17-S13, F17-S06 |
+| ID      | Título                                                                        | Status       | Prioridade | Depende de                |
+| ------- | ----------------------------------------------------------------------------- | ------------ | ---------- | ------------------------- |
+| F17-S01 | Schema — entidade `contracts` + migração `contract_reference` → `contract_id` | ✅ done      | high       | —                         |
+| F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | ✅ done      | high       | F17-S01                   |
+| F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | ✅ done      | high       | F17-S01, F17-S02          |
+| F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | ✅ done      | medium     | F17-S01, F17-S02, F17-S03 |
+| F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | ✅ done      | high       | F17-S02, F17-S03          |
+| F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ✅ done      | medium     | F17-S04, F17-S05, F5-S16  |
+| F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | ✅ done      | medium     | F17-S01, F17-S02, F17-S03 |
+| F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ✅ done      | medium     | F17-S02, F17-S07          |
+| F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | 🟢 available | low        | F17-S01, F17-S03, F15-S05 |
+| F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked   | low        | F17-S09, F15-S10          |
+| F17-S11 | Frontend — modal de criação de contrato                                       | ✅ done      | high       | F17-S02, F17-S03, F17-S06 |
+| F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | ✅ done      | high       | F17-S01, F17-S02          |
+| F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ✅ done      | high       | F17-S12, F17-S03          |
+| F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | ✅ done      | medium     | F17-S12, F17-S13, F17-S06 |
 
 ## Fase 18 —
 
@@ -222,6 +223,17 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F18-S10 | Frontend — NewLeadModal campos PJ + email obrigatório + personal_email agente (Onda 2 item 4) | ✅ done | high       | F18-S09    |
 | F18-S11 | Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)                            | ✅ done | medium     | —          |
 | F18-S12 | Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)                             | ✅ done | medium     | F18-S11    |
+
+## Fase 19 —
+
+| ID      | Título                                                                 | Status       | Prioridade | Depende de       |
+| ------- | ---------------------------------------------------------------------- | ------------ | ---------- | ---------------- |
+| F19-S01 | Schema — law_firms + customer_law_firm_referrals (migration 0066)      | 🟢 available | high       | —                |
+| F19-S02 | Backend — CRUD law_firms + suggest por cidade                          | ⏸️ blocked   | high       | F19-S01          |
+| F19-S03 | Backend — ação "encaminhar para advocacia" + /internal/law-firm-status | ⏸️ blocked   | high       | F19-S01, F19-S02 |
+| F19-S04 | Frontend — admin cadastro de escritórios de advocacia                  | ⏸️ blocked   | high       | F19-S02          |
+| F19-S05 | Frontend — botão "Encaminhar para advocacia" na ficha do inadimplente  | ⏸️ blocked   | high       | F19-S03, F19-S04 |
+| F19-S06 | LangGraph — nó lawyer_handoff (envio autônomo do contato do advogado)  | ⏸️ blocked   | medium     | F19-S03          |
 
 ## Fase 2 — Crédito e simulação
 
