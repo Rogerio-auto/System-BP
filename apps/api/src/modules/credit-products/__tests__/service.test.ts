@@ -1,5 +1,5 @@
 // =============================================================================
-// credit-products/__tests__/service.test.ts — Testes unitários do service (F2-S03).
+// credit-products/__tests__/service.test.ts — Testes unitários do service (F2-S03, F18-S04).
 //
 // Cobre:
 //   1.  listProducts — delega ao repository com organizationId correto
@@ -15,6 +15,11 @@
 //   11. publishRule — regra anterior fica is_active=false + effective_to preenchido
 //   12. publishRule — primeira publicação tem version=1 (produto sem regras)
 //   13. IMUTABILIDADE: não existe função editRule no service (impossível editar regra)
+//   14. activateRuleVersion — cria clone e desativa anterior (F18-S04)
+//   15. activateRuleVersion — idempotência: versão já ativa não gera clone
+//   16. activateRuleVersion — lança NotFoundError para produto inexistente
+//   17. activateRuleVersion — lança NotFoundError para versão inexistente
+//   18. activateRuleVersion — emite credit.rule_activated sem PII
 // =============================================================================
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,6 +34,7 @@ const mockInsertProduct = vi.fn();
 const mockUpdateProduct = vi.fn();
 const mockSoftDeleteProduct = vi.fn();
 const mockFindActiveRule = vi.fn();
+const mockFindRuleByProductAndVersion = vi.fn();
 const mockGetMaxRuleVersion = vi.fn();
 const mockFindRulesByProduct = vi.fn();
 const mockInsertRule = vi.fn();
@@ -43,6 +49,7 @@ vi.mock('../repository.js', () => ({
   updateProduct: (...args: unknown[]) => mockUpdateProduct(...args),
   softDeleteProduct: (...args: unknown[]) => mockSoftDeleteProduct(...args),
   findActiveRule: (...args: unknown[]) => mockFindActiveRule(...args),
+  findRuleByProductAndVersion: (...args: unknown[]) => mockFindRuleByProductAndVersion(...args),
   getMaxRuleVersion: (...args: unknown[]) => mockGetMaxRuleVersion(...args),
   findRulesByProduct: (...args: unknown[]) => mockFindRulesByProduct(...args),
   insertRule: (...args: unknown[]) => mockInsertRule(...args),
@@ -460,6 +467,139 @@ describe('publishRule — atomicidade', () => {
         PUBLISH_RULE_BODY,
       ),
     ).rejects.toThrow(NotFoundError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// activateRuleVersion — clone D6 (F18-S04)
+// ---------------------------------------------------------------------------
+
+describe('activateRuleVersion', () => {
+  it('cria nova versão clonando a selecionada e desativa a anterior', async () => {
+    const sourceRule = makeRule({ version: 2, id: FIXTURE_RULE_ID, isActive: false });
+    const previousActive = makeRule({ version: 3, id: 'ffffffff-0000-0000-0000-000000000001' });
+    const cloned = makeRule({ version: 4, id: FIXTURE_RULE_ID_V2 });
+
+    mockFindProductById.mockResolvedValue(makeProduct());
+    mockFindRuleByProductAndVersion.mockResolvedValue(sourceRule);
+    mockFindActiveRule.mockResolvedValue(previousActive);
+    mockGetMaxRuleVersion.mockResolvedValue(3);
+    mockInsertRule.mockResolvedValue(cloned);
+
+    const { activateRuleVersion } = await import('../service.js');
+    const result = await activateRuleVersion(
+      mockDb as unknown as Parameters<typeof activateRuleVersion>[0],
+      ACTOR,
+      FIXTURE_PRODUCT_ID,
+      2,
+    );
+
+    expect(result.version).toBe(4);
+    expect(result.is_active).toBe(true);
+    // Versão anterior desativada
+    expect(mockDeactivateRule).toHaveBeenCalledWith(
+      expect.anything(),
+      'ffffffff-0000-0000-0000-000000000001',
+    );
+    // Evento correto emitido
+    expect(mockEmit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventName: 'credit.rule_activated' }),
+    );
+    // Audit log gerado
+    expect(mockAuditLog).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ action: 'credit_product_rule.activate_version' }),
+    );
+  });
+
+  it('IDEMPOTÊNCIA: versão já ativa retorna sem criar clone nem emitir evento', async () => {
+    const activeRule = makeRule({ version: 3, id: FIXTURE_RULE_ID, isActive: true });
+
+    mockFindProductById.mockResolvedValue(makeProduct());
+    mockFindRuleByProductAndVersion.mockResolvedValue(activeRule);
+    mockFindActiveRule.mockResolvedValue(activeRule); // mesma versão já é ativa
+
+    const { activateRuleVersion } = await import('../service.js');
+    const result = await activateRuleVersion(
+      mockDb as unknown as Parameters<typeof activateRuleVersion>[0],
+      ACTOR,
+      FIXTURE_PRODUCT_ID,
+      3,
+    );
+
+    expect(result.version).toBe(3);
+    // Não deve inserir nova linha
+    expect(mockInsertRule).not.toHaveBeenCalled();
+    // Não deve emitir evento (no-op)
+    expect(mockEmit).not.toHaveBeenCalled();
+    // Não deve gerar audit log
+    expect(mockAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('lança NotFoundError quando produto não existe', async () => {
+    mockFindProductById.mockResolvedValue(null);
+
+    const { activateRuleVersion } = await import('../service.js');
+    const { NotFoundError } = await import('../../../shared/errors.js');
+
+    await expect(
+      activateRuleVersion(
+        mockDb as unknown as Parameters<typeof activateRuleVersion>[0],
+        ACTOR,
+        FIXTURE_PRODUCT_ID,
+        1,
+      ),
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it('lança NotFoundError quando versão de regra não existe', async () => {
+    mockFindProductById.mockResolvedValue(makeProduct());
+    mockFindRuleByProductAndVersion.mockResolvedValue(null);
+
+    const { activateRuleVersion } = await import('../service.js');
+    const { NotFoundError } = await import('../../../shared/errors.js');
+
+    await expect(
+      activateRuleVersion(
+        mockDb as unknown as Parameters<typeof activateRuleVersion>[0],
+        ACTOR,
+        FIXTURE_PRODUCT_ID,
+        999,
+      ),
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  it('evento credit.rule_activated carrega IDs corretos (sem PII)', async () => {
+    const sourceRule = makeRule({ version: 1, id: FIXTURE_RULE_ID, isActive: false });
+    const cloned = makeRule({ version: 2, id: FIXTURE_RULE_ID_V2 });
+
+    mockFindProductById.mockResolvedValue(makeProduct());
+    mockFindRuleByProductAndVersion.mockResolvedValue(sourceRule);
+    mockFindActiveRule.mockResolvedValue(null);
+    mockGetMaxRuleVersion.mockResolvedValue(1);
+    mockInsertRule.mockResolvedValue(cloned);
+
+    const { activateRuleVersion } = await import('../service.js');
+    await activateRuleVersion(
+      mockDb as unknown as Parameters<typeof activateRuleVersion>[0],
+      ACTOR,
+      FIXTURE_PRODUCT_ID,
+      1,
+    );
+
+    const emitCall = mockEmit.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(emitCall?.['eventName']).toBe('credit.rule_activated');
+
+    const data = emitCall?.['data'] as Record<string, unknown>;
+    expect(data?.['product_id']).toBe(FIXTURE_PRODUCT_ID);
+    expect(data?.['organization_id']).toBe(FIXTURE_ORG_ID);
+    expect(data?.['new_version']).toBe(2);
+    expect(data?.['copied_from_version']).toBe(1);
+    // Sem PII
+    expect(data).not.toHaveProperty('cpf');
+    expect(data).not.toHaveProperty('email');
+    expect(data).not.toHaveProperty('phone');
   });
 });
 

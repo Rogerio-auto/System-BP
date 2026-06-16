@@ -1,5 +1,5 @@
 // =============================================================================
-// credit-products/__tests__/routes.test.ts — Testes de integração (F2-S03).
+// credit-products/__tests__/routes.test.ts — Testes de integração (F2-S03, F18-S04).
 //
 // Estratégia: sobe Fastify com creditProductsRoutes, mocka authenticate/authorize
 // e featureGate para controlar contexto, mocka service para controlar dados.
@@ -23,6 +23,10 @@
 //   16. Sem permissão credit_products:read → 403
 //   17. Sem permissão credit_products:write → 403
 //   18. POST /api/credit-products/:id/rules — PROVA que não existe PATCH /rules/:id
+//   19. POST /api/credit-products/:id/rules/:version/activate → 200 nova versão (F18-S04)
+//   20. POST /api/credit-products/:id/rules/:version/activate → 404 versão inexistente
+//   21. POST /api/credit-products/:id/rules/:version/activate → 403 sem write perm
+//   22. POST /api/credit-products/:id/rules/:version/activate → 400 version não inteiro
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -95,6 +99,7 @@ const mockGetProductById = vi.fn();
 const mockUpdateProductService = vi.fn();
 const mockDeleteProductService = vi.fn();
 const mockPublishRule = vi.fn();
+const mockActivateRuleVersion = vi.fn();
 const mockListRules = vi.fn();
 
 vi.mock('../service.js', async (importOriginal) => {
@@ -107,6 +112,7 @@ vi.mock('../service.js', async (importOriginal) => {
     updateProductService: (...args: unknown[]) => mockUpdateProductService(...args),
     deleteProductService: (...args: unknown[]) => mockDeleteProductService(...args),
     publishRule: (...args: unknown[]) => mockPublishRule(...args),
+    activateRuleVersion: (...args: unknown[]) => mockActivateRuleVersion(...args),
     listRules: (...args: unknown[]) => mockListRules(...args),
   };
 });
@@ -653,6 +659,104 @@ describe('GET /api/credit-products/:id/rules', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/credit-products/${FIXTURE_PRODUCT_ID}/rules`,
+    });
+
+    expect([403, 503]).toContain(res.statusCode);
+    const body = res.json<Record<string, unknown>>();
+    expect(body['error']).toBe('FEATURE_DISABLED');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/credit-products/:id/rules/:version/activate — F18-S04
+// ---------------------------------------------------------------------------
+
+describe('POST /api/credit-products/:id/rules/:version/activate', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+    mockFeatureGateEnabled.mockReturnValue(true);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFeatureGateEnabled.mockReturnValue(true);
+  });
+
+  it('retorna 200 com nova versão clonada ao ativar versão existente', async () => {
+    mockActivateRuleVersion.mockResolvedValue(makeRuleResponse({ version: 3, is_active: true }));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/credit-products/${FIXTURE_PRODUCT_ID}/rules/2/activate`,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<Record<string, unknown>>();
+    expect(body['version']).toBe(3);
+    expect(body['is_active']).toBe(true);
+    expect(mockActivateRuleVersion).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ organizationId: FIXTURE_ORG_ID }),
+      FIXTURE_PRODUCT_ID,
+      2,
+    );
+  });
+
+  it('retorna 404 quando versão não existe', async () => {
+    const { NotFoundError } = await import('../../../shared/errors.js');
+    mockActivateRuleVersion.mockRejectedValue(new NotFoundError('Versão de regra não encontrada'));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/credit-products/${FIXTURE_PRODUCT_ID}/rules/999/activate`,
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json<Record<string, unknown>>()['error']).toBe('NOT_FOUND');
+  });
+
+  it('retorna 400 quando :version não é inteiro positivo', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/credit-products/${FIXTURE_PRODUCT_ID}/rules/0/activate`,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('retorna 400 quando :version é string não numérica', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/credit-products/${FIXTURE_PRODUCT_ID}/rules/abc/activate`,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('retorna 403 quando usuário sem credit_products:write tenta ativar versão', async () => {
+    const readOnlyApp = await buildTestApp(['credit_products:read']);
+
+    const res = await readOnlyApp.inject({
+      method: 'POST',
+      url: `/api/credit-products/${FIXTURE_PRODUCT_ID}/rules/2/activate`,
+    });
+
+    expect(res.statusCode).toBe(403);
+    await readOnlyApp.close();
+  });
+
+  it('retorna erro quando feature flag credit_simulation.enabled está off', async () => {
+    mockFeatureGateEnabled.mockReturnValue(false);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/credit-products/${FIXTURE_PRODUCT_ID}/rules/2/activate`,
     });
 
     expect([403, 503]).toContain(res.statusCode);
