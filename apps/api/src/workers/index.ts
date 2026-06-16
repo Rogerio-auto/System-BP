@@ -53,6 +53,15 @@ export { runCollectionSenderTick } from './collection-sender.js';
 // Gated por spc.enabled + spc.scan.enabled (default=disabled).
 export { runSpcOverdueScanTick } from './spc-overdue-scan.js';
 
+// F17-S09: worker periódico de win-back (3 gatilhos independentes).
+// 1. winback_renovation: contratos com ≤2 parcelas não pagas restantes.
+// 2. winback_lost: leads com status='closed_lost' há ≥30 dias.
+// 3. winback_stagnant: kanban cards sem mudança de stage há ≥45 dias.
+// Cria tarefa winback para role='agente' + emite evento contract.near_end (scan 1).
+// Iniciado como processo separado: pnpm --filter @elemento/api worker:winback
+// Gated por winback.enabled + winback.scan.enabled (default=disabled).
+export { runWinbackScan } from './winback-scan.js';
+
 // F16-S08: consumer RabbitMQ de mensagens inbound (live chat).
 // Consome hm.q.inbound.message → parseia InboundEvent → persiste contato/conversa/mensagem
 // (idempotente) → enfileira mídia (hm.q.inbound.media) → publica socket relay (hm.q.socket.relay).

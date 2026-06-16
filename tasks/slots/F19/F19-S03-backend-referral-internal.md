@@ -3,12 +3,12 @@ id: F19-S03
 title: Backend — ação "encaminhar para advocacia" + /internal/law-firm-status
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-16T15:39:48Z
+completed_at: 2026-06-16T16:07:53Z
 pr_url: null
 depends_on: [F19-S01, F19-S02]
 blocks: [F19-S05, F19-S06]
