@@ -3,12 +3,12 @@ id: F16-S10
 title: Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#3-outbound-flow
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T05:46:17Z
-completed_at: null
+completed_at: 2026-06-16T06:07:39Z
 pr_url: null
 depends_on: [F16-S01, F16-S05, F16-S07]
 blocks: [F16-S13]
