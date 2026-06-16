@@ -3,12 +3,12 @@ id: F16-S13
 title: API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#3-outbound-flow
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-16T05:51:14Z
+completed_at: 2026-06-16T06:25:25Z
 pr_url: null
 depends_on: [F16-S07, F16-S10, F16-S12]
 blocks: [F16-S17]

@@ -49,6 +49,8 @@ export const ContractResponseSchema = z.object({
     .describe('ISO 8601 do momento da assinatura; null enquanto draft'),
   first_due_date: z.string().nullable(),
   last_due_date: z.string().nullable(),
+  /** UUID da análise de crédito que originou o contrato; null para contratos criados manualmente. */
+  analysis_id: z.string().uuid().optional().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -138,6 +140,8 @@ export const ContractCreateBodySchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'Deve ser data no formato YYYY-MM-DD')
       .optional()
       .describe('Data de vencimento da última parcela (YYYY-MM-DD)'),
+    /** UUID da análise de crédito que originou este contrato (preenchido pelo handler de auto-contrato). */
+    analysis_id: z.string().uuid().optional().nullable(),
   })
   .openapi({
     example: {
