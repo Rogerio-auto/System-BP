@@ -3,7 +3,7 @@ id: F19-S02
 title: Backend — CRUD law_firms + suggest por cidade
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: blocked
+status: available
 priority: high
 estimated_size: M
 agent_id: null
