@@ -117,6 +117,32 @@ export async function processMessage(
   const { organizationId, payload: rawPayload } = envelopeResult.data;
 
   // ------------------------------------------------------------------
+  // 2a. Early exit for known-unsupported event types (before strict validation)
+  //     These types are intentionally ignored (future F16-S09+).
+  // ------------------------------------------------------------------
+  const SILENTLY_ACKED_TYPES = new Set([
+    'story_mention',
+    'story_reply',
+    'share',
+    'comment',
+    'postback',
+    'reaction',
+    'referral',
+  ]);
+  const rawPayloadObj =
+    typeof rawPayload === 'object' && rawPayload !== null
+      ? (rawPayload as Record<string, unknown>)
+      : {};
+  const rawEventType = rawPayloadObj.type;
+  if (typeof rawEventType === 'string' && SILENTLY_ACKED_TYPES.has(rawEventType)) {
+    log.info(
+      { organizationId, channelId: rawPayloadObj.channelId, eventType: rawEventType },
+      'livechat-inbound: unsupported event type — ack silently',
+    );
+    return 'ack';
+  }
+
+  // ------------------------------------------------------------------
   // 2. Parse do payload como InboundEvent
   // ------------------------------------------------------------------
   const eventResult = InboundEventSchema.safeParse(rawPayload);
@@ -134,180 +160,186 @@ export async function processMessage(
   // ------------------------------------------------------------------
   // 3. Roteamento por tipo de evento
   // ------------------------------------------------------------------
+  try {
+    if (event.type === 'message') {
+      // ----------------------------------------------------------------
+      // 3a. Busca o canal para obter cityId (necessário para applyCityScope)
+      // ----------------------------------------------------------------
+      const channel = await findChannel(db, channelId, organizationId);
 
-  if (event.type === 'message') {
-    // ----------------------------------------------------------------
-    // 3a. Busca o canal para obter cityId (necessário para applyCityScope)
-    // ----------------------------------------------------------------
-    const channel = await findChannel(db, channelId, organizationId);
+      // ----------------------------------------------------------------
+      // 3b. Garante contato/conversa (idempotente)
+      // ----------------------------------------------------------------
+      const { conversation } = await ensureContactConversation(db, {
+        organizationId,
+        channelId,
+        // LGPD: contactRemoteId pode ser telefone E.164 — não logar
+        contactRemoteId: event.contactRemoteId,
+        // cityId herdado do canal para applyCityScope
+        cityId: channel.cityId ?? undefined,
+      });
 
-    // ----------------------------------------------------------------
-    // 3b. Garante contato/conversa (idempotente)
-    // ----------------------------------------------------------------
-    const { conversation } = await ensureContactConversation(db, {
-      organizationId,
-      channelId,
-      // LGPD: contactRemoteId pode ser telefone E.164 — não logar
-      contactRemoteId: event.contactRemoteId,
-      // cityId herdado do canal para applyCityScope
-      cityId: channel.cityId ?? undefined,
-    });
+      const conversationId = conversation.id;
 
-    const conversationId = conversation.id;
-
-    // ----------------------------------------------------------------
-    // 3c. Persiste a mensagem (idempotente por (channel_id, external_id))
-    // ----------------------------------------------------------------
-    const message = await persistInboundMessage(db, {
-      organizationId,
-      channelId,
-      conversationId,
-      externalId: event.externalId,
-      messageType: event.messageType,
-      // LGPD: content é PII — não logar
-      content: event.content,
-      // mediaRef do InboundEventSchema (shared-schemas) já usa {refOrUrl, mimeType, sha256, fileName}
-      // — mesmo shape que PersistInboundMessageInput espera. Passa direto.
-      mediaRef: event.mediaRef,
-      // InboundEventSchema (shared-schemas) não inclui replyTo — será adicionado em F16-S05
-      metadata: event.metadata,
-      rawTimestamp: event.rawTimestamp,
-    });
-
-    // null → duplicata — ack silencioso (idempotente)
-    if (message === null) {
-      log.debug(
-        { organizationId, channelId, conversationId },
-        'livechat-inbound: duplicate message — ack silently',
-      );
-      return 'ack';
-    }
-
-    // LGPD §8.3: log apenas com IDs opacos (sem content, sem externalId em prod)
-    log.info(
-      {
+      // ----------------------------------------------------------------
+      // 3c. Persiste a mensagem (idempotente por (channel_id, external_id))
+      // ----------------------------------------------------------------
+      const message = await persistInboundMessage(db, {
         organizationId,
         channelId,
         conversationId,
-        messageId: message.id,
-        // `message.type` é o campo correto no schema (não messageType)
-        messageType: message.type,
-        hasMedia: event.mediaRef !== undefined,
-      },
-      'livechat-inbound: message persisted',
-    );
+        externalId: event.externalId,
+        messageType: event.messageType,
+        // LGPD: content é PII — não logar
+        content: event.content,
+        // mediaRef do InboundEventSchema (shared-schemas) já usa {refOrUrl, mimeType, sha256, fileName}
+        // — mesmo shape que PersistInboundMessageInput espera. Passa direto.
+        mediaRef: event.mediaRef,
+        // InboundEventSchema (shared-schemas) não inclui replyTo — será adicionado em F16-S05
+        metadata: event.metadata,
+        rawTimestamp: event.rawTimestamp,
+      });
 
-    // ----------------------------------------------------------------
-    // 3d. Enfileira mídia para download assíncrono (S09)
-    // ----------------------------------------------------------------
-    if (event.mediaRef !== undefined) {
-      await publish(
-        QUEUES.inboundMedia,
-        makeEnvelope(QUEUES.inboundMedia, organizationId, {
+      // null → duplicata — ack silencioso (idempotente)
+      if (message === null) {
+        log.debug(
+          { organizationId, channelId, conversationId },
+          'livechat-inbound: duplicate message — ack silently',
+        );
+        return 'ack';
+      }
+
+      // LGPD §8.3: log apenas com IDs opacos (sem content, sem externalId em prod)
+      log.info(
+        {
           organizationId,
           channelId,
           conversationId,
           messageId: message.id,
-          mediaRef: event.mediaRef,
-          provider: event.provider,
-        }),
+          // `message.type` é o campo correto no schema (não messageType)
+          messageType: message.type,
+          hasMedia: event.mediaRef !== undefined,
+        },
+        'livechat-inbound: message persisted',
       );
 
-      log.debug(
-        { organizationId, channelId, conversationId, messageId: message.id },
-        'livechat-inbound: media queued for download',
+      // ----------------------------------------------------------------
+      // 3d. Enfileira mídia para download assíncrono (S09)
+      // ----------------------------------------------------------------
+      if (event.mediaRef !== undefined) {
+        await publish(
+          QUEUES.inboundMedia,
+          makeEnvelope(QUEUES.inboundMedia, organizationId, {
+            organizationId,
+            channelId,
+            conversationId,
+            messageId: message.id,
+            mediaRef: event.mediaRef,
+            provider: event.provider,
+          }),
+        );
+
+        log.debug(
+          { organizationId, channelId, conversationId, messageId: message.id },
+          'livechat-inbound: media queued for download',
+        );
+      }
+
+      // ----------------------------------------------------------------
+      // 3e. Publica evento no socket relay (S14)
+      // LGPD: payload sem content — apenas IDs + tipo + flag de mídia
+      // ----------------------------------------------------------------
+      const relayPayload: SocketRelayPayload = {
+        room: conversationId,
+        event: 'message:new',
+        data: {
+          messageId: message.id,
+          conversationId,
+          channelId,
+          organizationId,
+          // `type` é o nome do campo no schema de messages (doc 17: sem content)
+          messageType: message.type,
+          direction: 'inbound',
+          hasMedia: event.mediaRef !== undefined,
+          createdAt: message.createdAt,
+        },
+      };
+
+      await publish(
+        QUEUES.socketRelay,
+        makeEnvelope(QUEUES.socketRelay, organizationId, relayPayload),
       );
-    }
 
-    // ----------------------------------------------------------------
-    // 3e. Publica evento no socket relay (S14)
-    // LGPD: payload sem content — apenas IDs + tipo + flag de mídia
-    // ----------------------------------------------------------------
-    const relayPayload: SocketRelayPayload = {
-      room: conversationId,
-      event: 'message:new',
-      data: {
-        messageId: message.id,
-        conversationId,
-        channelId,
-        organizationId,
-        // `type` é o nome do campo no schema de messages (doc 17: sem content)
-        messageType: message.type,
-        direction: 'inbound',
-        hasMedia: event.mediaRef !== undefined,
-        createdAt: message.createdAt,
-      },
-    };
-
-    await publish(
-      QUEUES.socketRelay,
-      makeEnvelope(QUEUES.socketRelay, organizationId, relayPayload),
-    );
-
-    return 'ack';
-  }
-
-  if (event.type === 'status') {
-    // ----------------------------------------------------------------
-    // 3f. Atualiza view_status de mensagem outbound
-    //
-    // O externalId do status callback é o wamid da mensagem OUTBOUND
-    // (retornado pelo provider quando a mensagem foi enviada).
-    // Precisamos resolver para o internal messageId antes de chamar
-    // updateViewStatus, que opera por ID interno.
-    // ----------------------------------------------------------------
-    const [msgRow] = await db
-      .select({ id: messages.id, conversationId: messages.conversationId })
-      .from(messages)
-      .where(eq(messages.externalId, event.externalId))
-      .limit(1);
-
-    if (msgRow === undefined) {
-      // Mensagem não encontrada — pode ser status de mensagem anterior à migração
-      // ou race condition. ack silencioso para não acumular no DLX.
-      log.debug(
-        { organizationId, channelId },
-        'livechat-inbound: status update for unknown message — ack silently',
-      );
       return 'ack';
     }
 
-    await updateViewStatus(db, msgRow.id, event.status);
+    if (event.type === 'status') {
+      // ----------------------------------------------------------------
+      // 3f. Atualiza view_status de mensagem outbound
+      //
+      // O externalId do status callback é o wamid da mensagem OUTBOUND
+      // (retornado pelo provider quando a mensagem foi enviada).
+      // Precisamos resolver para o internal messageId antes de chamar
+      // updateViewStatus, que opera por ID interno.
+      // ----------------------------------------------------------------
+      const [msgRow] = await db
+        .select({ id: messages.id, conversationId: messages.conversationId })
+        .from(messages)
+        .where(eq(messages.externalId, event.externalId))
+        .limit(1);
 
-    // Publica conversation:updated no socket relay para atualizar o front
-    // LGPD: sem externalId (wamid) no relay — apenas IDs internos opacos
-    const relayPayload: SocketRelayPayload = {
-      room: msgRow.conversationId,
-      event: 'conversation:updated',
-      data: {
-        messageId: msgRow.id,
-        conversationId: msgRow.conversationId,
-        channelId,
-        organizationId,
-        viewStatus: event.status,
-      },
-    };
+      if (msgRow === undefined) {
+        // Mensagem não encontrada — pode ser status de mensagem anterior à migração
+        // ou race condition. ack silencioso para não acumular no DLX.
+        log.debug(
+          { organizationId, channelId },
+          'livechat-inbound: status update for unknown message — ack silently',
+        );
+        return 'ack';
+      }
 
-    await publish(
-      QUEUES.socketRelay,
-      makeEnvelope(QUEUES.socketRelay, organizationId, relayPayload),
-    );
+      await updateViewStatus(db, msgRow.id, event.status);
 
+      // Publica conversation:updated no socket relay para atualizar o front
+      // LGPD: sem externalId (wamid) no relay — apenas IDs internos opacos
+      const relayPayload: SocketRelayPayload = {
+        room: msgRow.conversationId,
+        event: 'conversation:updated',
+        data: {
+          messageId: msgRow.id,
+          conversationId: msgRow.conversationId,
+          channelId,
+          organizationId,
+          viewStatus: event.status,
+        },
+      };
+
+      await publish(
+        QUEUES.socketRelay,
+        makeEnvelope(QUEUES.socketRelay, organizationId, relayPayload),
+      );
+
+      log.debug(
+        { organizationId, channelId, messageId: msgRow.id, viewStatus: event.status },
+        'livechat-inbound: status update processed',
+      );
+
+      return 'ack';
+    }
+
+    // Outros tipos não mapeados acima: ack silencioso
     log.debug(
-      { organizationId, channelId, messageId: msgRow.id, viewStatus: event.status },
-      'livechat-inbound: status update processed',
+      { organizationId, channelId, eventType: event.type },
+      'livechat-inbound: event type not yet handled — ack silently',
     );
-
     return 'ack';
+  } catch (err) {
+    log.error(
+      { err, organizationId, channelId: event.channelId },
+      'livechat-inbound: pipeline error — nack',
+    );
+    return 'nack';
   }
-
-  // Outros tipos (story_mention, story_reply, share, comment, postback, reaction, referral):
-  // ack silencioso — processamento futuro (F16-S09+)
-  log.debug(
-    { organizationId, channelId, eventType: event.type },
-    'livechat-inbound: event type not yet handled — ack silently',
-  );
-  return 'ack';
 }
 
 // ---------------------------------------------------------------------------

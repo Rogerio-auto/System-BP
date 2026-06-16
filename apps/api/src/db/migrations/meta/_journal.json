@@ -418,8 +418,15 @@
     {
       "idx": 64,
       "version": "7",
+      "when": 1781906400000,
+      "tag": "0064_seed_livechat_conversation_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
       "when": 1781811200000,
-      "tag": "0064_lead_pj_personal_email",
+      "tag": "0065_lead_pj_personal_email",
       "breakpoints": true
     }
   ]

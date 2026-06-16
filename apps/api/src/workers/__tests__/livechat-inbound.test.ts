@@ -89,16 +89,20 @@ vi.mock('drizzle-orm/node-postgres', () => ({
 
 // ---------------------------------------------------------------------------
 // Mock db/client (singleton)
+// vi.hoisted necessário: vi.mock é içado (hoisted) antes das declarações de variáveis,
+// então referências a `const` de escopo superior dentro da factory falham em runtime.
 // ---------------------------------------------------------------------------
-const mockDbSelect = vi.fn();
-const mockDbUpdate = vi.fn();
-
-const mockDb = {
-  select: mockDbSelect,
-  update: mockDbUpdate,
-  insert: vi.fn(),
-  transaction: vi.fn(),
-};
+const { mockDbSelect, _mockDbUpdate, mockDb } = vi.hoisted(() => {
+  const mockDbSelect = vi.fn();
+  const _mockDbUpdate = vi.fn();
+  const mockDb = {
+    select: mockDbSelect,
+    update: _mockDbUpdate,
+    insert: vi.fn(),
+    transaction: vi.fn(),
+  };
+  return { mockDbSelect, _mockDbUpdate, mockDb };
+});
 
 vi.mock('../../db/client.js', () => ({
   db: mockDb,

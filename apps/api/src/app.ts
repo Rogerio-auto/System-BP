@@ -26,6 +26,7 @@ import { channelsRoutes } from './modules/channels/routes.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
 import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
 import { contractsRoutes } from './modules/contracts/index.js';
+import { conversationsRoutes } from './modules/conversations/routes.js';
 import { creditAnalysesRoutes } from './modules/credit-analyses/index.js';
 import { creditProductsRoutes } from './modules/credit-products/routes.js';
 import { customersRoutes } from './modules/customers/index.js';
@@ -273,6 +274,8 @@ export async function buildApp() {
   await app.register(notificationsRoutes);
   // Módulo de contratos — CRUD + ciclo de vida de assinatura (F17-S03)
   await app.register(channelsRoutes);
+
+  await app.register(conversationsRoutes);
 
   await app.register(contractsRoutes);
   // Módulo de customers — visão consolidada do cliente (F17-S07)
