@@ -3,12 +3,12 @@ id: F16-S09
 title: Worker media — download via adapter, dedup SHA-256, upload R2, media_ready
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#5-midia-pipeline
-status: in-progress
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T05:43:09Z
-completed_at: null
+completed_at: 2026-06-16T05:58:09Z
 pr_url: null
 depends_on: [F16-S01, F16-S05, F16-S07]
 blocks: []
