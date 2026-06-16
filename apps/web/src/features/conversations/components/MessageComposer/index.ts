@@ -9,4 +9,10 @@ export { useWindowState } from './useWindowState';
 export { useSendMessage } from './useSendMessage';
 export type { TemplateSelectorProps } from './TemplateSelector';
 export type { WindowStateResult } from './useWindowState';
-export type { SendMessagePayload, SendMessageResult } from './useSendMessage';
+export type {
+  SendMessagePayload,
+  SendMessageResult,
+  SendTextPayload,
+  SendMediaPayload,
+  MediaKind,
+} from './useSendMessage';

@@ -4,7 +4,7 @@
 // Funcionalidades:
 //   - Textarea auto-resize (1-4 linhas)
 //   - Cmd+Enter / Ctrl+Enter para enviar
-//   - Botão de attach (input file oculto)
+//   - Botão de attach → preview de mídia → upload via signed-url → envio
 //   - Botão de emoji (placeholder)
 //   - Botão enviar
 //   - Janela 24h: desativa texto livre quando fechada + exibe WindowNotice
@@ -13,11 +13,19 @@
 // LGPD (doc 17):
 //   - content NUNCA vai para console ou localStorage
 //   - Não persistir drafts em localStorage
+//   - Não logar fileName, uploadUrl, publicMediaUrl
 // =============================================================================
 
 import * as React from 'react';
 
 import { cn } from '../../../../lib/cn';
+import {
+  detectMediaKind,
+  formatBytes,
+  MAX_UPLOAD_BYTES,
+  useUploadMedia,
+} from '../../hooks/useUploadMedia';
+import type { MediaKind } from '../../hooks/useUploadMedia';
 
 import { TemplateSelector } from './TemplateSelector';
 import { useSendMessage } from './useSendMessage';
@@ -30,9 +38,15 @@ interface MessageComposerProps {
   conversationId: string;
   /**
    * Callback externo ao clicar em "Usar template".
-   * Quando não fornecido, o MessageComposer gerencia internamente (S19).
+   * Quando não fornecido, o MessageComposer gerencia internamente.
    */
   onUseTemplate?: (() => void) | undefined;
+}
+
+interface MediaPreview {
+  file: File;
+  objectUrl: string;
+  mediaKind: MediaKind;
 }
 
 // ─── Hook de auto-resize do textarea ──────────────────────────────────────────
@@ -49,12 +63,205 @@ function useAutoResize(ref: React.RefObject<HTMLTextAreaElement | null>, value: 
   }, [ref, value]);
 }
 
-// ─── Componente ──────────────────────────────────────────────────────────────
+// ─── Ícones de tipo de mídia ──────────────────────────────────────────────────
+
+function IconDocument({ className }: { className?: string }): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M4 4a2 2 0 012-2h5l5 5v9a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M13 2v5h5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconAudio({ className }: { className?: string }): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M9 3H5a2 2 0 00-2 2v4a2 2 0 002 2h4l5 5V7l-5-4z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M15.54 8.46a5 5 0 010 7.07" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconVideo({ className }: { className?: string }): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M2 6a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M16 9l4-2v6l-4-2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// ─── Componente de preview ────────────────────────────────────────────────────
+
+interface MediaPreviewProps {
+  preview: MediaPreview;
+  uploadPercent: number;
+  isUploading: boolean;
+  onCancel: () => void;
+}
+
+function MediaPreviewArea({
+  preview,
+  uploadPercent,
+  isUploading,
+  onCancel,
+}: MediaPreviewProps): React.JSX.Element {
+  const { file, objectUrl, mediaKind } = preview;
+
+  return (
+    <div
+      className={cn(
+        'mx-3 mt-2 mb-1 rounded-sm border border-border',
+        'bg-surface-2 [box-shadow:var(--elev-1)]',
+        'overflow-hidden',
+      )}
+      role="region"
+      aria-label="Prévia do arquivo selecionado"
+    >
+      <div className="flex items-center gap-3 p-2">
+        {/* Thumbnail ou ícone */}
+        <div
+          className={cn(
+            'shrink-0 w-[72px] h-[72px] rounded-xs overflow-hidden',
+            'border border-border-subtle',
+            'flex items-center justify-center',
+            mediaKind !== 'image' && 'bg-surface-3',
+          )}
+        >
+          {mediaKind === 'image' ? (
+            <img src={objectUrl} alt="" className="w-full h-full object-cover" aria-hidden="true" />
+          ) : mediaKind === 'video' ? (
+            <IconVideo className="w-8 h-8 text-ink-3" />
+          ) : mediaKind === 'audio' ? (
+            <IconAudio className="w-8 h-8 text-ink-3" />
+          ) : (
+            <IconDocument className="w-8 h-8 text-ink-3" />
+          )}
+        </div>
+
+        {/* Metadados — nome e tamanho (sem PII) */}
+        <div className="flex-1 min-w-0">
+          <p className="font-sans text-sm text-ink truncate" title={file.name}>
+            {file.name}
+          </p>
+          <p className="font-mono text-xs text-ink-3 mt-0.5">{formatBytes(file.size)}</p>
+
+          {/* Barra de progresso */}
+          {isUploading && (
+            <div
+              className="mt-2 h-1.5 rounded-full bg-surface-3 overflow-hidden"
+              role="progressbar"
+              aria-valuenow={uploadPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Progresso do upload: ${uploadPercent}%`}
+            >
+              <div
+                className={cn(
+                  'h-full rounded-full transition-[width] duration-150',
+                  '[background:var(--grad-azul)]',
+                )}
+                style={{ width: `${uploadPercent}%` }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Botão cancelar */}
+        {!isUploading && (
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Remover arquivo selecionado"
+            className={cn(
+              'shrink-0 w-7 h-7 flex items-center justify-center rounded-xs',
+              'text-ink-3 transition-colors duration-fast ease',
+              'hover:bg-surface-hover hover:text-ink',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+              'active:bg-surface-muted',
+            )}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="w-4 h-4"
+              aria-hidden="true"
+            >
+              <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+
+        {/* Botão cancelar upload em andamento */}
+        {isUploading && (
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Cancelar upload"
+            className={cn(
+              'shrink-0 w-7 h-7 flex items-center justify-center rounded-xs',
+              'text-ink-3 transition-colors duration-fast ease',
+              'hover:bg-surface-hover hover:text-danger',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+            )}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="w-4 h-4"
+              aria-hidden="true"
+            >
+              <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 /**
- * MessageComposer — input de envio de mensagem com controle de janela 24h.
- *
- * Não gerencia upload de mídia neste slot (S17 cobre texto; mídia = S18+).
+ * MessageComposer — input de envio de mensagem (texto + mídia) com controle de janela 24h.
  */
 export function MessageComposer({
   conversationId,
@@ -62,6 +269,8 @@ export function MessageComposer({
 }: MessageComposerProps): React.JSX.Element {
   const [text, setText] = React.useState('');
   const [showTemplateSelector, setShowTemplateSelector] = React.useState(false);
+  const [mediaPreview, setMediaPreview] = React.useState<MediaPreview | null>(null);
+  const [fileSizeError, setFileSizeError] = React.useState<string | null>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -69,9 +278,14 @@ export function MessageComposer({
 
   const { windowOpen, windowKind, isLoading } = useWindowState(conversationId);
   const sendMutation = useSendMessage(conversationId);
+  const { upload, progress, abort } = useUploadMedia(conversationId);
 
-  const isDisabled = !windowOpen || isLoading || sendMutation.isPending;
-  const canSend = text.trim().length > 0 && !isDisabled;
+  const isUploading = progress.phase === 'uploading' || progress.phase === 'signing';
+  const isDisabled = !windowOpen || isLoading || sendMutation.isPending || isUploading;
+
+  // canSend: tem texto OU tem preview pronto (e não está em fase de erro nem uploading)
+  const hasMedia = mediaPreview !== null && !isUploading && progress.phase !== 'error';
+  const canSend = (!isDisabled && text.trim().length > 0) || hasMedia;
 
   // Callback interno do seletor de template (S19)
   const handleUseTemplate = React.useCallback(() => {
@@ -103,41 +317,98 @@ export function MessageComposer({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
-    // Cmd+Enter (Mac) ou Ctrl+Enter (Windows/Linux) — envia
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
-      if (canSend) handleSend();
+      if (canSend) void handleSend();
     }
-    // Enter sozinho: nova linha (comportamento padrão de textarea)
-  }
-
-  function handleSend(): void {
-    const trimmed = text.trim();
-    if (!trimmed || isDisabled) return;
-
-    // Novo UUID por tentativa — idempotência
-    const idempotencyKey = crypto.randomUUID();
-
-    sendMutation.mutate(
-      { type: 'text', content: trimmed, idempotencyKey },
-      {
-        onSuccess: () => {
-          setText('');
-          textareaRef.current?.focus();
-        },
-      },
-    );
   }
 
   function handleAttachClick(): void {
+    // Limpa erro anterior antes de nova seleção
+    setFileSizeError(null);
     fileInputRef.current?.click();
   }
 
-  // Arquivo selecionado — placeholder para S18 (upload via signed URL)
-  function handleFileChange(_e: React.ChangeEvent<HTMLInputElement>): void {
-    // TODO S18: upload via POST /api/livechat/media/upload-url
-    // Por ora, limpa o input para não manter referência ao arquivo (LGPD)
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    const file = e.target.files?.[0];
+    // Limpar input imediatamente para não manter referência (LGPD)
     if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (!file) return;
+
+    // Validação de tamanho — inline, antes de qualquer chamada de rede
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setFileSizeError('Arquivo muito grande. O limite é 16 MB.');
+      return;
+    }
+
+    setFileSizeError(null);
+
+    // Criar object URL para preview local (nunca enviado ao servidor)
+    const objectUrl = URL.createObjectURL(file);
+    const mediaKind = detectMediaKind(file.type || 'application/octet-stream');
+    setMediaPreview({ file, objectUrl, mediaKind });
+  }
+
+  function handleCancelMedia(): void {
+    if (isUploading) {
+      abort();
+    }
+    if (mediaPreview) {
+      // Liberar memória do object URL (evita leak)
+      URL.revokeObjectURL(mediaPreview.objectUrl);
+    }
+    setMediaPreview(null);
+    setFileSizeError(null);
+  }
+
+  async function handleSend(): Promise<void> {
+    if (!canSend || isDisabled) return;
+
+    const idempotencyKey = crypto.randomUUID();
+
+    if (mediaPreview) {
+      // ── Envio de mídia ───────────────────────────────────────────────────
+      let uploadResult: Awaited<ReturnType<typeof upload>>;
+      try {
+        uploadResult = await upload(mediaPreview.file);
+      } catch {
+        // Erro já registrado no `progress.error` — componente exibe inline.
+        return;
+      }
+
+      sendMutation.mutate(
+        {
+          type: 'media',
+          mediaKind: uploadResult.mediaKind,
+          publicMediaUrl: uploadResult.publicMediaUrl,
+          mime: uploadResult.mime,
+          fileName: uploadResult.fileName,
+          idempotencyKey,
+        },
+        {
+          onSuccess: () => {
+            URL.revokeObjectURL(mediaPreview.objectUrl);
+            setMediaPreview(null);
+            textareaRef.current?.focus();
+          },
+        },
+      );
+    } else {
+      // ── Envio de texto ───────────────────────────────────────────────────
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      sendMutation.mutate(
+        { type: 'text', content: trimmed, idempotencyKey },
+        {
+          onSuccess: () => {
+            setText('');
+            textareaRef.current?.focus();
+          },
+        },
+      );
+    }
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -161,9 +432,36 @@ export function MessageComposer({
 
       {/* Aviso de janela expirada */}
       {!windowOpen && !isLoading && (
-        <WindowNotice
-          windowKind={windowKind}
-          onUseTemplate={onUseTemplate ?? handleUseTemplate}
+        <WindowNotice windowKind={windowKind} onUseTemplate={onUseTemplate ?? handleUseTemplate} />
+      )}
+
+      {/* Erro de tamanho de arquivo */}
+      {fileSizeError && (
+        <p
+          className="mx-3 mt-2 px-3 py-1.5 rounded-xs bg-danger/10 text-danger font-sans text-xs"
+          role="alert"
+        >
+          {fileSizeError}
+        </p>
+      )}
+
+      {/* Erro de upload */}
+      {progress.phase === 'error' && progress.error && (
+        <p
+          className="mx-3 mt-2 px-3 py-1.5 rounded-xs bg-danger/10 text-danger font-sans text-xs"
+          role="alert"
+        >
+          {progress.error}
+        </p>
+      )}
+
+      {/* Preview de mídia (com barra de progresso embutida) */}
+      {mediaPreview && (
+        <MediaPreviewArea
+          preview={mediaPreview}
+          uploadPercent={progress.percent}
+          isUploading={isUploading}
+          onCancel={handleCancelMedia}
         />
       )}
 
@@ -173,7 +471,7 @@ export function MessageComposer({
         <button
           type="button"
           onClick={handleAttachClick}
-          disabled={isDisabled}
+          disabled={isDisabled || mediaPreview !== null}
           aria-label="Anexar arquivo"
           className={cn(
             'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
@@ -200,7 +498,7 @@ export function MessageComposer({
           </svg>
         </button>
 
-        {/* Input file oculto */}
+        {/* Input file oculto — accept inclui tipos suportados */}
         <input
           ref={fileInputRef}
           type="file"
@@ -218,13 +516,15 @@ export function MessageComposer({
             value={text}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
-            disabled={isDisabled}
+            disabled={isDisabled || mediaPreview !== null}
             placeholder={
               isLoading
                 ? 'Carregando...'
                 : !windowOpen
                   ? 'Janela expirada — use um template'
-                  : 'Digite uma mensagem... (Ctrl+Enter para enviar)'
+                  : mediaPreview !== null
+                    ? 'Pronto para enviar arquivo...'
+                    : 'Digite uma mensagem... (Ctrl+Enter para enviar)'
             }
             rows={1}
             aria-label="Campo de mensagem"
@@ -279,9 +579,9 @@ export function MessageComposer({
         {/* Botão enviar */}
         <button
           type="button"
-          onClick={handleSend}
+          onClick={() => void handleSend()}
           disabled={!canSend}
-          aria-label="Enviar mensagem"
+          aria-label={mediaPreview ? 'Enviar arquivo' : 'Enviar mensagem'}
           className={cn(
             'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
             'transition-[transform,box-shadow,background,color] duration-fast ease',
@@ -330,7 +630,7 @@ export function MessageComposer({
       </div>
 
       {/* Dica de teclado */}
-      {windowOpen && (
+      {windowOpen && !mediaPreview && (
         <p className="px-4 pb-2 font-sans text-xs text-ink-4">
           <kbd className="px-1 py-0.5 rounded-xs border border-border-subtle font-mono text-xs bg-surface-2">
             Ctrl+Enter
