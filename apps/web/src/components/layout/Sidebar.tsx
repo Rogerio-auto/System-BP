@@ -147,6 +147,21 @@ function IconHelp(): React.JSX.Element {
   );
 }
 
+function IconConversas(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5 shrink-0"
+    >
+      <path d="M17 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3v3l4-3h7a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1Z" />
+      <path d="M6 8h8M6 11h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function IconSimulator(): React.JSX.Element {
   return (
     <svg
@@ -179,6 +194,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   crm: <IconCrm />,
   analise: <IconAnalise />,
   contratos: <IconContratos />,
+  conversas: <IconConversas />,
   relatorios: <IconRelatorios />,
   simulator: <IconSimulator />,
   configuracoes: <IconConfiguracoes />,

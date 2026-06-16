@@ -40,6 +40,12 @@ export const APP_NAV: NavSection[] = [
         permission: 'credit_analyses:read',
       },
       { href: '/contratos', label: 'Contratos', iconKey: 'contratos' },
+      {
+        href: '/conversas',
+        label: 'Conversas',
+        iconKey: 'conversas',
+        permission: 'livechat:conversation:read',
+      },
     ],
   },
   {
