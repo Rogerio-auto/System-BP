@@ -21,11 +21,24 @@ import type { Message, MessageListResponse } from '../../types';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
-export interface SendMessagePayload {
+export type MediaKind = 'image' | 'video' | 'audio' | 'document';
+
+export interface SendTextPayload {
   type: 'text';
   content: string;
   idempotencyKey: string;
 }
+
+export interface SendMediaPayload {
+  type: 'media';
+  mediaKind: MediaKind;
+  publicMediaUrl: string;
+  mime: string;
+  fileName: string;
+  idempotencyKey: string;
+}
+
+export type SendMessagePayload = SendTextPayload | SendMediaPayload;
 
 export interface SendMessageResult {
   data: Message;
@@ -37,9 +50,22 @@ async function sendMessage(
   conversationId: string,
   payload: SendMessagePayload,
 ): Promise<SendMessageResult> {
+  // Build the body based on the payload type to avoid spreading unknown fields.
+  const body =
+    payload.type === 'text'
+      ? { type: 'text' as const, content: payload.content, idempotencyKey: payload.idempotencyKey }
+      : {
+          type: 'media' as const,
+          mediaKind: payload.mediaKind,
+          publicMediaUrl: payload.publicMediaUrl,
+          mime: payload.mime,
+          fileName: payload.fileName,
+          idempotencyKey: payload.idempotencyKey,
+        };
+
   return api.post<SendMessageResult>(
     `/api/livechat/conversations/${encodeURIComponent(conversationId)}/messages`,
-    { type: payload.type, content: payload.content, idempotencyKey: payload.idempotencyKey },
+    body,
     {
       headers: {
         'Idempotency-Key': payload.idempotencyKey,
@@ -80,11 +106,12 @@ export function useSendMessage(conversationId: string) {
         channelId: '',
         direction: 'out',
         externalId: null,
-        type: 'text',
+        // Tipo derivado do payload (text ou media kind)
+        type: payload.type === 'text' ? 'text' : payload.mediaKind,
         // LGPD: conteúdo apenas em memória para exibição imediata
-        content: payload.content,
-        mediaUrl: null,
-        mediaMime: null,
+        content: payload.type === 'text' ? payload.content : null,
+        mediaUrl: payload.type === 'media' ? payload.publicMediaUrl : null,
+        mediaMime: payload.type === 'media' ? payload.mime : null,
         mediaSizeBytes: null,
         mediaSha256: null,
         interactivePayload: null,
