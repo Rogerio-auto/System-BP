@@ -457,10 +457,10 @@ describe('winback-scan', () => {
     it('funciona em virada de ano', () => {
       const now = new Date('2026-02-10T00:00:00Z');
       const threshold = calcStagnantThreshold(now);
-      // 2026-02-10 - 45d = 2025-12-26
+      // 2026-02-10 - 45d = 2025-12-27
       expect(threshold.getFullYear()).toBe(2025);
       expect(threshold.getMonth()).toBe(11); // dezembro (0-indexed)
-      expect(threshold.getDate()).toBe(26);
+      expect(threshold.getDate()).toBe(27);
     });
   });
 
