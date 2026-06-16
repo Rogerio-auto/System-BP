@@ -15,6 +15,7 @@ import { useDashboardMetrics } from '../../hooks/dashboard/useDashboardMetrics';
 import { useAuth } from '../auth/useAuth';
 import { ContextualHelp } from '../help/contextual';
 
+import { AvgDaysInStageChart, AvgDaysInStageChartSkeleton } from './AvgDaysInStageChart';
 import { ChannelBars, ChannelBarsSkeleton } from './components/ChannelBars';
 import { CityList, CityListSkeleton } from './components/CityList';
 import { KanbanAvgDays, KanbanAvgDaysSkeleton } from './components/KanbanAvgDays';
@@ -268,7 +269,17 @@ export function DashboardPage(): React.JSX.Element {
           <KanbanBars data={data.kanban.cardsByStage} />
         ) : null}
 
-        {/* Tempo médio por estágio (gestão interna) */}
+        {/* Tempo médio por estágio — barras horizontais (F18-S07) */}
+        {isLoading ? (
+          <AvgDaysInStageChartSkeleton />
+        ) : data ? (
+          <AvgDaysInStageChart
+            avgDays={data.kanban.avgDaysInStage}
+            cardsByStage={data.kanban.cardsByStage}
+          />
+        ) : null}
+
+        {/* Tempo médio por estágio (gestão interna) — barras verticais */}
         {isLoading ? (
           <KanbanAvgDaysSkeleton />
         ) : data ? (

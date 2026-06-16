@@ -40,6 +40,7 @@ import { useUpdateLead } from '../../hooks/crm/useUpdateLead';
 import { useKanbanStages } from '../../hooks/kanban/useKanbanStages';
 import { api, ApiError } from '../../lib/api';
 import { cn } from '../../lib/cn';
+import { useAuth } from '../auth/useAuth';
 import { LeadCreditAnalysisTab } from '../leads/components/LeadCreditAnalysisTab';
 
 import { CustomerDetailDrawer } from './components/CustomerDetailDrawer';
@@ -345,6 +346,10 @@ export function CrmDetailPage(): React.JSX.Element {
   // Ficha do cliente — abre quando o lead foi convertido (closed_won)
   const [customerDrawerOpen, setCustomerDrawerOpen] = React.useState(false);
 
+  // RBAC: apenas usuários com kanban:move podem mudar o estágio pelo CRM (F18-S07).
+  const { hasPermission } = useAuth();
+  const canMoveKanbanStage = hasPermission('kanban:move');
+
   // Mudança de estágio de Kanban a partir da ficha (F13-S03) — reusa o move do board.
   const { stages: kanbanStages } = useKanbanStages();
   const { toast: detailToast } = useToast();
@@ -570,28 +575,33 @@ export function CrmDetailPage(): React.JSX.Element {
                       </p>
                     </div>
 
-                    {/* Estágio de Kanban — gestão interna, editável pela ficha (F13-S03) */}
+                    {/* Estágio de Kanban — gestão interna, editável pela ficha (F13-S03/F18-S07) */}
                     <div>
                       <p
                         className="font-sans font-semibold text-ink-3 uppercase mb-1"
                         style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
                       >
-                        Estágio (Kanban)
+                        Estágio de fluxo interno
                       </p>
                       {lead.kanban_card_id ? (
-                        <Select
-                          id="lead-kanban-stage"
-                          value={lead.kanban_stage?.id ?? ''}
-                          options={kanbanStages.map((s) => ({ value: s.id, label: s.name }))}
-                          disabled={moveStageMutation.isPending}
-                          onChange={(e) => {
-                            const toStageId = e.target.value;
-                            const cardId = lead.kanban_card_id;
-                            if (cardId && toStageId && toStageId !== lead.kanban_stage?.id) {
-                              moveStageMutation.mutate({ cardId, toStageId });
-                            }
-                          }}
-                        />
+                        canMoveKanbanStage ? (
+                          <Select
+                            id="lead-kanban-stage"
+                            value={lead.kanban_stage?.id ?? ''}
+                            options={kanbanStages.map((s) => ({ value: s.id, label: s.name }))}
+                            disabled={moveStageMutation.isPending}
+                            onChange={(e) => {
+                              const toStageId = e.target.value;
+                              const cardId = lead.kanban_card_id;
+                              if (cardId && toStageId && toStageId !== lead.kanban_stage?.id) {
+                                moveStageMutation.mutate({ cardId, toStageId });
+                              }
+                            }}
+                          />
+                        ) : (
+                          /* Leitura apenas — sem permissão kanban:move */
+                          <Badge variant="neutral">{lead.kanban_stage?.name ?? '—'}</Badge>
+                        )
                       ) : (
                         <p className="font-sans text-sm text-ink-4">Sem card no board</p>
                       )}
