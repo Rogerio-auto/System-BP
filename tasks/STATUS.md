@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 17    | 11  | 0   | 0   | 0   | 2   | 4   |
+| F16  | 17    | 10  | 0   | 0   | 0   | 2   | 5   |
 | F17  | 14    | 0   | 4   | 0   | 0   | 0   | 10  |
 | F18  | 12    | 7   | 5   | 0   | 0   | 0   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
@@ -176,7 +176,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | 🟢 available | high       | F16-S04                            |
 | F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | 🟣 review    | high       | F16-S02, F16-S03, F16-S04          |
 | F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | ✅ done      | high       | F16-S02, F16-S03                   |
-| F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | 🟢 available | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
+| F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | ✅ done      | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
 | F16-S09 | Worker media — download via adapter, dedup SHA-256, upload R2, media_ready                          | 🟢 available | medium     | F16-S01, F16-S05, F16-S07          |
 | F16-S10 | Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status                  | 🟢 available | high       | F16-S01, F16-S05, F16-S07          |
 | F16-S11 | Canais — connect manual (provider-discriminado, segredo cifrado) + list                             | 🟢 available | high       | F16-S02, F16-S03, F16-S04          |
