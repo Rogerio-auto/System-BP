@@ -1,30 +1,40 @@
 // =============================================================================
-// conversations/routes.ts — Rotas de leitura do inbox (F16-S12).
+// conversations/routes.ts — Rotas de leitura e escrita do inbox (F16-S12 + F16-S13).
 //
-// Rotas:
-//   GET /api/conversations             — lista conversas (inbox)
-//   GET /api/conversations/:id         — detalhe de uma conversa
-//   GET /api/conversations/:id/messages — histórico de mensagens (cursor)
-//   GET /api/conversations/:id/window  — estado da janela de composição
+// Rotas GET (F16-S12):
+//   GET /api/conversations                          — lista conversas (inbox)
+//   GET /api/conversations/:id                      — detalhe de uma conversa
+//   GET /api/conversations/:id/messages             — histórico de mensagens (cursor)
+//   GET /api/conversations/:id/window               — estado da janela de composição
+//
+// Rotas POST/PATCH (F16-S13):
+//   POST  /api/conversations/:id/messages           — enviar mensagem (atendente humano)
+//   POST  /api/conversations/:id/uploads/signed-url — gerar PUT signed-url R2 (mídia)
+//   PATCH /api/conversations/:id/assign             — atribuir agente
+//   PATCH /api/conversations/:id/resolve            — resolver conversa
 //
 // RBAC:
-//   - livechat:conversation:read → todas as rotas de leitura
-//   - crm:contact:phone:read    → campo contactPhone no detalhe (verificado em runtime)
+//   livechat:conversation:read    → GET routes
+//   crm:contact:phone:read        → campo contactPhone no detalhe (verificado em runtime)
+//   livechat:message:send         → POST /messages, POST /uploads/signed-url
+//   livechat:conversation:manage  → PATCH /assign, PATCH /resolve
 //
-// LGPD (doc 17 §8.1, §14.2):
+// LGPD (doc 17 §8.1, §8.3, §8.5, §14.2):
 //   - Listagem: SEM contactPhone (PII de telefone protegida)
 //   - Detalhe: contactPhone decifrado apenas com permissão crm:contact:phone:read
-//   - Logs: redact de content, contactName, contactPhone (via pino na service layer)
-//   - Labels: lgpd-impact (slot F16-S12)
+//   - content e campos de mídia NÃO são logados (apenas IDs)
+//   - Signed-URL R2 sem PII na key: outbound/{orgId}/{uuid}.{ext}
+//   - Labels: lgpd-impact (slots F16-S12, F16-S13)
 //
 // City scope: applyCityScope aplicado via actor.cityScopeIds (injetado pelo authenticate).
 // =============================================================================
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import { db } from '../../db/client.js';
 import { ForbiddenError } from '../../shared/errors.js';
-import { typedParams, typedQuery } from '../../shared/fastify-types.js';
+import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
 
@@ -38,6 +48,23 @@ import {
   MessageListResponseSchema,
   WindowStateSchema,
 } from './schemas.js';
+import type { AssignBody, SendMessageBody, SignedUrlBody } from './send.schema.js';
+import {
+  AssignBodySchema,
+  AssignResponseSchema,
+  ResolveResponseSchema,
+  SendMessageBodySchema,
+  SendMessageResponseSchema,
+  SignedUrlBodySchema,
+  SignedUrlResponseSchema,
+} from './send.schema.js';
+import type { SendActorContext } from './send.service.js';
+import {
+  assignConversation,
+  generateUploadSignedUrl,
+  resolveConversation,
+  sendMessage,
+} from './send.service.js';
 import type { ActorContext } from './service.js';
 import {
   getConversationDetailService,
@@ -47,17 +74,15 @@ import {
 } from './service.js';
 
 // ---------------------------------------------------------------------------
-// Helper: extrai ActorContext de request.user (garantido por authenticate())
+// Helpers: extrai contexto do ator de request.user (garantido por authenticate())
 // ---------------------------------------------------------------------------
 
-function getActorContext(request: FastifyRequest): ActorContext {
+function getReadActor(request: FastifyRequest): ActorContext {
   if (!request.user) {
-    // Não deve ocorrer se authenticate() está no preHandler — defensivo
     throw new ForbiddenError(
       'Contexto de usuário ausente — authenticate() deve preceder authorize()',
     );
   }
-
   return {
     userId: request.user.id,
     organizationId: request.user.organizationId,
@@ -66,13 +91,35 @@ function getActorContext(request: FastifyRequest): ActorContext {
   };
 }
 
+function getWriteActor(request: FastifyRequest): SendActorContext {
+  // `as` justificado: authenticate() garante que request.user está definido antes
+  // de qualquer handler ser invocado. A verificação abaixo detecta erros de config.
+  if (!request.user) {
+    throw new ForbiddenError('Contexto de usuário ausente — authenticate() não foi executado');
+  }
+  const { id, organizationId, permissions, cityScopeIds } = request.user;
+  const role = permissions[0] ?? 'unknown';
+  return {
+    userId: id,
+    organizationId,
+    role,
+    cityScopeIds,
+    ip: request.ip,
+    userAgent:
+      typeof request.headers['user-agent'] === 'string' ? request.headers['user-agent'] : null,
+  };
+}
+
 // ---------------------------------------------------------------------------
-// Plugin de rotas
+// Plugin principal
 // ---------------------------------------------------------------------------
 
 export const conversationsRoutes: FastifyPluginAsyncZod = async (app) => {
-  // Autenticação obrigatória em todas as rotas deste plugin
   app.addHook('preHandler', authenticate());
+
+  // =========================================================================
+  // ROTAS DE LEITURA (F16-S12)
+  // =========================================================================
 
   // -------------------------------------------------------------------------
   // GET /api/conversations — lista conversas do inbox
@@ -97,8 +144,8 @@ export const conversationsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
       preHandler: [authorize({ permissions: ['livechat:conversation:read'] })],
     },
-    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      const actor = getActorContext(request);
+    async (request: FastifyRequest, reply): Promise<void> => {
+      const actor = getReadActor(request);
       const query = typedQuery<ConversationListQuery>(request);
       const result = await listConversationsService(db, actor, query);
       return reply.status(200).send(result);
@@ -128,14 +175,11 @@ export const conversationsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
       preHandler: [authorize({ permissions: ['livechat:conversation:read'] })],
     },
-    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      const actor = getActorContext(request);
+    async (request: FastifyRequest, reply): Promise<void> => {
+      const actor = getReadActor(request);
       const { id } = typedParams<ConversationIdParam>(request);
-
-      // Verifica permissão de PII de telefone em runtime (não bloqueia a rota se ausente)
       const hasPhonePermission =
         actor.permissions.includes('*') || actor.permissions.includes('crm:contact:phone:read');
-
       const result = await getConversationDetailService(db, actor, id, hasPhonePermission);
       return reply.status(200).send(result);
     },
@@ -167,11 +211,10 @@ export const conversationsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
       preHandler: [authorize({ permissions: ['livechat:conversation:read'] })],
     },
-    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      const actor = getActorContext(request);
+    async (request: FastifyRequest, reply): Promise<void> => {
+      const actor = getReadActor(request);
       const { id } = typedParams<ConversationIdParam>(request);
       const query = typedQuery<MessageListQuery>(request);
-
       const result = await getMessagesService(db, actor, id, query);
       return reply.status(200).send(result);
     },
@@ -202,11 +245,165 @@ export const conversationsRoutes: FastifyPluginAsyncZod = async (app) => {
       },
       preHandler: [authorize({ permissions: ['livechat:conversation:read'] })],
     },
-    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      const actor = getActorContext(request);
+    async (request: FastifyRequest, reply): Promise<void> => {
+      const actor = getReadActor(request);
       const { id } = typedParams<ConversationIdParam>(request);
-
       const result = await getWindowService(db, actor, id);
+      return reply.status(200).send(result);
+    },
+  );
+
+  // =========================================================================
+  // ROTAS DE ESCRITA (F16-S13)
+  // =========================================================================
+
+  // -------------------------------------------------------------------------
+  // POST /api/conversations/:id/messages — enviar mensagem
+  // -------------------------------------------------------------------------
+  app.post(
+    '/api/conversations/:id/messages',
+    {
+      schema: {
+        tags: ['Live Chat'],
+        summary: 'Enviar mensagem',
+        description:
+          'Envia uma mensagem de um atendente humano para o contato via canal configurado. ' +
+          'A mensagem é persistida com status `pending` e enfileirada para envio assíncrono ' +
+          'pelo worker outbound (S10). ' +
+          '\n\n' +
+          '**Janela 24h:** Para WhatsApp e Instagram, mensagens de texto livre (`type=text`) ' +
+          'só são permitidas dentro da janela de 24h após a última mensagem inbound do contato. ' +
+          'Fora da janela, use `type=template` com um template pré-aprovado na Meta. ' +
+          '\n\n' +
+          '**Idempotência:** O header `Idempotency-Key` é obrigatório. Reenviar com a mesma ' +
+          'chave retorna a resposta original (202) sem duplicar o envio. ' +
+          '\n\n' +
+          '**LGPD:** O conteúdo da mensagem não é logado internamente.',
+        security: [{ bearerAuth: [] }],
+        headers: z.object({
+          'idempotency-key': z
+            .string()
+            .min(1)
+            .max(255)
+            .describe(
+              'Chave de idempotência única por tentativa de envio. ' +
+                'Reenvios com a mesma chave retornam a resposta original.',
+            ),
+        }),
+        params: ConversationIdParamSchema,
+        body: SendMessageBodySchema,
+        response: {
+          202: SendMessageResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['livechat:message:send'] })],
+    },
+    async (request, reply) => {
+      const actor = getWriteActor(request);
+      const { id: conversationId } = typedParams<{ id: string }>(request);
+      const body = typedBody<SendMessageBody>(request);
+      // `as` justificado: Zod valida o header antes do handler; o campo é garantido.
+      const idempotencyKey = (request.headers as Record<string, string | undefined>)[
+        'idempotency-key'
+      ] as string;
+      const result = await sendMessage(db, actor, conversationId, body, idempotencyKey);
+      return reply.status(202).send(result);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /api/conversations/:id/uploads/signed-url — gerar PUT signed-url R2
+  // -------------------------------------------------------------------------
+  app.post(
+    '/api/conversations/:id/uploads/signed-url',
+    {
+      schema: {
+        tags: ['Live Chat'],
+        summary: 'Gerar URL de upload de mídia',
+        description:
+          'Gera uma URL pré-assinada (PUT) para upload direto de arquivo de mídia ao R2. ' +
+          'Use esta URL para fazer upload antes de enviar a mensagem com `type=media`. ' +
+          'A URL expira em 15 minutos. ' +
+          '\n\n' +
+          'Após o upload, use `publicMediaUrl` no body de `POST /conversations/:id/messages`. ' +
+          '\n\n' +
+          '**LGPD:** A chave do objeto no R2 não contém PII — formato: ' +
+          '`outbound/{orgId}/{uuid}.{ext}`.',
+        security: [{ bearerAuth: [] }],
+        params: ConversationIdParamSchema,
+        body: SignedUrlBodySchema,
+        response: {
+          200: SignedUrlResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['livechat:message:send'] })],
+    },
+    async (request, reply) => {
+      const actor = getWriteActor(request);
+      const { id: conversationId } = typedParams<{ id: string }>(request);
+      const body = typedBody<SignedUrlBody>(request);
+      const result = await generateUploadSignedUrl(db, actor, conversationId, body);
+      return reply.status(200).send(result);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // PATCH /api/conversations/:id/assign — atribuir agente
+  // -------------------------------------------------------------------------
+  app.patch(
+    '/api/conversations/:id/assign',
+    {
+      schema: {
+        tags: ['Live Chat'],
+        summary: 'Atribuir agente à conversa',
+        description:
+          'Atribui um agente humano à conversa ou remove a atribuição atual (agentId=null). ' +
+          'Publica evento `conversation:updated` no socket relay para atualização em tempo real. ' +
+          '\n\n' +
+          'Use `agentId: null` para desatribuir a conversa (inbox sem dono).',
+        security: [{ bearerAuth: [] }],
+        params: ConversationIdParamSchema,
+        body: AssignBodySchema,
+        response: {
+          200: AssignResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['livechat:conversation:manage'] })],
+    },
+    async (request, reply) => {
+      const actor = getWriteActor(request);
+      const { id: conversationId } = typedParams<{ id: string }>(request);
+      const body = typedBody<AssignBody>(request);
+      const result = await assignConversation(db, actor, conversationId, body);
+      return reply.status(200).send(result);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // PATCH /api/conversations/:id/resolve — resolver conversa
+  // -------------------------------------------------------------------------
+  app.patch(
+    '/api/conversations/:id/resolve',
+    {
+      schema: {
+        tags: ['Live Chat'],
+        summary: 'Resolver conversa',
+        description:
+          'Marca a conversa como `resolved` (encerrada). ' +
+          'O contato pode reabrir a conversa com uma nova mensagem inbound. ' +
+          'Publica evento `conversation:resolved` no socket relay para atualização em tempo real.',
+        security: [{ bearerAuth: [] }],
+        params: ConversationIdParamSchema,
+        response: {
+          200: ResolveResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['livechat:conversation:manage'] })],
+    },
+    async (request, reply) => {
+      const actor = getWriteActor(request);
+      const { id: conversationId } = typedParams<{ id: string }>(request);
+      const result = await resolveConversation(db, actor, conversationId);
       return reply.status(200).send(result);
     },
   );
