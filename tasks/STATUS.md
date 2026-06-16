@@ -15,9 +15,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 17    | 3   | 0   | 0   | 0   | 0   | 14  |
-| F17  | 14    | 1   | 2   | 0   | 0   | 0   | 11  |
-| F18  | 12    | 3   | 2   | 0   | 0   | 1   | 6   |
+| F16  | 17    | 1   | 0   | 0   | 0   | 1   | 15  |
+| F17  | 14    | 0   | 2   | 0   | 0   | 0   | 12  |
+| F18  | 12    | 2   | 1   | 0   | 0   | 0   | 9   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -184,7 +184,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ✅ done      | high       | F16-S07, F16-S10, F16-S12          |
 | F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ✅ done      | medium     | F16-S01, F16-S03, F16-S07          |
 | F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | ✅ done      | high       | F16-S03, F16-S12, F16-S14          |
-| F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | 🟢 available | high       | F16-S15                            |
+| F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | 🟣 review    | high       | F16-S15                            |
 | F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | 🟢 available | high       | F16-S15, F16-S13                   |
 
 ## Fase 17 —

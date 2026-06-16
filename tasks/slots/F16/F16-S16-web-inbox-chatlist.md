@@ -3,12 +3,12 @@ id: F16-S16
 title: Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#7-ui-conversationspage
-status: available
+status: review
 priority: high
 estimated_size: L
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-16T13:37:17Z
+completed_at: 2026-06-16T13:52:23Z
 pr_url: null
 depends_on: [F16-S15]
 blocks: []

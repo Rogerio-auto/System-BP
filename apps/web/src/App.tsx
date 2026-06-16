@@ -51,6 +51,7 @@ import { ProductDetailPage } from './pages/admin/ProductDetail';
 import { ProductsPage } from './pages/admin/Products';
 import { TutoriaisPage } from './pages/admin/Tutoriais';
 import { UsersPage } from './pages/admin/Users';
+import { ConversasPage } from './pages/ConversasPage';
 import { SimulatorPage } from './pages/simulator/SimulatorPage';
 
 // Code-split: ApiReferencePage não está no main bundle — só carregado quando
@@ -210,8 +211,8 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/admin/templates" element={<TemplatesListPage />} />
           <Route path="/admin/templates/new" element={<TemplateFormPage />} />
           <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
-          {/* F16-S15: Inbox live chat — SocketProvider + camada de dados (UI vem em S16/S17) */}
-          <Route path="/conversas" element={<PlaceholderPage title="Conversas" />} />
+          {/* F16-S16: Inbox live chat — layout 3 colunas + ChatList */}
+          <Route path="/conversas" element={<ConversasPage />} />
           {/* F15-S10: Painel de tarefas */}
           <Route path="/tarefas" element={<TasksPage />} />
           {/* F10-S02: Central de Ajuda */}
