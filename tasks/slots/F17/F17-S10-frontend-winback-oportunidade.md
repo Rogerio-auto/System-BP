@@ -3,12 +3,12 @@ id: F17-S10
 title: Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)
 phase: F17
 task_ref: null
-status: in-progress
+status: review
 priority: low
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-16T15:40:07Z
-completed_at: null
+completed_at: 2026-06-16T15:50:53Z
 pr_url: null
 depends_on: [F17-S09, F15-S10]
 blocks: []
