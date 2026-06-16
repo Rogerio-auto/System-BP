@@ -43,7 +43,7 @@
 import { OutboundJobSchema } from '@elemento/shared-schemas';
 import type { OutboundJob } from '@elemento/shared-schemas';
 import type amqplib from 'amqplib';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { db as defaultDb } from '../db/client.js';
 import type { Database } from '../db/client.js';
@@ -238,7 +238,9 @@ async function sendWithinLock(
       lastInboundAt: conversations.lastInboundAt,
     })
     .from(conversations)
-    .where(eq(conversations.id, conversationId))
+    .where(
+      and(eq(conversations.id, conversationId), eq(conversations.organizationId, organizationId)),
+    )
     .limit(1);
 
   if (convRow === undefined) {

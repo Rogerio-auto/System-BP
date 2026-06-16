@@ -58,6 +58,7 @@ export const REDACT_PATHS = [
   '*.password_hash',
   '*.refresh_token',
   '*.totp_secret',
+  '*.contactRemoteId',
   // Help feedback comment (F10-S12) - texto livre com PII potencial (doc 17 sec 9)
   'req.body.comment',
 ] as const;
