@@ -244,7 +244,7 @@ async function wipe(orgId: string): Promise<void> {
   await q('delete from leads');
   await q('delete from agents');
   await q('delete from whatsapp_templates');
-  // Produtos extras (mantém o produto base microcredito_pessoal).
+  // Produtos extras (mantém o produto base microcredito_basico).
   await q(
     `delete from credit_product_rules where product_id in (select id from credit_products where key in ('capital_giro','microcredito_produtivo'))`,
   );
@@ -344,7 +344,7 @@ async function main(): Promise<void> {
     // -- Produtos de crédito + regras --------------------------------------
     console.log('[seed-demo] Produtos de crédito...');
     const [baseProduct] = await q<{ id: string }>(
-      `select id from credit_products where key = 'microcredito_pessoal' and organization_id = $1`,
+      `select id from credit_products where key = 'microcredito_basico' and organization_id = $1`,
       [orgId],
     );
     const [baseRule] = await q<{ id: string; monthly_rate: string }>(

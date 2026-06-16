@@ -33,6 +33,7 @@ import {
   userRoles,
   users,
 } from '../src/db/schema/index.js';
+import { seedCreditProducts } from '../src/db/seeds/creditProducts.js';
 
 // ---------------------------------------------------------------------------
 // Constantes de domínio
@@ -561,6 +562,9 @@ async function seed(): Promise<void> {
   } else {
     console.warn('[seed] AVISO: nenhum stage inicial encontrado — backfill pulado.');
   }
+
+  // 9. Produto de crédito base (microcredito_basico)
+  await seedCreditProducts();
 
   console.log('[seed] Seed concluído com sucesso.');
 }
