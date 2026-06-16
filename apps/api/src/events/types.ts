@@ -641,6 +641,30 @@ export interface ContractAutoUpdatedData {
   organization_id: string;
 }
 
+/**
+ * Emitido pelo worker winback-scan (F17-S09) ao detectar contrato perto do fim.
+ * Gatilho: contrato com ≤ 2 parcelas não pagas restantes (configurável).
+ *
+ * LGPD §8.5: payload sem PII bruta — apenas IDs opacos + dado operacional.
+ * Base legal: Art. 7º V LGPD (execução de contrato / legítimo interesse contratual).
+ * installments_remaining é dado financeiro operacional, não identificador pessoal.
+ *
+ * O consumer hidrata dados via GET /internal/contracts/:id com escopo correto.
+ */
+export interface ContractNearEndData {
+  /** UUID opaco do contrato — não é PII direta. */
+  contract_id: string;
+  /** UUID do customer titular (aponta para entidade com PII — não logar diretamente). */
+  customer_id: string;
+  /** UUID da organização dona do contrato. */
+  organization_id: string;
+  /**
+   * Número de parcelas não pagas restantes no contrato.
+   * Dado financeiro operacional — sem PII.
+   */
+  installments_remaining: number;
+}
+
 // --- Domínio: inadimplência SPC (F15-S08) ---
 // LGPD §8.5: payload carrega apenas IDs opacos + contagem operacional.
 // NUNCA incluir CPF, nome, telefone ou qualquer dado de identificação direta.
@@ -953,10 +977,12 @@ export interface AppEventDataMap {
   'user.role_assigned': UserRoleAssignedData;
   'user.city_scope_changed': UserCityScopeChangedData;
   'user.session_revoked': UserEventData;
-  // --- Contratos (F17-S03 / F17-S13) ---
+  // --- Contratos (F17-S03 / F17-S13 / F17-S09) ---
   'contract.signed': ContractSignedData;
   'contract.auto_created': ContractAutoCreatedData;
   'contract.auto_updated': ContractAutoUpdatedData;
+  // F17-S09: contrato perto do fim — ≤2 parcelas restantes (winback_renovation)
+  'contract.near_end': ContractNearEndData;
   // --- Inadimplência SPC (F15-S08): 15+ dias de atraso, spc_status=none ---
   'payment_due.overdue_15d': PaymentDueOverdue15dData;
   // --- Tarefas (F15-S05) ---
