@@ -21,11 +21,24 @@ import type { Message, MessageListResponse } from '../../types';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
-export interface SendMessagePayload {
+/** Payload para mensagem de texto livre. */
+export interface SendTextPayload {
   type: 'text';
   content: string;
   idempotencyKey: string;
 }
+
+/** Payload para template WhatsApp (janela 24h expirada). */
+export interface SendTemplatePayload {
+  type: 'template';
+  templateName: string;
+  languageCode: string;
+  components: unknown[];
+  idempotencyKey: string;
+}
+
+/** União de todos os tipos de mensagem suportados pelo compositor. */
+export type SendMessagePayload = SendTextPayload | SendTemplatePayload;
 
 export interface SendMessageResult {
   data: Message;
@@ -37,12 +50,14 @@ async function sendMessage(
   conversationId: string,
   payload: SendMessagePayload,
 ): Promise<SendMessageResult> {
+  // Extrai apenas os campos relevantes para o backend (sem idempotencyKey no body)
+  const { idempotencyKey, ...bodyFields } = payload;
   return api.post<SendMessageResult>(
-    `/api/livechat/conversations/${encodeURIComponent(conversationId)}/messages`,
-    { type: payload.type, content: payload.content, idempotencyKey: payload.idempotencyKey },
+    `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
+    bodyFields,
     {
       headers: {
-        'Idempotency-Key': payload.idempotencyKey,
+        'Idempotency-Key': idempotencyKey,
       },
     },
   );
@@ -80,9 +95,10 @@ export function useSendMessage(conversationId: string) {
         channelId: '',
         direction: 'out',
         externalId: null,
-        type: 'text',
+        type: payload.type === 'template' ? 'template' : 'text',
         // LGPD: conteúdo apenas em memória para exibição imediata
-        content: payload.content,
+        // Para templates, content é o nome do template (opaco — não é PII)
+        content: payload.type === 'text' ? payload.content : payload.templateName,
         mediaUrl: null,
         mediaMime: null,
         mediaSizeBytes: null,

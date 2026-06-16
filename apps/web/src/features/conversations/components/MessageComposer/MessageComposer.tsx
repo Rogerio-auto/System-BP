@@ -19,6 +19,7 @@ import * as React from 'react';
 
 import { cn } from '../../../../lib/cn';
 
+import { TemplateSelector } from './TemplateSelector';
 import { useSendMessage } from './useSendMessage';
 import { useWindowState } from './useWindowState';
 import { WindowNotice } from './WindowNotice';
@@ -27,7 +28,10 @@ import { WindowNotice } from './WindowNotice';
 
 interface MessageComposerProps {
   conversationId: string;
-  /** Callback ao clicar em "Usar template" (placeholder — S18+) */
+  /**
+   * Callback externo ao clicar em "Usar template".
+   * Quando não fornecido, o MessageComposer gerencia internamente (S19).
+   */
   onUseTemplate?: (() => void) | undefined;
 }
 
@@ -57,6 +61,7 @@ export function MessageComposer({
   onUseTemplate,
 }: MessageComposerProps): React.JSX.Element {
   const [text, setText] = React.useState('');
+  const [showTemplateSelector, setShowTemplateSelector] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -67,6 +72,29 @@ export function MessageComposer({
 
   const isDisabled = !windowOpen || isLoading || sendMutation.isPending;
   const canSend = text.trim().length > 0 && !isDisabled;
+
+  // Callback interno do seletor de template (S19)
+  const handleUseTemplate = React.useCallback(() => {
+    setShowTemplateSelector(true);
+  }, []);
+
+  // Callback ao confirmar envio no TemplateSelector
+  function handleTemplateSend(
+    templateName: string,
+    languageCode: string,
+    components: unknown[],
+    _variables: Record<string, string>,
+  ): void {
+    const idempotencyKey = crypto.randomUUID();
+    sendMutation.mutate(
+      { type: 'template', templateName, languageCode, components, idempotencyKey },
+      {
+        onSuccess: () => {
+          setShowTemplateSelector(false);
+        },
+      },
+    );
+  }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -117,16 +145,25 @@ export function MessageComposer({
   return (
     <div
       className={cn(
-        'flex flex-col border-t border-border bg-surface-1',
+        'relative flex flex-col border-t border-border bg-surface-1',
         '[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06)]',
       )}
       aria-label="Compositor de mensagem"
     >
+      {/* Seletor de template (S19) — aparece acima do compositor */}
+      {showTemplateSelector && (
+        <TemplateSelector
+          conversationId={conversationId}
+          onClose={() => setShowTemplateSelector(false)}
+          onSend={handleTemplateSend}
+        />
+      )}
+
       {/* Aviso de janela expirada */}
       {!windowOpen && !isLoading && (
         <WindowNotice
           windowKind={windowKind}
-          {...(onUseTemplate !== undefined ? { onUseTemplate } : {})}
+          onUseTemplate={onUseTemplate ?? handleUseTemplate}
         />
       )}
 
