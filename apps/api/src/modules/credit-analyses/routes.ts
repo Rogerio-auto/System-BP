@@ -238,30 +238,4 @@ export const creditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     requestReviewController,
   );
-
-  // ---------------------------------------------------------------------------
-  // Rota de descoberta: método não permitido para sub-caminhos inválidos
-  // ---------------------------------------------------------------------------
-  app.get(
-    '/api/credit-analyses/:id/versions',
-    {
-      schema: {
-        tags: ['Credit Analyses'],
-        summary: 'Listar versoes da analise',
-        description: 'Lista todas as versoes de uma analise de credito.',
-        security: [{ bearerAuth: [] }],
-        params: analysisIdParamSchema,
-        response: {
-          405: z.object({ error: z.string(), message: z.string() }),
-        },
-      },
-      preHandler: [authorize({ permissions: READ_PERMS })],
-    },
-    async (_request, reply) => {
-      return reply.status(405).send({
-        error: 'METHOD_NOT_ALLOWED',
-        message: 'Use POST /api/credit-analyses/:id/versions para adicionar versão',
-      });
-    },
-  );
 };
