@@ -18,6 +18,13 @@ export const ContractSchema = z.object({
   contract_reference: z.string(),
   product_id: z.string().uuid().nullable(),
   rule_version_id: z.string().uuid().nullable(),
+  /**
+   * FK para a análise de crédito que originou o contrato.
+   * null para contratos migrados do legado (sem análise associada).
+   * optional: respostas de endpoints legados que não selecionam a coluna
+   * permanecem válidas enquanto a adoção do campo é incremental.
+   */
+  analysis_id: z.string().uuid().optional().nullable(),
   // numeric(14,2) retornado como string para evitar float drift
   principal_amount: z.string(),
   term_months: z.number().int().positive(),
@@ -38,6 +45,11 @@ export const ContractCreateSchema = z.object({
   contract_reference: z.string().min(1).max(100),
   product_id: z.string().uuid().optional().nullable(),
   rule_version_id: z.string().uuid().optional().nullable(),
+  /**
+   * FK para a análise de crédito que originou o contrato.
+   * Omissível: contratos criados manualmente ou importados do legado não têm análise.
+   */
+  analysis_id: z.string().uuid().optional().nullable(),
   // Aceita inteiro ou decimal com até 2 casas (ex: "5000" ou "5000.00")
   principal_amount: z.string().regex(/^\d+(\.\d{1,2})?$/, {
     message: 'principal_amount deve ser um número com até 2 casas decimais',
