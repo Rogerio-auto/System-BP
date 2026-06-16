@@ -179,6 +179,9 @@ export async function buildApp() {
           // cnpj identifica o beneficiário do crédito e pode ser cruzado com dados do sócio.
           'req.body.cnpj',
           '*.cnpj',
+          // Razão social PJ (F18-S08) — para ME/EI frequentemente é "NOME_TITULAR CNPJ" (LGPD art.5 I).
+          'req.body.legal_name',
+          '*.legal_name',
         ],
         censor: '[REDACTED]',
       },
