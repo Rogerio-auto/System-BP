@@ -22,6 +22,7 @@ docs_audience:
 docs_artifacts:
   - docs/help/guias/contratos/ficha-contrato-boletos.mdx
 ---
+
 # F17-S06 — Ficha do contrato + saúde de boletos
 
 ## Objetivo

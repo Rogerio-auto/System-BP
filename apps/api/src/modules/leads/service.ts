@@ -40,6 +40,7 @@ import { findInitialStage, insertCard, insertHistory } from '../kanban/repositor
 import {
   findCityNamesByIds,
   findCurrentStagesByLeadIds,
+  findCustomerIdsByLeadIds,
   findInteractionsByLead,
   findLeadById,
   findLeadByPhoneInOrg,
@@ -158,6 +159,8 @@ interface LeadResponseExtras {
   cityName?: string | null;
   cardId?: string | null;
   stage?: { id: string; name: string } | null;
+  /** ID do customer quando o lead está 'closed_won'. null = não convertido. (F17-S08) */
+  customerId?: string | null;
 }
 
 function toLeadResponse(lead: Lead, extras?: LeadResponseExtras): LeadResponse {
@@ -170,6 +173,8 @@ function toLeadResponse(lead: Lead, extras?: LeadResponseExtras): LeadResponse {
     city_name: extras?.cityName ?? null,
     kanban_card_id: extras?.cardId ?? null,
     kanban_stage: extras?.stage ?? null,
+    // customer_id: null quando não convertido; UUID quando lead está 'closed_won' (F17-S08).
+    customer_id: extras?.customerId ?? null,
     agent_id: lead.agentId ?? null,
     name: lead.name,
     phone_e164: lead.phoneE164,
@@ -198,16 +203,15 @@ export async function listLeads(
 ): Promise<LeadListResponse> {
   const { data, total } = await findLeads(db, actor.organizationId, actor.cityScopeIds, query);
 
-  // Enriquecimento em lote (cidade + estágio de Kanban) — sem N+1 (F13-S03).
+  // Enriquecimento em lote (cidade + estágio de Kanban + customer) — sem N+1 (F13-S03).
   const cityIds = data
     .map((l) => l.cityId)
     .filter((id): id is string => id !== null && id !== undefined);
-  const [cityNames, stages] = await Promise.all([
+  const leadIds = data.map((l) => l.id);
+  const [cityNames, stages, customerIds] = await Promise.all([
     findCityNamesByIds(db, cityIds),
-    findCurrentStagesByLeadIds(
-      db,
-      data.map((l) => l.id),
-    ),
+    findCurrentStagesByLeadIds(db, leadIds),
+    findCustomerIdsByLeadIds(db, leadIds),
   ]);
 
   return {
@@ -217,6 +221,7 @@ export async function listLeads(
         cityName: l.cityId ? (cityNames.get(l.cityId) ?? null) : null,
         cardId: info?.cardId ?? null,
         stage: info?.stage ?? null,
+        customerId: customerIds.get(l.id) ?? null,
       });
     }),
     pagination: {
@@ -240,12 +245,13 @@ export async function getLeadById(
   const lead = await findLeadById(db, leadId, actor.organizationId, actor.cityScopeIds);
   if (!lead) throw new NotFoundError('Lead não encontrado');
 
-  // Enriquecimento cidade + estágio de Kanban (F13-S03).
-  const [cityNames, stages] = await Promise.all([
+  // Enriquecimento cidade + estágio de Kanban + customer (F13-S03, F17-S08).
+  const [cityNames, stages, customerIds] = await Promise.all([
     lead.cityId
       ? findCityNamesByIds(db, [lead.cityId])
       : Promise.resolve(new Map<string, string>()),
     findCurrentStagesByLeadIds(db, [lead.id]),
+    findCustomerIdsByLeadIds(db, [lead.id]),
   ]);
 
   const info = stages.get(lead.id);
@@ -253,6 +259,7 @@ export async function getLeadById(
     cityName: lead.cityId ? (cityNames.get(lead.cityId) ?? null) : null,
     cardId: info?.cardId ?? null,
     stage: info?.stage ?? null,
+    customerId: customerIds.get(lead.id) ?? null,
   });
 }
 

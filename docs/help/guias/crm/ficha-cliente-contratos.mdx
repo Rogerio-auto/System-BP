@@ -1,0 +1,97 @@
+---
+title: Ficha do cliente — contratos e boletos
+description: Como acessar a ficha consolidada de um cliente no CRM, visualizar contratos, parcelas e status de cobrança.
+order: 55
+keywords: [ficha cliente, contratos, boletos, parcelas, SPC, drilldown, visao consolidada]
+---
+
+# Ficha do cliente — contratos e boletos
+
+Use este guia para visualizar a ficha consolidada de um cliente convertido no CRM.
+A ficha reúne dados de crédito, contratos e histórico de parcelas em um painel lateral.
+
+## O que e a ficha do cliente
+
+A ficha do cliente exibe uma visao consolidada de:
+
+- **Status SPC** — situacao de inadimplencia (em dia, pendente, incluido ou removido).
+- **Contratos** — lista de contratos com status, valor principal, prazo e saude de boleto.
+- **Ultimas parcelas** — as 10 parcelas mais recentes com numero, data de vencimento, valor e status.
+
+<Callout type="warning" title="Proteção de dados — LGPD §14.2">
+  O Status SPC e as informações de saúde financeira são dados sensíveis de acordo com a
+  política interna do Banco do Povo. Seu acesso e tratamento devem seguir as regras definidas
+  em [`docs/17-lgpd-protecao-dados.md` §14.2](/docs/17-lgpd-protecao-dados#checklist-de-dados-pessoais).
+  Consulte o encarregado (DPO) em caso de dúvida sobre finalidade, consentimento ou prazo
+  de retenção antes de utilizar essas informações.
+</Callout>
+
+Ela e acessivel somente para leads convertidos (status **Convertido**).
+Para leads em outros estagios, o botao nao aparece.
+
+## Como acessar a ficha do cliente
+
+<Step number={1} title="Abra a ficha do lead no CRM">
+  No CRM, clique no nome de qualquer lead para abrir a pagina de detalhes do lead em `/crm/:id`.
+</Step>
+
+<Step number={2} title="Localize o botao Ver ficha do cliente">
+  No cabecalho da pagina, ao lado do botao **Editar**, voce vera o botao **Ver ficha do cliente**.
+  Esse botao aparece apenas quando o lead esta com status **Convertido** (closed_won).
+</Step>
+
+<Step number={3} title="Clique para abrir o drawer lateral">
+  Um painel deslizante abre pela direita com tres secoes:
+  - **Dados do cliente** — status SPC e data da ultima atualizacao.
+  - **Contratos** — cada contrato com referencia, valor, prazo, status e saude de boleto.
+  - **Ultimas parcelas** — lista das 10 parcelas mais recentes com status de pagamento.
+</Step>
+
+<Step number={4} title="Navegue para o contrato completo">
+  Dentro de cada cartao de contrato, clique em **Ver contrato completo** para ir para `/contratos/:id`
+  com o detalhe completo do contrato, cronograma e documentos.
+</Step>
+
+## Indicadores de saude do boleto
+
+Cada contrato exibe um indicador de saude derivado das parcelas:
+
+| Indicador | Significado |
+|-----------|-------------|
+| Em dia | Sem parcelas em atraso |
+| Em risco | Parcelas pendentes com historico de atraso |
+| Inadimplente | Uma ou mais parcelas vencidas |
+| Liquidado | Todas as parcelas pagas |
+
+## Erros comuns
+
+**O botao "Ver ficha do cliente" nao aparece.**
+Isso ocorre quando o lead nao foi convertido ainda (status diferente de "Convertido").
+Para ver a ficha, o lead precisa ter passado pelo processo de aprovacao e contratacao.
+
+**A ficha exibe "Erro ao carregar dados do cliente".**
+Isso pode ocorrer por problema de conexao ou se o cliente nao foi registrado corretamente
+no sistema. Clique em **Tentar novamente**. Se o erro persistir, contate o suporte tecnico.
+
+**Nao vejo contratos na ficha.**
+O cliente pode ainda nao ter contratos registrados no sistema. Verifique na pagina de
+Contratos se ha contratos associados a este cliente.
+
+## Permissoes necessarias
+
+<Permission required="contracts:read">
+  A ficha do cliente exige a permissão **contracts:read** — concedida a **Admin**,
+  **Gestor Geral** e **Gestor Regional**. Agentes sem essa permissão não verão a
+  seção de contratos nem o botão "Ver ficha do cliente".
+</Permission>
+
+<Callout type="info">
+  A ficha do cliente e somente leitura. Para editar dados do contrato, acesse a pagina
+  de contratos em /contratos. Para editar dados do lead, use o botao Editar na propria
+  ficha do lead.
+</Callout>
+
+## Veja tambem
+
+- [Ver e editar detalhes do lead](./detalhes-do-lead.mdx)
+- [Converter lead em cliente](./converter-em-cliente.mdx)

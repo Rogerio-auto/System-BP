@@ -82,6 +82,8 @@ vi.mock('../repository.js', () => ({
   // F13-S03/S07: enriquecimento CRM — mocks retornam vazio (não afetam asserts existentes).
   findCityNamesByIds: () => Promise.resolve(new Map()),
   findCurrentStagesByLeadIds: () => Promise.resolve(new Map()),
+  // F17-S08: customer_id — retorna mapa vazio (nenhum lead convertido nos fixtures de teste).
+  findCustomerIdsByLeadIds: () => Promise.resolve(new Map()),
   findInteractionsByLead: () => Promise.resolve([]),
 }));
 

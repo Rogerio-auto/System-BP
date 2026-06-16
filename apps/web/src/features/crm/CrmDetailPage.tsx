@@ -42,6 +42,7 @@ import { api, ApiError } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import { LeadCreditAnalysisTab } from '../leads/components/LeadCreditAnalysisTab';
 
+import { CustomerDetailDrawer } from './components/CustomerDetailDrawer';
 import { SimulationHistory } from './components/SimulationHistory';
 
 // ─── Skeletons ────────────────────────────────────────────────────────────────
@@ -341,6 +342,8 @@ export function CrmDetailPage(): React.JSX.Element {
   const { lead, isLoading, isError } = useLead(leadId);
   const { interactions, isLoading: loadingInteractions } = useLeadInteractions(leadId);
   const [editOpen, setEditOpen] = React.useState(false);
+  // Ficha do cliente — abre quando o lead foi convertido (closed_won)
+  const [customerDrawerOpen, setCustomerDrawerOpen] = React.useState(false);
 
   // Mudança de estágio de Kanban a partir da ficha (F13-S03) — reusa o move do board.
   const { stages: kanbanStages } = useKanbanStages();
@@ -379,323 +382,362 @@ export function CrmDetailPage(): React.JSX.Element {
   const statusMeta = lead ? STATUS_META[lead.status] : null;
 
   return (
-    <div
-      className="flex flex-col gap-6"
-      style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) both' }}
-    >
-      {/* Breadcrumb + voltar */}
-      <div className="flex items-center gap-2">
-        <Link
-          to="/crm"
-          className="font-sans text-sm text-ink-3 hover:text-azul transition-colors flex items-center gap-1"
-        >
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.6}
-            className="w-4 h-4"
+    <>
+      <div
+        className="flex flex-col gap-6"
+        style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) both' }}
+      >
+        {/* Breadcrumb + voltar */}
+        <div className="flex items-center gap-2">
+          <Link
+            to="/crm"
+            className="font-sans text-sm text-ink-3 hover:text-azul transition-colors flex items-center gap-1"
           >
-            <path d="M10 4l-4 4 4 4" />
-          </svg>
-          CRM
-        </Link>
-        <span className="text-ink-4 text-sm">/</span>
-        <span className="font-sans text-sm text-ink truncate max-w-xs">
-          {isLoading ? '...' : (lead?.name ?? 'Lead')}
-        </span>
-      </div>
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.6}
+              className="w-4 h-4"
+            >
+              <path d="M10 4l-4 4 4 4" />
+            </svg>
+            CRM
+          </Link>
+          <span className="text-ink-4 text-sm">/</span>
+          <span className="font-sans text-sm text-ink truncate max-w-xs">
+            {isLoading ? '...' : (lead?.name ?? 'Lead')}
+          </span>
+        </div>
 
-      {/* Header do lead */}
-      {isLoading ? (
-        <HeaderSkeleton />
-      ) : lead ? (
-        <div
-          className="flex items-start justify-between gap-4"
-          style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.05s both' }}
-        >
-          <div className="flex items-center gap-4">
-            {/* Avatar variante azul conforme spec */}
-            <Avatar name={lead.name} variant="azul" size="lg" />
-            <div>
-              <h1
-                className="font-display font-bold text-ink"
-                style={{
-                  fontSize: 'var(--text-2xl)',
-                  letterSpacing: '-0.035em',
-                  fontVariationSettings: "'opsz' 32",
-                }}
-              >
-                {lead.name}
-              </h1>
-              <div className="flex items-center flex-wrap gap-2 mt-1">
-                {statusMeta && <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>}
-                <span
-                  className="font-sans text-xs text-ink-3 uppercase font-semibold"
-                  style={{ letterSpacing: '0.1em' }}
+        {/* Header do lead */}
+        {isLoading ? (
+          <HeaderSkeleton />
+        ) : lead ? (
+          <div
+            className="flex items-start justify-between gap-4"
+            style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.05s both' }}
+          >
+            <div className="flex items-center gap-4">
+              {/* Avatar variante azul conforme spec */}
+              <Avatar name={lead.name} variant="azul" size="lg" />
+              <div>
+                <h1
+                  className="font-display font-bold text-ink"
+                  style={{
+                    fontSize: 'var(--text-2xl)',
+                    letterSpacing: '-0.035em',
+                    fontVariationSettings: "'opsz' 32",
+                  }}
                 >
-                  {SOURCE_LABEL[lead.source] ?? lead.source}
-                </span>
-                <span className="text-ink-4 text-xs">Criado {formatDate(lead.created_at)}</span>
+                  {lead.name}
+                </h1>
+                <div className="flex items-center flex-wrap gap-2 mt-1">
+                  {statusMeta && <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>}
+                  <span
+                    className="font-sans text-xs text-ink-3 uppercase font-semibold"
+                    style={{ letterSpacing: '0.1em' }}
+                  >
+                    {SOURCE_LABEL[lead.source] ?? lead.source}
+                  </span>
+                  <span className="text-ink-4 text-xs">Criado {formatDate(lead.created_at)}</span>
+                </div>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Ficha do cliente — disponível somente quando convertido E customer_id existe */}
+              {lead.status === 'closed_won' && lead.customer_id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCustomerDrawerOpen(true)}
+                  leftIcon={
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.6}
+                      className="w-4 h-4"
+                      aria-hidden="true"
+                    >
+                      <rect x="2" y="3" width="12" height="10" rx="2" />
+                      <path d="M5 7h6M5 10h4" />
+                    </svg>
+                  }
+                >
+                  Ver ficha do cliente
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditOpen((v) => !v)}
+                leftIcon={
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.6}
+                    className="w-4 h-4"
+                  >
+                    <path d="M11 3l2 2-8 8H3v-2l8-8Z" />
+                  </svg>
+                }
+              >
+                Editar
+              </Button>
             </div>
           </div>
+        ) : null}
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setEditOpen((v) => !v)}
-            leftIcon={
-              <svg
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.6}
-                className="w-4 h-4"
-              >
-                <path d="M11 3l2 2-8 8H3v-2l8-8Z" />
-              </svg>
-            }
-          >
-            Editar
-          </Button>
-        </div>
-      ) : null}
+        {/* Layout 2 colunas */}
+        <div
+          className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5"
+          style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.1s both' }}
+        >
+          {/* ── Coluna esquerda: dados + edição ─────────────────────────────── */}
+          <div className="flex flex-col gap-5">
+            {/* Card dados pessoais */}
+            {isLoading ? (
+              <CardSkeleton />
+            ) : lead ? (
+              <SpotlightCard>
+                <div className="p-5">
+                  <h2
+                    className="font-sans font-bold text-ink-3 uppercase mb-4"
+                    style={{ fontSize: '0.7rem', letterSpacing: '0.12em' }}
+                  >
+                    Dados de contato
+                  </h2>
 
-      {/* Layout 2 colunas */}
-      <div
-        className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5"
-        style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.1s both' }}
-      >
-        {/* ── Coluna esquerda: dados + edição ─────────────────────────────── */}
-        <div className="flex flex-col gap-5">
-          {/* Card dados pessoais */}
-          {isLoading ? (
-            <CardSkeleton />
-          ) : lead ? (
-            <SpotlightCard>
-              <div className="p-5">
-                <h2
-                  className="font-sans font-bold text-ink-3 uppercase mb-4"
-                  style={{ fontSize: '0.7rem', letterSpacing: '0.12em' }}
-                >
-                  Dados de contato
-                </h2>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Telefone — LGPD mascarado */}
-                  <div>
-                    <p
-                      className="font-sans font-semibold text-ink-3 uppercase mb-1"
-                      style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
-                    >
-                      Telefone
-                    </p>
-                    <p
-                      className="font-mono text-ink-2"
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '0.875rem',
-                        letterSpacing: '-0.01em',
-                      }}
-                    >
-                      {phoneMasked}
-                    </p>
-                  </div>
-
-                  {/* Email — LGPD truncado */}
-                  <div>
-                    <p
-                      className="font-sans font-semibold text-ink-3 uppercase mb-1"
-                      style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
-                    >
-                      E-mail
-                    </p>
-                    <p className="font-sans text-sm text-ink-2">
-                      {emailTrunc ?? <span className="text-ink-4">—</span>}
-                    </p>
-                  </div>
-
-                  {/* Status de atendimento */}
-                  <div>
-                    <p
-                      className="font-sans font-semibold text-ink-3 uppercase mb-1"
-                      style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
-                    >
-                      Status de atendimento
-                    </p>
-                    {statusMeta && <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>}
-                  </div>
-
-                  {/* Cidade (F13-S03) */}
-                  <div>
-                    <p
-                      className="font-sans font-semibold text-ink-3 uppercase mb-1"
-                      style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
-                    >
-                      Cidade
-                    </p>
-                    <p className="font-sans text-sm text-ink-2">
-                      {lead.city_name ?? <span className="text-ink-4">—</span>}
-                    </p>
-                  </div>
-
-                  {/* Estágio de Kanban — gestão interna, editável pela ficha (F13-S03) */}
-                  <div>
-                    <p
-                      className="font-sans font-semibold text-ink-3 uppercase mb-1"
-                      style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
-                    >
-                      Estágio (Kanban)
-                    </p>
-                    {lead.kanban_card_id ? (
-                      <Select
-                        id="lead-kanban-stage"
-                        value={lead.kanban_stage?.id ?? ''}
-                        options={kanbanStages.map((s) => ({ value: s.id, label: s.name }))}
-                        disabled={moveStageMutation.isPending}
-                        onChange={(e) => {
-                          const toStageId = e.target.value;
-                          const cardId = lead.kanban_card_id;
-                          if (cardId && toStageId && toStageId !== lead.kanban_stage?.id) {
-                            moveStageMutation.mutate({ cardId, toStageId });
-                          }
-                        }}
-                      />
-                    ) : (
-                      <p className="font-sans text-sm text-ink-4">Sem card no board</p>
-                    )}
-                  </div>
-
-                  {/* Canal */}
-                  <div>
-                    <p
-                      className="font-sans font-semibold text-ink-3 uppercase mb-1"
-                      style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
-                    >
-                      Canal de origem
-                    </p>
-                    <p className="font-sans text-sm text-ink-2">
-                      {SOURCE_LABEL[lead.source] ?? lead.source}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Notas */}
-                {lead.notes && (
-                  <div className="mt-4 pt-4 border-t border-border-subtle">
-                    <p
-                      className="font-sans font-semibold text-ink-3 uppercase mb-2"
-                      style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
-                    >
-                      Notas
-                    </p>
-                    <p className="font-sans text-sm text-ink-2 leading-relaxed">{lead.notes}</p>
-                  </div>
-                )}
-              </div>
-            </SpotlightCard>
-          ) : null}
-
-          {/* Painel de edição inline (drawer-like) */}
-          {editOpen && lead && (
-            <EditPanel
-              leadId={lead.id}
-              currentStatus={lead.status}
-              currentNotes={lead.notes}
-              onClose={() => setEditOpen(false)}
-            />
-          )}
-
-          {/* Histórico de simulações de crédito (F2-S08 / F14-S06) */}
-          {/* F14-S06: phone_e164 passado para gating do botão "Enviar ao cliente" */}
-          <SimulationHistory leadId={leadId} leadPhone={lead?.phone_e164 ?? null} />
-
-          {/* Tab de análise de crédito (F4-S03) */}
-          <LeadCreditAnalysisTab leadId={leadId} />
-        </div>
-
-        {/* ── Coluna direita: timeline ─────────────────────────────────────── */}
-        <div className="flex flex-col gap-3">
-          <h2
-            className="font-sans font-bold text-ink-3 uppercase"
-            style={{ fontSize: '0.7rem', letterSpacing: '0.12em' }}
-          >
-            Timeline
-          </h2>
-
-          {loadingInteractions ? (
-            <div className="flex flex-col gap-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="rounded-md border border-border bg-surface-1 p-4 animate-pulse"
-                  style={{ boxShadow: 'var(--elev-1)' }}
-                >
-                  <div
-                    className="h-3 w-20 rounded-xs mb-2"
-                    style={{ background: 'var(--surface-muted)' }}
-                  />
-                  <div
-                    className="h-4 w-full rounded-xs mb-1.5"
-                    style={{ background: 'var(--surface-muted)' }}
-                  />
-                  <div
-                    className="h-4 w-3/4 rounded-xs"
-                    style={{ background: 'var(--surface-muted)' }}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : interactions.length === 0 ? (
-            <SpotlightCard className="p-4">
-              <p className="font-sans text-sm text-ink-3 text-center py-4">
-                Nenhuma interação registrada.
-              </p>
-            </SpotlightCard>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {interactions.map((interaction, idx) => (
-                <div
-                  key={interaction.id}
-                  style={{ animationDelay: `${idx * 40}ms` } as React.CSSProperties}
-                >
-                  <SpotlightCard className="p-4">
-                    {/* Tipo + timestamp */}
-                    <div className="flex items-center justify-between mb-2">
-                      <span
-                        className="flex items-center gap-1.5 font-sans font-semibold text-xs uppercase"
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Telefone — LGPD mascarado */}
+                    <div>
+                      <p
+                        className="font-sans font-semibold text-ink-3 uppercase mb-1"
+                        style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+                      >
+                        Telefone
+                      </p>
+                      <p
+                        className="font-mono text-ink-2"
                         style={{
-                          color: INTERACTION_COLORS[interaction.type],
-                          letterSpacing: '0.08em',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.875rem',
+                          letterSpacing: '-0.01em',
                         }}
                       >
-                        <InteractionIcon type={interaction.type} />
-                        {interaction.type === 'note' && 'Nota'}
-                        {interaction.type === 'status_change' && 'Status'}
-                        {interaction.type === 'whatsapp' && 'WhatsApp'}
-                        {interaction.type === 'call' && 'Ligação'}
-                        {interaction.type === 'system' && 'Sistema'}
-                      </span>
-                      <span className="font-sans text-xs text-ink-4">
-                        {formatRelativeDate(interaction.createdAt)}
-                      </span>
+                        {phoneMasked}
+                      </p>
                     </div>
 
-                    {/* Conteúdo */}
-                    <p className="font-sans text-sm text-ink-2 leading-relaxed">
-                      {interaction.content}
-                    </p>
+                    {/* Email — LGPD truncado */}
+                    <div>
+                      <p
+                        className="font-sans font-semibold text-ink-3 uppercase mb-1"
+                        style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+                      >
+                        E-mail
+                      </p>
+                      <p className="font-sans text-sm text-ink-2">
+                        {emailTrunc ?? <span className="text-ink-4">—</span>}
+                      </p>
+                    </div>
 
-                    {/* Ator */}
-                    <p className="font-sans text-xs text-ink-4 mt-2">por {interaction.actorName}</p>
-                  </SpotlightCard>
+                    {/* Status de atendimento */}
+                    <div>
+                      <p
+                        className="font-sans font-semibold text-ink-3 uppercase mb-1"
+                        style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+                      >
+                        Status de atendimento
+                      </p>
+                      {statusMeta && <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>}
+                    </div>
+
+                    {/* Cidade (F13-S03) */}
+                    <div>
+                      <p
+                        className="font-sans font-semibold text-ink-3 uppercase mb-1"
+                        style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+                      >
+                        Cidade
+                      </p>
+                      <p className="font-sans text-sm text-ink-2">
+                        {lead.city_name ?? <span className="text-ink-4">—</span>}
+                      </p>
+                    </div>
+
+                    {/* Estágio de Kanban — gestão interna, editável pela ficha (F13-S03) */}
+                    <div>
+                      <p
+                        className="font-sans font-semibold text-ink-3 uppercase mb-1"
+                        style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+                      >
+                        Estágio (Kanban)
+                      </p>
+                      {lead.kanban_card_id ? (
+                        <Select
+                          id="lead-kanban-stage"
+                          value={lead.kanban_stage?.id ?? ''}
+                          options={kanbanStages.map((s) => ({ value: s.id, label: s.name }))}
+                          disabled={moveStageMutation.isPending}
+                          onChange={(e) => {
+                            const toStageId = e.target.value;
+                            const cardId = lead.kanban_card_id;
+                            if (cardId && toStageId && toStageId !== lead.kanban_stage?.id) {
+                              moveStageMutation.mutate({ cardId, toStageId });
+                            }
+                          }}
+                        />
+                      ) : (
+                        <p className="font-sans text-sm text-ink-4">Sem card no board</p>
+                      )}
+                    </div>
+
+                    {/* Canal */}
+                    <div>
+                      <p
+                        className="font-sans font-semibold text-ink-3 uppercase mb-1"
+                        style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+                      >
+                        Canal de origem
+                      </p>
+                      <p className="font-sans text-sm text-ink-2">
+                        {SOURCE_LABEL[lead.source] ?? lead.source}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Notas */}
+                  {lead.notes && (
+                    <div className="mt-4 pt-4 border-t border-border-subtle">
+                      <p
+                        className="font-sans font-semibold text-ink-3 uppercase mb-2"
+                        style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+                      >
+                        Notas
+                      </p>
+                      <p className="font-sans text-sm text-ink-2 leading-relaxed">{lead.notes}</p>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+              </SpotlightCard>
+            ) : null}
+
+            {/* Painel de edição inline (drawer-like) */}
+            {editOpen && lead && (
+              <EditPanel
+                leadId={lead.id}
+                currentStatus={lead.status}
+                currentNotes={lead.notes}
+                onClose={() => setEditOpen(false)}
+              />
+            )}
+
+            {/* Histórico de simulações de crédito (F2-S08 / F14-S06) */}
+            {/* F14-S06: phone_e164 passado para gating do botão "Enviar ao cliente" */}
+            <SimulationHistory leadId={leadId} leadPhone={lead?.phone_e164 ?? null} />
+
+            {/* Tab de análise de crédito (F4-S03) */}
+            <LeadCreditAnalysisTab leadId={leadId} />
+          </div>
+
+          {/* ── Coluna direita: timeline ─────────────────────────────────────── */}
+          <div className="flex flex-col gap-3">
+            <h2
+              className="font-sans font-bold text-ink-3 uppercase"
+              style={{ fontSize: '0.7rem', letterSpacing: '0.12em' }}
+            >
+              Timeline
+            </h2>
+
+            {loadingInteractions ? (
+              <div className="flex flex-col gap-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="rounded-md border border-border bg-surface-1 p-4 animate-pulse"
+                    style={{ boxShadow: 'var(--elev-1)' }}
+                  >
+                    <div
+                      className="h-3 w-20 rounded-xs mb-2"
+                      style={{ background: 'var(--surface-muted)' }}
+                    />
+                    <div
+                      className="h-4 w-full rounded-xs mb-1.5"
+                      style={{ background: 'var(--surface-muted)' }}
+                    />
+                    <div
+                      className="h-4 w-3/4 rounded-xs"
+                      style={{ background: 'var(--surface-muted)' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : interactions.length === 0 ? (
+              <SpotlightCard className="p-4">
+                <p className="font-sans text-sm text-ink-3 text-center py-4">
+                  Nenhuma interação registrada.
+                </p>
+              </SpotlightCard>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {interactions.map((interaction, idx) => (
+                  <div
+                    key={interaction.id}
+                    style={{ animationDelay: `${idx * 40}ms` } as React.CSSProperties}
+                  >
+                    <SpotlightCard className="p-4">
+                      {/* Tipo + timestamp */}
+                      <div className="flex items-center justify-between mb-2">
+                        <span
+                          className="flex items-center gap-1.5 font-sans font-semibold text-xs uppercase"
+                          style={{
+                            color: INTERACTION_COLORS[interaction.type],
+                            letterSpacing: '0.08em',
+                          }}
+                        >
+                          <InteractionIcon type={interaction.type} />
+                          {interaction.type === 'note' && 'Nota'}
+                          {interaction.type === 'status_change' && 'Status'}
+                          {interaction.type === 'whatsapp' && 'WhatsApp'}
+                          {interaction.type === 'call' && 'Ligação'}
+                          {interaction.type === 'system' && 'Sistema'}
+                        </span>
+                        <span className="font-sans text-xs text-ink-4">
+                          {formatRelativeDate(interaction.createdAt)}
+                        </span>
+                      </div>
+
+                      {/* Conteúdo */}
+                      <p className="font-sans text-sm text-ink-2 leading-relaxed">
+                        {interaction.content}
+                      </p>
+
+                      {/* Ator */}
+                      <p className="font-sans text-xs text-ink-4 mt-2">
+                        por {interaction.actorName}
+                      </p>
+                    </SpotlightCard>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Drawer: ficha consolidada do cliente (contratos, boletos, SPC) */}
+      {customerDrawerOpen && lead && lead.status === 'closed_won' && lead.customer_id && (
+        <CustomerDetailDrawer
+          customerId={lead.customer_id}
+          customerName={lead.name}
+          onClose={() => setCustomerDrawerOpen(false)}
+        />
+      )}
+    </>
   );
 }

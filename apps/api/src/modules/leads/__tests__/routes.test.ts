@@ -99,6 +99,8 @@ function makeLeadResponse(overrides: Record<string, unknown> = {}) {
     city_name: 'Porto Velho',
     kanban_card_id: null,
     kanban_stage: null,
+    // customer_id: null = lead ainda não convertido (F17-S08)
+    customer_id: null,
     agent_id: null,
     name: 'Maria Silva',
     phone_e164: '+5569912345678',

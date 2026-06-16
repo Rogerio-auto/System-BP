@@ -187,6 +187,17 @@ export const LeadResponseSchema = z.object({
   kanban_card_id: z.string().uuid().nullable(),
   /** Estágio atual no Kanban (gestão interna). null = sem card no board. (F13-S03) */
   kanban_stage: z.object({ id: z.string().uuid(), name: z.string() }).nullable(),
+  /**
+   * ID do customer associado a este lead (F17-S08).
+   * Não-null apenas quando o lead está em status 'closed_won' e foi convertido
+   * em cliente. Deriva de customers.primary_lead_id via LEFT JOIN.
+   * O frontend usa este campo para navegar à ficha do cliente (GET /customers/:id/overview).
+   */
+  customer_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .describe('ID do customer convertido; null quando lead ainda não foi fechado'),
   agent_id: z.string().uuid().nullable(),
   name: z.string(),
   /** LGPD: PII — sempre presente para uso do frontend. Coberto por pino.redact. */

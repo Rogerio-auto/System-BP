@@ -35,6 +35,7 @@ import {
 
 import type { Database } from '../../db/client.js';
 import { cities } from '../../db/schema/cities.js';
+import { customers } from '../../db/schema/customers.js';
 import { interactions } from '../../db/schema/interactions.js';
 import { kanbanCards } from '../../db/schema/kanbanCards.js';
 import { kanbanStages } from '../../db/schema/kanbanStages.js';
@@ -85,6 +86,29 @@ export async function findCurrentStagesByLeadIds(
   return new Map(
     rows.map((r) => [r.leadId, { cardId: r.cardId, stage: { id: r.stageId, name: r.stageName } }]),
   );
+}
+
+/**
+ * Mapa leadId → customer.id para leads convertidos ('closed_won').
+ *
+ * Resolve via customers.primary_lead_id — sem PII: retorna apenas IDs opacos.
+ * Um lead pode ter no máximo 1 customer (UNIQUE em primary_lead_id).
+ * Leads não convertidos não aparecem no mapa (LEFT JOIN → null descartado aqui).
+ *
+ * Usado para expor customer_id no LeadResponse (F17-S08) e permitir que o
+ * frontend navegue de lead para a ficha do cliente (GET /customers/:id/overview).
+ */
+export async function findCustomerIdsByLeadIds(
+  db: Database,
+  leadIds: string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(leadIds)];
+  if (unique.length === 0) return new Map();
+  const rows = await db
+    .select({ leadId: customers.primaryLeadId, customerId: customers.id })
+    .from(customers)
+    .where(inArray(customers.primaryLeadId, unique));
+  return new Map(rows.map((r) => [r.leadId, r.customerId]));
 }
 
 // ---------------------------------------------------------------------------

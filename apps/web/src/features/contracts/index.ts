@@ -7,4 +7,10 @@ export { ContractDetail } from './ContractDetail';
 export { ContractSignModal } from './ContractSignModal';
 export { ContractHealthBadge } from './ContractHealthBadge';
 export { ContractDuesList } from './ContractDuesList';
-export { useContracts, useContract, useSignContract, useContractHealth, useContractDues } from './hooks';
+export {
+  useContracts,
+  useContract,
+  useSignContract,
+  useContractHealth,
+  useContractDues,
+} from './hooks';

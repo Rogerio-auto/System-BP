@@ -6,7 +6,12 @@
 // F17-S06: adiciona BoletoHealth + meta de health + ContractDuesFilters.
 // =============================================================================
 
-import type { BoletoHealth, Contract, ContractSign, ContractStatus } from '@elemento/shared-schemas';
+import type {
+  BoletoHealth,
+  Contract,
+  ContractSign,
+  ContractStatus,
+} from '@elemento/shared-schemas';
 
 import type { BadgeVariant } from '../../components/ui/Badge';
 
