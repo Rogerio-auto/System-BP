@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "concurrently -n api,outbox,import,followup -c blue,green,yellow,cyan --kill-others-on-fail \"pnpm dev:api\" \"pnpm worker:outbox\" \"pnpm worker:import\" \"pnpm worker:followup\"",
+    "dev": "concurrently -n api,outbox,import,followup,lc-in,lc-media,lc-out -c blue,green,yellow,cyan,magenta,white,gray --kill-others-on-fail \"pnpm dev:api\" \"pnpm worker:outbox\" \"pnpm worker:import\" \"pnpm worker:followup\" \"pnpm worker:livechat-inbound\" \"pnpm worker:livechat-media\" \"pnpm worker:livechat-outbound\"",
     "dev:api": "tsx watch --env-file-if-exists=../../.env src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
