@@ -415,7 +415,7 @@ export function LawFirmModal({ firm, onClose }: LawFirmModalProps): React.JSX.El
             Cancelar
           </Button>
           <Button
-            type="submit"
+            type="button"
             variant="primary"
             disabled={isPending}
             onClick={handleSubmit(onSubmit)}
