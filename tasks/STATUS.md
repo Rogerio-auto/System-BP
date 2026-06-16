@@ -15,9 +15,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 17    | 3   | 0   | 0   | 0   | 0   | 14  |
+| F16  | 17    | 2   | 0   | 0   | 0   | 1   | 14  |
 | F17  | 14    | 1   | 2   | 0   | 0   | 0   | 11  |
-| F18  | 12    | 3   | 2   | 0   | 0   | 1   | 6   |
+| F18  | 12    | 4   | 2   | 0   | 0   | 0   | 6   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -183,7 +183,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S12 | API conversas (read) — list, get, messages (cursor), window state                                   | ✅ done      | high       | F16-S03, F16-S07                   |
 | F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ✅ done      | high       | F16-S07, F16-S10, F16-S12          |
 | F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ✅ done      | medium     | F16-S01, F16-S03, F16-S07          |
-| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | 🟢 available | high       | F16-S03, F16-S12, F16-S14          |
+| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | 🟣 review    | high       | F16-S03, F16-S12, F16-S14          |
 | F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | 🟢 available | high       | F16-S15                            |
 | F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | 🟢 available | high       | F16-S15, F16-S13                   |
 
@@ -214,7 +214,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F18-S02 | Frontend — cidade visível no CRM e no Kanban (Onda 1 item 1)                                  | 🟢 available | high       | F18-S01    |
 | F18-S03 | Frontend — CurrencyInput canônico + fix bug de moeda (Onda 1 item 3)                          | ✅ done      | high       | —          |
 | F18-S04 | Backend — endpoint activateRuleVersion (Onda 1 item 6)                                        | ✅ done      | medium     | —          |
-| F18-S05 | Frontend — "Usar esta versão" na RuleTimeline (Onda 1 item 6)                                 | 🟣 review    | medium     | F18-S04    |
+| F18-S05 | Frontend — "Usar esta versão" na RuleTimeline (Onda 1 item 6)                                 | 🟢 available | medium     | F18-S04    |
 | F18-S06 | Frontend — follow-up por estágio e outcome (Onda 1 item 8)                                    | ✅ done      | medium     | —          |
 | F18-S07 | Frontend — avgDaysInStage no dashboard + estágio Kanban no CRM (Onda 1 item 11)               | ✅ done      | medium     | —          |
 | F18-S08 | Schema — lead PJ + personal_email usuários (Onda 2 item 4)                                    | ✅ done      | high       | —          |
