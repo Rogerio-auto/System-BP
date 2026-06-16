@@ -49,6 +49,12 @@ services:
       api:
         condition: service_healthy
 
+  # Porta da Management UI do RabbitMQ (dev only — M5 F16-S01).
+  # Em producao, a porta 15672 NAO e exposta (removida do docker-compose.yml principal).
+  rabbitmq:
+    ports:
+      - '15672:15672' # RabbitMQ Management UI — http://localhost:15672
+
   web:
     build:
       context: .

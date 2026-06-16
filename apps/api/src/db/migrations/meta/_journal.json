@@ -393,6 +393,13 @@
       "when": 1781638400000,
       "tag": "0060_seed_contracts_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1781554500000,
+      "tag": "0061_livechat_multicanal",
+      "breakpoints": true
     }
   ]
 }
