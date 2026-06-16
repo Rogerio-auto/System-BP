@@ -3,11 +3,11 @@ id: F16-S17
 title: Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#7-ui-conversationspage
-status: available
+status: in-progress
 priority: high
 estimated_size: L
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-16T13:33:57Z
 completed_at: null
 pr_url: null
 depends_on: [F16-S15, F16-S13]
