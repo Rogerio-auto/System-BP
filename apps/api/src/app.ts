@@ -22,6 +22,7 @@ import { playgroundRoutes } from './modules/ai-console/playground/index.js';
 import { promptsRoutes } from './modules/ai-console/prompts/index.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { billingRoutes } from './modules/billing/index.js';
+import { channelsRoutes } from './modules/channels/routes.js';
 import { chatwootWebhookRoutes } from './modules/chatwoot/routes.js';
 import { citiesPublicRoutes, citiesRoutes } from './modules/cities/routes.js';
 import { contractsRoutes } from './modules/contracts/index.js';
@@ -267,6 +268,8 @@ export async function buildApp() {
   // Módulo de notificações in-app + preferências de canal (F15-S06)
   await app.register(notificationsRoutes);
   // Módulo de contratos — CRUD + ciclo de vida de assinatura (F17-S03)
+  await app.register(channelsRoutes);
+
   await app.register(contractsRoutes);
   // Módulo de customers — visão consolidada do cliente (F17-S07)
   await app.register(customersRoutes);
