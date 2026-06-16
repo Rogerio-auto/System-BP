@@ -3,13 +3,13 @@ id: F16-S03
 title: Contratos compartilhados do live chat — discriminated unions + Zod + socket events
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#3-mapa-de-reuso-3-baldes
-status: available
+status: done
 priority: critical
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-16T04:49:01Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/253
 depends_on: []
 blocks: [F16-S04, F16-S06, F16-S07, F16-S12, F16-S15]
 labels: []

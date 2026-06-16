@@ -15,8 +15,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
+| F16  | 17    | 0   | 14  | 0   | 0   | 0   | 3   |
 | F17  | 14    | 2   | 4   | 0   | 0   | 0   | 8   |
+| F18  | 4     | 3   | 1   | 0   | 0   | 0   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -166,25 +167,25 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 16 —
 
-| ID      | Título                                                                                              | Status       | Prioridade | Depende de                         |
-| ------- | --------------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------------------------------- |
-| F16-S01 | Infra base do live chat — Redis + RabbitMQ + R2 (clientes + topologia de filas)                     | 🟢 available | critical   | —                                  |
-| F16-S02 | Schema multicanal do live chat — channels, channel_secrets, conversations, messages, webhook_events | 🟢 available | critical   | —                                  |
-| F16-S03 | Contratos compartilhados do live chat — discriminated unions + Zod + socket events                  | 🟢 available | critical   | —                                  |
-| F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | ⏸️ blocked   | high       | F16-S02, F16-S03                   |
-| F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | ⏸️ blocked   | high       | F16-S04                            |
-| F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | ⏸️ blocked   | high       | F16-S02, F16-S03, F16-S04          |
-| F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | ⏸️ blocked   | high       | F16-S02, F16-S03                   |
-| F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | ⏸️ blocked   | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
-| F16-S09 | Worker media — download via adapter, dedup SHA-256, upload R2, media_ready                          | ⏸️ blocked   | medium     | F16-S01, F16-S05, F16-S07          |
-| F16-S10 | Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status                  | ⏸️ blocked   | high       | F16-S01, F16-S05, F16-S07          |
-| F16-S11 | Canais — connect manual (provider-discriminado, segredo cifrado) + list                             | ⏸️ blocked   | high       | F16-S02, F16-S03, F16-S04          |
-| F16-S12 | API conversas (read) — list, get, messages (cursor), window state                                   | ⏸️ blocked   | high       | F16-S03, F16-S07                   |
-| F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ⏸️ blocked   | high       | F16-S07, F16-S10, F16-S12          |
-| F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ⏸️ blocked   | medium     | F16-S01, F16-S03, F16-S07          |
-| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | ⏸️ blocked   | high       | F16-S03, F16-S12, F16-S14          |
-| F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | ⏸️ blocked   | high       | F16-S15                            |
-| F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | ⏸️ blocked   | high       | F16-S15, F16-S13                   |
+| ID      | Título                                                                                              | Status     | Prioridade | Depende de                         |
+| ------- | --------------------------------------------------------------------------------------------------- | ---------- | ---------- | ---------------------------------- |
+| F16-S01 | Infra base do live chat — Redis + RabbitMQ + R2 (clientes + topologia de filas)                     | ✅ done    | critical   | —                                  |
+| F16-S02 | Schema multicanal do live chat — channels, channel_secrets, conversations, messages, webhook_events | ✅ done    | critical   | —                                  |
+| F16-S03 | Contratos compartilhados do live chat — discriminated unions + Zod + socket events                  | ✅ done    | critical   | —                                  |
+| F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | ⏸️ blocked | high       | F16-S02, F16-S03                   |
+| F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | ⏸️ blocked | high       | F16-S04                            |
+| F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | ⏸️ blocked | high       | F16-S02, F16-S03, F16-S04          |
+| F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | ⏸️ blocked | high       | F16-S02, F16-S03                   |
+| F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | ⏸️ blocked | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
+| F16-S09 | Worker media — download via adapter, dedup SHA-256, upload R2, media_ready                          | ⏸️ blocked | medium     | F16-S01, F16-S05, F16-S07          |
+| F16-S10 | Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status                  | ⏸️ blocked | high       | F16-S01, F16-S05, F16-S07          |
+| F16-S11 | Canais — connect manual (provider-discriminado, segredo cifrado) + list                             | ⏸️ blocked | high       | F16-S02, F16-S03, F16-S04          |
+| F16-S12 | API conversas (read) — list, get, messages (cursor), window state                                   | ⏸️ blocked | high       | F16-S03, F16-S07                   |
+| F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ⏸️ blocked | high       | F16-S07, F16-S10, F16-S12          |
+| F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ⏸️ blocked | medium     | F16-S01, F16-S03, F16-S07          |
+| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | ⏸️ blocked | high       | F16-S03, F16-S12, F16-S14          |
+| F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | ⏸️ blocked | high       | F16-S15                            |
+| F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | ⏸️ blocked | high       | F16-S15, F16-S13                   |
 
 ## Fase 17 —
 
@@ -204,6 +205,15 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | 🟢 available | high       | F17-S01, F17-S02          |
 | F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ⏸️ blocked   | high       | F17-S12, F17-S03          |
 | F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | ⏸️ blocked   | medium     | F17-S12, F17-S13, F17-S06 |
+
+## Fase 18 —
+
+| ID      | Título                                                               | Status       | Prioridade | Depende de |
+| ------- | -------------------------------------------------------------------- | ------------ | ---------- | ---------- |
+| F18-S01 | Backend — city_name em LeadResponse (Onda 1 item 1)                  | 🟢 available | high       | —          |
+| F18-S02 | Frontend — cidade visível no CRM e no Kanban (Onda 1 item 1)         | ⏸️ blocked   | high       | F18-S01    |
+| F18-S03 | Frontend — CurrencyInput canônico + fix bug de moeda (Onda 1 item 3) | 🟢 available | high       | —          |
+| F18-S04 | Backend — endpoint activateRuleVersion (Onda 1 item 6)               | 🟢 available | medium     | —          |
 
 ## Fase 2 — Crédito e simulação
 
