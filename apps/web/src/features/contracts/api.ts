@@ -1,15 +1,18 @@
 // =============================================================================
-// features/contracts/api.ts — HTTP client para contratos (F17-S05, F17-S06).
+// features/contracts/api.ts — HTTP client para contratos (F17-S05, F17-S06, F17-S11).
 //
 // Endpoints:
 //   GET  /api/contracts                — lista paginada com filtros
 //   GET  /api/contracts/:id            — detalhe
+//   POST /api/contracts                — criar contrato (F17-S11)
 //   POST /api/contracts/:id/sign       — assinar contrato (draft → signed)
 //   GET  /api/contracts/:id/health     — saúde de boletos (F17-S06)
 //
 // Usa lib/api.ts (apiFetch com CSRF + auth + interceptor 401).
 // LGPD: customer_name apenas — sem CPF, telefone ou email na listagem.
 // =============================================================================
+import type { ContractCreate } from '@elemento/shared-schemas';
+
 import { api } from '../../lib/api';
 
 import type {
@@ -70,4 +73,13 @@ export async function signContract(id: string, body: ContractSign): Promise<Cont
  */
 export async function fetchContractHealth(id: string): Promise<BoletoHealth> {
   return api.get<BoletoHealth>(`/api/contracts/${id}/health`);
+}
+
+/**
+ * POST /api/contracts — cria um novo contrato (F17-S11).
+ * Permissão: contracts:write (verificada no backend).
+ * Body: ContractCreate — validado via ContractCreateSchema em shared-schemas.
+ */
+export async function createContract(body: ContractCreate): Promise<Contract> {
+  return api.post<Contract>('/api/contracts', body);
 }

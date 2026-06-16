@@ -15,8 +15,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 17    | 14  | 0   | 0   | 0   | 0   | 3   |
-| F17  | 14    | 1   | 4   | 0   | 0   | 1   | 8   |
+| F16  | 17    | 13  | 0   | 0   | 0   | 1   | 3   |
+| F17  | 14    | 0   | 4   | 0   | 0   | 2   | 8   |
 | F18  | 12    | 7   | 5   | 0   | 0   | 0   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
@@ -172,7 +172,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S01 | Infra base do live chat — Redis + RabbitMQ + R2 (clientes + topologia de filas)                     | ✅ done      | critical   | —                                  |
 | F16-S02 | Schema multicanal do live chat — channels, channel_secrets, conversations, messages, webhook_events | ✅ done      | critical   | —                                  |
 | F16-S03 | Contratos compartilhados do live chat — discriminated unions + Zod + socket events                  | ✅ done      | critical   | —                                  |
-| F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | 🟢 available | high       | F16-S02, F16-S03                   |
+| F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | 🟣 review    | high       | F16-S02, F16-S03                   |
 | F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | 🟢 available | high       | F16-S04                            |
 | F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | 🟢 available | high       | F16-S02, F16-S03, F16-S04          |
 | F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | 🟢 available | high       | F16-S02, F16-S03                   |
@@ -189,22 +189,22 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 17 —
 
-| ID      | Título                                                                        | Status       | Prioridade | Depende de                |
-| ------- | ----------------------------------------------------------------------------- | ------------ | ---------- | ------------------------- |
-| F17-S01 | Schema — entidade `contracts` + migração `contract_reference` → `contract_id` | ✅ done      | high       | —                         |
-| F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | ✅ done      | high       | F17-S01                   |
-| F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | ✅ done      | high       | F17-S01, F17-S02          |
-| F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | ✅ done      | medium     | F17-S01, F17-S02, F17-S03 |
-| F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | ✅ done      | high       | F17-S02, F17-S03          |
-| F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ✅ done      | medium     | F17-S04, F17-S05, F5-S16  |
-| F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | ✅ done      | medium     | F17-S01, F17-S02, F17-S03 |
-| F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ✅ done      | medium     | F17-S02, F17-S07          |
-| F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked   | low        | F17-S01, F17-S03, F15-S05 |
-| F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked   | low        | F17-S09, F15-S10          |
-| F17-S11 | Frontend — modal de criação de contrato                                       | 🟢 available | high       | F17-S02, F17-S03, F17-S06 |
-| F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | 🟣 review    | high       | F17-S01, F17-S02          |
-| F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ⏸️ blocked   | high       | F17-S12, F17-S03          |
-| F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | ⏸️ blocked   | medium     | F17-S12, F17-S13, F17-S06 |
+| ID      | Título                                                                        | Status     | Prioridade | Depende de                |
+| ------- | ----------------------------------------------------------------------------- | ---------- | ---------- | ------------------------- |
+| F17-S01 | Schema — entidade `contracts` + migração `contract_reference` → `contract_id` | ✅ done    | high       | —                         |
+| F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | ✅ done    | high       | F17-S01                   |
+| F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | ✅ done    | high       | F17-S01, F17-S02          |
+| F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | ✅ done    | medium     | F17-S01, F17-S02, F17-S03 |
+| F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | ✅ done    | high       | F17-S02, F17-S03          |
+| F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ✅ done    | medium     | F17-S04, F17-S05, F5-S16  |
+| F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | ✅ done    | medium     | F17-S01, F17-S02, F17-S03 |
+| F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ✅ done    | medium     | F17-S02, F17-S07          |
+| F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked | low        | F17-S01, F17-S03, F15-S05 |
+| F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked | low        | F17-S09, F15-S10          |
+| F17-S11 | Frontend — modal de criação de contrato                                       | 🟣 review  | high       | F17-S02, F17-S03, F17-S06 |
+| F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | 🟣 review  | high       | F17-S01, F17-S02          |
+| F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ⏸️ blocked | high       | F17-S12, F17-S03          |
+| F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | ⏸️ blocked | medium     | F17-S12, F17-S13, F17-S06 |
 
 ## Fase 18 —
 

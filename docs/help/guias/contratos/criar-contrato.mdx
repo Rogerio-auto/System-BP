@@ -1,0 +1,76 @@
+---
+title: Criar contrato
+description: Como registrar um novo contrato de crédito diretamente pela aba Contratos do Elemento.
+order: 15
+keywords: [contrato, criar contrato, novo contrato, cliente, produto, taxa, parcela, formulário]
+---
+
+# Criar contrato
+
+O formulário **Novo Contrato** permite que o operador registre um contrato de crédito manualmente, sem depender do fluxo automático de análise de crédito. Use esta funcionalidade quando precisar importar um contrato já firmado externamente ou registrar um acordo fora do fluxo padrão.
+
+<Callout type="info" title="Quando usar esta funcionalidade">
+  Na maioria dos casos, contratos são gerados automaticamente quando uma análise de crédito é aprovada. Use o formulário manual apenas para situações excepcionais: importação de histórico, contratos firmados em papel ou acordos especiais aprovados pela gestão.
+</Callout>
+
+<Permission permission="contracts:write">
+  Esta funcionalidade exige a permissão **contracts:write**. Se o botão "Novo Contrato" não aparecer no topo da página, contate o administrador do sistema para verificar seu perfil de acesso.
+</Permission>
+
+## Passo a passo
+
+<Step number={1} title="Abra o formulário">
+  Na aba **Contratos**, clique no botão **Novo Contrato** no canto superior direito da página.
+  O modal de criação será exibido sobre a lista de contratos.
+</Step>
+
+<Step number={2} title="Selecione o cliente">
+  No campo **Cliente**, comece a digitar o nome do cliente. A lista exibe apenas clientes que já foram convertidos (leads em status Convertido com cadastro de cliente vinculado).
+
+  Clientes marcados como "sem cadastro" não podem ser selecionados — eles ainda não possuem um registro de cliente gerado pelo sistema.
+</Step>
+
+<Step number={3} title="Confirme ou edite a referência">
+  O campo **Referência do contrato** é preenchido automaticamente com uma sugestão no formato BP-AAAA-NNNNN (ex: BP-2026-00123). Você pode editar este valor, mas ele deve ser único dentro da organização.
+</Step>
+
+<Step number={4} title="Selecione o produto de crédito (opcional)">
+  Escolha o **Produto de crédito** correspondente às condições do contrato. Ao selecionar um produto, o campo **Taxa mensal** é preenchido automaticamente com a taxa da regra ativa desse produto. Você pode ajustar a taxa manualmente se necessário.
+
+  Deixe em branco se o contrato não estiver associado a um produto cadastrado.
+</Step>
+
+<Step number={5} title="Informe as condições financeiras">
+  Preencha os campos obrigatórios:
+
+  - **Valor principal** — valor liberado em reais, sem símbolo de moeda. Use ponto como separador decimal (ex: 5000.00).
+  - **Prazo (meses)** — número de meses do contrato, entre 1 e 360.
+  - **Taxa mensal (%)** — taxa de juros mensal em percentual (ex: 1.5 para 1,5% a.m.). Preenchida automaticamente ao selecionar o produto.
+</Step>
+
+<Step number={6} title="Informe a data da primeira parcela (opcional)">
+  Se o vencimento da primeira parcela já estiver definido, preencha o campo **Data da 1ª parcela** no formato AAAA-MM-DD. Deixe em branco para que o sistema calcule automaticamente.
+</Step>
+
+<Step number={7} title="Crie o contrato">
+  Clique em **Criar contrato**. O sistema valida os dados e, se tudo estiver correto, registra o contrato com status **Rascunho**. O formulário fecha e a ficha do contrato recém-criado é exibida automaticamente.
+
+  O botão fica desabilitado enquanto o envio está em andamento para evitar duplicações.
+</Step>
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Campo "Valor principal" com erro de formato | Separador decimal incorreto (vírgula em vez de ponto) | Use ponto como separador: 5000.00 |
+| Cliente não aparece na lista | Lead ainda não convertido ou sem customer_id | Confirme que o lead está em status Convertido na aba CRM |
+| Taxa mensal não preenchida automaticamente | Produto sem regra ativa cadastrada | Preencha a taxa manualmente ou cadastre uma regra no produto |
+| Referência já existente | Outra referência igual já existe na organização | Altere o código gerado para um valor único |
+| Botão "Novo Contrato" não aparece | Permissão contracts:write ausente | Contate o administrador do sistema |
+
+## Veja também
+
+- [Aba Contratos](/ajuda/guias/contratos/aba-contratos) — visão geral da lista e filtros de contratos.
+- [Ficha do contrato e boletos](/ajuda/guias/contratos/ficha-contrato-boletos) — detalhes do contrato criado, parcelas e saúde de pagamentos.
+- [Saúde de boletos](/ajuda/guias/contratos/saude-de-boletos) — como interpretar o indicador de saúde das parcelas.
+- [Análise de crédito](/ajuda/guias/analise/criar-analise) — fluxo automático que cria contratos a partir de uma análise aprovada.
