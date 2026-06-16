@@ -3,7 +3,7 @@ id: F18-S12
 title: Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#épico-b--disparo-de-simulação-por-whatsapp-item-2
-status: blocked
+status: available
 priority: medium
 estimated_size: S
 agent_id: null
