@@ -551,11 +551,6 @@ export function LawFirmReferralButton({
     isLoading: loadingFirms,
   } = useLawFirmSuggestion(modalOpen || referralState !== null ? customerId : '');
 
-  // Não renderiza nada se flag ou permissão ausentes
-  if (!flagEnabled || !canReferral) return null;
-
-  const hasCooldown = Boolean(referralState?.cooldown_until);
-
   const cooldownLabel = React.useMemo(() => {
     if (!referralState?.cooldown_until) return '';
     try {
@@ -568,6 +563,11 @@ export function LawFirmReferralButton({
       return referralState.cooldown_until;
     }
   }, [referralState]);
+
+  // Não renderiza nada se flag ou permissão ausentes — DEVE vir após todos os hooks
+  if (!flagEnabled || !canReferral) return null;
+
+  const hasCooldown = Boolean(referralState?.cooldown_until);
 
   const handleSuccess = (data: {
     referral_id: string;
