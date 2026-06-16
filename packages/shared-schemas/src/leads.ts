@@ -15,6 +15,54 @@
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
+// CNPJ digit verification (F18-S09)
+// ---------------------------------------------------------------------------
+
+/**
+ * Valida os dígitos verificadores de um CNPJ (algoritmo oficial Receita Federal).
+ *
+ * Aceita CNPJ com ou sem máscara — remove não-dígitos antes de validar.
+ * Retorna false para CNPJs com todos os dígitos iguais (ex: "11111111111111"),
+ * que passam na aritmética mas são conhecidamente inválidos.
+ *
+ * Algoritmo:
+ *   1º verificador: pesos [5,4,3,2,9,8,7,6,5,4,3,2] sobre os 12 primeiros.
+ *   2º verificador: pesos [6,5,4,3,2,9,8,7,6,5,4,3,2] sobre os 13 primeiros.
+ *   Resto da divisão por 11 < 2 → dígito = 0; caso contrário → 11 - resto.
+ *
+ * @param cnpj - CNPJ com ou sem máscara (qualquer formato)
+ * @returns true se os dígitos verificadores são válidos
+ */
+export function validateCnpjDigits(cnpj: string): boolean {
+  const digits = cnpj.replace(/\D/g, '');
+
+  if (digits.length !== 14) return false;
+
+  // CNPJs com todos os dígitos iguais passam na aritmética mas são inválidos.
+  if (/^(\d)\1{13}$/.test(digits)) return false;
+
+  // Calcula um dígito verificador dado uma sequência de dígitos e pesos.
+  function calcDigit(seq: string, weights: readonly number[]): number {
+    let sum = 0;
+    for (let i = 0; i < weights.length; i++) {
+      // noUncheckedIndexedAccess: ambos os arrays são garantidamente alinhados pelo caller.
+       
+      sum += Number(seq[i]!) * weights[i]!;
+    }
+    const rem = sum % 11;
+    return rem < 2 ? 0 : 11 - rem;
+  }
+
+  const WEIGHTS_1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] as const;
+  const WEIGHTS_2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] as const;
+
+  const d1 = calcDigit(digits, WEIGHTS_1);
+  const d2 = calcDigit(digits, WEIGHTS_2);
+
+  return Number(digits[12]) === d1 && Number(digits[13]) === d2;
+}
+
+// ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
 
@@ -108,8 +156,10 @@ export const LeadCreateBaseSchema = z.object({
   /**
    * CNPJ da empresa (lead pessoa jurídica).
    * Aceita formato com máscara (00.000.000/0000-00) ou somente dígitos (14).
-   * Validação de dígito verificador não é realizada (D1: texto claro no DB).
+   * Validação inclui: formato (regex) + dígitos verificadores (algoritmo oficial Receita Federal).
    * null = lead pessoa física ou CNPJ não informado.
+   *
+   * F18-S09: adicionado refine com validateCnpjDigits.
    */
   cnpj: z
     .string()
@@ -117,6 +167,9 @@ export const LeadCreateBaseSchema = z.object({
       /^(\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2})$/,
       'CNPJ inválido — use 14 dígitos ou formato 00.000.000/0000-00',
     )
+    .refine(validateCnpjDigits, {
+      message: 'CNPJ inválido — dígitos verificadores incorretos',
+    })
     .optional()
     .nullable(),
 
