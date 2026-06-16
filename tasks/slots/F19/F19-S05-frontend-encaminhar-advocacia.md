@@ -3,7 +3,7 @@ id: F19-S05
 title: Frontend — botão "Encaminhar para advocacia" na ficha do inadimplente
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: blocked
+status: available
 priority: high
 estimated_size: S
 agent_id: null

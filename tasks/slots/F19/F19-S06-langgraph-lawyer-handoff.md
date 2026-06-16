@@ -3,7 +3,7 @@ id: F19-S06
 title: LangGraph — nó lawyer_handoff (envio autônomo do contato do advogado)
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null
