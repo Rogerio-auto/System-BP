@@ -27,6 +27,7 @@ import {
 } from '../../hooks/useUploadMedia';
 import type { MediaKind } from '../../hooks/useUploadMedia';
 
+import { TemplateSelector } from './TemplateSelector';
 import { useSendMessage } from './useSendMessage';
 import { useWindowState } from './useWindowState';
 import { WindowNotice } from './WindowNotice';
@@ -35,7 +36,10 @@ import { WindowNotice } from './WindowNotice';
 
 interface MessageComposerProps {
   conversationId: string;
-  /** Callback ao clicar em "Usar template" */
+  /**
+   * Callback externo ao clicar em "Usar template".
+   * Quando não fornecido, o MessageComposer gerencia internamente.
+   */
   onUseTemplate?: (() => void) | undefined;
 }
 
@@ -264,9 +268,9 @@ export function MessageComposer({
   onUseTemplate,
 }: MessageComposerProps): React.JSX.Element {
   const [text, setText] = React.useState('');
+  const [showTemplateSelector, setShowTemplateSelector] = React.useState(false);
   const [mediaPreview, setMediaPreview] = React.useState<MediaPreview | null>(null);
   const [fileSizeError, setFileSizeError] = React.useState<string | null>(null);
-
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -282,6 +286,29 @@ export function MessageComposer({
   // canSend: tem texto OU tem preview pronto (e não está em fase de erro nem uploading)
   const hasMedia = mediaPreview !== null && !isUploading && progress.phase !== 'error';
   const canSend = (!isDisabled && text.trim().length > 0) || hasMedia;
+
+  // Callback interno do seletor de template (S19)
+  const handleUseTemplate = React.useCallback(() => {
+    setShowTemplateSelector(true);
+  }, []);
+
+  // Callback ao confirmar envio no TemplateSelector
+  function handleTemplateSend(
+    templateName: string,
+    languageCode: string,
+    components: unknown[],
+    _variables: Record<string, string>,
+  ): void {
+    const idempotencyKey = crypto.randomUUID();
+    sendMutation.mutate(
+      { type: 'template', templateName, languageCode, components, idempotencyKey },
+      {
+        onSuccess: () => {
+          setShowTemplateSelector(false);
+        },
+      },
+    );
+  }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -389,17 +416,23 @@ export function MessageComposer({
   return (
     <div
       className={cn(
-        'flex flex-col border-t border-border bg-surface-1',
+        'relative flex flex-col border-t border-border bg-surface-1',
         '[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06)]',
       )}
       aria-label="Compositor de mensagem"
     >
+      {/* Seletor de template (S19) — aparece acima do compositor */}
+      {showTemplateSelector && (
+        <TemplateSelector
+          conversationId={conversationId}
+          onClose={() => setShowTemplateSelector(false)}
+          onSend={handleTemplateSend}
+        />
+      )}
+
       {/* Aviso de janela expirada */}
       {!windowOpen && !isLoading && (
-        <WindowNotice
-          windowKind={windowKind}
-          {...(onUseTemplate !== undefined ? { onUseTemplate } : {})}
-        />
+        <WindowNotice windowKind={windowKind} onUseTemplate={onUseTemplate ?? handleUseTemplate} />
       )}
 
       {/* Erro de tamanho de arquivo */}
