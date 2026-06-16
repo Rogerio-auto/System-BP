@@ -14,9 +14,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F12  | 13    | 0   | 1   | 0   | 0   | 0   | 12  |
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
-| F15  | 12    | 0   | 1   | 0   | 0   | 2   | 9   |
+| F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
 | F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
-| F17  | 11    | 1   | 2   | 0   | 0   | 2   | 6   |
+| F17  | 14    | 2   | 4   | 0   | 0   | 0   | 8   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -158,9 +158,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F15-S05 | Backend — módulo de tarefas (CRUD + assumir + concluir + "minhas tarefas")      | ✅ done    | high       | F15-S01, F15-S03, F15-S04          |
 | F15-S06 | Backend — notificações in-app + fan-out por canal (email/WhatsApp)              | ✅ done    | high       | F15-S01, F15-S03, F15-S04, F15-S05 |
 | F15-S07 | Backend — service de status SPC (transições + auditoria)                        | ✅ done    | medium     | F15-S01, F15-S02, F15-S04          |
-| F15-S08 | Backend — worker de inadimplência 15d → cria tarefa SPC + evento de notificação | 🟣 review  | medium     | F15-S05, F15-S06, F15-S07          |
+| F15-S08 | Backend — worker de inadimplência 15d → cria tarefa SPC + evento de notificação | ✅ done    | medium     | F15-S05, F15-S06, F15-S07          |
 | F15-S09 | Backend — métricas do dashboard de cobrança                                     | ✅ done    | medium     | F15-S01, F15-S02, F15-S04          |
-| F15-S10 | Frontend — painel de tarefas + badge de notificações no header                  | 🟣 review  | high       | F15-S04, F15-S05, F15-S06          |
+| F15-S10 | Frontend — painel de tarefas + badge de notificações no header                  | ✅ done    | high       | F15-S04, F15-S05, F15-S06          |
 | F15-S11 | Frontend — dashboard de cobrança + tag/ação de SPC                              | ✅ done    | medium     | F15-S04, F15-S07, F15-S09          |
 | F15-S12 | Importar relatório de baixa — conciliação CPF + nº da parcela (BLOCKED — D10)   | ⏸️ blocked | medium     | —                                  |
 
@@ -195,12 +195,15 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | ✅ done      | high       | F17-S01, F17-S02          |
 | F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | ✅ done      | medium     | F17-S01, F17-S02, F17-S03 |
 | F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | ✅ done      | high       | F17-S02, F17-S03          |
-| F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | 🟣 review    | medium     | F17-S04, F17-S05, F5-S16  |
+| F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ✅ done      | medium     | F17-S04, F17-S05, F5-S16  |
 | F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | ✅ done      | medium     | F17-S01, F17-S02, F17-S03 |
-| F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | 🟣 review    | medium     | F17-S02, F17-S07          |
+| F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ✅ done      | medium     | F17-S02, F17-S07          |
 | F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked   | low        | F17-S01, F17-S03, F15-S05 |
 | F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked   | low        | F17-S09, F15-S10          |
 | F17-S11 | Frontend — modal de criação de contrato                                       | 🟢 available | high       | F17-S02, F17-S03, F17-S06 |
+| F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | 🟢 available | high       | F17-S01, F17-S02          |
+| F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ⏸️ blocked   | high       | F17-S12, F17-S03          |
+| F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | ⏸️ blocked   | medium     | F17-S12, F17-S13, F17-S06 |
 
 ## Fase 2 — Crédito e simulação
 
