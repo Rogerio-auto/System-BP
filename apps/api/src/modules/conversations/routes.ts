@@ -68,6 +68,7 @@ import {
 import type { ActorContext } from './service.js';
 import {
   getConversationDetailService,
+  getConversationTemplatesService,
   getMessagesService,
   getWindowService,
   listConversationsService,
@@ -249,6 +250,50 @@ export const conversationsRoutes: FastifyPluginAsyncZod = async (app) => {
       const actor = getReadActor(request);
       const { id } = typedParams<ConversationIdParam>(request);
       const result = await getWindowService(db, actor, id);
+      return reply.status(200).send(result);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /api/conversations/:id/templates — templates aprovados (F16-S19)
+  // -------------------------------------------------------------------------
+  app.get(
+    '/api/conversations/:id/templates',
+    {
+      schema: {
+        tags: ['Live Chat'],
+        summary: 'Listar templates aprovados para envio',
+        description:
+          'Lista os templates WhatsApp com `status=approved` da organização, ' +
+          'usados quando a janela de 24h expirou e o atendente precisa retomar o contato. ' +
+          '\n\n' +
+          'A conversa é validada antes de retornar os templates: a rota retorna 404 ' +
+          'se a conversa não existir ou não pertencer ao escopo do usuário. ' +
+          '\n\n' +
+          'Retorna lista vazia quando nenhum template aprovado está cadastrado. ' +
+          'Nesse caso, o atendente deve acessar Configurações → Templates para configurar.',
+        security: [{ bearerAuth: [] }],
+        params: ConversationIdParamSchema,
+        response: {
+          200: z.object({
+            data: z.array(
+              z.object({
+                id: z.string().uuid(),
+                name: z.string(),
+                category: z.enum(['utility', 'marketing', 'authentication']),
+                variables: z.array(z.string()),
+                body_text: z.string(),
+              }),
+            ),
+          }),
+        },
+      },
+      preHandler: [authorize({ permissions: ['livechat:message:send'] })],
+    },
+    async (request: FastifyRequest, reply): Promise<void> => {
+      const actor = getReadActor(request);
+      const { id } = typedParams<ConversationIdParam>(request);
+      const result = await getConversationTemplatesService(db, actor, id);
       return reply.status(200).send(result);
     },
   );

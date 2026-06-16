@@ -20,7 +20,7 @@
 // Leitura: NÃO emite eventos de outbox (leituras são idempotentes e sem side-effects).
 // =============================================================================
 
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import pino from 'pino';
 
 import type { Database } from '../../db/client.js';
@@ -28,6 +28,7 @@ import { conversations } from '../../db/schema/conversations.js';
 import type { Conversation } from '../../db/schema/conversations.js';
 import type { Message } from '../../db/schema/messages.js';
 import { messages } from '../../db/schema/messages.js';
+import { whatsappTemplates } from '../../db/schema/whatsappTemplates.js';
 import { decryptPii } from '../../lib/crypto/pii.js';
 import type { UserScopeCtx } from '../../shared/scope.js';
 import type { ComposerState } from '../livechat/schemas.js';
@@ -329,6 +330,78 @@ async function markConversationRead(
         isNull(messages.viewStatus),
       ),
     );
+}
+
+// ---------------------------------------------------------------------------
+// getConversationTemplatesService
+// ---------------------------------------------------------------------------
+
+/**
+ * DTO público de um template aprovado, retornado pelo seletor de template.
+ * `body_text` alias de `body` para clareza no contrato frontend.
+ */
+export interface TemplateDto {
+  readonly id: string;
+  readonly name: string;
+  readonly category: 'utility' | 'marketing' | 'authentication';
+  readonly variables: string[];
+  /** Corpo do template com placeholders {{1}}, {{2}} etc. */
+  readonly body_text: string;
+}
+
+export interface ConversationTemplatesResponse {
+  readonly data: TemplateDto[];
+}
+
+/**
+ * Lista templates aprovados da organização da conversa.
+ *
+ * Valida que a conversa pertence ao org/escopo do actor antes de retornar templates.
+ * Filtra apenas `status = 'approved'` — os únicos enviáveis fora da janela 24h.
+ *
+ * @throws NotFoundError se conversa não pertencer à org/escopo do usuário.
+ */
+export async function getConversationTemplatesService(
+  db: Database,
+  actor: ActorContext,
+  conversationId: string,
+): Promise<ConversationTemplatesResponse> {
+  const { organizationId, cityScopeIds } = actor;
+
+  log.debug({ organizationId, conversationId }, 'conversations.service: getConversationTemplates');
+
+  // 1. Valida que a conversa pertence ao escopo do actor (oracle protection)
+  const userCtx: UserScopeCtx = { cityScopeIds };
+  const conv = await getConversation(db, conversationId, organizationId, userCtx);
+
+  // 2. Lista templates aprovados da org da conversa (ordenados por nome)
+  const rows = await db
+    .select({
+      id: whatsappTemplates.id,
+      name: whatsappTemplates.name,
+      category: whatsappTemplates.category,
+      variables: whatsappTemplates.variables,
+      body: whatsappTemplates.body,
+    })
+    .from(whatsappTemplates)
+    .where(
+      and(
+        eq(whatsappTemplates.organizationId, conv.organizationId),
+        eq(whatsappTemplates.status, 'approved'),
+      ),
+    )
+    .orderBy(asc(whatsappTemplates.name));
+
+  const data: TemplateDto[] = rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    // `as` justificado: Drizzle infere text enum como string genérica; o check DB garante o enum.
+    category: row.category as TemplateDto['category'],
+    variables: row.variables,
+    body_text: row.body,
+  }));
+
+  return { data };
 }
 
 // ---------------------------------------------------------------------------
