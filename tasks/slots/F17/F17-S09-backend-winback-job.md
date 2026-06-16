@@ -3,13 +3,13 @@ id: F17-S09
 title: Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação)
 phase: F17
 task_ref: null
-status: review
+status: done
 priority: low
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T14:51:36Z
 completed_at: 2026-06-16T15:15:05Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/287
 depends_on: [F17-S01, F17-S03, F15-S05]
 blocks: [F17-S10]
 labels: [contracts, winback, worker, cobranca]

@@ -16,7 +16,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
 | F16  | 17    | 0   | 0   | 0   | 0   | 0   | 17  |
-| F17  | 14    | 0   | 1   | 0   | 0   | 1   | 12  |
+| F17  | 14    | 0   | 1   | 0   | 0   | 0   | 13  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 2   | 2   | 0   | 0   | 0   | 2   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
@@ -200,7 +200,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ✅ done    | medium     | F17-S04, F17-S05, F5-S16  |
 | F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | ✅ done    | medium     | F17-S01, F17-S02, F17-S03 |
 | F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ✅ done    | medium     | F17-S02, F17-S07          |
-| F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | 🟣 review  | low        | F17-S01, F17-S03, F15-S05 |
+| F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ✅ done    | low        | F17-S01, F17-S03, F15-S05 |
 | F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked | low        | F17-S09, F15-S10          |
 | F17-S11 | Frontend — modal de criação de contrato                                       | ✅ done    | high       | F17-S02, F17-S03, F17-S06 |
 | F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | ✅ done    | high       | F17-S01, F17-S02          |
