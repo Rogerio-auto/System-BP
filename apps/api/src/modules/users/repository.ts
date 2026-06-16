@@ -40,6 +40,12 @@ export interface UpdateUserInput {
   updatedAt: Date;
 }
 
+export interface UpdatePersonalEmailInput {
+  /** Email pessoal do agente. null = limpar o campo. */
+  personalEmail: string | null;
+  updatedAt: Date;
+}
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -330,6 +336,36 @@ export async function findUserCityScopes(
     .where(eq(userCityScopes.userId, userId));
 
   return rows;
+}
+
+/**
+ * Atualiza o personal_email do usuário.
+ *
+ * LGPD (doc 17 §8.1): personal_email é PII — nunca logar em texto plano.
+ * O caller (service) é responsável por redactar o campo antes do auditLog.
+ *
+ * Unicidade: o índice parcial uq_users_org_personal_email_active (criado em F18-S08)
+ * garante que não há dois usuários ativos na mesma org com o mesmo personal_email.
+ * Violação resulta em erro de constraint 23505 — tratado pelo service.
+ *
+ * @param id - UUID do usuário
+ * @param organizationId - Tenant scope
+ * @param input - Novo personal_email (ou null para limpar)
+ * @returns Usuário atualizado ou null se não encontrado / deletado
+ */
+export async function updatePersonalEmail(
+  db: Database,
+  id: string,
+  organizationId: string,
+  input: UpdatePersonalEmailInput,
+): Promise<User | null> {
+  const rows = await db
+    .update(users)
+    .set({ personalEmail: input.personalEmail, updatedAt: input.updatedAt })
+    .where(and(eq(users.id, id), eq(users.organizationId, organizationId), isNull(users.deletedAt)))
+    .returning();
+
+  return rows[0] ?? null;
 }
 
 /**

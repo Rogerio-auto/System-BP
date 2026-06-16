@@ -43,6 +43,7 @@ const mockReplaceUserRoles = vi.fn();
 const mockCountAdminUsers = vi.fn();
 const mockFindUserCityScopes = vi.fn();
 const mockReplaceUserCityScopes = vi.fn();
+const mockUpdatePersonalEmail = vi.fn();
 
 vi.mock('../repository.js', () => ({
   findUsers: (...args: unknown[]) => mockFindUsers(...args),
@@ -59,6 +60,7 @@ vi.mock('../repository.js', () => ({
   countAdminUsers: (...args: unknown[]) => mockCountAdminUsers(...args),
   findUserCityScopes: (...args: unknown[]) => mockFindUserCityScopes(...args),
   replaceUserCityScopes: (...args: unknown[]) => mockReplaceUserCityScopes(...args),
+  updatePersonalEmail: (...args: unknown[]) => mockUpdatePersonalEmail(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -502,5 +504,126 @@ describe('setUserCityScopesService', () => {
         { cityIds: [] },
       ),
     ).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite F18-S09 — updatePersonalEmailService
+//
+// Valida o endpoint self-service PATCH /api/users/me/personal-email.
+// O agente autenticado pode atualizar o próprio personal_email.
+// LGPD: o email não é ecoado na resposta (apenas { ok: true }).
+// ---------------------------------------------------------------------------
+
+describe('F18-S09 — updatePersonalEmailService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('personal-email válido → retorna { ok: true }', async () => {
+    const { updatePersonalEmailService } = await import('../service.js');
+    const mockDb = makeMockDb();
+
+    // updatePersonalEmail retorna o usuário atualizado
+    mockUpdatePersonalEmail.mockResolvedValue(makeUser({ personalEmail: 'novo@gmail.com' }));
+
+    const result = await updatePersonalEmailService(
+      mockDb as unknown as Parameters<typeof updatePersonalEmailService>[0],
+      actor,
+      { personal_email: 'novo@gmail.com' },
+    );
+
+    expect(result).toEqual({ ok: true });
+    // personal_email não vaza na resposta
+    expect(result).not.toHaveProperty('personal_email');
+    expect(result).not.toHaveProperty('personalEmail');
+  });
+
+  it('personal-email null (limpar) → retorna { ok: true }', async () => {
+    const { updatePersonalEmailService } = await import('../service.js');
+    const mockDb = makeMockDb();
+
+    mockUpdatePersonalEmail.mockResolvedValue(makeUser({ personalEmail: null }));
+
+    const result = await updatePersonalEmailService(
+      mockDb as unknown as Parameters<typeof updatePersonalEmailService>[0],
+      actor,
+      { personal_email: null },
+    );
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('updatePersonalEmail retorna null → 404 NotFoundError', async () => {
+    const { updatePersonalEmailService } = await import('../service.js');
+    const { NotFoundError } = await import('../../../shared/errors.js');
+    const mockDb = makeMockDb();
+
+    // Simula usuário não encontrado (deletado ou fora da org)
+    mockUpdatePersonalEmail.mockResolvedValue(null);
+
+    await expect(
+      updatePersonalEmailService(
+        mockDb as unknown as Parameters<typeof updatePersonalEmailService>[0],
+        actor,
+        { personal_email: 'novo@gmail.com' },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('unique violation (23505) no personal_email → 409 PERSONAL_EMAIL_DUPLICATE', async () => {
+    const { updatePersonalEmailService } = await import('../service.js');
+    const { AppError } = await import('../../../shared/errors.js');
+    const mockDb = makeMockDb();
+
+    const pgError = Object.assign(new Error('unique violation'), {
+      code: '23505',
+      constraint: 'uq_users_org_personal_email_active',
+    });
+    mockUpdatePersonalEmail.mockRejectedValue(pgError);
+
+    await expect(
+      updatePersonalEmailService(
+        mockDb as unknown as Parameters<typeof updatePersonalEmailService>[0],
+        actor,
+        { personal_email: 'duplicado@gmail.com' },
+      ),
+    ).rejects.toMatchObject({ statusCode: 409, details: { code: 'PERSONAL_EMAIL_DUPLICATE' } });
+
+    // Garantir que é um AppError
+    try {
+      await updatePersonalEmailService(
+        mockDb as unknown as Parameters<typeof updatePersonalEmailService>[0],
+        actor,
+        { personal_email: 'duplicado@gmail.com' },
+      );
+    } catch (err) {
+      expect(err).toBeInstanceOf(AppError);
+    }
+  });
+
+  it('audit log personal_email não persiste valor real (LGPD §8.5)', async () => {
+    const { updatePersonalEmailService } = await import('../service.js');
+    const { auditLog } = await import('../../../lib/audit.js');
+    const mockDb = makeMockDb();
+
+    mockUpdatePersonalEmail.mockResolvedValue(makeUser({ personalEmail: 'segredo@gmail.com' }));
+
+    await updatePersonalEmailService(
+      mockDb as unknown as Parameters<typeof updatePersonalEmailService>[0],
+      actor,
+      { personal_email: 'segredo@gmail.com' },
+    );
+
+    // auditLog deve ter sido chamado
+    expect(auditLog).toHaveBeenCalledOnce();
+    const auditCall = (auditLog as ReturnType<typeof vi.fn>).mock.calls[0] as unknown[];
+    const params = auditCall[1] as Record<string, unknown>;
+
+    // after deve ter '[redacted]' no lugar do email real
+    const after = params['after'] as Record<string, unknown>;
+    expect(after['personal_email']).toBe('[redacted]');
+    // O email real não deve aparecer em nenhum lugar
+    expect(JSON.stringify(params)).not.toContain('segredo@gmail.com');
   });
 });

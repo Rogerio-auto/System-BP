@@ -34,6 +34,7 @@ import {
   reactivateUser,
   replaceUserCityScopes,
   replaceUserRoles,
+  updatePersonalEmail,
   updateUser,
 } from './repository.js';
 import type { UpdateUserInput } from './repository.js';
@@ -43,6 +44,8 @@ import type {
   EmbeddedRole,
   ListUsersQuery,
   ListUsersResponse,
+  PatchPersonalEmailBody,
+  PatchPersonalEmailResponse,
   SetCityScopesBody,
   SetRolesBody,
   UpdateUserBody,
@@ -401,6 +404,93 @@ export async function setUserRolesService(
       after: { roleIds: newRoleIds },
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Update personal email (self — F18-S09)
+// ---------------------------------------------------------------------------
+
+/**
+ * Atualiza o personal_email do agente autenticado.
+ *
+ * Regras:
+ *   - Apenas o próprio agente pode alterar o próprio personal_email (userId === actorUserId).
+ *   - null = remover o email pessoal existente.
+ *   - Unicidade por org garantida pelo índice parcial no banco (F18-S08).
+ *     Violação → AppError 409 PERSONAL_EMAIL_DUPLICATE.
+ *
+ * LGPD (doc 17 §8.1):
+ *   - personal_email é PII — auditLog é chamado com o campo redactado.
+ *   - O campo não é ecoado na resposta (apenas `{ ok: true }`).
+ */
+export async function updatePersonalEmailService(
+  db: Database,
+  actor: ActorContext,
+  body: PatchPersonalEmailBody,
+): Promise<PatchPersonalEmailResponse> {
+  await db.transaction(async (tx) => {
+    let result;
+    try {
+      result = await updatePersonalEmail(
+        tx as unknown as Database,
+        actor.userId,
+        actor.organizationId,
+        {
+          personalEmail: body.personal_email,
+          updatedAt: new Date(),
+        },
+      );
+    } catch (err: unknown) {
+      // Unique violation na constraint uq_users_org_personal_email_active
+      // Código 23505 do PostgreSQL.
+      if (isPersonalEmailUniqueViolation(err)) {
+        throw new AppError(
+          409,
+          'CONFLICT',
+          'Este email pessoal já está cadastrado nesta organização',
+          {
+            code: 'PERSONAL_EMAIL_DUPLICATE',
+          },
+        );
+      }
+      throw err;
+    }
+
+    if (!result) throw new NotFoundError('Usuário não encontrado');
+
+    // Audit log — LGPD §8.5: personal_email redactado antes de persistir.
+    await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
+      organizationId: actor.organizationId,
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
+      action: 'users.update_personal_email',
+      resource: { type: 'user', id: actor.userId },
+      before: null,
+      // LGPD §8.5: nunca gravar o valor do personal_email no audit log.
+      after: { personal_email: '[redacted]' },
+    });
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Verifica se o erro é violação de unique constraint do PostgreSQL (23505)
+ * para a constraint de personal_email.
+ */
+function isPersonalEmailUniqueViolation(err: unknown): boolean {
+  if (err === null || typeof err !== 'object') return false;
+  const e = err as { code?: unknown; constraint?: unknown };
+  return (
+    e.code === '23505' &&
+    (e.constraint === 'uq_users_org_personal_email_active' ||
+      // fallback: qualquer 23505 que envolva personal_email
+      e.constraint === undefined)
+  );
 }
 
 // ---------------------------------------------------------------------------

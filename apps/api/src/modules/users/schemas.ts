@@ -140,6 +140,43 @@ export const setCityScopesBodySchema = z.object({
 export type SetCityScopesBody = z.infer<typeof setCityScopesBodySchema>;
 
 // ---------------------------------------------------------------------------
+// PATCH /api/users/me/personal-email — atualizar email pessoal do agente (F18-S09)
+// ---------------------------------------------------------------------------
+
+/**
+ * Body de PATCH /api/users/me/personal-email.
+ *
+ * LGPD (doc 17 §8.1): personal_email é PII — nunca logar em texto plano.
+ * O campo é cobrado no 1º login (bloqueio de UI em F18-S10) mas pode ser
+ * atualizado a qualquer momento pelo próprio agente via este endpoint.
+ *
+ * null = remover o email pessoal (ex: agente quer desvinculá-lo).
+ */
+export const patchPersonalEmailBodySchema = z.object({
+  personal_email: z
+    .string()
+    .email('Email pessoal inválido')
+    .max(254, 'Email pessoal muito longo')
+    .nullable()
+    .describe('Novo email pessoal do agente. null = remover email pessoal existente.'),
+});
+
+export type PatchPersonalEmailBody = z.infer<typeof patchPersonalEmailBodySchema>;
+
+/**
+ * Resposta de PATCH /api/users/me/personal-email.
+ * Retorna apenas confirmação sem expor o email em texto no payload.
+ *
+ * LGPD: o valor não é ecoado na resposta — o frontend já conhece o valor
+ * que enviou. Evitamos que logs de resposta capturem o PII.
+ */
+export const patchPersonalEmailResponseSchema = z.object({
+  ok: z.literal(true),
+});
+
+export type PatchPersonalEmailResponse = z.infer<typeof patchPersonalEmailResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // List response (paginada)
 // ---------------------------------------------------------------------------
 
