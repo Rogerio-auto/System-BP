@@ -567,13 +567,14 @@ export async function logout(
 
   await revokeSession(db, tokenPayload.jti);
 
-  // Limpeza de sessões expiradas do usuário (housekeeping LGPD)
-  await purgeExpiredSessions(db, userId);
+  // Usa tokenPayload.sub (userId real do JWT) — não depende de request.user,
+  // que é undefined na rota de logout (sem authenticate preHandler).
+  await purgeExpiredSessions(db, tokenPayload.sub);
 
   log.info(
     {
       event: 'auth.logout.success',
-      user_id: userId,
+      user_id: tokenPayload.sub,
       session_id: tokenPayload.jti,
     },
     'logout successful',
