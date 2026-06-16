@@ -301,6 +301,22 @@ export interface CreditRulePublishedData {
   rule_snapshot: Record<string, unknown>;
 }
 
+/**
+ * Emitido ao ativar (clonar) uma versão de regra de crédito (F18-S04).
+ * Decisão D6: ativação cria cópia imutável como nova versão — sem alterar a original.
+ * Payload sem PII — apenas IDs opacos e números de versão.
+ */
+export interface CreditRuleActivatedData {
+  /** UUID do produto cujas regras foram reconfiguradas. */
+  product_id: string;
+  /** UUID da organização dona do produto — contexto multi-tenant. */
+  organization_id: string;
+  /** Número da nova versão criada (clone). */
+  new_version: number;
+  /** Número da versão original que foi clonada como modelo. */
+  copied_from_version: number;
+}
+
 // --- Domínio: Chatwoot / WhatsApp ---
 
 export interface ChatwootConversationCreatedData {
@@ -856,6 +872,8 @@ export interface AppEventDataMap {
   'credit.product_created': CreditProductCreatedData;
   'credit.product_updated': CreditProductUpdatedData;
   'credit.rule_published': CreditRulePublishedData;
+  // F18-S04: ativação de versão por clone (Decisão D6)
+  'credit.rule_activated': CreditRuleActivatedData;
   'chatwoot.conversation_created': ChatwootConversationCreatedData;
   'chatwoot.message_received': ChatwootMessageReceivedData;
   'chatwoot.message_sent': ChatwootMessageReceivedData;

@@ -540,31 +540,22 @@ export async function activateRuleVersion(
       await deactivateRule(txDb, previousRule.id);
     }
 
-    const ruleSnapshot = {
-      rule_id: inserted.id,
-      version: inserted.version,
-      min_amount: inserted.minAmount,
-      max_amount: inserted.maxAmount,
-      min_term_months: inserted.minTermMonths,
-      max_term_months: inserted.maxTermMonths,
-      monthly_rate: inserted.monthlyRate,
-      iof_rate: inserted.iofRate ?? null,
-      amortization: inserted.amortization,
-      city_scope: inserted.cityScope ?? null,
-      effective_from: inserted.effectiveFrom.toISOString(),
-      cloned_from_version: source.version,
-    };
-
+    // Evento específico de ativação por clone (F18-S04 — Decisão D6).
+    // Usa 'credit.rule_activated' (e não 'credit.rule_published') para distinguir
+    // a intenção: aqui não houve nova configuração de parâmetros, mas sim a
+    // re-promoção de um conjunto de parâmetros histórico como versão vigente.
     await emit(tx as unknown as Parameters<typeof emit>[0], {
-      eventName: 'credit.rule_published',
+      eventName: 'credit.rule_activated',
       aggregateType: 'credit_product_rule',
       aggregateId: inserted.id,
       organizationId: actor.organizationId,
       actor: { kind: 'user', id: actor.userId, ip: actor.ip ?? null },
-      idempotencyKey: `credit.rule_published:${inserted.id}`,
+      idempotencyKey: `credit.rule_activated:${inserted.id}`,
       data: {
         product_id: productId,
-        rule_snapshot: ruleSnapshot,
+        organization_id: actor.organizationId,
+        new_version: inserted.version,
+        copied_from_version: source.version,
       },
     });
 
