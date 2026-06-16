@@ -3,12 +3,12 @@ id: F18-S03
 title: Frontend — CurrencyInput canônico + fix bug de moeda (Onda 1 item 3)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#épico-c--correção-do-formato-de-real-item-3-
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-16T05:07:15Z
+completed_at: 2026-06-16T05:20:10Z
 pr_url: null
 depends_on: []
 blocks: []

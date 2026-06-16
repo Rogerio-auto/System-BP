@@ -666,17 +666,13 @@ export function DecideModal({
             >
               Dados da aprovação
             </p>
-            {/* Valor — máscara de moeda (centavos progressivo, estilo banco/PIX) */}
+            {/* Valor aprovado — CurrencyInput canônico em REAIS (F18-S03) */}
             <CurrencyInput
               id="decide-amount"
               label="Valor aprovado (R$)"
-              value={
-                watchedApprovedAmount === null || watchedApprovedAmount === undefined
-                  ? null
-                  : Math.round(watchedApprovedAmount * 100)
-              }
-              onChange={(cents) =>
-                setValue('approved_amount', cents === null ? null : cents / 100, {
+              value={watchedApprovedAmount ?? null}
+              onChange={(reais) =>
+                setValue('approved_amount', reais, {
                   shouldValidate: true,
                 })
               }
