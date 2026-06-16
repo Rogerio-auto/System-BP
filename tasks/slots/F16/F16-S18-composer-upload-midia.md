@@ -3,13 +3,13 @@ id: F16-S18
 title: Composer — upload de mídia (imagem, vídeo, documento, áudio)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T18:21:06Z
 completed_at: 2026-06-16T18:34:39Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/292
 depends_on: [F16-S13, F16-S17]
 blocks: [F16-S21]
 labels: []

@@ -3,13 +3,13 @@ id: F19-S04
 title: Frontend — admin cadastro de escritórios de advocacia
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T15:36:57Z
 completed_at: 2026-06-16T15:52:48Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/290
 depends_on: [F19-S02]
 blocks: [F19-S05]
 labels: [frontend, advocacia, admin, settings]

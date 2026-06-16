@@ -3,13 +3,13 @@ id: F16-S20
 title: Composer — emoji picker
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md
-status: in-progress
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-16T18:21:45Z
-completed_at: null
-pr_url: null
+completed_at: 2026-06-16T18:45:01Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/294
 depends_on: [F16-S17]
 blocks: []
 labels: []
