@@ -30,7 +30,7 @@ Item 4 (Onda 2). Decisões: D1=CNPJ texto claro; D2=unicidade por organização;
 
 ## Escopo (faz)
 
-### Migration `0062_lead_pj_personal_email.sql`
+### Migration `0063_lead_pj_personal_email.sql`
 
 ```sql
 -- 1. Campos PJ em leads
@@ -73,7 +73,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_users_org_personal_email
 
 ## Arquivos permitidos (`files_allowed`)
 
-- `apps/api/src/db/migrations/0062_lead_pj_personal_email.sql`
+- `apps/api/src/db/migrations/0063_lead_pj_personal_email.sql`
 - `apps/api/src/db/migrations/meta/_journal.json`
 - `apps/api/src/db/schema/leads.ts`
 - `apps/api/src/db/schema/users.ts`
@@ -102,7 +102,7 @@ pnpm --filter @elemento/api lint
 
 ## Notas para o agente
 
-- Confirme o número da próxima migration com `python scripts/slot.py check-migrations` — deve ser 0062.
+- Confirme o número da próxima migration com `python scripts/slot.py check-migrations` — deve ser 0063 (0062 foi usada por F17-S12).
 - `citext` já está disponível como extensão no banco (instalada no setup inicial).
 - `personal_email` em `users` precisa de `organization_id` no índice único para ser multi-tenant correto.
 - O índice de email em leads é `lower(email)` pois `email` é `citext` — confirme que `lower()` é adequado ou se `citext` já garante case-insensitive (pode ser redundante — use o padrão existente do banco).
