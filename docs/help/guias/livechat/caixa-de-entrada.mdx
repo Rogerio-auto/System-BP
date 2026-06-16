@@ -1,0 +1,78 @@
+---
+title: Caixa de entrada — Live Chat
+description: Como usar a caixa de entrada do Live Chat para gerenciar conversas em tempo real.
+order: 2
+keywords: [live chat, caixa de entrada, conversas, inbox, mensagens, atendimento]
+---
+
+# Caixa de entrada
+
+A caixa de entrada reúne todas as conversas do Live Chat em um único lugar, permitindo gerenciar atendimentos de forma ágil e organizada.
+
+## O que é
+
+O inbox do Live Chat apresenta um layout de três colunas:
+
+- **Lista de conversas** (esquerda): todas as conversas filtráveis por status e pesquisáveis por nome do contato.
+- **Painel da conversa** (centro): histórico de mensagens e campo de resposta.
+- **Dados do contato** (direita): informações do cliente vinculado à conversa.
+
+Em dispositivos móveis, a lista e o detalhe se alternam — toque em uma conversa para abri-la e use o botão "Voltar" para retornar à lista.
+
+## Filtros
+
+Use os filtros no topo da lista para visualizar conversas por status:
+
+- **Todas** — exibe conversas independente do status.
+- **Abertas** — conversas em andamento (padrão ao abrir a página).
+- **Pendentes** — conversas aguardando resposta ou revisão.
+- **Resolvidas** — conversas encerradas.
+
+<Callout type="info">
+  O filtro padrão ao entrar na página é **Abertas**. Isso garante que você veja imediatamente as conversas que precisam de atenção.
+</Callout>
+
+## Busca
+
+Digite no campo de busca para encontrar conversas pelo nome do contato. A busca é aplicada automaticamente 300ms após você parar de digitar — não é necessário pressionar Enter.
+
+## Atualização em tempo real
+
+A lista atualiza automaticamente quando uma nova mensagem chega ou quando o status de uma conversa muda. Você não precisa recarregar a página.
+
+O indicador de mensagens não lidas (bolinha verde com número) aparece ao lado de cada conversa com mensagens que ainda não foram visualizadas.
+
+## Passo a passo: atender uma conversa
+
+<Step title="Abra a caixa de entrada">
+  Acesse **Conversas** no menu lateral. A lista carregará automaticamente com as conversas abertas.
+</Step>
+
+<Step title="Localize a conversa">
+  Use o filtro de status ou o campo de busca para encontrar a conversa desejada. Conversas com mensagens não lidas aparecem com o badge verde.
+</Step>
+
+<Step title="Selecione a conversa">
+  Clique (ou pressione Enter) sobre o item da lista. O histórico de mensagens abrirá no painel central.
+</Step>
+
+<Step title="Responda ao contato">
+  Use o campo de resposta no rodapé do painel central para enviar uma mensagem. O tipo de resposta disponível depende da janela de atendimento do canal.
+</Step>
+
+## Erros comuns
+
+**A lista aparece vazia mesmo havendo conversas**
+: Verifique se o filtro de status está correto. Tente selecionar "Todas" para ver conversas de qualquer status.
+
+**As mensagens não atualizam automaticamente**
+: A atualização em tempo real depende de conexão ativa com o servidor. Recarregue a página se a conexão foi interrompida por longos períodos de inatividade.
+
+**Não consigo ver o telefone do contato**
+: O telefone do contato requer a permissão `crm:contact:phone:read`. Entre em contato com o administrador do sistema.
+
+## Veja também
+
+- [Conectar um canal de WhatsApp](/ajuda/guias/livechat/conectar-canal)
+
+<FeedbackWidget />
