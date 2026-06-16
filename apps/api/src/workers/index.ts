@@ -9,7 +9,7 @@
 // o que os torna auto-suficientes e compatíveis com vi.mock nos testes.
 //
 // COMO ADICIONAR UM NOVO WORKER-HANDLER (event-driven):
-//   1. Implemente em workers/<nome>.ts, exporte registerKanbanXxx() ou similar.
+//   1. Implemente em handlers/<nome>.ts, exporte build<Nome>Handler() ou similar.
 //   2. Adicione o import e registerHandler() em setupWorkerHandlers() abaixo.
 //   3. Nomeie o handlerName como "<dominio>.on_<evento>" (único — idempotência).
 //
@@ -20,6 +20,7 @@
 //   4. (opcional) Re-exporte aqui para documentação centralizada de workers ativos.
 // =============================================================================
 import { registerHandler } from '../events/handlers.js';
+import { buildAutoContractFromAnalysisHandler } from '../handlers/auto-contract-from-analysis.js';
 import { buildCancelFollowupsOnReplyHandler } from '../handlers/cancel-followups-on-inbound-message.js';
 
 import { buildKanbanOnAnalysisHandler } from './kanban-on-analysis.js';
@@ -85,5 +86,12 @@ export function setupWorkerHandlers(): void {
     'whatsapp.message_received',
     'followup.cancel_on_customer_reply',
     buildCancelFollowupsOnReplyHandler(),
+  );
+
+  // F17-S13: credit_analysis.status_changed → cria/cancela contrato draft automaticamente
+  registerHandler(
+    'credit_analysis.status_changed',
+    'contracts.on_analysis_status_changed',
+    buildAutoContractFromAnalysisHandler(),
   );
 }

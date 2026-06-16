@@ -29,6 +29,7 @@ import { paymentDues } from '../../db/schema/paymentDues.js';
 import { NotFoundError } from '../../shared/errors.js';
 
 import type {
+  AutoContractDraftInput,
   BoletoHealthResponse,
   ContractCreateBody,
   ContractResponse,
@@ -112,6 +113,10 @@ export async function listContracts(
 
   if (query.customer_id) {
     conditions.push(eq(contracts.customerId, query.customer_id));
+  }
+
+  if (query.analysis_id) {
+    conditions.push(eq(contracts.analysisId, query.analysis_id));
   }
 
   const whereClause = and(...conditions);
@@ -347,6 +352,134 @@ export async function getBoletoHealthByContractId(
     percent_paid: percentPaid,
     health,
   };
+}
+
+// ---------------------------------------------------------------------------
+// findContractByAnalysisId — busca contrato por (organizationId, analysisId)
+//
+// Usado pelo handler auto-contrato para upsert idempotente.
+// Não aplica city-scope — o handler é interno (sistema), não HTTP.
+// ---------------------------------------------------------------------------
+
+/**
+ * Busca contrato por (organizationId, analysisId).
+ * Retorna null se não existir contrato vinculado a esta análise na org.
+ *
+ * Usado pelo handler de auto-contrato para upsert idempotente —
+ * não aplica city-scope (chamada interna de sistema).
+ */
+export async function findContractByAnalysisId(
+  db: Database,
+  organizationId: string,
+  analysisId: string,
+): Promise<ContractResponse | null> {
+  const rows = await db
+    .select()
+    .from(contracts)
+    .where(and(eq(contracts.organizationId, organizationId), eq(contracts.analysisId, analysisId)))
+    .limit(1);
+
+  if (rows.length === 0) return null;
+
+  return mapContractRow(rows[0]!);
+}
+
+// ---------------------------------------------------------------------------
+// createAutoContractDraft — INSERT de contrato draft pelo handler de auto-contrato
+// ---------------------------------------------------------------------------
+
+/**
+ * Cria um contrato draft vinculado a uma análise de crédito aprovada.
+ * Chamado DENTRO de transação ativa — não cria a própria transação.
+ *
+ * LGPD: nenhum dado de PII nos campos — apenas IDs e dados financeiros operacionais.
+ */
+export async function createAutoContractDraft(
+  db: Database,
+  input: AutoContractDraftInput,
+): Promise<ContractResponse> {
+  const rows = await db
+    .insert(contracts)
+    .values({
+      organizationId: input.organizationId,
+      customerId: input.customerId,
+      contractReference: input.contractReference,
+      principalAmount: input.principalAmount,
+      termMonths: input.termMonths,
+      monthlyRateSnapshot: input.monthlyRateSnapshot ?? null,
+      analysisId: input.analysisId,
+      status: 'draft',
+    })
+    .returning();
+
+  return mapContractRow(rows[0]!);
+}
+
+// ---------------------------------------------------------------------------
+// updateAutoContractDraft — UPDATE de contrato draft com novos valores aprovados
+// ---------------------------------------------------------------------------
+
+/**
+ * Atualiza campos financeiros de um contrato draft vinculado a análise re-aprovada.
+ * Chamado DENTRO de transação ativa — não cria a própria transação.
+ *
+ * Apenas contratos em status 'draft' são atualizados —
+ * o caller deve verificar o status antes de invocar.
+ */
+export async function updateAutoContractDraft(
+  db: Database,
+  contractId: string,
+  organizationId: string,
+  input: Pick<AutoContractDraftInput, 'principalAmount' | 'termMonths' | 'monthlyRateSnapshot'>,
+): Promise<ContractResponse> {
+  const rows = await db
+    .update(contracts)
+    .set({
+      principalAmount: input.principalAmount,
+      termMonths: input.termMonths,
+      monthlyRateSnapshot: input.monthlyRateSnapshot ?? null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(contracts.id, contractId), eq(contracts.organizationId, organizationId)))
+    .returning();
+
+  if (rows.length === 0) {
+    throw new NotFoundError('Contrato não encontrado para atualização automática');
+  }
+
+  return mapContractRow(rows[0]!);
+}
+
+// ---------------------------------------------------------------------------
+// cancelAutoContractDraft — UPDATE status='cancelled' em draft vinculado a recusado
+// ---------------------------------------------------------------------------
+
+/**
+ * Cancela um contrato draft ao detectar que a análise vinculada foi recusada.
+ * Chamado DENTRO de transação ativa — não cria a própria transação.
+ *
+ * Apenas contratos em status 'draft' são cancelados —
+ * o caller deve verificar o status antes de invocar.
+ */
+export async function cancelAutoContractDraft(
+  db: Database,
+  contractId: string,
+  organizationId: string,
+): Promise<ContractResponse> {
+  const rows = await db
+    .update(contracts)
+    .set({
+      status: 'cancelled',
+      updatedAt: new Date(),
+    })
+    .where(and(eq(contracts.id, contractId), eq(contracts.organizationId, organizationId)))
+    .returning();
+
+  if (rows.length === 0) {
+    throw new NotFoundError('Contrato não encontrado para cancelamento automático');
+  }
+
+  return mapContractRow(rows[0]!);
 }
 
 // ---------------------------------------------------------------------------

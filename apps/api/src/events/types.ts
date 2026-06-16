@@ -593,7 +593,7 @@ export interface BillingBoletoAttachedData {
   has_media: boolean;
 }
 
-// --- Domínio: contratos (F17-S03) ---
+// --- Domínio: contratos (F17-S03 / F17-S13) ---
 // LGPD §8.5: payload sem PII bruta — apenas IDs opacos + metadados operacionais.
 // principal_amount é dado financeiro operacional (base legal: Art. 7º V LGPD — execução de contrato).
 
@@ -610,6 +610,35 @@ export interface ContractSignedData {
   organization_id: string;
   /** ISO 8601 do momento da assinatura (dado operacional, não PII). */
   signed_at: string;
+}
+
+/**
+ * Emitido quando o handler auto-contrato cria automaticamente um draft
+ * a partir de uma análise de crédito aprovada (F17-S13).
+ * LGPD §8.5: payload sem PII — apenas IDs opacos.
+ * Base legal: Art. 7º V LGPD (execução de contrato / legítimo interesse contratual).
+ */
+export interface ContractAutoCreatedData {
+  /** UUID opaco do contrato criado automaticamente — não é PII. */
+  contract_id: string;
+  /** UUID da análise de crédito que originou o contrato. */
+  analysis_id: string;
+  /** UUID da organização dona do contrato. */
+  organization_id: string;
+}
+
+/**
+ * Emitido quando o handler auto-contrato atualiza um draft existente
+ * com novos valores aprovados (re-aprovação com valores diferentes) (F17-S13).
+ * LGPD §8.5: payload sem PII — apenas IDs opacos.
+ */
+export interface ContractAutoUpdatedData {
+  /** UUID opaco do contrato atualizado — não é PII. */
+  contract_id: string;
+  /** UUID da análise de crédito que originou a atualização. */
+  analysis_id: string;
+  /** UUID da organização dona do contrato. */
+  organization_id: string;
 }
 
 // --- Domínio: inadimplência SPC (F15-S08) ---
@@ -924,8 +953,10 @@ export interface AppEventDataMap {
   'user.role_assigned': UserRoleAssignedData;
   'user.city_scope_changed': UserCityScopeChangedData;
   'user.session_revoked': UserEventData;
-  // --- Contratos (F17-S03) ---
+  // --- Contratos (F17-S03 / F17-S13) ---
   'contract.signed': ContractSignedData;
+  'contract.auto_created': ContractAutoCreatedData;
+  'contract.auto_updated': ContractAutoUpdatedData;
   // --- Inadimplência SPC (F15-S08): 15+ dias de atraso, spc_status=none ---
   'payment_due.overdue_15d': PaymentDueOverdue15dData;
   // --- Tarefas (F15-S05) ---
