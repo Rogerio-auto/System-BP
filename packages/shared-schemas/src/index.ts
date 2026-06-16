@@ -28,3 +28,6 @@ export * from './contracts.js';
 
 // Live chat — discriminated unions + socket events (F16-S03)
 export * from './livechat.js';
+
+// Users / perfil do agente — personal_email, TOTP, status (F18-S08)
+export * from './users.js';

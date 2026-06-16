@@ -414,6 +414,13 @@
       "when": 1781820000000,
       "tag": "0063_seed_livechat_channel_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1781811200000,
+      "tag": "0064_lead_pj_personal_email",
+      "breakpoints": true
     }
   ]
 }
