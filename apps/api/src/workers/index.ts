@@ -52,6 +52,13 @@ export { runCollectionSenderTick } from './collection-sender.js';
 // Gated por spc.enabled + spc.scan.enabled (default=disabled).
 export { runSpcOverdueScanTick } from './spc-overdue-scan.js';
 
+// F16-S08: consumer RabbitMQ de mensagens inbound (live chat).
+// Consome hm.q.inbound.message → parseia InboundEvent → persiste contato/conversa/mensagem
+// (idempotente) → enfileira mídia (hm.q.inbound.media) → publica socket relay (hm.q.socket.relay).
+// Iniciado como processo separado: pnpm --filter @elemento/api worker:livechat-inbound
+// Exporta processMessage para testes unitários (sem iniciar o consumer real).
+export { processMessage } from './livechat-inbound.js';
+
 /**
  * Registra todos os worker-handlers de domínio no registry do outbox-publisher.
  *
