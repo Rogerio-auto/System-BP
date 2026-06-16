@@ -3,13 +3,13 @@ id: F16-S04
 title: packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#53-consequencias-arquiteturais-do-app-por-cliente
-status: available
+status: done
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
-pr_url: null
+claimed_at: 2026-06-16T04:51:10Z
+completed_at: 2026-06-16T05:06:31Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/255
 depends_on: [F16-S02, F16-S03]
 blocks: [F16-S05, F16-S06]
 labels: []
