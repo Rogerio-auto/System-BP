@@ -16,7 +16,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 2   | 9   |
 | F16  | 17    | 3   | 14  | 0   | 0   | 0   | 0   |
-| F17  | 10    | 2   | 2   | 0   | 0   | 0   | 6   |
+| F17  | 11    | 3   | 2   | 0   | 0   | 0   | 6   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -200,6 +200,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | 🟢 available | medium     | F17-S02, F17-S07          |
 | F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked   | low        | F17-S01, F17-S03, F15-S05 |
 | F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked   | low        | F17-S09, F15-S10          |
+| F17-S11 | Frontend — modal de criação de contrato                                       | 🟢 available | high       | F17-S02, F17-S03, F17-S06 |
 
 ## Fase 2 — Crédito e simulação
 
