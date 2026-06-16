@@ -8,6 +8,8 @@
 // Sem física delete — apenas deactivate (soft-delete via deletedAt).
 //
 // LGPD: respostas nunca incluem password_hash, refresh_token_hash, totp_secret.
+//
+// F18-S09: adicionado PATCH /api/users/me/personal-email — self-service (sem authorize).
 // =============================================================================
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
@@ -18,6 +20,7 @@ import {
   createUserController,
   deactivateUserController,
   listUsersController,
+  patchPersonalEmailController,
   reactivateUserController,
   setUserCityScopesController,
   setUserRolesController,
@@ -28,6 +31,8 @@ import {
   createUserResponseSchema,
   listUsersQuerySchema,
   listUsersResponseSchema,
+  patchPersonalEmailBodySchema,
+  patchPersonalEmailResponseSchema,
   setCityScopesBodySchema,
   setRolesBodySchema,
   updateUserBodySchema,
@@ -37,7 +42,49 @@ import {
 
 const REQUIRED_PERMISSION = 'users:manage' as const;
 
+// ---------------------------------------------------------------------------
+// PATCH /api/users/me/personal-email — self-service (sem authorize) (F18-S09)
+//
+// Qualquer agente autenticado pode atualizar o próprio personal_email.
+// Sem authorize(): o recurso é o próprio usuário (request.user.id).
+//
+// LGPD (doc 17 §8.1): personal_email é PII — coberto por pino.redact.
+// O audit log não persiste o valor do email (apenas '[redacted]').
+//
+// Registrado como plugin filho dentro de usersRoutes (antes dos hooks admin)
+// para herdar o prefix mas não o authorize() hook do pai.
+// ---------------------------------------------------------------------------
+
+const usersMeRoutes: FastifyPluginAsyncZod = async (app) => {
+  app.addHook('preHandler', authenticate());
+
+  app.patch(
+    '/api/users/me/personal-email',
+    {
+      schema: {
+        tags: ['Account'],
+        summary: 'Atualizar email pessoal',
+        description:
+          'Atualiza o email pessoal do agente autenticado. O email pessoal é adicionado à ' +
+          'lista de bloqueio no cadastro de leads — impede que o agente use o próprio email ' +
+          'no lugar do email do cliente. null = remover email pessoal existente. ' +
+          'LGPD: campo PII, nunca logado em texto plano.',
+        security: [{ bearerAuth: [] }],
+        body: patchPersonalEmailBodySchema,
+        response: {
+          200: patchPersonalEmailResponseSchema,
+        },
+      },
+    },
+    patchPersonalEmailController,
+  );
+};
+
 export const usersRoutes: FastifyPluginAsyncZod = async (app) => {
+  // Registrar rotas self-service ANTES dos hooks admin — cada plugin filho tem scope próprio.
+  // O hook authenticate() do plugin filho não herda o authorize() do pai (Fastify scoping).
+  await app.register(usersMeRoutes);
+
   // Aplicar authenticate + authorize em todas as rotas deste plugin
   app.addHook('preHandler', authenticate());
   app.addHook('preHandler', authorize({ permissions: [REQUIRED_PERMISSION] }));

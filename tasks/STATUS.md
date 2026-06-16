@@ -189,22 +189,22 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 17 —
 
-| ID      | Título                                                                        | Status     | Prioridade | Depende de                |
-| ------- | ----------------------------------------------------------------------------- | ---------- | ---------- | ------------------------- |
-| F17-S01 | Schema — entidade `contracts` + migração `contract_reference` → `contract_id` | ✅ done    | high       | —                         |
-| F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | ✅ done    | high       | F17-S01                   |
-| F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | ✅ done    | high       | F17-S01, F17-S02          |
-| F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | ✅ done    | medium     | F17-S01, F17-S02, F17-S03 |
-| F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | ✅ done    | high       | F17-S02, F17-S03          |
-| F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ✅ done    | medium     | F17-S04, F17-S05, F5-S16  |
-| F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | ✅ done    | medium     | F17-S01, F17-S02, F17-S03 |
-| F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ✅ done    | medium     | F17-S02, F17-S07          |
-| F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked | low        | F17-S01, F17-S03, F15-S05 |
-| F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked | low        | F17-S09, F15-S10          |
-| F17-S11 | Frontend — modal de criação de contrato                                       | ✅ done    | high       | F17-S02, F17-S03, F17-S06 |
-| F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | ✅ done    | high       | F17-S01, F17-S02          |
-| F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ✅ done    | high       | F17-S12, F17-S03          |
-| F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | ✅ done    | medium     | F17-S12, F17-S13, F17-S06 |
+| ID      | Título                                                                        | Status       | Prioridade | Depende de                |
+| ------- | ----------------------------------------------------------------------------- | ------------ | ---------- | ------------------------- |
+| F17-S01 | Schema — entidade `contracts` + migração `contract_reference` → `contract_id` | ✅ done      | high       | —                         |
+| F17-S02 | Contratos compartilhados — Zod de contrato + saúde de boletos                 | ✅ done      | high       | F17-S01                   |
+| F17-S03 | Backend — módulo de contratos (CRUD + "marcar como assinado")                 | ✅ done      | high       | F17-S01, F17-S02          |
+| F17-S04 | Backend — saúde de boletos do contrato (agregação)                            | ✅ done      | medium     | F17-S01, F17-S02, F17-S03 |
+| F17-S05 | Frontend — aba Contratos + ação "marcar como assinado"                        | ✅ done      | high       | F17-S02, F17-S03          |
+| F17-S06 | Frontend — ficha do contrato com gestão e saúde de boletos                    | ✅ done      | medium     | F17-S04, F17-S05, F5-S16  |
+| F17-S07 | Backend — visão cliente (dados + histórico + contratos + boletos)             | ✅ done      | medium     | F17-S01, F17-S02, F17-S03 |
+| F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ✅ done      | medium     | F17-S02, F17-S07          |
+| F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked   | low        | F17-S01, F17-S03, F15-S05 |
+| F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked   | low        | F17-S09, F15-S10          |
+| F17-S11 | Frontend — modal de criação de contrato                                       | ✅ done      | high       | F17-S02, F17-S03, F17-S06 |
+| F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | ✅ done      | high       | F17-S01, F17-S02          |
+| F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ✅ done      | high       | F17-S12, F17-S03          |
+| F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | 🟢 available | medium     | F17-S12, F17-S13, F17-S06 |
 
 ## Fase 18 —
 
@@ -218,10 +218,10 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F18-S06 | Frontend — follow-up por estágio e outcome (Onda 1 item 8)                                    | ✅ done      | medium     | —          |
 | F18-S07 | Frontend — avgDaysInStage no dashboard + estágio Kanban no CRM (Onda 1 item 11)               | ✅ done      | medium     | —          |
 | F18-S08 | Schema — lead PJ + personal_email usuários (Onda 2 item 4)                                    | ✅ done      | high       | —          |
-| F18-S09 | Backend — lead PJ validações + email blocklist (Onda 2 item 4)                                | 🟢 available | high       | F18-S08    |
+| F18-S09 | Backend — lead PJ validações + email blocklist (Onda 2 item 4)                                | 🟣 review    | high       | F18-S08    |
 | F18-S10 | Frontend — NewLeadModal campos PJ + email obrigatório + personal_email agente (Onda 2 item 4) | ⏸️ blocked   | high       | F18-S09    |
-| F18-S11 | Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)                            | ✅ done      | medium     | —          |
-| F18-S12 | Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)                             | 🟢 available | medium     | F18-S11    |
+| F18-S11 | Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)                            | 🟢 available | medium     | —          |
+| F18-S12 | Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)                             | ⏸️ blocked   | medium     | F18-S11    |
 
 ## Fase 2 — Crédito e simulação
 

@@ -18,6 +18,7 @@ import { ForbiddenError } from '../../shared/errors.js';
 import type {
   CreateUserBody,
   ListUsersQuery,
+  PatchPersonalEmailBody,
   SetCityScopesBody,
   SetRolesBody,
   UpdateUserBody,
@@ -30,6 +31,7 @@ import {
   reactivateUserService,
   setUserCityScopesService,
   setUserRolesService,
+  updatePersonalEmailService,
   updateUserService,
 } from './service.js';
 
@@ -149,4 +151,23 @@ export async function setUserCityScopesController(
   const actor = getActorContext(request);
   await setUserCityScopesService(db, actor, request.params.id, request.body);
   return reply.status(204).send();
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /api/users/me/personal-email — self-service (F18-S09)
+// ---------------------------------------------------------------------------
+
+/**
+ * Atualiza o personal_email do agente autenticado.
+ *
+ * Segurança: o alvo é SEMPRE request.user.id — nunca aceitar userId de body/params.
+ * LGPD: personal_email não aparece na resposta (apenas `{ ok: true }`).
+ */
+export async function patchPersonalEmailController(
+  request: FastifyRequest<{ Body: PatchPersonalEmailBody }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const result = await updatePersonalEmailService(db, actor, request.body);
+  return reply.status(200).send(result);
 }

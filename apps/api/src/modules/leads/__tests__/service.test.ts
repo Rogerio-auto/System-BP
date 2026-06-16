@@ -899,6 +899,80 @@ describe('F18-S01 — city_name em LeadResponse', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Suite F18-S09 — validateCnpjDigits
+//
+// Testa o algoritmo de dígito verificador do CNPJ diretamente.
+// Não depende de banco — puro algoritmo matemático.
+// ---------------------------------------------------------------------------
+
+describe('F18-S09 — validateCnpjDigits', () => {
+  it('CNPJ válido (dígitos corretos) → true', async () => {
+    const { validateCnpjDigits } = await import('@elemento/shared-schemas');
+    // CNPJ gerado com dígitos verificadores corretos
+    expect(validateCnpjDigits('11.222.333/0001-81')).toBe(true);
+  });
+
+  it('CNPJ válido somente dígitos → true', async () => {
+    const { validateCnpjDigits } = await import('@elemento/shared-schemas');
+    // Mesmo CNPJ sem máscara
+    expect(validateCnpjDigits('11222333000181')).toBe(true);
+  });
+
+  it('CNPJ com dígito verificador errado → false', async () => {
+    const { validateCnpjDigits } = await import('@elemento/shared-schemas');
+    // Alterar o último dígito invalida os verificadores
+    expect(validateCnpjDigits('11.222.333/0001-82')).toBe(false);
+  });
+
+  it('CNPJ com todos os dígitos iguais → false (inválido mesmo que aritmética passe)', async () => {
+    const { validateCnpjDigits } = await import('@elemento/shared-schemas');
+    expect(validateCnpjDigits('11111111111111')).toBe(false);
+    expect(validateCnpjDigits('00000000000000')).toBe(false);
+  });
+
+  it('CNPJ com menos de 14 dígitos → false', async () => {
+    const { validateCnpjDigits } = await import('@elemento/shared-schemas');
+    expect(validateCnpjDigits('1122233300018')).toBe(false);
+  });
+
+  it('LeadCreateBaseSchema rejeita CNPJ com dígito verificador inválido → erro Zod', async () => {
+    const { LeadCreateBaseSchema } = await import('@elemento/shared-schemas');
+
+    const result = LeadCreateBaseSchema.safeParse({
+      name: 'Empresa Teste',
+      phone_e164: '+5569987654321',
+      city_id: CITY_A,
+      source: 'manual',
+      email: 'contato@empresa.com',
+      // CNPJ com formato válido mas dígitos verificadores incorretos
+      cnpj: '11.222.333/0001-99',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const cnpjIssue = result.error.issues.find((i) => i.path.includes('cnpj'));
+      expect(cnpjIssue).toBeDefined();
+      expect(cnpjIssue?.message).toMatch(/dígitos verificadores/i);
+    }
+  });
+
+  it('LeadCreateBaseSchema aceita CNPJ com dígitos verificadores corretos → sucesso', async () => {
+    const { LeadCreateBaseSchema } = await import('@elemento/shared-schemas');
+
+    const result = LeadCreateBaseSchema.safeParse({
+      name: 'Empresa Teste',
+      phone_e164: '+5569987654321',
+      city_id: CITY_A,
+      source: 'manual',
+      email: 'contato@empresa.com',
+      cnpj: '11.222.333/0001-81',
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Bloqueio de email pessoal do agente no cadastro de lead (F14-S04)
 //
 // isInternalEmail agora cobre TAMBÉM o email pessoal do agente (personal_email).
