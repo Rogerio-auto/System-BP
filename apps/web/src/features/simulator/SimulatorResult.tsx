@@ -6,14 +6,19 @@
 //   loading  → skeleton da área de stats + tabela
 //   error    → banner colorido por código (422/409/503/403)
 //   success  → Stats row (Bricolage) + Card elev-3 com AmortizationTable
-//             + botão "Enviar ao cliente" (F14-S06)
+//             + botão "Enviar ao cliente" (F14-S06 / refinado F18-S12)
 //
 // DS §9.8 Stat, §9.3 Card, §9.6 Alert.
 // Parcela mensal em Bricolage 800 text-3xl com --brand-azul (primary da bandeira).
 //
 // F14-S06: botão "Enviar ao cliente" gated por flag + telefone do lead.
-//   - Usa useSendSimulation (hook criado em F14-S06).
+//   - Usa useSendSimulation.
 //   - Estados: loading (Enviando…), sucesso (toast verde), erro (banner amigável).
+//
+// F18-S12: refinamento do gating e mensagens de toast.
+//   - Flag desligada → botão oculto (return null), não só desabilitado.
+//   - Toast de sucesso: "Simulação enviada via WhatsApp ✓".
+//   - Erro META_UNAVAILABLE (502): toast "Template de simulação não configurado."
 // =============================================================================
 
 import * as React from 'react';
@@ -279,7 +284,17 @@ function SendErrorBanner({
 
 /**
  * Botão "Enviar ao cliente" com gating por flag + telefone.
- * Encapsula todo o estado de envio (loading, sucesso toast, erro banner).
+ *
+ * Gates (F18-S12):
+ *   - Flag `simulations.send.enabled` desligada → componente não é renderizado.
+ *   - Lead sem telefone → botão desabilitado com tooltip "Lead sem telefone cadastrado".
+ *   - Ambos OK → botão habilitado.
+ *
+ * Toasts:
+ *   - Sucesso: "Simulação enviada via WhatsApp ✓"
+ *   - already_sent: "Simulação já enviada anteriormente" (info)
+ *   - META_UNAVAILABLE (502): "Template de simulação não configurado. Contate o administrador."
+ *   - Outros erros: mensagem do erro tipado via banner dismissível.
  */
 function SendToClientButton({
   simulationId,
@@ -287,7 +302,7 @@ function SendToClientButton({
 }: {
   simulationId: string;
   leadPhone: string | null | undefined;
-}): React.JSX.Element {
+}): React.JSX.Element | null {
   const { toast } = useToast();
   const { enabled: sendFlagEnabled, isLoading: sendFlagLoading } = useFeatureFlag(
     'simulations.send.enabled',
@@ -299,28 +314,38 @@ function SendToClientButton({
     onSuccess: (data) => {
       setSendError(null);
       if (data.status === 'already_sent') {
-        toast('Simulação já enviada anteriormente (idempotente).', 'info');
+        toast('Simulação já enviada anteriormente', 'info');
       } else {
-        toast('Simulação enviada por WhatsApp com sucesso!', 'success');
+        toast('Simulação enviada via WhatsApp ✓', 'success');
       }
     },
     onError: (err) => {
-      setSendError(err);
+      // META_UNAVAILABLE (502) → toast de erro específico (template não configurado)
+      if (err.code === 'META_UNAVAILABLE') {
+        toast('Template de simulação não configurado. Contate o administrador.', 'danger');
+      } else {
+        // Demais erros → banner dismissível com mensagem detalhada
+        setSendError(err);
+      }
     },
   });
 
   const hasPhone = Boolean(leadPhone);
-  // Botão disponível quando: flag ligada + lead tem telefone + não está carregando
+
+  // Gate 1: flag desligada (após resolver) → ocultar completamente
+  if (!sendFlagLoading && !sendFlagEnabled) {
+    return null;
+  }
+
+  // Botão disponível quando: flag ligada + lead tem telefone + não carregando a flag
   const canSend = sendFlagEnabled && hasPhone && !sendFlagLoading;
 
   // Tooltip acessível explicando o motivo de desabilitação
   const disabledReason = sendFlagLoading
     ? undefined
-    : !sendFlagEnabled
-      ? 'Funcionalidade de envio desativada'
-      : !hasPhone
-        ? 'Lead sem telefone cadastrado'
-        : undefined;
+    : !hasPhone
+      ? 'Lead sem telefone cadastrado'
+      : undefined;
 
   return (
     <div className="flex flex-col gap-2">

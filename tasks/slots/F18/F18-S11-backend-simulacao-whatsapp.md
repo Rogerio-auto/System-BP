@@ -3,13 +3,13 @@ id: F18-S11
 title: Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#épico-b--disparo-de-simulação-por-whatsapp-item-2
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T13:10:16Z
 completed_at: 2026-06-16T13:14:00Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/276
 depends_on: []
 blocks: [F18-S12]
 labels: [backend, whatsapp, simulation, template]

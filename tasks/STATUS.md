@@ -204,7 +204,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F17-S11 | Frontend — modal de criação de contrato                                       | ✅ done    | high       | F17-S02, F17-S03, F17-S06 |
 | F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | ✅ done    | high       | F17-S01, F17-S02          |
 | F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ✅ done    | high       | F17-S12, F17-S03          |
-| F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | 🟣 review  | medium     | F17-S12, F17-S13, F17-S06 |
+| F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | ✅ done    | medium     | F17-S12, F17-S13, F17-S06 |
 
 ## Fase 18 —
 

@@ -3,13 +3,13 @@ id: F16-S16
 title: Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#7-ui-conversationspage
-status: available
+status: done
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-16T13:55:08Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/282
 depends_on: [F16-S15]
 blocks: []
 labels: []
