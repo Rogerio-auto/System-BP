@@ -45,6 +45,7 @@ import { NotificationDropdown } from './features/notifications';
 import { TasksPage } from './features/tasks';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from './features/templates';
 import { AgentsPage } from './pages/admin/Agents';
+import { CanaisAdminPage } from './pages/admin/Canais';
 import { CitiesPage } from './pages/admin/Cities';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
 import { ProductDetailPage } from './pages/admin/ProductDetail';
@@ -198,6 +199,8 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/admin/products/:id" element={<ProductDetailPage />} />
           <Route path="/admin/users" element={<UsersPage />} />
           <Route path="/admin/agents" element={<AgentsPage />} />
+          {/* Canais de mensagem (WhatsApp Business) */}
+          <Route path="/admin/canais" element={<CanaisAdminPage />} />
           {/* F12-S10: Tutoriais em vídeo */}
           <Route path="/admin/tutoriais" element={<TutoriaisPage />} />
           {/* F5-S05: Follow-up — réguas e jobs */}

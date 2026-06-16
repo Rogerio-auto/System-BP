@@ -227,6 +227,24 @@ function IconTutoriais(): React.JSX.Element {
   );
 }
 
+// Canais de Mensagem: balão de chat com raio (conectividade)
+function IconCanais(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <path d="M8 9.5h4M8 12.5h7" strokeLinecap="round" />
+      <circle cx="18" cy="5" r="3" fill="currentColor" stroke="none" className="text-verde" />
+    </svg>
+  );
+}
+
 // Templates WhatsApp: balão de fala com linhas de texto
 function IconTemplates(): React.JSX.Element {
   return (
@@ -445,6 +463,17 @@ function AdminSection(): React.JSX.Element {
             description: 'Gerencie modelos de mensagem aprovados pelo Meta para envios em massa.',
             icon: <IconTemplates />,
             href: '/admin/templates',
+          },
+        ]
+      : []),
+    // Canais de Mensagem: gated por channel.connect
+    ...(hasPermission('channel.connect')
+      ? [
+          {
+            title: 'Canais de Mensagem',
+            description: 'Conecte o WhatsApp Business para receber e enviar mensagens no inbox.',
+            icon: <IconCanais />,
+            href: '/admin/canais',
           },
         ]
       : []),
