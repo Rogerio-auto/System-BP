@@ -182,9 +182,13 @@ interface SpcActionButtonProps {
   className?: string;
 }
 
+/** Roles com poder de confirmação direta — sem etapa pending_inclusion. */
+const MANAGER_ROLES = new Set(['admin', 'gestor_geral', 'superadmin']);
+
 /**
  * Botão(ões) de ação SPC com modal de confirmação.
  * Exige permissão spc:manage — retorna null se ausente.
+ * Managers (admin/gestor_geral) pulam pending_inclusion e incluem diretamente.
  * Desabilita durante a requisição (idempotência por UI).
  */
 export function SpcActionButton({
@@ -201,7 +205,24 @@ export function SpcActionButton({
   // Gate de permissão
   if (!hasPermission('spc:manage')) return null;
 
-  const transitions = SPC_TRANSITIONS[currentStatus];
+  // Managers (role key retornado pelo backend junto com permissions) pulam pending_inclusion.
+  const isManager = [...MANAGER_ROLES].some((r) => hasPermission(r));
+
+  const baseTransitions = SPC_TRANSITIONS[currentStatus];
+  // Para managers, substitui pending_inclusion por included na transição de 'none'
+  const transitions =
+    isManager && currentStatus === 'none'
+      ? [
+          {
+            label: 'Incluir no SPC',
+            nextStatus: 'included' as const,
+            variant: 'danger' as const,
+            confirmTitle: 'Incluir cliente no SPC',
+            confirmDescription:
+              'O cliente será registrado como incluído no SPC imediatamente. Essa ação é registrada no histórico de cobrança. Deseja confirmar?',
+          },
+        ]
+      : baseTransitions;
   if (!transitions || transitions.length === 0) return null;
 
   function handleClick(transition: SpcTransition) {

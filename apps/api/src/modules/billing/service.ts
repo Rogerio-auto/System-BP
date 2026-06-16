@@ -840,16 +840,32 @@ const VALID_SPC_TRANSITIONS: Record<string, readonly string[]> = {
   none: ['pending_inclusion'],
   pending_inclusion: ['included', 'none'],
   included: ['removed'],
-  removed: [],
+  removed: ['pending_inclusion'],
 } as const;
+
+// Managers (admin/gestor_geral) podem incluir diretamente sem pending_inclusion.
+const VALID_SPC_TRANSITIONS_MANAGER: Record<string, readonly string[]> = {
+  none: ['pending_inclusion', 'included'],
+  pending_inclusion: ['included', 'none'],
+  included: ['removed'],
+  removed: ['pending_inclusion', 'included'],
+} as const;
+
+const MANAGER_SPC_ROLES = new Set(['admin', 'gestor_geral', 'superadmin']);
 
 /**
  * Valida que a transição de status SPC é permitida.
  *
  * @throws AppError(422) se a transição for inválida.
  */
-function assertSpcTransitionValid(currentStatus: string, nextStatus: string): void {
-  const allowed = VALID_SPC_TRANSITIONS[currentStatus] ?? [];
+function assertSpcTransitionValid(
+  currentStatus: string,
+  nextStatus: string,
+  actorPermissions: string[],
+): void {
+  const isManager = actorPermissions.some((p) => MANAGER_SPC_ROLES.has(p));
+  const map = isManager ? VALID_SPC_TRANSITIONS_MANAGER : VALID_SPC_TRANSITIONS;
+  const allowed = map[currentStatus] ?? [];
   if (!allowed.includes(nextStatus)) {
     // VALIDATION_ERROR usado para transição de estado inválida (422 = Unprocessable Entity).
     throw new AppError(
@@ -905,7 +921,7 @@ export async function updateSpcStatusService(
   customerId: string,
   cityScopeIds: string[] | null,
   newStatus: string,
-  actor: { userId: string; ip: string | null },
+  actor: { userId: string; ip: string | null; permissions: string[] },
 ): Promise<SpcStatusResponse> {
   // Busca status atual + valida scope (fora da tx — fail-fast)
   const current = await findCustomerSpcStatus(db, organizationId, customerId, cityScopeIds);
@@ -919,8 +935,8 @@ export async function updateSpcStatusService(
     };
   }
 
-  // Valida transição antes de abrir transação
-  assertSpcTransitionValid(current.spcStatus, newStatus);
+  // Valida transição antes de abrir transação (mapa varia por role do actor)
+  assertSpcTransitionValid(current.spcStatus, newStatus, actor.permissions);
 
   let result!: SpcStatusResponse;
 

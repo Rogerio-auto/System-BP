@@ -420,7 +420,7 @@ export async function updateSpcStatusController(
     customerId,
     cityScopeIds,
     body.status,
-    { userId, ip },
+    { userId, ip, permissions: request.user?.permissions ?? [] },
   );
   await reply.status(200).send(result);
 }
