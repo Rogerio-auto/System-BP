@@ -109,6 +109,9 @@ export interface UseCreateLawFirmReferralResult {
  * Mutation para encaminhar cliente para escritório de advocacia.
  * Pós-sucesso: invalida a query de sugestão (cooldown mudou).
  * Clasifica os erros por tipo para facilitar o tratamento no componente.
+ *
+ * NOTA DE SEGURANÇA (M2): o branch else nunca expõe rawErr.message ao usuário.
+ * Mensagens técnicas do backend ficam nos logs do DevTools, nunca na UI.
  */
 export function useCreateLawFirmReferral(): UseCreateLawFirmReferralResult {
   const qc = useQueryClient();
@@ -142,11 +145,20 @@ export function useCreateLawFirmReferral(): UseCreateLawFirmReferralResult {
               featureDisabled: true,
             };
           } else {
-            const msg =
-              rawErr instanceof Error
-                ? rawErr.message
-                : 'Erro ao encaminhar cliente. Tente novamente.';
-            parsed = { message: msg };
+            // M2 FIX: nunca expor rawErr.message ao usuário — pode conter
+            // detalhes técnicos do backend. Usar mensagem estática por status
+            // quando ApiError, ou fallback genérico para erros desconhecidos.
+            let message = 'Erro ao encaminhar cliente. Tente novamente mais tarde.';
+            if (rawErr instanceof ApiError) {
+              if (rawErr.status === 500) {
+                message = 'Erro interno do servidor. Tente novamente em instantes.';
+              } else if (rawErr.status === 404) {
+                message = 'Escritório de advocacia não encontrado.';
+              }
+              // Para outros status de ApiError: mantém a mensagem genérica acima.
+              // rawErr.message NUNCA é usado diretamente na UI.
+            }
+            parsed = { message };
           }
 
           opts?.onError?.(parsed);
