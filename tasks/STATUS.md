@@ -18,7 +18,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16  | 17    | 0   | 0   | 0   | 0   | 0   | 17  |
 | F17  | 14    | 1   | 1   | 0   | 0   | 0   | 12  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
-| F19  | 6     | 0   | 5   | 0   | 0   | 1   | 0   |
+| F19  | 6     | 0   | 5   | 0   | 0   | 0   | 1   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -228,7 +228,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID      | Título                                                                 | Status     | Prioridade | Depende de       |
 | ------- | ---------------------------------------------------------------------- | ---------- | ---------- | ---------------- |
-| F19-S01 | Schema — law_firms + customer_law_firm_referrals (migration 0066)      | 🟣 review  | high       | —                |
+| F19-S01 | Schema — law_firms + customer_law_firm_referrals (migration 0066)      | ✅ done    | high       | —                |
 | F19-S02 | Backend — CRUD law_firms + suggest por cidade                          | ⏸️ blocked | high       | F19-S01          |
 | F19-S03 | Backend — ação "encaminhar para advocacia" + /internal/law-firm-status | ⏸️ blocked | high       | F19-S01, F19-S02 |
 | F19-S04 | Frontend — admin cadastro de escritórios de advocacia                  | ⏸️ blocked | high       | F19-S02          |

@@ -3,13 +3,13 @@ id: F19-S01
 title: Schema — law_firms + customer_law_firm_referrals (migration 0066)
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-16T14:52:04Z
 completed_at: 2026-06-16T15:01:32Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/285
 depends_on: []
 blocks: [F19-S02]
 labels: [schema, advocacia, cobranca, db]
