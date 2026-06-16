@@ -3,13 +3,13 @@ id: F19-S06
 title: LangGraph — nó lawyer_handoff (envio autônomo do contato do advogado)
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: null
 completed_at: 2026-06-16T19:05:34Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/296
 depends_on: [F19-S03]
 blocks: []
 labels: [langgraph, advocacia, ai, cobranca, lgpd]

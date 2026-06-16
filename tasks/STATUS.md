@@ -11,14 +11,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F0   | 22    | 0   | 0   | 0   | 0   | 0   | 22  |
 | F1   | 28    | 0   | 0   | 0   | 0   | 0   | 28  |
 | F10  | 15    | 0   | 0   | 0   | 0   | 0   | 15  |
-| F12  | 13    | 0   | 1   | 0   | 0   | 0   | 12  |
+| F12  | 13    | 1   | 0   | 0   | 0   | 0   | 12  |
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
 | F16  | 21    | 0   | 0   | 0   | 0   | 0   | 21  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
-| F19  | 6     | 0   | 0   | 0   | 1   | 1   | 4   |
+| F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -109,21 +109,21 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 12 —
 
-| ID      | Título                                                                                  | Status     | Prioridade | Depende de       |
-| ------- | --------------------------------------------------------------------------------------- | ---------- | ---------- | ---------------- |
-| F12-S01 | Schema feature_tutorials + migration + catálogo de feature_key                          | ✅ done    | medium     | —                |
-| F12-S02 | API /api/help/tutorials + /api/admin/tutorials CRUD + RBAC                              | ✅ done    | medium     | F12-S01          |
-| F12-S03 | Componente <VideoTutorial> provider-aware + registro no MDX                             | ✅ done    | medium     | —                |
-| F12-S04 | <ContextualHelp> + Drawer global de ajuda contextual                                    | ✅ done    | medium     | F12-S02, F12-S03 |
-| F12-S05 | Admin /admin/tutoriais (CRUD de tutoriais)                                              | ✅ done    | medium     | F12-S02, F12-S03 |
-| F12-S06 | Instrumentar telas do app com <ContextualHelp featureKey>                               | ✅ done    | low        | F12-S04, F12-S05 |
-| F12-S07 | Telemetria de adoção de tutoriais (opened/completed) — fase 2                           | ⏸️ blocked | low        | F12-S02          |
-| F12-S08 | Completar data model — duration_seconds (schema + migration + API)                      | ✅ done    | low        | F12-S01, F12-S02 |
-| F12-S09 | Semear feature flag tutorials.enabled                                                   | ✅ done    | medium     | F12-S02          |
-| F12-S10 | Fix — wirar rota /admin/tutoriais e card na ConfiguracoesPage (regressão F12-S05)       | ✅ done    | high       | F12-S05          |
-| F12-S11 | Fix CRÍTICO — runner de migrations pula migrations em DB existente (go-live blocker)    | ✅ done    | critical   | —                |
-| F12-S12 | Fix — alinhar cliente admin de tutoriais ao contrato real da API (400/erro ao carregar) | ✅ done    | critical   | F12-S05          |
-| F12-S13 | Fix — Callout crasha a página com type inválido (white-screen no help)                  | ✅ done    | high       | —                |
+| ID      | Título                                                                                  | Status       | Prioridade | Depende de       |
+| ------- | --------------------------------------------------------------------------------------- | ------------ | ---------- | ---------------- |
+| F12-S01 | Schema feature_tutorials + migration + catálogo de feature_key                          | ✅ done      | medium     | —                |
+| F12-S02 | API /api/help/tutorials + /api/admin/tutorials CRUD + RBAC                              | ✅ done      | medium     | F12-S01          |
+| F12-S03 | Componente <VideoTutorial> provider-aware + registro no MDX                             | ✅ done      | medium     | —                |
+| F12-S04 | <ContextualHelp> + Drawer global de ajuda contextual                                    | ✅ done      | medium     | F12-S02, F12-S03 |
+| F12-S05 | Admin /admin/tutoriais (CRUD de tutoriais)                                              | ✅ done      | medium     | F12-S02, F12-S03 |
+| F12-S06 | Instrumentar telas do app com <ContextualHelp featureKey>                               | ✅ done      | low        | F12-S04, F12-S05 |
+| F12-S07 | Telemetria de adoção de tutoriais (opened/completed) — fase 2                           | 🟢 available | low        | F12-S02          |
+| F12-S08 | Completar data model — duration_seconds (schema + migration + API)                      | ✅ done      | low        | F12-S01, F12-S02 |
+| F12-S09 | Semear feature flag tutorials.enabled                                                   | ✅ done      | medium     | F12-S02          |
+| F12-S10 | Fix — wirar rota /admin/tutoriais e card na ConfiguracoesPage (regressão F12-S05)       | ✅ done      | high       | F12-S05          |
+| F12-S11 | Fix CRÍTICO — runner de migrations pula migrations em DB existente (go-live blocker)    | ✅ done      | critical   | —                |
+| F12-S12 | Fix — alinhar cliente admin de tutoriais ao contrato real da API (400/erro ao carregar) | ✅ done      | critical   | F12-S05          |
+| F12-S13 | Fix — Callout crasha a página com type inválido (white-screen no help)                  | ✅ done      | high       | —                |
 
 ## Fase 13 —
 
@@ -230,14 +230,14 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 19 —
 
-| ID      | Título                                                                 | Status         | Prioridade | Depende de       |
-| ------- | ---------------------------------------------------------------------- | -------------- | ---------- | ---------------- |
-| F19-S01 | Schema — law_firms + customer_law_firm_referrals (migration 0066)      | ✅ done        | high       | —                |
-| F19-S02 | Backend — CRUD law_firms + suggest por cidade                          | ✅ done        | high       | F19-S01          |
-| F19-S03 | Backend — ação "encaminhar para advocacia" + /internal/law-firm-status | ✅ done        | high       | F19-S01, F19-S02 |
-| F19-S04 | Frontend — admin cadastro de escritórios de advocacia                  | ✅ done        | high       | F19-S02          |
-| F19-S05 | Frontend — botão "Encaminhar para advocacia" na ficha do inadimplente  | 🟣 review      | high       | F19-S03, F19-S04 |
-| F19-S06 | LangGraph — nó lawyer_handoff (envio autônomo do contato do advogado)  | 🔵 in-progress | medium     | F19-S03          |
+| ID      | Título                                                                 | Status  | Prioridade | Depende de       |
+| ------- | ---------------------------------------------------------------------- | ------- | ---------- | ---------------- |
+| F19-S01 | Schema — law_firms + customer_law_firm_referrals (migration 0066)      | ✅ done | high       | —                |
+| F19-S02 | Backend — CRUD law_firms + suggest por cidade                          | ✅ done | high       | F19-S01          |
+| F19-S03 | Backend — ação "encaminhar para advocacia" + /internal/law-firm-status | ✅ done | high       | F19-S01, F19-S02 |
+| F19-S04 | Frontend — admin cadastro de escritórios de advocacia                  | ✅ done | high       | F19-S02          |
+| F19-S05 | Frontend — botão "Encaminhar para advocacia" na ficha do inadimplente  | ✅ done | high       | F19-S03, F19-S04 |
+| F19-S06 | LangGraph — nó lawyer_handoff (envio autônomo do contato do advogado)  | ✅ done | medium     | F19-S03          |
 
 ## Fase 2 — Crédito e simulação
 
