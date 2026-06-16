@@ -30,7 +30,6 @@ import { cn } from '../../lib/cn';
 import { useDeleteLawFirm, useLawFirms } from './hooks';
 import { LawFirmModal } from './LawFirmModal';
 
-
 // ---------------------------------------------------------------------------
 // Skeleton
 // ---------------------------------------------------------------------------

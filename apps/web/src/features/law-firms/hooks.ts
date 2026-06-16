@@ -19,7 +19,6 @@ import type {
 } from '@elemento/shared-schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-
 import { createLawFirm, deleteLawFirm, listLawFirms, updateLawFirm } from './api';
 
 // ---------------------------------------------------------------------------
