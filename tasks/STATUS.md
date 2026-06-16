@@ -16,7 +16,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
 | F16  | 17    | 14  | 0   | 0   | 0   | 0   | 3   |
-| F17  | 14    | 2   | 4   | 0   | 0   | 0   | 8   |
+| F17  | 14    | 1   | 4   | 0   | 0   | 1   | 8   |
 | F18  | 12    | 7   | 5   | 0   | 0   | 0   | 0   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
@@ -201,7 +201,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F17-S08 | Frontend — CRM drill-down do cliente (ficha com contratos e boletos)          | ✅ done      | medium     | F17-S02, F17-S07          |
 | F17-S09 | Backend — win-back (detecta fim de contrato → tarefa + sugestão de simulação) | ⏸️ blocked   | low        | F17-S01, F17-S03, F15-S05 |
 | F17-S10 | Frontend — oportunidade de win-back (card/tarefa + simulação pré-preenchida)  | ⏸️ blocked   | low        | F17-S09, F15-S10          |
-| F17-S11 | Frontend — modal de criação de contrato                                       | 🟢 available | high       | F17-S02, F17-S03, F17-S06 |
+| F17-S11 | Frontend — modal de criação de contrato                                       | 🟣 review    | high       | F17-S02, F17-S03, F17-S06 |
 | F17-S12 | Schema — analysis_id em contracts (migration + Drizzle + shared)              | 🟢 available | high       | F17-S01, F17-S02          |
 | F17-S13 | Backend — handler auto-contrato por análise aprovada/recusada                 | ⏸️ blocked   | high       | F17-S12, F17-S03          |
 | F17-S14 | Frontend — badge "Contrato vinculado" na ficha da análise                     | ⏸️ blocked   | medium     | F17-S12, F17-S13, F17-S06 |
