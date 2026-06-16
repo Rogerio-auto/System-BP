@@ -428,6 +428,13 @@
       "when": 1781811200000,
       "tag": "0065_lead_pj_personal_email",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1781984000000,
+      "tag": "0066_law_firms",
+      "breakpoints": true
     }
   ]
 }

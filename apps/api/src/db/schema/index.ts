@@ -108,3 +108,6 @@ export * from './channelSecrets.js';
 export * from './conversations.js';
 export * from './messages.js';
 export * from './webhookEvents.js';
+
+// Advocacia — escritórios parceiros + encaminhamentos (F19-S01)
+export * from './law-firms.js';
