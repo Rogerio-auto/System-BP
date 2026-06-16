@@ -1,17 +1,21 @@
 // =============================================================================
-// features/contracts/hooks.ts — TanStack Query hooks para contratos (F17-S05).
+// features/contracts/hooks.ts — TanStack Query hooks para contratos (F17-S05, F17-S06).
 //
 // Hooks exportados:
-//   - useContracts(filters)  — lista paginada
-//   - useContract(id)        — detalhe de um contrato
-//   - useSignContract()      — mutação: assinar contrato
+//   - useContracts(filters)          — lista paginada
+//   - useContract(id)                — detalhe de um contrato
+//   - useSignContract()              — mutação: assinar contrato
+//   - useContractHealth(id)          — saúde de boletos (F17-S06)
+//   - useContractDues(customerId, contractReference) — parcelas do contrato (F17-S06)
 //
 // Nunca useEffect + fetch — sempre TanStack Query.
 // Invalidate após mutate para manter o cache consistente.
 // =============================================================================
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { fetchContract, fetchContracts, signContract } from './api';
+import { usePaymentDues } from '../billing';
+
+import { fetchContract, fetchContracts, fetchContractHealth, signContract } from './api';
 import type { ContractsFilters } from './schemas';
 
 // ---------------------------------------------------------------------------
@@ -24,6 +28,7 @@ export const CONTRACT_KEYS = {
   list: (filters: ContractsFilters) => [...CONTRACT_KEYS.lists(), filters] as const,
   details: () => [...CONTRACT_KEYS.all, 'detail'] as const,
   detail: (id: string) => [...CONTRACT_KEYS.details(), id] as const,
+  health: (id: string) => [...CONTRACT_KEYS.all, 'health', id] as const,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -83,4 +88,53 @@ export function useSignContract() {
       });
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// useContractHealth — saúde de boletos de um contrato (F17-S06)
+// ---------------------------------------------------------------------------
+
+/**
+ * Carrega o indicador de saúde de boletos de um contrato.
+ * Chama GET /api/contracts/:id/health.
+ * Permissão: contracts:read (verificada no backend).
+ * LGPD: retorna apenas agregados financeiros operacionais — sem PII.
+ */
+export function useContractHealth(contractId: string) {
+  return useQuery({
+    queryKey: CONTRACT_KEYS.health(contractId),
+    queryFn: () => fetchContractHealth(contractId),
+    enabled: Boolean(contractId),
+    staleTime: 30_000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// useContractDues — parcelas de um contrato (F17-S06)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lista as parcelas (payment_dues) de um contrato específico.
+ * Reutiliza usePaymentDues do módulo billing com filtro por customer_id.
+ * A filtragem por contract_reference é feita client-side pois o endpoint de billing
+ * não suporta filtro por contract_id.
+ *
+ * Retorna o resultado filtrado e os estados de loading/error originais.
+ *
+ * @param customerId    UUID do cliente dono do contrato
+ * @param contractRef   contract_reference para filtrar as parcelas (ex: "BP-2026-00123")
+ */
+export function useContractDues(customerId: string, contractRef: string) {
+  const result = usePaymentDues({
+    customer_id: customerId,
+    limit: 100, // carrega todas as parcelas de uma vez (contratos raramente têm mais de 60)
+  });
+
+  const filteredData =
+    result.data?.data?.filter((due) => due.contract_reference === contractRef) ?? null;
+
+  return {
+    ...result,
+    dues: filteredData,
+  };
 }
