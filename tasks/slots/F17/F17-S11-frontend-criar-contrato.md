@@ -3,13 +3,13 @@ id: F17-S11
 title: Frontend — modal de criação de contrato
 phase: F17
 task_ref: null
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: 2026-06-16T04:35:51Z
-completed_at: 2026-06-16T04:48:35Z
-pr_url: null
+claimed_at: null
+completed_at: 2026-06-16T05:10:38Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/254
 depends_on: [F17-S02, F17-S03, F17-S06]
 blocks: []
 labels: [contracts, frontend, form]
