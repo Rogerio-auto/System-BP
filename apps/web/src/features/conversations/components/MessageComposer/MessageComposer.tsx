@@ -6,6 +6,7 @@
 //   - Cmd+Enter / Ctrl+Enter para enviar
 //   - Botão de attach → preview de mídia → upload via signed-url → envio
 //   - Botão de emoji (placeholder)
+//   - Botão de microfone → gravação PTT (S21)
 //   - Botão enviar
 //   - Janela 24h: desativa texto livre quando fechada + exibe WindowNotice
 //   - idempotencyKey gerado por submit (crypto.randomUUID())
@@ -14,6 +15,7 @@
 //   - content NUNCA vai para console ou localStorage
 //   - Não persistir drafts em localStorage
 //   - Não logar fileName, uploadUrl, publicMediaUrl
+//   - Blob de áudio PTT apenas em memória — nunca persistido localmente
 // =============================================================================
 
 import * as React from 'react';
@@ -27,6 +29,7 @@ import {
 } from '../../hooks/useUploadMedia';
 import type { MediaKind } from '../../hooks/useUploadMedia';
 
+import { AudioRecorder } from './AudioRecorder';
 import { TemplateSelector } from './TemplateSelector';
 import { useSendMessage } from './useSendMessage';
 import { useWindowState } from './useWindowState';
@@ -271,6 +274,7 @@ export function MessageComposer({
   const [showTemplateSelector, setShowTemplateSelector] = React.useState(false);
   const [mediaPreview, setMediaPreview] = React.useState<MediaPreview | null>(null);
   const [fileSizeError, setFileSizeError] = React.useState<string | null>(null);
+  const [isRecording, setIsRecording] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -360,6 +364,10 @@ export function MessageComposer({
     }
     setMediaPreview(null);
     setFileSizeError(null);
+  }
+
+  function handleMicClick(): void {
+    setIsRecording(true);
   }
 
   async function handleSend(): Promise<void> {
@@ -465,172 +473,213 @@ export function MessageComposer({
         />
       )}
 
-      {/* Área de composição */}
-      <div className="flex items-end gap-2 px-3 py-2">
-        {/* Botão de attach */}
-        <button
-          type="button"
-          onClick={handleAttachClick}
-          disabled={isDisabled || mediaPreview !== null}
-          aria-label="Anexar arquivo"
-          className={cn(
-            'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
-            'text-ink-3 transition-colors duration-fast ease',
-            'hover:bg-surface-hover hover:text-ink',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
-            'active:bg-surface-muted',
-            'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
-          )}
-        >
-          <svg
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.5}
-            className="w-5 h-5"
-            aria-hidden="true"
-          >
-            <path
-              d="M14.5 11.5l-5 5a4 4 0 01-5.66-5.66l6.36-6.36a2.5 2.5 0 013.54 3.54l-6.36 6.36a1 1 0 01-1.41-1.41l5.65-5.66"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
-
-        {/* Input file oculto — accept inclui tipos suportados */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*,audio/*,application/pdf,.doc,.docx"
-          className="sr-only"
-          aria-hidden="true"
-          tabIndex={-1}
-          onChange={handleFileChange}
+      {/* Área de composição — substituída pelo AudioRecorder quando em modo PTT */}
+      {isRecording ? (
+        <AudioRecorder
+          conversationId={conversationId}
+          onSent={() => setIsRecording(false)}
+          onCancel={() => setIsRecording(false)}
         />
-
-        {/* Textarea auto-resize */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={handleTextChange}
-            onKeyDown={handleKeyDown}
+      ) : (
+        <div className="flex items-end gap-2 px-3 py-2">
+          {/* Botão de attach */}
+          <button
+            type="button"
+            onClick={handleAttachClick}
             disabled={isDisabled || mediaPreview !== null}
-            placeholder={
-              isLoading
-                ? 'Carregando...'
-                : !windowOpen
-                  ? 'Janela expirada — use um template'
-                  : mediaPreview !== null
-                    ? 'Pronto para enviar arquivo...'
-                    : 'Digite uma mensagem... (Ctrl+Enter para enviar)'
-            }
-            rows={1}
-            aria-label="Campo de mensagem"
-            aria-describedby={!windowOpen ? 'composer-window-notice' : undefined}
+            aria-label="Anexar arquivo"
             className={cn(
-              'w-full resize-none rounded-sm px-3 py-2',
-              'font-sans text-sm text-ink',
-              'bg-surface-inset border border-border',
-              // Inset shadow interno — campo real, não "sticker"
-              '[box-shadow:inset_0_1px_3px_rgba(20,33,61,0.06),inset_0_0_0_1px_var(--border)]',
-              'placeholder:text-ink-3',
-              'transition-[border-color,box-shadow] duration-fast ease',
-              'focus:outline-none focus:border-azul',
-              'focus:[box-shadow:inset_0_1px_3px_rgba(20,33,61,0.06),0_0_0_2px_rgba(27,58,140,0.12)]',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              'min-h-[40px] max-h-24',
-              'overflow-y-auto',
+              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'text-ink-3 transition-colors duration-fast ease',
+              'hover:bg-surface-hover hover:text-ink',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+              'active:bg-surface-muted',
+              'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
             )}
-          />
-        </div>
-
-        {/* Botão de emoji (placeholder) */}
-        <button
-          type="button"
-          disabled={isDisabled}
-          aria-label="Inserir emoji (em breve)"
-          title="Emoji (em breve)"
-          className={cn(
-            'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
-            'text-ink-3 transition-colors duration-fast ease',
-            'hover:bg-surface-hover hover:text-ink',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
-            'active:bg-surface-muted',
-            'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
-          )}
-        >
-          <svg
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.5}
-            className="w-5 h-5"
-            aria-hidden="true"
           >
-            <circle cx="10" cy="10" r="8" />
-            <path d="M7 12s1 2 3 2 3-2 3-2" strokeLinecap="round" />
-            <circle cx="7.5" cy="8.5" r=".75" fill="currentColor" stroke="none" />
-            <circle cx="12.5" cy="8.5" r=".75" fill="currentColor" stroke="none" />
-          </svg>
-        </button>
-
-        {/* Botão enviar */}
-        <button
-          type="button"
-          onClick={() => void handleSend()}
-          disabled={!canSend}
-          aria-label={mediaPreview ? 'Enviar arquivo' : 'Enviar mensagem'}
-          className={cn(
-            'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
-            'transition-[transform,box-shadow,background,color] duration-fast ease',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
-            'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
-            // Default: cinza
-            !canSend
-              ? 'bg-surface-muted text-ink-3'
-              : [
-                  // Ativo: azul com glow
-                  '[background:var(--grad-azul)] text-white',
-                  '[box-shadow:var(--elev-2),inset_0_1px_0_rgba(255,255,255,0.15)]',
-                  'hover:-translate-y-0.5',
-                  'hover:[box-shadow:var(--glow-azul),inset_0_1px_0_rgba(255,255,255,0.2)]',
-                  'active:translate-y-0',
-                  'active:[box-shadow:var(--elev-1),inset_0_2px_4px_rgba(0,0,0,0.2)]',
-                ],
-          )}
-        >
-          {sendMutation.isPending ? (
-            // Spinner de envio
-            <svg
-              viewBox="0 0 20 20"
-              className="w-4 h-4 animate-spin"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden="true"
-            >
-              <circle cx="10" cy="10" r="7" strokeOpacity="0.3" />
-              <path d="M10 3a7 7 0 017 7" strokeLinecap="round" />
-            </svg>
-          ) : (
             <svg
               viewBox="0 0 20 20"
               fill="none"
               stroke="currentColor"
-              strokeWidth={1.8}
-              className="w-4 h-4"
+              strokeWidth={1.5}
+              className="w-5 h-5"
               aria-hidden="true"
             >
-              <path d="M18 10L2 3l3 7-3 7 16-7z" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M14.5 11.5l-5 5a4 4 0 01-5.66-5.66l6.36-6.36a2.5 2.5 0 013.54 3.54l-6.36 6.36a1 1 0 01-1.41-1.41l5.65-5.66"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
-          )}
-        </button>
-      </div>
+          </button>
 
-      {/* Dica de teclado */}
-      {windowOpen && !mediaPreview && (
+          {/* Input file oculto — accept inclui tipos suportados */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*,audio/*,application/pdf,.doc,.docx"
+            className="sr-only"
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={handleFileChange}
+          />
+
+          {/* Textarea auto-resize */}
+          <div className="flex-1 relative">
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={handleTextChange}
+              onKeyDown={handleKeyDown}
+              disabled={isDisabled || mediaPreview !== null}
+              placeholder={
+                isLoading
+                  ? 'Carregando...'
+                  : !windowOpen
+                    ? 'Janela expirada — use um template'
+                    : mediaPreview !== null
+                      ? 'Pronto para enviar arquivo...'
+                      : 'Digite uma mensagem... (Ctrl+Enter para enviar)'
+              }
+              rows={1}
+              aria-label="Campo de mensagem"
+              aria-describedby={!windowOpen ? 'composer-window-notice' : undefined}
+              className={cn(
+                'w-full resize-none rounded-sm px-3 py-2',
+                'font-sans text-sm text-ink',
+                'bg-surface-inset border border-border',
+                // Inset shadow interno — campo real, não "sticker"
+                '[box-shadow:inset_0_1px_3px_rgba(20,33,61,0.06),inset_0_0_0_1px_var(--border)]',
+                'placeholder:text-ink-3',
+                'transition-[border-color,box-shadow] duration-fast ease',
+                'focus:outline-none focus:border-azul',
+                'focus:[box-shadow:inset_0_1px_3px_rgba(20,33,61,0.06),0_0_0_2px_rgba(27,58,140,0.12)]',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
+                'min-h-[40px] max-h-24',
+                'overflow-y-auto',
+              )}
+            />
+          </div>
+
+          {/* Botão de emoji (placeholder) */}
+          <button
+            type="button"
+            disabled={isDisabled}
+            aria-label="Inserir emoji (em breve)"
+            title="Emoji (em breve)"
+            className={cn(
+              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'text-ink-3 transition-colors duration-fast ease',
+              'hover:bg-surface-hover hover:text-ink',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+              'active:bg-surface-muted',
+              'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+            )}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              className="w-5 h-5"
+              aria-hidden="true"
+            >
+              <circle cx="10" cy="10" r="8" />
+              <path d="M7 12s1 2 3 2 3-2 3-2" strokeLinecap="round" />
+              <circle cx="7.5" cy="8.5" r=".75" fill="currentColor" stroke="none" />
+              <circle cx="12.5" cy="8.5" r=".75" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+
+          {/* Botão de microfone (PTT) */}
+          <button
+            type="button"
+            onClick={handleMicClick}
+            disabled={isDisabled || mediaPreview !== null}
+            aria-label="Gravar áudio"
+            title="Gravar áudio (push-to-talk)"
+            className={cn(
+              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'text-ink-3 transition-colors duration-fast ease',
+              'hover:bg-surface-hover hover:text-ink',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+              'active:bg-surface-muted',
+              'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+            )}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              className="w-5 h-5"
+              aria-hidden="true"
+            >
+              <rect x="7" y="2" width="6" height="9" rx="3" />
+              <path
+                d="M4 10a6 6 0 0012 0M10 16v3M7 19h6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+
+          {/* Botão enviar */}
+          <button
+            type="button"
+            onClick={() => void handleSend()}
+            disabled={!canSend}
+            aria-label={mediaPreview ? 'Enviar arquivo' : 'Enviar mensagem'}
+            className={cn(
+              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'transition-[transform,box-shadow,background,color] duration-fast ease',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+              'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+              // Default: cinza
+              !canSend
+                ? 'bg-surface-muted text-ink-3'
+                : [
+                    // Ativo: azul com glow
+                    '[background:var(--grad-azul)] text-white',
+                    '[box-shadow:var(--elev-2),inset_0_1px_0_rgba(255,255,255,0.15)]',
+                    'hover:-translate-y-0.5',
+                    'hover:[box-shadow:var(--glow-azul),inset_0_1px_0_rgba(255,255,255,0.2)]',
+                    'active:translate-y-0',
+                    'active:[box-shadow:var(--elev-1),inset_0_2px_4px_rgba(0,0,0,0.2)]',
+                  ],
+            )}
+          >
+            {sendMutation.isPending ? (
+              // Spinner de envio
+              <svg
+                viewBox="0 0 20 20"
+                className="w-4 h-4 animate-spin"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+              >
+                <circle cx="10" cy="10" r="7" strokeOpacity="0.3" />
+                <path d="M10 3a7 7 0 017 7" strokeLinecap="round" />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                className="w-4 h-4"
+                aria-hidden="true"
+              >
+                <path d="M18 10L2 3l3 7-3 7 16-7z" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Dica de teclado — oculta durante gravação */}
+      {windowOpen && !mediaPreview && !isRecording && (
         <p className="px-4 pb-2 font-sans text-xs text-ink-4">
           <kbd className="px-1 py-0.5 rounded-xs border border-border-subtle font-mono text-xs bg-surface-2">
             Ctrl+Enter
