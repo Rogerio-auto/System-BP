@@ -192,6 +192,19 @@ const envSchema = z.object({
             .filter(Boolean)
         : [],
     ),
+
+  // ---- Redis (F16-S01 live chat) ------------------------------------------
+  REDIS_URL: z.string().url().optional().default('redis://localhost:6379'),
+
+  // ---- RabbitMQ (F16-S01 live chat) ----------------------------------------
+  RABBITMQ_URL: z.string().optional().default('amqp://localhost:5672'),
+
+  // ---- Cloudflare R2 (F16-S01 live chat) -----------------------------------
+  R2_ACCOUNT_ID: z.string().min(1).optional(),
+  R2_ACCESS_KEY_ID: z.string().min(1).optional(),
+  R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  R2_BUCKET: z.string().min(1).optional(),
+  R2_PUBLIC_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

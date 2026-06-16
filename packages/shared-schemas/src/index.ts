@@ -25,3 +25,6 @@ export * from './billing.js';
 
 // Contracts (F17-S01/S02)
 export * from './contracts.js';
+
+// Live chat — discriminated unions + socket events (F16-S03)
+export * from './livechat.js';

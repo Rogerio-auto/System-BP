@@ -3,7 +3,7 @@ id: F16-S14
 title: Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#6-socket-events
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null
