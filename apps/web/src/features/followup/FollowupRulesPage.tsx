@@ -41,7 +41,12 @@ import {
   useUpdateFollowupRule,
 } from './hooks/useFollowup';
 import type { FollowupRuleForm, FollowupRuleResponse } from './schemas';
-import { FollowupRuleFormSchema, TRIGGER_TYPE_LABEL } from './schemas';
+import {
+  FollowupRuleFormSchema,
+  OUTCOME_LABEL,
+  OUTCOME_OPTIONS,
+  TRIGGER_TYPE_LABEL,
+} from './schemas';
 
 // ---------------------------------------------------------------------------
 // Skeleton
@@ -52,7 +57,7 @@ function TableSkeleton(): React.JSX.Element {
     <>
       {Array.from({ length: 4 }).map((_, i) => (
         <tr key={i} aria-hidden="true">
-          {Array.from({ length: 5 }).map((__, j) => (
+          {Array.from({ length: 6 }).map((__, j) => (
             <td key={j} className="px-4 py-3.5">
               <div
                 className="h-4 rounded-xs animate-pulse"
@@ -76,7 +81,7 @@ function TableSkeleton(): React.JSX.Element {
 function EmptyState({ onNew }: { onNew: () => void }): React.JSX.Element {
   return (
     <tr>
-      <td colSpan={5}>
+      <td colSpan={7}>
         <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
           <svg
             viewBox="0 0 96 80"
@@ -354,10 +359,11 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
               }
               hint="Só dispara para leads neste estágio do Kanban"
             />
-            <Input
+            <Select
               id="rule-outcome"
               label="Aplicar ao outcome (opcional)"
-              placeholder="Ex: pending_docs"
+              placeholder="Qualquer outcome"
+              options={OUTCOME_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
               value={formData.applies_to_outcome ?? ''}
               onChange={(e) =>
                 setFormData((f) => ({
@@ -563,7 +569,7 @@ export function FollowupRulesPage(): React.JSX.Element {
             <table className="w-full border-collapse" aria-label="Réguas de follow-up">
               <thead>
                 <tr style={{ background: 'var(--bg-elev-2)' }}>
-                  {['Chave', 'Nome', 'Gatilho', 'Espera', 'Status'].map((col) => (
+                  {['Chave', 'Nome', 'Gatilho', 'Espera', 'Segmentação', 'Status'].map((col) => (
                     <th
                       key={col}
                       className="px-4 py-2.5 text-left font-sans font-bold uppercase text-ink-3"
@@ -595,7 +601,7 @@ export function FollowupRulesPage(): React.JSX.Element {
 
                 {!isLoading && isError && (
                   <tr>
-                    <td colSpan={canWrite ? 6 : 5}>
+                    <td colSpan={canWrite ? 7 : 6}>
                       <div className="flex flex-col items-center gap-3 py-12 text-center">
                         <p className="font-sans text-ink-3" style={{ fontSize: 'var(--text-sm)' }}>
                           Erro ao carregar réguas.
@@ -656,6 +662,30 @@ export function FollowupRulesPage(): React.JSX.Element {
                         >
                           {rule.wait_hours}h
                         </span>
+                      </td>
+                      <td className="px-4 py-3.5 hidden lg:table-cell">
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className="font-sans text-ink-2"
+                            style={{ fontSize: 'var(--text-xs)' }}
+                          >
+                            {rule.applies_to_stage
+                              ? `Estágio: ${rule.applies_to_stage}`
+                              : 'Todos os estágios'}
+                          </span>
+                          {rule.applies_to_outcome ? (
+                            <Badge variant="info">
+                              {OUTCOME_LABEL[rule.applies_to_outcome] ?? rule.applies_to_outcome}
+                            </Badge>
+                          ) : (
+                            <span
+                              className="font-sans text-ink-4"
+                              style={{ fontSize: 'var(--text-xs)' }}
+                            >
+                              Qualquer outcome
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3.5">
                         <Badge variant={rule.is_active ? 'success' : 'neutral'}>
