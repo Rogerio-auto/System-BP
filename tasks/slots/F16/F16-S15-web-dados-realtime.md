@@ -3,7 +3,7 @@ id: F16-S15
 title: Web — camada de dados + realtime (queries, types, SocketProvider, rota)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#7-ui-conversationspage
-status: blocked
+status: available
 priority: high
 estimated_size: M
 agent_id: null

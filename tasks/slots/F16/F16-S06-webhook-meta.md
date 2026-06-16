@@ -3,7 +3,7 @@ id: F16-S06
 title: Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#53-consequencias-arquiteturais-do-app-por-cliente
-status: blocked
+status: available
 priority: high
 estimated_size: M
 agent_id: null

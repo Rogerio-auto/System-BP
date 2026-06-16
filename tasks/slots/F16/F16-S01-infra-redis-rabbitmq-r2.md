@@ -3,13 +3,13 @@ id: F16-S01
 title: Infra base do live chat — Redis + RabbitMQ + R2 (clientes + topologia de filas)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#6-adr-override-da-regra-sem-redis-no-mvp
-status: available
+status: done
 priority: critical
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-16T04:49:00Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/253
 depends_on: []
 blocks: [F16-S08, F16-S09, F16-S10, F16-S14]
 labels: []

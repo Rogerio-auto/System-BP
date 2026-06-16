@@ -3,7 +3,7 @@ id: F16-S09
 title: Worker media — download via adapter, dedup SHA-256, upload R2, media_ready
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#5-midia-pipeline
-status: blocked
+status: available
 priority: medium
 estimated_size: M
 agent_id: null

@@ -101,3 +101,10 @@ export * from './featureTutorials.js';
 export * from './tasks.js';
 export * from './notifications.js';
 export * from './notificationPreferences.js';
+
+// Live chat multicanal (F16-S02)
+export * from './channels.js';
+export * from './channelSecrets.js';
+export * from './conversations.js';
+export * from './messages.js';
+export * from './webhookEvents.js';
