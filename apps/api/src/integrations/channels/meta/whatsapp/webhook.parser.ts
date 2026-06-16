@@ -99,8 +99,82 @@ const MetaOrderSchema = z
   })
   .passthrough();
 
+// Interface explícita para MetaMessage — necessária para contornar TS7056:
+// o tipo inferido do schema aninhado excede o tamanho máximo de serialização.
+interface MetaMessage {
+  id: string;
+  from: string;
+  timestamp: string;
+  type: string;
+  text?: { body: string; [k: string]: unknown };
+  image?: {
+    id?: string;
+    url?: string;
+    mime_type?: string;
+    sha256?: string;
+    caption?: string;
+    voice?: boolean;
+    [k: string]: unknown;
+  };
+  video?: {
+    id?: string;
+    url?: string;
+    mime_type?: string;
+    sha256?: string;
+    caption?: string;
+    [k: string]: unknown;
+  };
+  audio?: {
+    id?: string;
+    url?: string;
+    mime_type?: string;
+    sha256?: string;
+    voice?: boolean;
+    [k: string]: unknown;
+  };
+  document?: {
+    id?: string;
+    url?: string;
+    mime_type?: string;
+    sha256?: string;
+    filename?: string;
+    caption?: string;
+    [k: string]: unknown;
+  };
+  sticker?: {
+    id?: string;
+    url?: string;
+    mime_type?: string;
+    sha256?: string;
+    [k: string]: unknown;
+  };
+  location?: {
+    latitude: number;
+    longitude: number;
+    name?: string;
+    address?: string;
+    [k: string]: unknown;
+  };
+  contacts?: Array<{
+    name?: { formatted_name?: string; [k: string]: unknown };
+    phones?: Array<{ phone?: string; [k: string]: unknown }>;
+    [k: string]: unknown;
+  }>;
+  interactive?: {
+    type: 'button_reply' | 'list_reply' | 'nfm_reply';
+    button_reply?: { id: string; title: string; [k: string]: unknown };
+    list_reply?: { id: string; title: string; description?: string; [k: string]: unknown };
+    nfm_reply?: { response_json?: string; name?: string; [k: string]: unknown };
+    [k: string]: unknown;
+  };
+  reaction?: { message_id: string; emoji: string; [k: string]: unknown };
+  order?: { catalog_id?: string; product_items?: unknown[]; [k: string]: unknown };
+  context?: { id?: string; from?: string; [k: string]: unknown };
+  [k: string]: unknown;
+}
+
 // Mensagem individual dentro de messages[]
-const MetaMessageSchema = z
+const MetaMessageSchema: z.ZodType<MetaMessage> = z
   .object({
     id: z.string(),
     from: z.string(),
@@ -119,7 +193,7 @@ const MetaMessageSchema = z
     order: MetaOrderSchema.optional(),
     context: MetaContextSchema,
   })
-  .passthrough();
+  .passthrough() as z.ZodType<MetaMessage>;
 
 // Status update dentro de statuses[]
 const MetaStatusSchema = z
@@ -244,7 +318,7 @@ export function parseMetaWebhookEnvelope(
 // parseMessage — normaliza uma mensagem individual
 // ---------------------------------------------------------------------------
 
-type MetaMessage = z.infer<typeof MetaMessageSchema>;
+// MetaMessage interface defined above MetaMessageSchema to break TS7056 inference chain
 
 function parseMessage(msg: MetaMessage, opts: ParseInboundOptions): InboundEvent | null {
   const { organizationId, channelId } = opts;
