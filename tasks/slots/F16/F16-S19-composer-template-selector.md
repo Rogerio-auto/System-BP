@@ -3,12 +3,12 @@ id: F16-S19
 title: Composer — seletor de template (janela 24h expirada)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T18:21:26Z
-completed_at: null
+completed_at: 2026-06-16T18:35:46Z
 pr_url: null
 depends_on: [F16-S13, F16-S17]
 blocks: []
@@ -20,7 +20,6 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
-
 # F16-S19 — Composer: seletor de template
 
 ## Objetivo
