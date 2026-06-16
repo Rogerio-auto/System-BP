@@ -3,13 +3,13 @@ id: F16-S06
 title: Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#53-consequencias-arquiteturais-do-app-por-cliente
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T05:11:01Z
 completed_at: 2026-06-16T05:32:53Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/263
 depends_on: [F16-S02, F16-S03, F16-S04]
 blocks: [F16-S08]
 labels: [lgpd-impact]
