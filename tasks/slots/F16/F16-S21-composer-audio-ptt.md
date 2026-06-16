@@ -3,13 +3,13 @@ id: F16-S21
 title: Composer — gravação de áudio PTT (push-to-talk)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T18:46:18Z
 completed_at: 2026-06-16T19:00:37Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/295
 depends_on: [F16-S18]
 blocks: []
 labels: []
