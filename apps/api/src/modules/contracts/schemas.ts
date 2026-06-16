@@ -74,6 +74,12 @@ export type ContractIdParam = z.infer<typeof contractIdParamSchema>;
 export const ContractsListQuerySchema = z.object({
   status: ContractStatusSchema.optional().describe('Filtrar por status do contrato'),
   customer_id: z.string().uuid().optional().describe('Filtrar por cliente (UUID)'),
+  /** Filtrar contratos por análise de crédito que os originou (F17-S13). */
+  analysis_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Filtrar por UUID da análise de crédito vinculada'),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -212,3 +218,31 @@ export const BoletoHealthResponseSchema = z
   });
 
 export type BoletoHealthResponse = z.infer<typeof BoletoHealthResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// AutoContractDraftInput — input tipado para o handler de auto-contrato (F17-S13)
+//
+// Não é um schema Zod exposto via HTTP — é um tipo interno do handler/repository.
+// Os campos refletem os dados que chegam da análise de crédito aprovada.
+// ---------------------------------------------------------------------------
+
+/**
+ * Input interno para criação de contrato draft automático a partir de análise aprovada.
+ * Usado pelo handler auto-contract-from-analysis e pelo repository.
+ * LGPD: nenhum campo contém PII bruta — apenas IDs opacos e dados financeiros operacionais.
+ */
+export interface AutoContractDraftInput {
+  organizationId: string;
+  /** UUID do cliente titular — ID opaco, não PII direta. */
+  customerId: string;
+  /** Referência textual gerada automaticamente — formato ANA-{ano}-{analysisId-prefix}. */
+  contractReference: string;
+  /** Valor aprovado em string numérica (numeric do DB) — dado financeiro operacional. */
+  principalAmount: string;
+  /** Prazo aprovado em meses. */
+  termMonths: number;
+  /** Taxa mensal aprovada (string numérica) ou null se não informada. */
+  monthlyRateSnapshot: string | null;
+  /** UUID da análise de crédito que originou este contrato. */
+  analysisId: string;
+}

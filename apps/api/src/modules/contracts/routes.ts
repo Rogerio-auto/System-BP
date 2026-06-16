@@ -56,7 +56,9 @@ export const contractsRoutes: FastifyPluginAsyncZod = async (app) => {
         tags: ['Contratos'],
         summary: 'Listar contratos',
         description:
-          'Lista contratos da organização com filtro opcional por status e cliente. ' +
+          'Lista contratos da organização com filtro opcional por status, cliente e análise. ' +
+          'O filtro `analysis_id` retorna o contrato draft criado automaticamente a partir ' +
+          'de uma análise aprovada (F17-S13). ' +
           'Resultado paginado, ordenado por data de criação (mais recente primeiro). ' +
           'Respeitando escopo de cidade: gestores regionais veem apenas contratos de clientes ' +
           'de suas cidades; administradores e gestores gerais têm acesso global. ' +
