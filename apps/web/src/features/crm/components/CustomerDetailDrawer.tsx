@@ -34,6 +34,7 @@ import { Button } from '../../../components/ui/Button';
 import { cn } from '../../../lib/cn';
 import { DUE_STATUS_META } from '../../billing';
 import { CONTRACT_STATUS_META } from '../../contracts/schemas';
+import { SpcActionButton } from '../../dashboard/components/SpcActionButton';
 import { SpcStatusBadge } from '../../dashboard/components/SpcStatusBadge';
 import { CUSTOMER_OVERVIEW_KEYS, useCustomerOverview } from '../hooks';
 
@@ -467,7 +468,7 @@ export function CustomerDetailDrawer({
           ) : isError ? (
             <DrawerError onRetry={handleRetry} />
           ) : data ? (
-            <DrawerContent data={data} onClose={onClose} />
+            <DrawerContent data={data} onClose={onClose} customerId={customerId} />
           ) : null}
         </div>
       </div>
@@ -481,9 +482,11 @@ export function CustomerDetailDrawer({
 
 function DrawerContent({
   data,
+  customerId,
 }: {
   data: CustomerOverviewResponse;
   onClose: () => void;
+  customerId: string;
 }): React.JSX.Element {
   const { customer, contracts, recent_dues } = data;
 
@@ -517,6 +520,11 @@ function DrawerContent({
                   Status SPC
                 </p>
                 <SpcStatusBadge status={customer.spc_status} showNone />
+                <SpcActionButton
+                  customerId={customerId}
+                  currentStatus={customer.spc_status}
+                  className="mt-2"
+                />
               </div>
 
               {/* Data da alteração SPC */}

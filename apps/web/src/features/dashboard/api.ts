@@ -171,9 +171,11 @@ export function useUpdateSpcStatus() {
         changed_at: raw.changed_at,
       };
     },
-    onSuccess: (_, vars) => {
-      // Invalida o status desse cliente e o dashboard (totais podem mudar)
-      void queryClient.invalidateQueries({ queryKey: spcKeys.status(vars.customerId) });
+    onSuccess: (data, vars) => {
+      // Atualização otimista do cache de status SPC
+      queryClient.setQueryData(spcKeys.status(vars.customerId), data);
+      // Invalida overview do cliente (drawer CRM) e dashboard de cobrança
+      void queryClient.invalidateQueries({ queryKey: ['customer-overview', vars.customerId] });
       void queryClient.invalidateQueries({ queryKey: collectionKeys.all });
     },
   });
