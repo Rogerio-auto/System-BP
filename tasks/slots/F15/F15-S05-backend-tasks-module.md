@@ -3,13 +3,13 @@ id: F15-S05
 title: Backend — módulo de tarefas (CRUD + assumir + concluir + "minhas tarefas")
 phase: F15
 task_ref: null
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-15T20:09:14Z
 completed_at: 2026-06-15T20:28:17Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/240
 depends_on: [F15-S01, F15-S03, F15-S04]
 blocks: [F15-S08, F15-S10]
 labels: [tasks, backend, rbac]
