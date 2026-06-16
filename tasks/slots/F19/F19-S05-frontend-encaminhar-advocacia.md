@@ -3,13 +3,13 @@ id: F19-S05
 title: Frontend — botão "Encaminhar para advocacia" na ficha do inadimplente
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: available
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: null
-completed_at: null
-pr_url: null
+completed_at: 2026-06-16T19:22:28Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/297
 depends_on: [F19-S03, F19-S04]
 blocks: []
 labels: [frontend, advocacia, crm, cobranca]
