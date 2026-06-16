@@ -4,6 +4,8 @@
 // Admin: GET /api/admin/feature-flags, PATCH /api/admin/feature-flags/:key
 // Público autenticado: GET /api/feature-flags/me
 // =============================================================================
+import { randomUUID } from 'node:crypto';
+
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { db } from '../../db/client.js';
@@ -72,7 +74,7 @@ export async function patchFlagController(
     await emit(tx, {
       eventName: 'feature_flag.changed',
       aggregateType: 'feature_flag',
-      aggregateId: key,
+      aggregateId: randomUUID(),
       // Feature flags são globais — usamos a org do usuário que fez o toggle.
       organizationId: user.organizationId,
       actor: { kind: 'user', id: user.id, ip: request.ip },
