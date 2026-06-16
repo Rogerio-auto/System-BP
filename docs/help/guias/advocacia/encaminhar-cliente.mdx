@@ -1,0 +1,109 @@
+---
+title: Encaminhar cliente para advocacia
+description: Como encaminhar um cliente inadimplente para um escritório de advocacia diretamente da ficha do CRM, com seleção automática por cidade e controle de cooldown.
+order: 2
+keywords: [advocacia, escritório, encaminhar, inadimplente, cooldown, referral, cobrança, jurídico]
+---
+
+# Encaminhar cliente para advocacia
+
+<Permission required="law_firms:referral">
+  Esta ação está disponível apenas para usuários com a permissão **law_firms:referral**.
+  Se o botão não aparecer na ficha do cliente, fale com o responsável pelo sistema.
+</Permission>
+
+O encaminhamento para advocacia permite acionar um escritório parceiro diretamente pela ficha do
+cliente inadimplente no CRM, sem precisar sair do sistema. O escritório da cidade do cliente é
+sugerido automaticamente, mas você pode trocar para outro se necessário.
+
+## Quando usar
+
+- Quando um cliente inadimplente precisa de cobrança judicial (processo extrajudicial ou judicial).
+- Quando as tentativas de cobrança via WhatsApp/telefone não surtiram efeito.
+- Quando o contrato está vencido há tempo suficiente para envio ao jurídico (política interna).
+
+## Passo a passo
+
+<Step number={1} title="Abra a ficha do cliente no CRM">
+  No menu lateral, acesse **CRM** e clique na ficha do lead/cliente.
+  A ação de encaminhamento só aparece quando o lead está no status **Convertido**
+  e possui um cliente vinculado.
+</Step>
+
+<Step number={2} title="Localize o botão Encaminhar para advocacia">
+  Na coluna esquerda da ficha, abaixo dos dados de contato, você verá o botão
+  **Encaminhar para advocacia** com um ícone de balança.
+
+  <Callout type="info" title="Botão invisível?">
+    O botão aparece somente quando:
+    - O módulo de advocacia está habilitado (feature flag `law_firm.referral.enabled`).
+    - Você possui a permissão `law_firms:referral`.
+    - O lead está no status **Convertido** com cliente vinculado.
+  </Callout>
+</Step>
+
+<Step number={3} title="Clique em Encaminhar para advocacia">
+  O modal de encaminhamento se abre. Ele carrega automaticamente o escritório sugerido
+  para a cidade do cliente.
+</Step>
+
+<Step number={4} title="Revise o escritório selecionado">
+  O sistema pré-seleciona o escritório padrão da cidade do cliente com a marcação
+  **(sugerido)**. Se precisar usar outro escritório, abra o dropdown e selecione.
+
+  <Callout type="warning" title="Nenhum escritório disponível?">
+    Se a lista estiver vazia, nenhum escritório foi cadastrado ainda.
+    Acesse **Configurações → Advocacia** para cadastrar um escritório antes de encaminhar.
+    Consulte o guia [Cadastro de escritórios de advocacia](/ajuda/guias/advocacia/cadastro-escritorios).
+  </Callout>
+</Step>
+
+<Step number={5} title="Adicione observações (opcional)">
+  Use o campo **Observações** para registrar o motivo do encaminhamento, histórico relevante
+  ou instruções especiais para o escritório. Máximo de 1000 caracteres.
+
+  <Callout type="danger" title="Não inclua dados pessoais de terceiros">
+    O campo de observações fica registrado no sistema. Não inclua CPFs, nomes completos
+    de devedores solidários ou dados pessoais de terceiros que não sejam o próprio cliente.
+    Use apenas informações relativas ao contrato e ao contexto da inadimplência.
+  </Callout>
+</Step>
+
+<Step number={6} title="Clique em Confirmar encaminhamento">
+  O sistema registra o encaminhamento, notifica internamente e retorna à ficha com um
+  **badge** indicando o escritório e a data do encaminhamento.
+</Step>
+
+## O que acontece após o encaminhamento
+
+- Um **badge "Encaminhado"** aparece na ficha do cliente mostrando o escritório e
+  o período de cooldown.
+- O botão fica **desabilitado** durante o cooldown para evitar encaminhamentos duplicados.
+- Um toast de confirmação aparece na tela com o nome do escritório.
+
+## Cooldown — o que é e por que existe
+
+O sistema aplica um período de **cooldown** após cada encaminhamento para evitar que o mesmo
+cliente seja encaminhado duas vezes em curto espaço de tempo para escritórios diferentes.
+
+Durante o cooldown, o botão aparece desabilitado com a mensagem:
+> "Já encaminhado — disponível em DD/MM/AAAA"
+
+Quando o cooldown termina, o botão é reativado automaticamente.
+
+## Erros comuns
+
+| Situação | Causa | Solução |
+|----------|-------|---------|
+| Botão não aparece | Feature flag desligada ou sem permissão | Fale com o administrador |
+| "Encaminhamento em cooldown" | Cliente já encaminhado recentemente | Aguarde o fim do cooldown |
+| "Funcionalidade desabilitada pelo administrador" | Feature flag `law_firm.referral.enabled` desligada | Fale com o administrador |
+| Lista de escritórios vazia | Nenhum escritório cadastrado | Cadastre em Configurações → Advocacia |
+| "Selecione um escritório" | Formulário enviado sem seleção | Selecione um escritório no dropdown |
+
+## Veja também
+
+- [Cadastro de escritórios de advocacia](/ajuda/guias/advocacia/cadastro-escritorios) — como
+  cadastrar e gerenciar os escritórios parceiros.
+- [Cobrança automática](/ajuda/guias/cobranca) — como configurar réguas de cobrança antes
+  do encaminhamento judicial.

@@ -4,8 +4,9 @@
 // Funcionalidades:
 //   - Textarea auto-resize (1-4 linhas)
 //   - Cmd+Enter / Ctrl+Enter para enviar
-//   - Botão de attach (input file oculto)
+//   - Botão de attach → preview de mídia → upload via signed-url → envio
 //   - Botão de emoji (placeholder)
+//   - Botão de microfone → gravação PTT (S21)
 //   - Botão enviar
 //   - Janela 24h: desativa texto livre quando fechada + exibe WindowNotice
 //   - idempotencyKey gerado por submit (crypto.randomUUID())
@@ -13,12 +14,23 @@
 // LGPD (doc 17):
 //   - content NUNCA vai para console ou localStorage
 //   - Não persistir drafts em localStorage
+//   - Não logar fileName, uploadUrl, publicMediaUrl
+//   - Blob de áudio PTT apenas em memória — nunca persistido localmente
 // =============================================================================
 
 import * as React from 'react';
 
 import { cn } from '../../../../lib/cn';
+import {
+  detectMediaKind,
+  formatBytes,
+  MAX_UPLOAD_BYTES,
+  useUploadMedia,
+} from '../../hooks/useUploadMedia';
+import type { MediaKind } from '../../hooks/useUploadMedia';
 
+import { AudioRecorder } from './AudioRecorder';
+import { TemplateSelector } from './TemplateSelector';
 import { useSendMessage } from './useSendMessage';
 import { useWindowState } from './useWindowState';
 import { WindowNotice } from './WindowNotice';
@@ -27,8 +39,17 @@ import { WindowNotice } from './WindowNotice';
 
 interface MessageComposerProps {
   conversationId: string;
-  /** Callback ao clicar em "Usar template" (placeholder — S18+) */
+  /**
+   * Callback externo ao clicar em "Usar template".
+   * Quando não fornecido, o MessageComposer gerencia internamente.
+   */
   onUseTemplate?: (() => void) | undefined;
+}
+
+interface MediaPreview {
+  file: File;
+  objectUrl: string;
+  mediaKind: MediaKind;
 }
 
 // ─── Hook de auto-resize do textarea ──────────────────────────────────────────
@@ -45,18 +66,215 @@ function useAutoResize(ref: React.RefObject<HTMLTextAreaElement | null>, value: 
   }, [ref, value]);
 }
 
-// ─── Componente ──────────────────────────────────────────────────────────────
+// ─── Ícones de tipo de mídia ──────────────────────────────────────────────────
+
+function IconDocument({ className }: { className?: string }): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M4 4a2 2 0 012-2h5l5 5v9a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M13 2v5h5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconAudio({ className }: { className?: string }): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M9 3H5a2 2 0 00-2 2v4a2 2 0 002 2h4l5 5V7l-5-4z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M15.54 8.46a5 5 0 010 7.07" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconVideo({ className }: { className?: string }): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        d="M2 6a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M16 9l4-2v6l-4-2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// ─── Componente de preview ────────────────────────────────────────────────────
+
+interface MediaPreviewProps {
+  preview: MediaPreview;
+  uploadPercent: number;
+  isUploading: boolean;
+  onCancel: () => void;
+}
+
+function MediaPreviewArea({
+  preview,
+  uploadPercent,
+  isUploading,
+  onCancel,
+}: MediaPreviewProps): React.JSX.Element {
+  const { file, objectUrl, mediaKind } = preview;
+
+  return (
+    <div
+      className={cn(
+        'mx-3 mt-2 mb-1 rounded-sm border border-border',
+        'bg-surface-2 [box-shadow:var(--elev-1)]',
+        'overflow-hidden',
+      )}
+      role="region"
+      aria-label="Prévia do arquivo selecionado"
+    >
+      <div className="flex items-center gap-3 p-2">
+        {/* Thumbnail ou ícone */}
+        <div
+          className={cn(
+            'shrink-0 w-[72px] h-[72px] rounded-xs overflow-hidden',
+            'border border-border-subtle',
+            'flex items-center justify-center',
+            mediaKind !== 'image' && 'bg-surface-3',
+          )}
+        >
+          {mediaKind === 'image' ? (
+            <img src={objectUrl} alt="" className="w-full h-full object-cover" aria-hidden="true" />
+          ) : mediaKind === 'video' ? (
+            <IconVideo className="w-8 h-8 text-ink-3" />
+          ) : mediaKind === 'audio' ? (
+            <IconAudio className="w-8 h-8 text-ink-3" />
+          ) : (
+            <IconDocument className="w-8 h-8 text-ink-3" />
+          )}
+        </div>
+
+        {/* Metadados — nome e tamanho (sem PII) */}
+        <div className="flex-1 min-w-0">
+          <p className="font-sans text-sm text-ink truncate" title={file.name}>
+            {file.name}
+          </p>
+          <p className="font-mono text-xs text-ink-3 mt-0.5">{formatBytes(file.size)}</p>
+
+          {/* Barra de progresso */}
+          {isUploading && (
+            <div
+              className="mt-2 h-1.5 rounded-full bg-surface-3 overflow-hidden"
+              role="progressbar"
+              aria-valuenow={uploadPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Progresso do upload: ${uploadPercent}%`}
+            >
+              <div
+                className={cn(
+                  'h-full rounded-full transition-[width] duration-150',
+                  '[background:var(--grad-azul)]',
+                )}
+                style={{ width: `${uploadPercent}%` }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Botão cancelar */}
+        {!isUploading && (
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Remover arquivo selecionado"
+            className={cn(
+              'shrink-0 w-7 h-7 flex items-center justify-center rounded-xs',
+              'text-ink-3 transition-colors duration-fast ease',
+              'hover:bg-surface-hover hover:text-ink',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+              'active:bg-surface-muted',
+            )}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="w-4 h-4"
+              aria-hidden="true"
+            >
+              <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+
+        {/* Botão cancelar upload em andamento */}
+        {isUploading && (
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Cancelar upload"
+            className={cn(
+              'shrink-0 w-7 h-7 flex items-center justify-center rounded-xs',
+              'text-ink-3 transition-colors duration-fast ease',
+              'hover:bg-surface-hover hover:text-danger',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+            )}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="w-4 h-4"
+              aria-hidden="true"
+            >
+              <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 /**
- * MessageComposer — input de envio de mensagem com controle de janela 24h.
- *
- * Não gerencia upload de mídia neste slot (S17 cobre texto; mídia = S18+).
+ * MessageComposer — input de envio de mensagem (texto + mídia) com controle de janela 24h.
  */
 export function MessageComposer({
   conversationId,
   onUseTemplate,
 }: MessageComposerProps): React.JSX.Element {
   const [text, setText] = React.useState('');
+  const [showTemplateSelector, setShowTemplateSelector] = React.useState(false);
+  const [mediaPreview, setMediaPreview] = React.useState<MediaPreview | null>(null);
+  const [fileSizeError, setFileSizeError] = React.useState<string | null>(null);
+  const [isRecording, setIsRecording] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -64,9 +282,37 @@ export function MessageComposer({
 
   const { windowOpen, windowKind, isLoading } = useWindowState(conversationId);
   const sendMutation = useSendMessage(conversationId);
+  const { upload, progress, abort } = useUploadMedia(conversationId);
 
-  const isDisabled = !windowOpen || isLoading || sendMutation.isPending;
-  const canSend = text.trim().length > 0 && !isDisabled;
+  const isUploading = progress.phase === 'uploading' || progress.phase === 'signing';
+  const isDisabled = !windowOpen || isLoading || sendMutation.isPending || isUploading;
+
+  // canSend: tem texto OU tem preview pronto (e não está em fase de erro nem uploading)
+  const hasMedia = mediaPreview !== null && !isUploading && progress.phase !== 'error';
+  const canSend = (!isDisabled && text.trim().length > 0) || hasMedia;
+
+  // Callback interno do seletor de template (S19)
+  const handleUseTemplate = React.useCallback(() => {
+    setShowTemplateSelector(true);
+  }, []);
+
+  // Callback ao confirmar envio no TemplateSelector
+  function handleTemplateSend(
+    templateName: string,
+    languageCode: string,
+    components: unknown[],
+    _variables: Record<string, string>,
+  ): void {
+    const idempotencyKey = crypto.randomUUID();
+    sendMutation.mutate(
+      { type: 'template', templateName, languageCode, components, idempotencyKey },
+      {
+        onSuccess: () => {
+          setShowTemplateSelector(false);
+        },
+      },
+    );
+  }
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -75,41 +321,102 @@ export function MessageComposer({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
-    // Cmd+Enter (Mac) ou Ctrl+Enter (Windows/Linux) — envia
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
-      if (canSend) handleSend();
+      if (canSend) void handleSend();
     }
-    // Enter sozinho: nova linha (comportamento padrão de textarea)
-  }
-
-  function handleSend(): void {
-    const trimmed = text.trim();
-    if (!trimmed || isDisabled) return;
-
-    // Novo UUID por tentativa — idempotência
-    const idempotencyKey = crypto.randomUUID();
-
-    sendMutation.mutate(
-      { type: 'text', content: trimmed, idempotencyKey },
-      {
-        onSuccess: () => {
-          setText('');
-          textareaRef.current?.focus();
-        },
-      },
-    );
   }
 
   function handleAttachClick(): void {
+    // Limpa erro anterior antes de nova seleção
+    setFileSizeError(null);
     fileInputRef.current?.click();
   }
 
-  // Arquivo selecionado — placeholder para S18 (upload via signed URL)
-  function handleFileChange(_e: React.ChangeEvent<HTMLInputElement>): void {
-    // TODO S18: upload via POST /api/livechat/media/upload-url
-    // Por ora, limpa o input para não manter referência ao arquivo (LGPD)
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    const file = e.target.files?.[0];
+    // Limpar input imediatamente para não manter referência (LGPD)
     if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (!file) return;
+
+    // Validação de tamanho — inline, antes de qualquer chamada de rede
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setFileSizeError('Arquivo muito grande. O limite é 16 MB.');
+      return;
+    }
+
+    setFileSizeError(null);
+
+    // Criar object URL para preview local (nunca enviado ao servidor)
+    const objectUrl = URL.createObjectURL(file);
+    const mediaKind = detectMediaKind(file.type || 'application/octet-stream');
+    setMediaPreview({ file, objectUrl, mediaKind });
+  }
+
+  function handleCancelMedia(): void {
+    if (isUploading) {
+      abort();
+    }
+    if (mediaPreview) {
+      // Liberar memória do object URL (evita leak)
+      URL.revokeObjectURL(mediaPreview.objectUrl);
+    }
+    setMediaPreview(null);
+    setFileSizeError(null);
+  }
+
+  function handleMicClick(): void {
+    setIsRecording(true);
+  }
+
+  async function handleSend(): Promise<void> {
+    if (!canSend || isDisabled) return;
+
+    const idempotencyKey = crypto.randomUUID();
+
+    if (mediaPreview) {
+      // ── Envio de mídia ───────────────────────────────────────────────────
+      let uploadResult: Awaited<ReturnType<typeof upload>>;
+      try {
+        uploadResult = await upload(mediaPreview.file);
+      } catch {
+        // Erro já registrado no `progress.error` — componente exibe inline.
+        return;
+      }
+
+      sendMutation.mutate(
+        {
+          type: 'media',
+          mediaKind: uploadResult.mediaKind,
+          publicMediaUrl: uploadResult.publicMediaUrl,
+          mime: uploadResult.mime,
+          fileName: uploadResult.fileName,
+          idempotencyKey,
+        },
+        {
+          onSuccess: () => {
+            URL.revokeObjectURL(mediaPreview.objectUrl);
+            setMediaPreview(null);
+            textareaRef.current?.focus();
+          },
+        },
+      );
+    } else {
+      // ── Envio de texto ───────────────────────────────────────────────────
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      sendMutation.mutate(
+        { type: 'text', content: trimmed, idempotencyKey },
+        {
+          onSuccess: () => {
+            setText('');
+            textareaRef.current?.focus();
+          },
+        },
+      );
+    }
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -117,183 +424,262 @@ export function MessageComposer({
   return (
     <div
       className={cn(
-        'flex flex-col border-t border-border bg-surface-1',
+        'relative flex flex-col border-t border-border bg-surface-1',
         '[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06)]',
       )}
       aria-label="Compositor de mensagem"
     >
-      {/* Aviso de janela expirada */}
-      {!windowOpen && !isLoading && (
-        <WindowNotice
-          windowKind={windowKind}
-          {...(onUseTemplate !== undefined ? { onUseTemplate } : {})}
+      {/* Seletor de template (S19) — aparece acima do compositor */}
+      {showTemplateSelector && (
+        <TemplateSelector
+          conversationId={conversationId}
+          onClose={() => setShowTemplateSelector(false)}
+          onSend={handleTemplateSend}
         />
       )}
 
-      {/* Área de composição */}
-      <div className="flex items-end gap-2 px-3 py-2">
-        {/* Botão de attach */}
-        <button
-          type="button"
-          onClick={handleAttachClick}
-          disabled={isDisabled}
-          aria-label="Anexar arquivo"
-          className={cn(
-            'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
-            'text-ink-3 transition-colors duration-fast ease',
-            'hover:bg-surface-hover hover:text-ink',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
-            'active:bg-surface-muted',
-            'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
-          )}
-        >
-          <svg
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.5}
-            className="w-5 h-5"
-            aria-hidden="true"
-          >
-            <path
-              d="M14.5 11.5l-5 5a4 4 0 01-5.66-5.66l6.36-6.36a2.5 2.5 0 013.54 3.54l-6.36 6.36a1 1 0 01-1.41-1.41l5.65-5.66"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+      {/* Aviso de janela expirada */}
+      {!windowOpen && !isLoading && (
+        <WindowNotice windowKind={windowKind} onUseTemplate={onUseTemplate ?? handleUseTemplate} />
+      )}
 
-        {/* Input file oculto */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*,audio/*,application/pdf,.doc,.docx"
-          className="sr-only"
-          aria-hidden="true"
-          tabIndex={-1}
-          onChange={handleFileChange}
+      {/* Erro de tamanho de arquivo */}
+      {fileSizeError && (
+        <p
+          className="mx-3 mt-2 px-3 py-1.5 rounded-xs bg-danger/10 text-danger font-sans text-xs"
+          role="alert"
+        >
+          {fileSizeError}
+        </p>
+      )}
+
+      {/* Erro de upload */}
+      {progress.phase === 'error' && progress.error && (
+        <p
+          className="mx-3 mt-2 px-3 py-1.5 rounded-xs bg-danger/10 text-danger font-sans text-xs"
+          role="alert"
+        >
+          {progress.error}
+        </p>
+      )}
+
+      {/* Preview de mídia (com barra de progresso embutida) */}
+      {mediaPreview && (
+        <MediaPreviewArea
+          preview={mediaPreview}
+          uploadPercent={progress.percent}
+          isUploading={isUploading}
+          onCancel={handleCancelMedia}
         />
+      )}
 
-        {/* Textarea auto-resize */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={handleTextChange}
-            onKeyDown={handleKeyDown}
-            disabled={isDisabled}
-            placeholder={
-              isLoading
-                ? 'Carregando...'
-                : !windowOpen
-                  ? 'Janela expirada — use um template'
-                  : 'Digite uma mensagem... (Ctrl+Enter para enviar)'
-            }
-            rows={1}
-            aria-label="Campo de mensagem"
-            aria-describedby={!windowOpen ? 'composer-window-notice' : undefined}
+      {/* Área de composição — substituída pelo AudioRecorder quando em modo PTT */}
+      {isRecording ? (
+        <AudioRecorder
+          conversationId={conversationId}
+          onSent={() => setIsRecording(false)}
+          onCancel={() => setIsRecording(false)}
+        />
+      ) : (
+        <div className="flex items-end gap-2 px-3 py-2">
+          {/* Botão de attach */}
+          <button
+            type="button"
+            onClick={handleAttachClick}
+            disabled={isDisabled || mediaPreview !== null}
+            aria-label="Anexar arquivo"
             className={cn(
-              'w-full resize-none rounded-sm px-3 py-2',
-              'font-sans text-sm text-ink',
-              'bg-surface-inset border border-border',
-              // Inset shadow interno — campo real, não "sticker"
-              '[box-shadow:inset_0_1px_3px_rgba(20,33,61,0.06),inset_0_0_0_1px_var(--border)]',
-              'placeholder:text-ink-3',
-              'transition-[border-color,box-shadow] duration-fast ease',
-              'focus:outline-none focus:border-azul',
-              'focus:[box-shadow:inset_0_1px_3px_rgba(20,33,61,0.06),0_0_0_2px_rgba(27,58,140,0.12)]',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              'min-h-[40px] max-h-24',
-              'overflow-y-auto',
+              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'text-ink-3 transition-colors duration-fast ease',
+              'hover:bg-surface-hover hover:text-ink',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+              'active:bg-surface-muted',
+              'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
             )}
-          />
-        </div>
-
-        {/* Botão de emoji (placeholder) */}
-        <button
-          type="button"
-          disabled={isDisabled}
-          aria-label="Inserir emoji (em breve)"
-          title="Emoji (em breve)"
-          className={cn(
-            'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
-            'text-ink-3 transition-colors duration-fast ease',
-            'hover:bg-surface-hover hover:text-ink',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
-            'active:bg-surface-muted',
-            'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
-          )}
-        >
-          <svg
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.5}
-            className="w-5 h-5"
-            aria-hidden="true"
           >
-            <circle cx="10" cy="10" r="8" />
-            <path d="M7 12s1 2 3 2 3-2 3-2" strokeLinecap="round" />
-            <circle cx="7.5" cy="8.5" r=".75" fill="currentColor" stroke="none" />
-            <circle cx="12.5" cy="8.5" r=".75" fill="currentColor" stroke="none" />
-          </svg>
-        </button>
-
-        {/* Botão enviar */}
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={!canSend}
-          aria-label="Enviar mensagem"
-          className={cn(
-            'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
-            'transition-[transform,box-shadow,background,color] duration-fast ease',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
-            'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
-            // Default: cinza
-            !canSend
-              ? 'bg-surface-muted text-ink-3'
-              : [
-                  // Ativo: azul com glow
-                  '[background:var(--grad-azul)] text-white',
-                  '[box-shadow:var(--elev-2),inset_0_1px_0_rgba(255,255,255,0.15)]',
-                  'hover:-translate-y-0.5',
-                  'hover:[box-shadow:var(--glow-azul),inset_0_1px_0_rgba(255,255,255,0.2)]',
-                  'active:translate-y-0',
-                  'active:[box-shadow:var(--elev-1),inset_0_2px_4px_rgba(0,0,0,0.2)]',
-                ],
-          )}
-        >
-          {sendMutation.isPending ? (
-            // Spinner de envio
-            <svg
-              viewBox="0 0 20 20"
-              className="w-4 h-4 animate-spin"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden="true"
-            >
-              <circle cx="10" cy="10" r="7" strokeOpacity="0.3" />
-              <path d="M10 3a7 7 0 017 7" strokeLinecap="round" />
-            </svg>
-          ) : (
             <svg
               viewBox="0 0 20 20"
               fill="none"
               stroke="currentColor"
-              strokeWidth={1.8}
-              className="w-4 h-4"
+              strokeWidth={1.5}
+              className="w-5 h-5"
               aria-hidden="true"
             >
-              <path d="M18 10L2 3l3 7-3 7 16-7z" strokeLinecap="round" strokeLinejoin="round" />
+              <path
+                d="M14.5 11.5l-5 5a4 4 0 01-5.66-5.66l6.36-6.36a2.5 2.5 0 013.54 3.54l-6.36 6.36a1 1 0 01-1.41-1.41l5.65-5.66"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
-          )}
-        </button>
-      </div>
+          </button>
 
-      {/* Dica de teclado */}
-      {windowOpen && (
+          {/* Input file oculto — accept inclui tipos suportados */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*,audio/*,application/pdf,.doc,.docx"
+            className="sr-only"
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={handleFileChange}
+          />
+
+          {/* Textarea auto-resize */}
+          <div className="flex-1 relative">
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={handleTextChange}
+              onKeyDown={handleKeyDown}
+              disabled={isDisabled || mediaPreview !== null}
+              placeholder={
+                isLoading
+                  ? 'Carregando...'
+                  : !windowOpen
+                    ? 'Janela expirada — use um template'
+                    : mediaPreview !== null
+                      ? 'Pronto para enviar arquivo...'
+                      : 'Digite uma mensagem... (Ctrl+Enter para enviar)'
+              }
+              rows={1}
+              aria-label="Campo de mensagem"
+              aria-describedby={!windowOpen ? 'composer-window-notice' : undefined}
+              className={cn(
+                'w-full resize-none rounded-sm px-3 py-2',
+                'font-sans text-sm text-ink',
+                'bg-surface-inset border border-border',
+                // Inset shadow interno — campo real, não "sticker"
+                '[box-shadow:inset_0_1px_3px_rgba(20,33,61,0.06),inset_0_0_0_1px_var(--border)]',
+                'placeholder:text-ink-3',
+                'transition-[border-color,box-shadow] duration-fast ease',
+                'focus:outline-none focus:border-azul',
+                'focus:[box-shadow:inset_0_1px_3px_rgba(20,33,61,0.06),0_0_0_2px_rgba(27,58,140,0.12)]',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
+                'min-h-[40px] max-h-24',
+                'overflow-y-auto',
+              )}
+            />
+          </div>
+
+          {/* Botão de emoji (placeholder) */}
+          <button
+            type="button"
+            disabled={isDisabled}
+            aria-label="Inserir emoji (em breve)"
+            title="Emoji (em breve)"
+            className={cn(
+              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'text-ink-3 transition-colors duration-fast ease',
+              'hover:bg-surface-hover hover:text-ink',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+              'active:bg-surface-muted',
+              'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+            )}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              className="w-5 h-5"
+              aria-hidden="true"
+            >
+              <circle cx="10" cy="10" r="8" />
+              <path d="M7 12s1 2 3 2 3-2 3-2" strokeLinecap="round" />
+              <circle cx="7.5" cy="8.5" r=".75" fill="currentColor" stroke="none" />
+              <circle cx="12.5" cy="8.5" r=".75" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+
+          {/* Botão de microfone (PTT) */}
+          <button
+            type="button"
+            onClick={handleMicClick}
+            disabled={isDisabled || mediaPreview !== null}
+            aria-label="Gravar áudio"
+            title="Gravar áudio (push-to-talk)"
+            className={cn(
+              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'text-ink-3 transition-colors duration-fast ease',
+              'hover:bg-surface-hover hover:text-ink',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+              'active:bg-surface-muted',
+              'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+            )}
+          >
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              className="w-5 h-5"
+              aria-hidden="true"
+            >
+              <rect x="7" y="2" width="6" height="9" rx="3" />
+              <path
+                d="M4 10a6 6 0 0012 0M10 16v3M7 19h6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+
+          {/* Botão enviar */}
+          <button
+            type="button"
+            onClick={() => void handleSend()}
+            disabled={!canSend}
+            aria-label={mediaPreview ? 'Enviar arquivo' : 'Enviar mensagem'}
+            className={cn(
+              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'transition-[transform,box-shadow,background,color] duration-fast ease',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+              'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+              // Default: cinza
+              !canSend
+                ? 'bg-surface-muted text-ink-3'
+                : [
+                    // Ativo: azul com glow
+                    '[background:var(--grad-azul)] text-white',
+                    '[box-shadow:var(--elev-2),inset_0_1px_0_rgba(255,255,255,0.15)]',
+                    'hover:-translate-y-0.5',
+                    'hover:[box-shadow:var(--glow-azul),inset_0_1px_0_rgba(255,255,255,0.2)]',
+                    'active:translate-y-0',
+                    'active:[box-shadow:var(--elev-1),inset_0_2px_4px_rgba(0,0,0,0.2)]',
+                  ],
+            )}
+          >
+            {sendMutation.isPending ? (
+              // Spinner de envio
+              <svg
+                viewBox="0 0 20 20"
+                className="w-4 h-4 animate-spin"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+              >
+                <circle cx="10" cy="10" r="7" strokeOpacity="0.3" />
+                <path d="M10 3a7 7 0 017 7" strokeLinecap="round" />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                className="w-4 h-4"
+                aria-hidden="true"
+              >
+                <path d="M18 10L2 3l3 7-3 7 16-7z" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Dica de teclado — oculta durante gravação */}
+      {windowOpen && !mediaPreview && !isRecording && (
         <p className="px-4 pb-2 font-sans text-xs text-ink-4">
           <kbd className="px-1 py-0.5 rounded-xs border border-border-subtle font-mono text-xs bg-surface-2">
             Ctrl+Enter

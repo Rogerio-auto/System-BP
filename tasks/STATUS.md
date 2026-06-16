@@ -15,10 +15,10 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 17    | 0   | 0   | 0   | 0   | 0   | 17  |
+| F16  | 21    | 0   | 0   | 0   | 0   | 0   | 21  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
-| F19  | 6     | 0   | 0   | 0   | 1   | 0   | 5   |
+| F19  | 6     | 0   | 0   | 0   | 1   | 1   | 4   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -187,6 +187,10 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | ✅ done | high       | F16-S03, F16-S12, F16-S14          |
 | F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | ✅ done | high       | F16-S15                            |
 | F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | ✅ done | high       | F16-S15, F16-S13                   |
+| F16-S18 | Composer — upload de mídia (imagem, vídeo, documento, áudio)                                        | ✅ done | high       | F16-S13, F16-S17                   |
+| F16-S19 | Composer — seletor de template (janela 24h expirada)                                                | ✅ done | high       | F16-S13, F16-S17                   |
+| F16-S20 | Composer — emoji picker                                                                             | ✅ done | medium     | F16-S17                            |
+| F16-S21 | Composer — gravação de áudio PTT (push-to-talk)                                                     | ✅ done | medium     | F16-S18                            |
 
 ## Fase 17 —
 
@@ -232,7 +236,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F19-S02 | Backend — CRUD law_firms + suggest por cidade                          | ✅ done        | high       | F19-S01          |
 | F19-S03 | Backend — ação "encaminhar para advocacia" + /internal/law-firm-status | ✅ done        | high       | F19-S01, F19-S02 |
 | F19-S04 | Frontend — admin cadastro de escritórios de advocacia                  | ✅ done        | high       | F19-S02          |
-| F19-S05 | Frontend — botão "Encaminhar para advocacia" na ficha do inadimplente  | ✅ done        | high       | F19-S03, F19-S04 |
+| F19-S05 | Frontend — botão "Encaminhar para advocacia" na ficha do inadimplente  | 🟣 review      | high       | F19-S03, F19-S04 |
 | F19-S06 | LangGraph — nó lawyer_handoff (envio autônomo do contato do advogado)  | 🔵 in-progress | medium     | F19-S03          |
 
 ## Fase 2 — Crédito e simulação
