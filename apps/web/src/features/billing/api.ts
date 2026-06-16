@@ -70,23 +70,26 @@ export async function fetchPaymentDues(
 /**
  * POST /api/billing/payment-dues/:id/mark-paid — marca como paga.
  * Permissão: billing:mark_paid
- * Idempotente: enviar Idempotency-Key no header (gerenciado pelo caller).
+ * Idempotente: gera Idempotency-Key UUID por chamada (HIGH-03).
  */
 export async function markPaymentDuePaid(id: string): Promise<PaymentDueResponse> {
   return api.post<PaymentDueResponse>(
     `/api/billing/payment-dues/${encodeURIComponent(id)}/mark-paid`,
     {},
+    { headers: { 'Idempotency-Key': crypto.randomUUID() } },
   );
 }
 
 /**
  * POST /api/billing/payment-dues/:id/renegotiate — marca como renegociada.
  * Permissão: billing:mark_paid
+ * Idempotente: gera Idempotency-Key UUID por chamada (HIGH-03).
  */
 export async function renegotiatePaymentDue(id: string): Promise<PaymentDueResponse> {
   return api.post<PaymentDueResponse>(
     `/api/billing/payment-dues/${encodeURIComponent(id)}/renegotiate`,
     {},
+    { headers: { 'Idempotency-Key': crypto.randomUUID() } },
   );
 }
 
