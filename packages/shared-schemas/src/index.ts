@@ -31,3 +31,6 @@ export * from './livechat.js';
 
 // Users / perfil do agente — personal_email, TOTP, status (F18-S08)
 export * from './users.js';
+
+// Law Firms — escritórios de advocacia parceiros (F19-S02)
+export * from './law-firms.js';
