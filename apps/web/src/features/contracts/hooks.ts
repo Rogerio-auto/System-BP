@@ -148,6 +148,34 @@ export function useContractDues(customerId: string, contractRef: string) {
 }
 
 // ---------------------------------------------------------------------------
+// useContractByAnalysis — contrato vinculado a uma análise de crédito (F17-S14)
+// ---------------------------------------------------------------------------
+
+/**
+ * Busca o contrato draft criado automaticamente a partir de uma análise aprovada.
+ * Chama GET /api/contracts?analysis_id=:analysisId&per_page=1.
+ * Retorna o primeiro contrato encontrado ou null se não existir.
+ *
+ * Só ativa quando analysisId for uma string não-vazia.
+ * staleTime de 60s — contrato vinculado raramente muda após criação.
+ */
+export function useContractByAnalysis(analysisId: string) {
+  const result = useQuery({
+    queryKey: [...CONTRACT_KEYS.all, 'by-analysis', analysisId] as const,
+    queryFn: () => fetchContracts({ analysis_id: analysisId, per_page: 1 }),
+    enabled: Boolean(analysisId),
+    staleTime: 60_000,
+  });
+
+  const contract = result.data?.data?.[0] ?? null;
+
+  return {
+    ...result,
+    contract,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // useCreateContract — mutação para criar um novo contrato (F17-S11)
 // ---------------------------------------------------------------------------
 

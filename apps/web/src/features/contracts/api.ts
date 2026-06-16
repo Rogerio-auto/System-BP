@@ -33,6 +33,7 @@ function buildQueryString(filters: ContractsFilters): string {
   if (filters.per_page !== undefined) params.set('per_page', String(filters.per_page));
   if (filters.status) params.set('status', filters.status);
   if (filters.customer_id) params.set('customer_id', filters.customer_id);
+  if (filters.analysis_id) params.set('analysis_id', filters.analysis_id);
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }
