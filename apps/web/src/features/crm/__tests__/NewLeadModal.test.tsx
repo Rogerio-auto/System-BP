@@ -46,7 +46,7 @@ const VALID_PAYLOAD = {
 
 const VALID_PJ_PAYLOAD = {
   ...VALID_PAYLOAD,
-  cnpj: '12.345.678/0001-90',
+  cnpj: '12.345.678/0001-95',
   legal_name: 'Comercial Ferreira Ltda',
 };
 
@@ -205,13 +205,13 @@ describe('LeadCreateSchema — cpf (opcional, LGPD: nunca armazenado bruto)', ()
 // ─── CNPJ — opcional, máscara 00.000.000/0000-00 (F14-S03) ───────────────────
 
 describe('LeadCreateSchema — cnpj (opcional, Pessoa Jurídica)', () => {
-  it('CNPJ com máscara completa é aceito: 12.345.678/0001-90', () => {
-    const result = LeadCreateSchema.safeParse({ ...VALID_PAYLOAD, cnpj: '12.345.678/0001-90' });
+  it('CNPJ com máscara completa é aceito: 12.345.678/0001-95', () => {
+    const result = LeadCreateSchema.safeParse({ ...VALID_PAYLOAD, cnpj: '12.345.678/0001-95' });
     expect(result.success).toBe(true);
   });
 
-  it('CNPJ somente dígitos (14) é aceito: 12345678000190', () => {
-    const result = LeadCreateSchema.safeParse({ ...VALID_PAYLOAD, cnpj: '12345678000190' });
+  it('CNPJ somente dígitos (14) é aceito: 12345678000195', () => {
+    const result = LeadCreateSchema.safeParse({ ...VALID_PAYLOAD, cnpj: '12345678000195' });
     expect(result.success).toBe(true);
   });
 
