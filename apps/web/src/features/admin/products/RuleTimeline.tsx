@@ -162,7 +162,7 @@ function RuleItem({
             </span>
 
             <Badge variant={isActive ? 'success' : 'neutral'}>
-              {isActive ? 'Vigente' : 'Expirada'}
+              {isActive ? 'VERSÃO VIGENTE' : 'Expirada'}
             </Badge>
           </div>
 
