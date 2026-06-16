@@ -226,7 +226,11 @@ export async function listConversations(
     const [cursorRow] = await db
       .select({ lastMessageAt: conversations.lastMessageAt })
       .from(conversations)
-      .where(eq(conversations.id, cursor))
+      .where(
+        // Security L2: cursor lookup scoped to organizationId to prevent cross-tenant
+        // timestamp leakage — a cursor from another org must not match here.
+        and(eq(conversations.id, cursor), eq(conversations.organizationId, organizationId)),
+      )
       .limit(1);
 
     if (cursorRow?.lastMessageAt !== undefined && cursorRow.lastMessageAt !== null) {
@@ -441,7 +445,11 @@ export async function listMessages(db: Database, filter: GetMessagesFilter): Pro
     const [cursorRow] = await db
       .select({ createdAt: messages.createdAt })
       .from(messages)
-      .where(eq(messages.id, before))
+      .where(
+        // Security M1: cursor lookup scoped to conversationId to prevent cross-conversation
+        // timestamp leakage — a cursor from another conversation must not match here.
+        and(eq(messages.id, before), eq(messages.conversationId, conversationId)),
+      )
       .limit(1);
 
     if (cursorRow !== undefined) {
