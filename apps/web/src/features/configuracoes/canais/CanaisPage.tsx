@@ -423,9 +423,13 @@ interface TextInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   hasError?: boolean | undefined;
 }
 
-function TextInput({ hasError, className, ...props }: TextInputProps): React.JSX.Element {
+const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(function TextInput(
+  { hasError, className, ...props },
+  ref,
+) {
   return (
     <input
+      ref={ref}
       {...props}
       className={cn(
         'w-full rounded-md border px-3 py-2.5 font-sans text-sm text-ink bg-surface-1',
@@ -443,7 +447,7 @@ function TextInput({ hasError, className, ...props }: TextInputProps): React.JSX
       }}
     />
   );
-}
+});
 
 interface PasswordInputProps {
   id: string;
