@@ -3,11 +3,11 @@ id: F18-S06
 title: Frontend — follow-up por estágio e outcome (Onda 1 item 8)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#épico-g--follow-up-por-estágio-e-segmentação-item-8
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-16T05:08:00Z
 completed_at: null
 pr_url: null
 depends_on: []
