@@ -3,7 +3,7 @@ id: F16-S08
 title: Worker inbound — consome fila, parseia, persiste e publica socket relay
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#1-fluxo-de-mensagem-inbound
-status: blocked
+status: available
 priority: high
 estimated_size: L
 agent_id: null

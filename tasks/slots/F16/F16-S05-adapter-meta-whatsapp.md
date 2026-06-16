@@ -3,7 +3,7 @@ id: F16-S05
 title: Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#22-adapters-meta-whatsapp-instagram
-status: blocked
+status: available
 priority: high
 estimated_size: L
 agent_id: null
