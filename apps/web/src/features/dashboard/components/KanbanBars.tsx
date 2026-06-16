@@ -2,8 +2,8 @@
 // features/dashboard/components/KanbanBars.tsx — Barras verticais de cards
 // no Kanban por estágio.
 //
-// SVG manual (sem dep). Barras verticais com labels abaixo.
-// Cores tokens DS por índice. Tooltip nativo via <title>.
+// Layout div-based (sem SVG fixo) para responsividade total e zero overlap
+// de labels. Cada estágio é uma coluna flex com barra + valor + nome.
 // =============================================================================
 
 import * as React from 'react';
@@ -14,7 +14,6 @@ interface KanbanBarsProps {
   data: KanbanCardsByStageItem[];
 }
 
-// Paleta cíclica de tokens DS para os stages
 const STAGE_COLORS = [
   'var(--brand-azul)',
   'var(--brand-verde)',
@@ -24,23 +23,15 @@ const STAGE_COLORS = [
   'var(--text-3)',
 ];
 
+const MAX_BAR_PX = 148;
+
 /**
- * Barras verticais SVG de cards por estágio do Kanban.
- * Ordenado pela ordem de entrada (preserva ordem dos stages).
+ * Barras verticais de cards por estágio do Kanban.
+ * Div-based: responsivo, labels nunca se sobrepõem.
  */
 export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
   const isEmpty = data.length === 0 || data.every((d) => d.count === 0);
   const max = Math.max(...data.map((d) => d.count), 1);
-
-  // Trunca nome do stage para caber no label
-  function truncate(name: string, maxLen = 10): string {
-    return name.length > maxLen ? name.slice(0, maxLen - 1) + '…' : name;
-  }
-
-  const BAR_HEIGHT = 100; // altura máxima das barras em px (proporcional)
-  const BAR_WIDTH = 28;
-  const GAP = 12;
-  const totalWidth = data.length * (BAR_WIDTH + GAP);
 
   return (
     <div
@@ -48,7 +39,7 @@ export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
       style={{ boxShadow: 'var(--elev-2)' }}
     >
       <p
-        className="font-sans font-semibold uppercase mb-4"
+        className="font-sans font-semibold uppercase mb-5"
         style={{ fontSize: '0.7rem', letterSpacing: '0.12em', color: 'var(--text-3)' }}
       >
         Cards no kanban por estágio
@@ -66,82 +57,75 @@ export function KanbanBars({ data }: KanbanBarsProps): React.JSX.Element {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <svg
-            width={Math.max(totalWidth, 200)}
-            height={BAR_HEIGHT + 52}
-            role="img"
-            aria-label="Gráfico de barras verticais — cards por estágio do Kanban"
-            style={{ display: 'block', margin: '0 auto' }}
+          <div
+            className="flex items-end gap-3"
+            style={{ minWidth: `${data.length * 64}px`, paddingBottom: '4px' }}
           >
             {data.map((stage, idx) => {
-              const barH =
-                max > 0 ? Math.max((stage.count / max) * BAR_HEIGHT, stage.count > 0 ? 4 : 0) : 0;
-              const x = idx * (BAR_WIDTH + GAP);
-              const y = BAR_HEIGHT - barH;
+              const barPx =
+                max > 0 ? Math.max((stage.count / max) * MAX_BAR_PX, stage.count > 0 ? 4 : 0) : 0;
               const color = STAGE_COLORS[idx % STAGE_COLORS.length] ?? 'var(--brand-azul)';
-              const label = truncate(stage.stageName);
 
               return (
-                <g key={stage.stageId}>
-                  {/* Barra */}
-                  <rect
-                    x={x}
-                    y={y}
-                    width={BAR_WIDTH}
-                    height={barH}
-                    rx={4}
-                    fill={color}
-                    opacity={0.9}
-                    style={{ transition: 'opacity 150ms ease' }}
-                  >
-                    <title>{`${stage.stageName}: ${stage.count.toLocaleString('pt-BR')} card${stage.count !== 1 ? 's' : ''}`}</title>
-                  </rect>
-
+                <div
+                  key={stage.stageId}
+                  className="flex flex-col items-center"
+                  style={{ flex: '1 1 52px', minWidth: '52px', maxWidth: '88px' }}
+                >
                   {/* Valor acima da barra */}
-                  {stage.count > 0 && (
-                    <text
-                      x={x + BAR_WIDTH / 2}
-                      y={y - 4}
-                      textAnchor="middle"
-                      style={{
-                        fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
-                        fontSize: '10px',
-                        fontWeight: 600,
-                        fill: 'var(--text-2)',
-                      }}
-                    >
-                      {stage.count}
-                    </text>
-                  )}
-
-                  {/* Label abaixo */}
-                  <text
-                    x={x + BAR_WIDTH / 2}
-                    y={BAR_HEIGHT + 14}
-                    textAnchor="middle"
+                  <span
+                    className="font-mono font-semibold mb-1 text-center"
                     style={{
-                      fontFamily: 'var(--font-sans, Geist, system-ui)',
-                      fontSize: '9px',
-                      fontWeight: 500,
-                      fill: 'var(--text-3)',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '11px',
+                      color: 'var(--text-2)',
+                      minHeight: '16px',
+                      lineHeight: '16px',
                     }}
                   >
-                    {label}
-                  </text>
-                </g>
+                    {stage.count > 0 ? stage.count.toLocaleString('pt-BR') : ''}
+                  </span>
+
+                  {/* Container da barra (alinha pelo fundo) */}
+                  <div
+                    className="w-full flex items-end"
+                    style={{
+                      height: `${MAX_BAR_PX}px`,
+                      borderBottom: '1px solid var(--border-subtle)',
+                    }}
+                    title={`${stage.stageName}: ${stage.count.toLocaleString('pt-BR')} card${stage.count !== 1 ? 's' : ''}`}
+                  >
+                    <div
+                      className="w-full transition-all duration-500"
+                      style={{
+                        height: `${barPx}px`,
+                        background: color,
+                        opacity: 0.88,
+                        borderRadius: '4px 4px 0 0',
+                      }}
+                    />
+                  </div>
+
+                  {/* Nome do estágio */}
+                  <div
+                    className="w-full text-center mt-2 leading-snug"
+                    style={{
+                      fontSize: '11px',
+                      color: 'var(--text-3)',
+                      lineHeight: '1.35',
+                      wordBreak: 'break-word',
+                      hyphens: 'auto',
+                    }}
+                    title={stage.stageName}
+                  >
+                    {stage.stageName.length > 16
+                      ? stage.stageName.slice(0, 15) + '…'
+                      : stage.stageName}
+                  </div>
+                </div>
               );
             })}
-
-            {/* Linha de base */}
-            <line
-              x1={0}
-              y1={BAR_HEIGHT}
-              x2={totalWidth}
-              y2={BAR_HEIGHT}
-              stroke="var(--border-subtle)"
-              strokeWidth={1}
-            />
-          </svg>
+          </div>
         </div>
       )}
     </div>
@@ -156,25 +140,26 @@ export function KanbanBarsSkeleton(): React.JSX.Element {
   return (
     <div
       className="rounded-md border border-border bg-surface-1 p-5"
-      style={{ boxShadow: 'var(--elev-2)', minHeight: '200px' }}
+      style={{ boxShadow: 'var(--elev-2)', minHeight: '220px' }}
     >
       <div
-        className="mb-4 h-2.5 w-44 rounded-pill animate-pulse"
+        className="mb-5 h-2.5 w-44 rounded-pill animate-pulse"
         style={{ background: 'var(--surface-muted)' }}
       />
-      <div className="flex items-end justify-center gap-3 px-4">
+      <div className="flex items-end gap-3 px-2">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex flex-col items-center gap-2">
+          <div key={i} className="flex flex-col items-center gap-2 flex-1">
             <div
-              className="w-7 rounded-xs animate-pulse"
+              className="w-full rounded-xs animate-pulse"
               style={{
                 background: 'var(--surface-muted)',
-                height: `${50 + i * 12}px`,
+                height: `${60 + i * 18}px`,
+                borderRadius: '4px 4px 0 0',
               }}
             />
             <div
-              className="h-2 w-10 rounded-pill animate-pulse"
-              style={{ background: 'var(--surface-muted)' }}
+              className="h-2.5 rounded-pill animate-pulse"
+              style={{ background: 'var(--surface-muted)', width: '80%' }}
             />
           </div>
         ))}
