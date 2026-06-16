@@ -3,7 +3,7 @@ id: F17-S14
 title: Frontend — badge "Contrato vinculado" na ficha da análise
 phase: F17
 task_ref: null
-status: blocked
+status: available
 priority: medium
 estimated_size: S
 agent_id: null
