@@ -1,8 +1,9 @@
 // =============================================================================
-// features/contracts/ContractsPage.tsx — /contratos (F17-S05).
+// features/contracts/ContractsPage.tsx — /contratos (F17-S05, F17-S11).
 //
 // Lista filtrável de contratos por status com paginação.
 // Clicar na linha abre ContractDetail (drawer lateral).
+// Botão "Novo Contrato" abre ContractCreateModal (gate: contracts:write).
 //
 // DS:
 //   - Tabela densa §9.7: th caption-style, hover linha.
@@ -15,8 +16,9 @@
 // LGPD: listagem não expõe CPF ou contato do cliente — apenas dados do contrato.
 //
 // Permissões:
-//   - contracts:read — ver lista (verificado no backend, UI não oculta a rota).
-//   - contracts:sign — ação de assinatura (gate no drawer).
+//   - contracts:read  — ver lista (verificado no backend, UI não oculta a rota).
+//   - contracts:sign  — ação de assinatura (gate no drawer).
+//   - contracts:write — botão "Novo Contrato" + modal de criação.
 // =============================================================================
 
 import * as React from 'react';
@@ -24,7 +26,9 @@ import * as React from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
+import { useAuthStore } from '../../lib/auth-store';
 
+import { ContractCreateModal } from './ContractCreateModal';
 import { ContractDetail } from './ContractDetail';
 import { useContracts } from './hooks';
 import { CONTRACT_STATUS_META, CONTRACT_STATUS_OPTIONS, type ContractsFilters } from './schemas';
@@ -182,6 +186,10 @@ export function ContractsPage(): React.JSX.Element {
   const [filters, setFilters] = React.useState<ContractsFilters>({ page: 1, per_page: 20 });
   const [statusFilter, setStatusFilter] = React.useState('');
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [createModalOpen, setCreateModalOpen] = React.useState(false);
+
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canCreate = hasPermission('contracts:write');
 
   const { data, isLoading, isError, refetch } = useContracts(filters);
 
@@ -228,6 +236,28 @@ export function ContractsPage(): React.JSX.Element {
               Gerencie contratos de crédito e registre assinaturas.
             </p>
           </div>
+
+          {/* Botão "Novo Contrato" — gate: contracts:write */}
+          {canCreate && (
+            <Button
+              variant="primary"
+              onClick={() => setCreateModalOpen(true)}
+              leftIcon={
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                  className="w-4 h-4"
+                  aria-hidden="true"
+                >
+                  <path d="M8 3v10M3 8h10" strokeLinecap="round" />
+                </svg>
+              }
+            >
+              Novo Contrato
+            </Button>
+          )}
         </div>
 
         {/* Filtros */}
@@ -450,6 +480,18 @@ export function ContractsPage(): React.JSX.Element {
 
       {/* Drawer de detalhe */}
       {selectedId && <ContractDetail contractId={selectedId} onClose={() => setSelectedId(null)} />}
+
+      {/* Modal de criação — gate contracts:write */}
+      {createModalOpen && (
+        <ContractCreateModal
+          onClose={() => setCreateModalOpen(false)}
+          onCreated={(contractId) => {
+            setCreateModalOpen(false);
+            // Abre o drawer de detalhe do contrato criado
+            setSelectedId(contractId);
+          }}
+        />
+      )}
     </>
   );
 }
