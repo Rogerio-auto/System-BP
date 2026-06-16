@@ -3,13 +3,13 @@ id: F18-S07
 title: Frontend — avgDaysInStage no dashboard + estágio Kanban no CRM (Onda 1 item 11)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#épico-h--estágio-de-kanban-gestão-interna-no-dashboard-e-crm-item-11
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T05:08:22Z
 completed_at: 2026-06-16T05:18:03Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/260
 depends_on: []
 blocks: []
 labels: [frontend, dashboard, kanban, crm]
@@ -18,7 +18,6 @@ source_docs:
   - docs/18-design-system.md
 docs_required: false
 ---
-
 # F18-S07 — Frontend: avgDaysInStage no dashboard + estágio Kanban no CRM
 
 ## Objetivo

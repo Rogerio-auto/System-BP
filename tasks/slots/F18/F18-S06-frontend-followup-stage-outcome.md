@@ -3,13 +3,13 @@ id: F18-S06
 title: Frontend — follow-up por estágio e outcome (Onda 1 item 8)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#épico-g--follow-up-por-estágio-e-segmentação-item-8
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-16T05:08:00Z
 completed_at: 2026-06-16T05:16:32Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/257
 depends_on: []
 blocks: []
 labels: [frontend, followup]
@@ -18,7 +18,6 @@ source_docs:
   - docs/18-design-system.md
 docs_required: false
 ---
-
 # F18-S06 — Frontend: follow-up por estágio e outcome
 
 ## Objetivo

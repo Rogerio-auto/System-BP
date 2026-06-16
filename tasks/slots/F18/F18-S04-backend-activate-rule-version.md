@@ -3,13 +3,13 @@ id: F18-S04
 title: Backend — endpoint activateRuleVersion (Onda 1 item 6)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#épico-d--versão-do-produto-de-crédito-a-usar-item-6
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-16T05:07:41Z
 completed_at: 2026-06-16T05:16:59Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/259
 depends_on: []
 blocks: [F18-S05]
 labels: [backend, products, rbac]
@@ -17,7 +17,6 @@ source_docs:
   - docs/planejamento-2026-06-evolucao.md
 docs_required: false
 ---
-
 # F18-S04 — Backend: endpoint activateRuleVersion
 
 ## Objetivo

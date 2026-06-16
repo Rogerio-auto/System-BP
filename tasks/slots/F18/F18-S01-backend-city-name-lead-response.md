@@ -3,13 +3,13 @@ id: F18-S01
 title: Backend — city_name em LeadResponse (Onda 1 item 1)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#a1--cidade-do-lead-visível-no-crm-e-no-kanban-item-1
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-16T05:06:41Z
 completed_at: 2026-06-16T05:12:00Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/258
 depends_on: []
 blocks: [F18-S02]
 labels: [backend, crm, leads]

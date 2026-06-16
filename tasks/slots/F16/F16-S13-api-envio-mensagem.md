@@ -3,13 +3,13 @@ id: F16-S13
 title: API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#3-outbound-flow
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T05:51:14Z
 completed_at: 2026-06-16T06:25:25Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/274
 depends_on: [F16-S07, F16-S10, F16-S12]
 blocks: [F16-S17]
 labels: [lgpd-impact]
@@ -21,7 +21,6 @@ docs_required: false
 docs_audience: [dev]
 docs_artifacts: []
 ---
-
 # F16-S13 — API de envio de mensagem
 
 ## Objetivo

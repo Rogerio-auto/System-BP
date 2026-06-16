@@ -3,13 +3,13 @@ id: F18-S03
 title: Frontend — CurrencyInput canônico + fix bug de moeda (Onda 1 item 3)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#épico-c--correção-do-formato-de-real-item-3-
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T05:07:15Z
 completed_at: 2026-06-16T05:20:10Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/261
 depends_on: []
 blocks: []
 labels: [frontend, bug, currency, simulation]
@@ -18,7 +18,6 @@ source_docs:
   - docs/18-design-system.md
 docs_required: false
 ---
-
 # F18-S03 — Frontend: CurrencyInput canônico + fix bug de moeda
 
 ## Objetivo

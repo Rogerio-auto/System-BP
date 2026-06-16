@@ -3,13 +3,13 @@ id: F17-S13
 title: Backend — handler auto-contrato por análise aprovada/recusada
 phase: F17
 task_ref: null
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T05:20:56Z
 completed_at: 2026-06-16T05:31:13Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/265
 depends_on: [F17-S12, F17-S03]
 blocks: [F17-S14]
 labels: [contracts, backend, handler, outbox]
@@ -18,7 +18,6 @@ source_docs:
   - docs/04-eventos.md
 docs_required: false
 ---
-
 # F17-S13 — Backend handler auto-contrato por análise
 
 ## Objetivo
