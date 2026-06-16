@@ -15,9 +15,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 17    | 1   | 0   | 0   | 0   | 2   | 14  |
-| F17  | 14    | 0   | 2   | 0   | 0   | 1   | 11  |
-| F18  | 12    | 1   | 2   | 0   | 0   | 3   | 6   |
+| F16  | 17    | 0   | 0   | 0   | 0   | 0   | 17  |
+| F17  | 14    | 0   | 2   | 0   | 0   | 0   | 12  |
+| F18  | 12    | 1   | 0   | 0   | 0   | 0   | 11  |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -167,25 +167,25 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 16 —
 
-| ID      | Título                                                                                              | Status       | Prioridade | Depende de                         |
-| ------- | --------------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------------------------------- |
-| F16-S01 | Infra base do live chat — Redis + RabbitMQ + R2 (clientes + topologia de filas)                     | ✅ done      | critical   | —                                  |
-| F16-S02 | Schema multicanal do live chat — channels, channel_secrets, conversations, messages, webhook_events | ✅ done      | critical   | —                                  |
-| F16-S03 | Contratos compartilhados do live chat — discriminated unions + Zod + socket events                  | ✅ done      | critical   | —                                  |
-| F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | ✅ done      | high       | F16-S02, F16-S03                   |
-| F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | ✅ done      | high       | F16-S04                            |
-| F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | ✅ done      | high       | F16-S02, F16-S03, F16-S04          |
-| F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | ✅ done      | high       | F16-S02, F16-S03                   |
-| F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | ✅ done      | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
-| F16-S09 | Worker media — download via adapter, dedup SHA-256, upload R2, media_ready                          | ✅ done      | medium     | F16-S01, F16-S05, F16-S07          |
-| F16-S10 | Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status                  | ✅ done      | high       | F16-S01, F16-S05, F16-S07          |
-| F16-S11 | Canais — connect manual (provider-discriminado, segredo cifrado) + list                             | ✅ done      | high       | F16-S02, F16-S03, F16-S04          |
-| F16-S12 | API conversas (read) — list, get, messages (cursor), window state                                   | ✅ done      | high       | F16-S03, F16-S07                   |
-| F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ✅ done      | high       | F16-S07, F16-S10, F16-S12          |
-| F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ✅ done      | medium     | F16-S01, F16-S03, F16-S07          |
-| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | 🟣 review    | high       | F16-S03, F16-S12, F16-S14          |
-| F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | 🟢 available | high       | F16-S15                            |
-| F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | 🟣 review    | high       | F16-S15, F16-S13                   |
+| ID      | Título                                                                                              | Status  | Prioridade | Depende de                         |
+| ------- | --------------------------------------------------------------------------------------------------- | ------- | ---------- | ---------------------------------- |
+| F16-S01 | Infra base do live chat — Redis + RabbitMQ + R2 (clientes + topologia de filas)                     | ✅ done | critical   | —                                  |
+| F16-S02 | Schema multicanal do live chat — channels, channel_secrets, conversations, messages, webhook_events | ✅ done | critical   | —                                  |
+| F16-S03 | Contratos compartilhados do live chat — discriminated unions + Zod + socket events                  | ✅ done | critical   | —                                  |
+| F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | ✅ done | high       | F16-S02, F16-S03                   |
+| F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | ✅ done | high       | F16-S04                            |
+| F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | ✅ done | high       | F16-S02, F16-S03, F16-S04          |
+| F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | ✅ done | high       | F16-S02, F16-S03                   |
+| F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | ✅ done | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
+| F16-S09 | Worker media — download via adapter, dedup SHA-256, upload R2, media_ready                          | ✅ done | medium     | F16-S01, F16-S05, F16-S07          |
+| F16-S10 | Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status                  | ✅ done | high       | F16-S01, F16-S05, F16-S07          |
+| F16-S11 | Canais — connect manual (provider-discriminado, segredo cifrado) + list                             | ✅ done | high       | F16-S02, F16-S03, F16-S04          |
+| F16-S12 | API conversas (read) — list, get, messages (cursor), window state                                   | ✅ done | high       | F16-S03, F16-S07                   |
+| F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ✅ done | high       | F16-S07, F16-S10, F16-S12          |
+| F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ✅ done | medium     | F16-S01, F16-S03, F16-S07          |
+| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | ✅ done | high       | F16-S03, F16-S12, F16-S14          |
+| F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | ✅ done | high       | F16-S15                            |
+| F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | ✅ done | high       | F16-S15, F16-S13                   |
 
 ## Fase 17 —
 
@@ -211,17 +211,17 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ID      | Título                                                                                        | Status       | Prioridade | Depende de |
 | ------- | --------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------- |
 | F18-S01 | Backend — city_name em LeadResponse (Onda 1 item 1)                                           | ✅ done      | high       | —          |
-| F18-S02 | Frontend — cidade visível no CRM e no Kanban (Onda 1 item 1)                                  | 🟣 review    | high       | F18-S01    |
+| F18-S02 | Frontend — cidade visível no CRM e no Kanban (Onda 1 item 1)                                  | ✅ done      | high       | F18-S01    |
 | F18-S03 | Frontend — CurrencyInput canônico + fix bug de moeda (Onda 1 item 3)                          | ✅ done      | high       | —          |
 | F18-S04 | Backend — endpoint activateRuleVersion (Onda 1 item 6)                                        | ✅ done      | medium     | —          |
-| F18-S05 | Frontend — "Usar esta versão" na RuleTimeline (Onda 1 item 6)                                 | 🟣 review    | medium     | F18-S04    |
+| F18-S05 | Frontend — "Usar esta versão" na RuleTimeline (Onda 1 item 6)                                 | ✅ done      | medium     | F18-S04    |
 | F18-S06 | Frontend — follow-up por estágio e outcome (Onda 1 item 8)                                    | ✅ done      | medium     | —          |
 | F18-S07 | Frontend — avgDaysInStage no dashboard + estágio Kanban no CRM (Onda 1 item 11)               | ✅ done      | medium     | —          |
 | F18-S08 | Schema — lead PJ + personal_email usuários (Onda 2 item 4)                                    | ✅ done      | high       | —          |
-| F18-S09 | Backend — lead PJ validações + email blocklist (Onda 2 item 4)                                | 🟢 available | high       | F18-S08    |
-| F18-S10 | Frontend — NewLeadModal campos PJ + email obrigatório + personal_email agente (Onda 2 item 4) | ⏸️ blocked   | high       | F18-S09    |
-| F18-S11 | Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)                            | 🟣 review    | medium     | —          |
-| F18-S12 | Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)                             | ⏸️ blocked   | medium     | F18-S11    |
+| F18-S09 | Backend — lead PJ validações + email blocklist (Onda 2 item 4)                                | ✅ done      | high       | F18-S08    |
+| F18-S10 | Frontend — NewLeadModal campos PJ + email obrigatório + personal_email agente (Onda 2 item 4) | 🟢 available | high       | F18-S09    |
+| F18-S11 | Backend — endpoint "enviar simulação por WhatsApp" (Onda 2 item 2)                            | ✅ done      | medium     | —          |
+| F18-S12 | Frontend — botão "Enviar ao cliente" na simulação (Onda 2 item 2)                             | ✅ done      | medium     | F18-S11    |
 
 ## Fase 2 — Crédito e simulação
 

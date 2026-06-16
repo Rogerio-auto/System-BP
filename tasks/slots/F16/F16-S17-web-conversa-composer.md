@@ -3,13 +3,13 @@ id: F16-S17
 title: Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#7-ui-conversationspage
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-16T13:33:57Z
 completed_at: 2026-06-16T13:56:06Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/283
 depends_on: [F16-S15, F16-S13]
 blocks: []
 labels: []
