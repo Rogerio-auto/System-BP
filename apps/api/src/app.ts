@@ -174,6 +174,10 @@ export async function buildApp() {
           // Ex: "boleto-joao-silva-parcela-3.pdf" vaza nome.
           '*.boleto_filename',
           'req.body.boleto_filename',
+          // CNPJ da empresa (F18-S08) — ME/EI: sócio único = dado pessoal do proprietário (LGPD §8.1).
+          // cnpj identifica o beneficiário do crédito e pode ser cruzado com dados do sócio.
+          'req.body.cnpj',
+          '*.cnpj',
         ],
         censor: '[REDACTED]',
       },
