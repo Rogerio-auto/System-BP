@@ -43,6 +43,7 @@ import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/rout
 // não editam app.ts, eliminando colisão de merge em desenvolvimento paralelo.
 import internalPlugin from './modules/internal/index.js';
 import { kanbanRoutes } from './modules/kanban/routes.js';
+import { lawFirmsRoutes } from './modules/law-firms/routes.js';
 import { leadsRoutes } from './modules/leads/routes.js';
 import { notificationsRoutes } from './modules/notifications/index.js';
 import { rolesRoutes } from './modules/roles/routes.js';
@@ -283,6 +284,9 @@ export async function buildApp() {
   await app.register(contractsRoutes);
   // Módulo de customers — visão consolidada do cliente (F17-S07)
   await app.register(customersRoutes);
+
+  // Módulo de escritórios de advocacia — CRUD + suggest por cidade (F19-S02)
+  await app.register(lawFirmsRoutes);
 
   // Dev-only endpoints (schema-examples, etc.) — NOT registered in production (F10-S11)
   if (process.env['NODE_ENV'] !== 'production') {

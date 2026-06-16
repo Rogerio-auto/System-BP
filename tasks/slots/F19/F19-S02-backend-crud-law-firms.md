@@ -3,12 +3,12 @@ id: F19-S02
 title: Backend — CRUD law_firms + suggest por cidade
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-16T15:14:02Z
+completed_at: 2026-06-16T15:27:55Z
 pr_url: null
 depends_on: [F19-S01]
 blocks: [F19-S03, F19-S04]
