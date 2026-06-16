@@ -17,6 +17,7 @@
 
 import type { SpcStatus } from '@elemento/shared-schemas';
 import * as React from 'react';
+import * as ReactDOM from 'react-dom';
 
 import { Button } from '../../../components/ui/Button';
 import { useAuth } from '../../auth/useAuth';
@@ -118,10 +119,11 @@ function ConfirmModal({
 
   if (!isOpen) return null;
 
-  return (
+  // Portal ao body para escapar o stacking context do drawer (transform cria novo contexto).
+  return ReactDOM.createPortal(
     /* Backdrop */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-[200] flex items-center justify-center"
       style={{ background: 'rgba(10,18,40,0.6)', backdropFilter: 'blur(4px)' }}
       role="dialog"
       aria-modal="true"
@@ -163,7 +165,8 @@ function ConfirmModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
