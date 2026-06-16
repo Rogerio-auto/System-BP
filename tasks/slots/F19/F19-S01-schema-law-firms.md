@@ -3,11 +3,11 @@ id: F19-S01
 title: Schema — law_firms + customer_law_firm_referrals (migration 0066)
 phase: F19
 task_ref: docs/planejamento-2026-06-evolucao.md
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-16T14:52:04Z
 completed_at: null
 pr_url: null
 depends_on: []
