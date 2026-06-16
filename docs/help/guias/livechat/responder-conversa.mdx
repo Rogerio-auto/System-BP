@@ -1,0 +1,149 @@
+---
+title: Responder conversas — Live Chat
+description: Como usar o painel de conversa para ler mensagens e responder clientes pelo Live Chat do Elemento.
+order: 20
+keywords: [live chat, conversa, mensagem, responder, compositor, janela 24h, template, whatsapp]
+---
+
+# Responder conversas
+
+O painel de conversa exibe o historico completo de mensagens com o cliente e um compositor para enviar respostas. Este guia explica como navegar pelo painel, responder mensagens e lidar com a janela de 24h do WhatsApp.
+
+<Callout type="info" title="Pre-requisito">
+  Voce precisa ter o papel de **atendente** ou superior e ao menos um canal conectado
+  (WhatsApp Business, Instagram Direct ou WAHA) para enviar mensagens.
+</Callout>
+
+## O que e o painel de conversa
+
+O painel de conversa e dividido em duas areas:
+
+- **Lista de mensagens** — exibe todo o historico da conversa em ordem cronologica. Mensagens enviadas pelo cliente aparecem a esquerda; mensagens enviadas pela equipe aparecem a direita.
+- **Compositor** — area na parte inferior para digitar e enviar novas mensagens.
+
+### Tipos de mensagem suportados
+
+O painel exibe automaticamente todos os tipos de mensagem do WhatsApp:
+
+| Tipo | O que exibe |
+|---|---|
+| Texto | Conteudo em texto simples |
+| Imagem | Preview da imagem com link para ampliar |
+| Video | Miniatura com botao de play |
+| Audio / Voz | Player de audio nativo |
+| Documento | Nome do arquivo e botao de download |
+| Sticker | Preview da figurinha |
+| Localizacao | Coordenadas com link para Google Maps |
+| Contato | Nome do contato compartilhado |
+| Template | Nome do template e corpo renderizado |
+| Interativo | Botoes / lista de opcoes (somente leitura) |
+| Story / Comentario | Conteudo somente leitura (sem resposta direta) |
+
+### Status das mensagens enviadas
+
+Mensagens enviadas pela equipe exibem um icone de status ao lado do horario:
+
+- **1 check cinza** — Mensagem enviada ao servidor
+- **2 checks cinzas** — Entregue ao dispositivo do cliente
+- **2 checks azuis** — Lida pelo cliente
+- **X vermelho** — Falha no envio (tente novamente)
+
+## Como responder uma mensagem
+
+<Step number={1} title="Abra a conversa no inbox">
+  Na lista lateral do Live Chat, clique na conversa que deseja responder.
+  O painel de conversa abre a direita com o historico carregado.
+</Step>
+
+<Step number={2} title="Leia o historico">
+  Role para cima para ver mensagens anteriores. O sistema carrega automaticamente
+  mensagens mais antigas ao chegar no topo da lista.
+</Step>
+
+<Step number={3} title="Digite a mensagem no compositor">
+  Clique na area de texto na parte inferior e digite a resposta.
+  O campo cresce automaticamente ate 4 linhas conforme voce digita.
+</Step>
+
+<Step number={4} title="Envie a mensagem">
+  Pressione **Ctrl+Enter** (Windows/Linux) ou **Cmd+Enter** (Mac) para enviar,
+  ou clique no botao de envio (seta azul) no canto direito do compositor.
+
+  <Callout type="info" title="Envio otimista">
+    A mensagem aparece imediatamente na lista enquanto e processada pelo servidor.
+    Se houver falha, ela e removida e voce recebe uma notificacao de erro.
+  </Callout>
+</Step>
+
+## Janela de 24 horas (WhatsApp)
+
+O WhatsApp Business permite enviar mensagens de texto livre apenas dentro de uma janela de **24 horas** apos a ultima mensagem recebida do cliente.
+
+### O que acontece quando a janela expira
+
+Quando a janela de 24h expira, o compositor exibe um aviso amarelo:
+
+> "A janela de 24h expirou. Use um template para retomar o contato."
+
+Nesse estado:
+- O campo de texto fica desabilitado
+- O botao de envio fica inativo
+- Um botao **Usar template** aparece no aviso
+
+### Como retomar o contato apos a janela expirar
+
+<Step number={1} title="Clique em Usar template">
+  No aviso amarelo da janela expirada, clique no botao **Usar template**.
+</Step>
+
+<Step number={2} title="Selecione o template aprovado">
+  Escolha um dos templates aprovados pela Meta para o seu numero de telefone.
+  Templates precisam ser cadastrados previamente no painel da Meta.
+</Step>
+
+<Step number={3} title="Envie o template">
+  Confirme o envio. Quando o cliente responder, a janela de 24h e reaberta
+  e voce pode voltar a enviar texto livre.
+</Step>
+
+<Callout type="warning" title="Limite da API do WhatsApp">
+  O Meta nao permite enviar texto livre fora da janela de 24h. Tentativas de envio
+  sem template sao bloqueadas automaticamente pela API. Use sempre templates aprovados
+  para iniciar conversas proativamente.
+</Callout>
+
+## Enviar arquivos e midias
+
+Para enviar uma imagem, video, audio ou documento:
+
+1. Clique no icone de **clipe** no canto esquerdo do compositor
+2. Selecione o arquivo no gerenciador de arquivos
+3. Aguarde o upload e envie
+
+<Callout type="info" title="Formatos suportados">
+  Imagens (JPG, PNG, WebP), videos (MP4), audios (MP3, OGG), documentos (PDF, DOC, DOCX).
+  Tamanho maximo: conforme limites do WhatsApp Business API (geralmente 16MB para midia).
+</Callout>
+
+## Historico longo e carregamento de mensagens antigas
+
+O painel virtualiza a lista de mensagens para manter a performance mesmo com centenas de mensagens. Quando voce chega ao topo:
+
+- Um botao **Carregar mensagens anteriores** aparece
+- Clique para buscar a proxima pagina de historico
+
+## Erros comuns
+
+| Situacao | Causa | O que fazer |
+|---|---|---|
+| Mensagem nao enviada, notificacao vermelha | Falha de rede ou API | Verifique a conexao e tente novamente |
+| Compositor desabilitado sem aviso amarelo | Permissao insuficiente ou carregando | Aguarde alguns segundos ou atualize a pagina |
+| Status trava em "Enviada" (1 check) | Cliente sem conexao ou numero invalido | Normal — o status atualiza quando o dispositivo ficar online |
+| Janela expirada imediatamente | Cliente nunca enviou mensagem primeiro | O WhatsApp exige que o cliente inicie o contato |
+
+## Veja tambem
+
+- [Conectar um canal de mensagem](/ajuda/guias/livechat/conectar-canal) — como configurar WhatsApp, Instagram ou WAHA
+- [Gerenciar o inbox do Live Chat](/ajuda/guias/livechat/inbox) — como filtrar e atribuir conversas
+
+<FeedbackWidget />
