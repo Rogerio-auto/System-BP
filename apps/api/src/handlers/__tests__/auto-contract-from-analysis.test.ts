@@ -12,7 +12,8 @@
 //   8.  análise não encontrada (fetch retorna null) → skip com warning
 //   9.  approved_amount ausente → skip com warning
 //   10. evento de outro status (em_analise) → ignora silenciosamente
-//   11. correlationId propagado nos eventos
+//   11. correlationId (event.id) propagado nos eventos
+//   12. payload inválido (analysis_id ausente) → skip com warning
 // =============================================================================
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -137,6 +138,7 @@ const CUSTOMER_ID = 'cus-00000001-0000-0000-0000-000000000001';
 const CONTRACT_ID = 'con-00000001-0000-0000-0000-000000000001';
 const LEAD_ID = 'lea-00000001-0000-0000-0000-000000000001';
 const VERSION_ID = 'ver-00000001-0000-0000-0000-000000000001';
+const EVENT_ID = 'evt-00000001-0000-0000-0000-000000000001';
 
 function makeAnalysis(
   overrides: Partial<{
@@ -180,40 +182,55 @@ function makeContract(status: string = 'draft') {
   };
 }
 
-function makeAprovadoEvent(correlationId: string | null = null) {
+/**
+ * Monta um EventOutbox simulado para credit_analysis.status_changed.
+ * Segue o padrão canônico: payload = unknown (JSONB), id = UUID do registro.
+ */
+function makeAprovadoEvent(eventId: string = EVENT_ID) {
   return {
-    eventName: 'credit_analysis.status_changed' as const,
+    id: eventId,
+    organizationId: ORG_ID,
+    eventName: 'credit_analysis.status_changed',
     aggregateType: 'credit_analysis',
     aggregateId: ANALYSIS_ID,
-    organizationId: ORG_ID,
-    actor: { kind: 'user' as const, id: null, ip: null },
     idempotencyKey: `credit_analysis.status_changed:${ANALYSIS_ID}:aprovado`,
-    data: {
+    payload: {
       analysis_id: ANALYSIS_ID,
       lead_id: LEAD_ID,
       from_status: 'em_analise',
       to_status: 'aprovado',
       version_id: VERSION_ID,
     },
-    ...(correlationId !== null ? { correlationId } : {}),
+    correlationId: null,
+    processedAt: null,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    failedAt: null,
+    retryCount: 0,
+    errorMessage: null,
   };
 }
 
-function makeRecusadoEvent() {
+function makeRecusadoEvent(eventId: string = EVENT_ID) {
   return {
-    eventName: 'credit_analysis.status_changed' as const,
+    id: eventId,
+    organizationId: ORG_ID,
+    eventName: 'credit_analysis.status_changed',
     aggregateType: 'credit_analysis',
     aggregateId: ANALYSIS_ID,
-    organizationId: ORG_ID,
-    actor: { kind: 'user' as const, id: null, ip: null },
     idempotencyKey: `credit_analysis.status_changed:${ANALYSIS_ID}:recusado`,
-    data: {
+    payload: {
       analysis_id: ANALYSIS_ID,
       lead_id: LEAD_ID,
       from_status: 'em_analise',
       to_status: 'recusado',
       version_id: VERSION_ID,
     },
+    correlationId: null,
+    processedAt: null,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    failedAt: null,
+    retryCount: 0,
+    errorMessage: null,
   };
 }
 
@@ -268,7 +285,7 @@ describe('handleAutoContractFromAnalysis()', () => {
     mockFindContractByAnalysisId.mockResolvedValueOnce(null);
     mockCreateAutoContractDraft.mockResolvedValueOnce(contract);
 
-    await handleAutoContractFromAnalysis(makeAprovadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeAprovadoEvent() as never, db as never);
 
     expect(mockFindAnalysisById).toHaveBeenCalledWith(expect.anything(), ANALYSIS_ID, ORG_ID, null);
     expect(mockFindContractByAnalysisId).toHaveBeenCalledWith(
@@ -318,7 +335,7 @@ describe('handleAutoContractFromAnalysis()', () => {
     mockFindContractByAnalysisId.mockResolvedValueOnce(existingContract);
     mockUpdateAutoContractDraft.mockResolvedValueOnce(updatedContract);
 
-    await handleAutoContractFromAnalysis(makeAprovadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeAprovadoEvent() as never, db as never);
 
     expect(mockCreateAutoContractDraft).not.toHaveBeenCalled();
     expect(mockUpdateAutoContractDraft).toHaveBeenCalledWith(
@@ -359,7 +376,7 @@ describe('handleAutoContractFromAnalysis()', () => {
     mockFindAnalysisById.mockResolvedValueOnce(analysis);
     mockFindContractByAnalysisId.mockResolvedValueOnce(signedContract);
 
-    await handleAutoContractFromAnalysis(makeAprovadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeAprovadoEvent() as never, db as never);
 
     expect(mockCreateAutoContractDraft).not.toHaveBeenCalled();
     expect(mockUpdateAutoContractDraft).not.toHaveBeenCalled();
@@ -377,7 +394,7 @@ describe('handleAutoContractFromAnalysis()', () => {
 
     mockFindAnalysisById.mockResolvedValueOnce(analysis);
 
-    await handleAutoContractFromAnalysis(makeAprovadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeAprovadoEvent() as never, db as never);
 
     expect(mockFindContractByAnalysisId).not.toHaveBeenCalled();
     expect(mockCreateAutoContractDraft).not.toHaveBeenCalled();
@@ -396,7 +413,7 @@ describe('handleAutoContractFromAnalysis()', () => {
     mockFindContractByAnalysisId.mockResolvedValueOnce(draftContract);
     mockCancelAutoContractDraft.mockResolvedValueOnce(cancelledContract);
 
-    await handleAutoContractFromAnalysis(makeRecusadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeRecusadoEvent() as never, db as never);
 
     expect(mockCancelAutoContractDraft).toHaveBeenCalledWith(
       expect.anything(),
@@ -422,7 +439,7 @@ describe('handleAutoContractFromAnalysis()', () => {
 
     mockFindContractByAnalysisId.mockResolvedValueOnce(null);
 
-    await handleAutoContractFromAnalysis(makeRecusadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeRecusadoEvent() as never, db as never);
 
     expect(mockCancelAutoContractDraft).not.toHaveBeenCalled();
     expect(mockEmit).not.toHaveBeenCalled();
@@ -443,7 +460,7 @@ describe('handleAutoContractFromAnalysis()', () => {
     mockFindContractByAnalysisId.mockResolvedValueOnce(null);
     mockCreateAutoContractDraft.mockResolvedValueOnce(contract);
 
-    await handleAutoContractFromAnalysis(makeAprovadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeAprovadoEvent() as never, db as never);
 
     expect(mockCreateAutoContractDraft).toHaveBeenCalledTimes(1);
 
@@ -454,7 +471,7 @@ describe('handleAutoContractFromAnalysis()', () => {
     mockFindContractByAnalysisId.mockResolvedValueOnce(contract);
     mockUpdateAutoContractDraft.mockResolvedValueOnce(contract);
 
-    await handleAutoContractFromAnalysis(makeAprovadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeAprovadoEvent() as never, db as never);
 
     expect(mockCreateAutoContractDraft).not.toHaveBeenCalled();
     expect(mockUpdateAutoContractDraft).toHaveBeenCalledTimes(1);
@@ -468,7 +485,7 @@ describe('handleAutoContractFromAnalysis()', () => {
 
     mockFindAnalysisById.mockResolvedValueOnce(null);
 
-    await handleAutoContractFromAnalysis(makeAprovadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeAprovadoEvent() as never, db as never);
 
     expect(mockFindContractByAnalysisId).not.toHaveBeenCalled();
     expect(mockCreateAutoContractDraft).not.toHaveBeenCalled();
@@ -484,7 +501,7 @@ describe('handleAutoContractFromAnalysis()', () => {
 
     mockFindAnalysisById.mockResolvedValueOnce(analysis);
 
-    await handleAutoContractFromAnalysis(makeAprovadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeAprovadoEvent() as never, db as never);
 
     expect(mockFindContractByAnalysisId).not.toHaveBeenCalled();
     expect(mockCreateAutoContractDraft).not.toHaveBeenCalled();
@@ -498,7 +515,7 @@ describe('handleAutoContractFromAnalysis()', () => {
     const db = makeDb();
     const event = {
       ...makeAprovadoEvent(),
-      data: {
+      payload: {
         analysis_id: ANALYSIS_ID,
         lead_id: LEAD_ID,
         from_status: 'pendente',
@@ -507,7 +524,7 @@ describe('handleAutoContractFromAnalysis()', () => {
       },
     };
 
-    await handleAutoContractFromAnalysis(event, db as never);
+    await handleAutoContractFromAnalysis(event as never, db as never);
 
     expect(mockFindAnalysisById).not.toHaveBeenCalled();
     expect(mockFindContractByAnalysisId).not.toHaveBeenCalled();
@@ -515,25 +532,51 @@ describe('handleAutoContractFromAnalysis()', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Cenário 11: correlationId propagado nos eventos
+  // Cenário 11: event.id propagado como correlationId nos eventos emitidos
   // ---------------------------------------------------------------------------
-  it('correlationId propagado no evento outbox', async () => {
+  it('event.id propagado como correlationId no evento outbox', async () => {
     const db = makeDb();
     const analysis = makeAnalysis();
     const contract = makeContract('draft');
+    const customEventId = 'evt-99999999-0000-0000-0000-000000000099';
 
     mockFindAnalysisById.mockResolvedValueOnce(analysis);
     mockFindContractByAnalysisId.mockResolvedValueOnce(null);
     mockCreateAutoContractDraft.mockResolvedValueOnce(contract);
 
-    await handleAutoContractFromAnalysis(makeAprovadoEvent('corr-xyz-123'), db as never);
+    await handleAutoContractFromAnalysis(makeAprovadoEvent(customEventId) as never, db as never);
 
     expect(mockEmit).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        correlationId: 'corr-xyz-123',
+        correlationId: customEventId,
       }),
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Cenário 12: payload inválido — analysis_id ausente → skip com warning
+  // ---------------------------------------------------------------------------
+  it('payload sem analysis_id → skip silencioso sem qualquer ação', async () => {
+    const db = makeDb();
+    const event = {
+      ...makeAprovadoEvent(),
+      payload: {
+        // analysis_id ausente intencionalmente
+        lead_id: LEAD_ID,
+        from_status: 'em_analise',
+        to_status: 'aprovado',
+        version_id: VERSION_ID,
+      },
+    };
+
+    await handleAutoContractFromAnalysis(event as never, db as never);
+
+    expect(mockFindAnalysisById).not.toHaveBeenCalled();
+    expect(mockFindContractByAnalysisId).not.toHaveBeenCalled();
+    expect(mockCreateAutoContractDraft).not.toHaveBeenCalled();
+    expect(mockEmit).not.toHaveBeenCalled();
+    expect(mockAuditLog).not.toHaveBeenCalled();
   });
 
   // ---------------------------------------------------------------------------
@@ -545,7 +588,7 @@ describe('handleAutoContractFromAnalysis()', () => {
 
     mockFindContractByAnalysisId.mockResolvedValueOnce(cancelledContract);
 
-    await handleAutoContractFromAnalysis(makeRecusadoEvent(), db as never);
+    await handleAutoContractFromAnalysis(makeRecusadoEvent() as never, db as never);
 
     expect(mockCancelAutoContractDraft).not.toHaveBeenCalled();
     expect(mockEmit).not.toHaveBeenCalled();

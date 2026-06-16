@@ -2,7 +2,8 @@
 // handlers/auto-contract-from-analysis.ts — Handler de auto-contrato (F17-S13).
 //
 // Responsabilidade:
-//   Consome eventos credit_analysis.status_changed e, conforme o to_status:
+//   Consome eventos credit_analysis.status_changed (via outbox-publisher) e,
+//   conforme o to_status:
 //
 //   aprovado → upsert idempotente de contrato draft:
 //     1. Fetch análise via creditAnalysesRepository.findAnalysisById.
@@ -20,6 +21,12 @@
 //
 //   Outros status → ignorado silenciosamente.
 //
+// Padrão de assinatura (EventOutbox):
+//   O handler recebe EventOutbox (registro bruto do banco, payload: unknown),
+//   seguindo o padrão canônico de kanban-on-analysis.ts. A fábrica
+//   buildAutoContractFromAnalysisHandler() retorna a fn compatível com
+//   registerHandler() em workers/index.ts.
+//
 // Idempotência:
 //   Unique constraint parcial (org, analysis_id) WHERE NOT NULL no banco
 //   impede duplicatas. Handler idempotente por design: rodar 2x com mesmo
@@ -35,10 +42,10 @@ import pino from 'pino';
 import { env } from '../config/env.js';
 import type { Database } from '../db/client.js';
 import { db as defaultDb } from '../db/client.js';
+import type { EventOutbox } from '../db/schema/events.js';
 import { emit } from '../events/emit.js';
 import type { DrizzleTx } from '../events/emit.js';
 import type {
-  AppEvent,
   ContractAutoCreatedData,
   ContractAutoUpdatedData,
   CreditAnalysisStatusChangedData,
@@ -372,58 +379,101 @@ async function handleRecusado(
 }
 
 // ---------------------------------------------------------------------------
-// Handler principal
+// Handler principal (aceita EventOutbox — padrão canônico do outbox-publisher)
 // ---------------------------------------------------------------------------
 
 /**
- * Processa eventos credit_analysis.status_changed e gerencia o ciclo de
- * vida automático do contrato draft vinculado.
+ * Processa um evento credit_analysis.status_changed:
+ *   - aprovado  → cria ou atualiza contrato draft por (org, analysis_id)
+ *   - recusado  → cancela draft vinculado (se existir)
+ *   - outros    → ignora silenciosamente
  *
- * - aprovado  → cria ou atualiza contrato draft por (org, analysis_id)
- * - recusado  → cancela draft vinculado (se existir)
- * - outros    → ignora silenciosamente
+ * Recebe EventOutbox (raw DB record, payload: unknown) — mesmo padrão de
+ * kanban-on-analysis.ts. Extrai e valida campos antes de usar.
  *
- * @param event  Evento tipado do outbox.
+ * @param event  Registro bruto do outbox (payload: unknown).
  * @param db     Instância Drizzle injetável (facilita testes).
  */
 export async function handleAutoContractFromAnalysis(
-  event: AppEvent,
+  event: EventOutbox,
   db: Database = defaultDb,
 ): Promise<void> {
-  const { eventName } = event;
+  const childLogger = logger.child({ correlation_id: event.id });
 
-  if (eventName !== 'credit_analysis.status_changed') {
-    logger.debug({ event_name: eventName }, 'auto-contract: evento não suportado — ignorando');
+  // Justificativa do `as`: event.payload é unknown por design do outbox (§8.5).
+  // Validamos os campos essenciais antes de usá-los.
+  const payload = event.payload as Partial<CreditAnalysisStatusChangedData>;
+
+  const analysisId = payload.analysis_id;
+  const toStatus = payload.to_status;
+  const fromStatus = payload.from_status ?? '';
+  const versionId = payload.version_id;
+  const leadId = payload.lead_id;
+  const organizationId = event.organizationId;
+
+  if (!analysisId || !toStatus) {
+    childLogger.warn(
+      {
+        eventId: event.id,
+        hasAnalysisId: Boolean(analysisId),
+        hasToStatus: Boolean(toStatus),
+      },
+      'auto-contract: payload inválido — analysis_id ou to_status ausente; skip',
+    );
     return;
   }
 
-  // `as` justificado: eventName === 'credit_analysis.status_changed' garante o tipo.
-  const data = event.data as CreditAnalysisStatusChangedData;
-  const correlationId = event.correlationId ?? null;
-
-  logger.info(
+  childLogger.info(
     {
-      event_id: event.idempotencyKey,
-      analysis_id: data.analysis_id,
-      from_status: data.from_status,
-      to_status: data.to_status,
-      organization_id: event.organizationId,
+      event_id: event.id,
+      analysis_id: analysisId,
+      from_status: fromStatus,
+      to_status: toStatus,
+      organization_id: organizationId,
     },
     'auto-contract: processando evento credit_analysis.status_changed',
   );
 
-  if (data.to_status === 'aprovado') {
-    await handleAprovado(db, data, event.organizationId, correlationId);
+  // Monta dados tipados para os sub-handlers (que precisam dos campos validados)
+  const data: CreditAnalysisStatusChangedData = {
+    analysis_id: analysisId,
+    lead_id: leadId ?? '',
+    from_status: fromStatus,
+    to_status: toStatus,
+    version_id: versionId ?? '',
+  };
+
+  // correlationId: usa event.id como correlação ao evento de origem
+  const correlationId = event.id;
+
+  if (toStatus === 'aprovado') {
+    await handleAprovado(db, data, organizationId, correlationId);
     return;
   }
 
-  if (data.to_status === 'recusado') {
-    await handleRecusado(db, data, event.organizationId, correlationId);
+  if (toStatus === 'recusado') {
+    await handleRecusado(db, data, organizationId, correlationId);
     return;
   }
 
-  logger.debug(
-    { analysis_id: data.analysis_id, to_status: data.to_status },
+  childLogger.debug(
+    { analysis_id: analysisId, to_status: toStatus },
     'auto-contract: to_status não requer ação — ignorando',
   );
+}
+
+// ---------------------------------------------------------------------------
+// Fábrica de EventHandler — compatível com RegisteredHandler.fn
+// ---------------------------------------------------------------------------
+
+/**
+ * Retorna um EventHandler pronto para registrar via registerHandler().
+ *
+ * Usa db singleton de db/client.js. Chamado em workers/index.ts → setupWorkerHandlers().
+ * Injeção via argumento _db disponível apenas em testes.
+ */
+export function buildAutoContractFromAnalysisHandler(
+  _db: Database = defaultDb,
+): (event: EventOutbox) => Promise<void> {
+  return (event: EventOutbox) => handleAutoContractFromAnalysis(event, _db);
 }

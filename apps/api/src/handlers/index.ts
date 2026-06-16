@@ -18,4 +18,7 @@ export {
 export { handleFanoutNotification } from './fanout-notification.js';
 
 // F17-S13: auto-contrato por análise aprovada/recusada
-export { handleAutoContractFromAnalysis } from './auto-contract-from-analysis.js';
+export {
+  handleAutoContractFromAnalysis,
+  buildAutoContractFromAnalysisHandler,
+} from './auto-contract-from-analysis.js';
