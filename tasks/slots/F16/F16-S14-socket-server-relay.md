@@ -3,12 +3,12 @@ id: F16-S14
 title: Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#6-socket-events
-status: in-progress
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T05:20:17Z
-completed_at: null
+completed_at: 2026-06-16T05:40:13Z
 pr_url: null
 depends_on: [F16-S01, F16-S03, F16-S07]
 blocks: [F16-S15]
@@ -20,6 +20,7 @@ docs_required: false
 docs_audience: [dev]
 docs_artifacts: []
 ---
+
 # F16-S14 — Socket server + relay
 
 ## Objetivo
