@@ -128,7 +128,7 @@ CREATE INDEX IF NOT EXISTS "idx_templates_meta_id"
 --> statement-breakpoint
 
 -- Trigger: atualiza updated_at em todo UPDATE.
-CREATE TRIGGER "trg_whatsapp_templates_updated_at"
+CREATE OR REPLACE TRIGGER "trg_whatsapp_templates_updated_at"
   BEFORE UPDATE ON "whatsapp_templates"
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 --> statement-breakpoint
@@ -243,7 +243,7 @@ CREATE INDEX IF NOT EXISTS "idx_followup_rules_active"
 --> statement-breakpoint
 
 -- Trigger: atualiza updated_at em todo UPDATE.
-CREATE TRIGGER "trg_followup_rules_updated_at"
+CREATE OR REPLACE TRIGGER "trg_followup_rules_updated_at"
   BEFORE UPDATE ON "followup_rules"
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 --> statement-breakpoint
@@ -385,6 +385,6 @@ CREATE INDEX IF NOT EXISTS "idx_followup_jobs_lead"
 --> statement-breakpoint
 
 -- Trigger: atualiza updated_at em todo UPDATE.
-CREATE TRIGGER "trg_followup_jobs_updated_at"
+CREATE OR REPLACE TRIGGER "trg_followup_jobs_updated_at"
   BEFORE UPDATE ON "followup_jobs"
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
