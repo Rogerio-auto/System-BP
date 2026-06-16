@@ -1,5 +1,5 @@
 // =============================================================================
-// features/contracts/hooks.ts — TanStack Query hooks para contratos (F17-S05, F17-S06).
+// features/contracts/hooks.ts — TanStack Query hooks para contratos (F17-S05, F17-S06, F17-S11).
 //
 // Hooks exportados:
 //   - useContracts(filters)          — lista paginada
@@ -7,16 +7,24 @@
 //   - useSignContract()              — mutação: assinar contrato
 //   - useContractHealth(id)          — saúde de boletos (F17-S06)
 //   - useContractDues(customerId, contractReference) — parcelas do contrato (F17-S06)
+//   - useCreateContract()            — mutação: criar novo contrato (F17-S11)
 //
 // Nunca useEffect + fetch — sempre TanStack Query.
 // Invalidate após mutate para manter o cache consistente.
 // =============================================================================
+import type { ContractCreate } from '@elemento/shared-schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { usePaymentDues } from '../billing';
 
-import { fetchContract, fetchContracts, fetchContractHealth, signContract } from './api';
-import type { ContractsFilters } from './schemas';
+import {
+  createContract,
+  fetchContract,
+  fetchContracts,
+  fetchContractHealth,
+  signContract,
+} from './api';
+import type { Contract, ContractsFilters } from './schemas';
 
 // ---------------------------------------------------------------------------
 // Query keys
@@ -137,4 +145,36 @@ export function useContractDues(customerId: string, contractRef: string) {
     ...result,
     dues: filteredData,
   };
+}
+
+// ---------------------------------------------------------------------------
+// useCreateContract — mutação para criar um novo contrato (F17-S11)
+// ---------------------------------------------------------------------------
+
+export interface UseCreateContractOptions {
+  onSuccess?: ((contract: Contract) => void) | undefined;
+  onError?: ((error: Error) => void) | undefined;
+}
+
+/**
+ * Cria um novo contrato via POST /api/contracts.
+ * Após sucesso invalida a lista de contratos para forçar refetch.
+ * Permissão: contracts:write (verificada no backend).
+ */
+export function useCreateContract(opts: UseCreateContractOptions = {}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: ContractCreate) => createContract(data),
+    onSuccess: (contract) => {
+      // Invalida todas as listas de contratos para refletir o novo item
+      void queryClient.invalidateQueries({
+        queryKey: CONTRACT_KEYS.lists(),
+      });
+      opts.onSuccess?.(contract);
+    },
+    onError: (err: Error) => {
+      opts.onError?.(err);
+    },
+  });
 }

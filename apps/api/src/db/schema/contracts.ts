@@ -45,6 +45,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { creditAnalyses } from './creditAnalyses.js';
 import { customers } from './customers.js';
 import { organizations } from './organizations.js';
 
@@ -87,6 +88,16 @@ export const contracts = pgTable(
      * Sem FK: credit_product_rules pode não existir para dados migrados.
      */
     ruleVersionId: uuid('rule_version_id'),
+
+    /**
+     * Análise de crédito que originou este contrato.
+     * nullable: contratos migrados do legado não possuem análise associada.
+     * FK ON DELETE SET NULL: a exclusão da análise não destrói o contrato
+     * (o contrato é registro contábil e sobrevive como dado financeiro).
+     * Unique parcial por (organization_id, analysis_id) WHERE NOT NULL:
+     * uma análise aprovada gera no máximo 1 contrato por organização.
+     */
+    analysisId: uuid('analysis_id'),
 
     /**
      * Valor principal do contrato (capital emprestado) em reais.
@@ -173,6 +184,17 @@ export const contracts = pgTable(
       foreignColumns: [customers.id],
     }).onDelete('restrict'),
 
+    /**
+     * Análise de crédito que originou o contrato.
+     * ON DELETE SET NULL: excluir a análise não destrói o contrato;
+     * o vínculo é informativo e o contrato permanece como registro contábil.
+     */
+    fkAnalysis: foreignKey({
+      name: 'fk_contracts_analysis',
+      columns: [table.analysisId],
+      foreignColumns: [creditAnalyses.id],
+    }).onDelete('set null'),
+
     // -------------------------------------------------------------------------
     // Check Constraints
     // -------------------------------------------------------------------------
@@ -213,6 +235,14 @@ export const contracts = pgTable(
       table.organizationId,
       table.contractReference,
     ),
+
+    /**
+     * Partial unique: 1 contrato por análise de crédito por organização.
+     * WHERE analysis_id IS NOT NULL: não bloqueia contratos do legado (sem análise).
+     * Previne duplicidade silenciosa em automações análise → contrato.
+     * Drizzle não suporta partial indexes nativamente — definido aqui como
+     * comentário informativo; o índice real é criado na migration 0061.
+     */
 
     /**
      * Contratos por cliente, mais recentes primeiro.
