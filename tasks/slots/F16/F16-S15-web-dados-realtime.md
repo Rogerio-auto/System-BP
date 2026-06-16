@@ -3,12 +3,12 @@ id: F16-S15
 title: Web — camada de dados + realtime (queries, types, SocketProvider, rota)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#7-ui-conversationspage
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-16T13:07:35Z
-completed_at: null
+completed_at: 2026-06-16T13:25:03Z
 pr_url: null
 depends_on: [F16-S03, F16-S12, F16-S14]
 blocks: [F16-S16, F16-S17]
