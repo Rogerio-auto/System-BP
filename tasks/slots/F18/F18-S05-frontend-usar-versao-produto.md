@@ -3,12 +3,12 @@ id: F18-S05
 title: Frontend — "Usar esta versão" na RuleTimeline (Onda 1 item 6)
 phase: F18
 task_ref: docs/planejamento-2026-06-evolucao.md#épico-d--versão-do-produto-de-crédito-a-usar-item-6
-status: in-progress
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-16T13:09:58Z
-completed_at: null
+completed_at: 2026-06-16T13:22:36Z
 pr_url: null
 depends_on: [F18-S04]
 blocks: []
