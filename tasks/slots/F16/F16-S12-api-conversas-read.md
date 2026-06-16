@@ -3,11 +3,11 @@ id: F16-S12
 title: API conversas (read) — list, get, messages (cursor), window state
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#7-ui-conversationspage
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-16T05:48:28Z
 completed_at: null
 pr_url: null
 depends_on: [F16-S03, F16-S07]
