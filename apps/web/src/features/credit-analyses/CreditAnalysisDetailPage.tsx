@@ -30,7 +30,7 @@ import { LinkedContractBadge } from '../contracts/LinkedContractBadge';
 import { AddVersionModal, DecideModal, RequestReviewModal } from './components/CreditAnalysisForm';
 import { CreditAnalysisStatusBadge } from './components/CreditAnalysisStatusBadge';
 import { CreditAnalysisVersionTimeline } from './components/CreditAnalysisVersionTimeline';
-import { useCreditAnalysis } from './hooks/useCreditAnalyses';
+import { useAnalysisVersions, useCreditAnalysis } from './hooks/useCreditAnalyses';
 import { DECIDABLE_STATUSES } from './schemas';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -132,6 +132,7 @@ export function CreditAnalysisDetailPage(): React.JSX.Element {
   const analysisId = id ?? '';
 
   const { data: analysis, isLoading, isError, refetch } = useCreditAnalysis(analysisId);
+  const { data: versionsData, isLoading: versionsLoading } = useAnalysisVersions(analysisId);
   const { toast } = useToast();
   const hasPermission = useAuthStore((s) => s.hasPermission);
 
@@ -166,13 +167,13 @@ export function CreditAnalysisDetailPage(): React.JSX.Element {
     );
   }
 
-  // Versões para a timeline — vindas da versão atual (API retorna versões via current_version).
-  // A API de detalhe retorna apenas a versão atual. O histórico completo viria de um endpoint
-  // de versões. Aqui usamos a current_version se disponível, para a timeline básica.
+  // Histórico completo de versões via endpoint dedicado.
+  // Fallback para current_version enquanto o fetch de versões não completa.
   const versions = React.useMemo(() => {
-    if (!analysis?.current_version) return [];
-    return [analysis.current_version];
-  }, [analysis]);
+    if (versionsData && versionsData.length > 0) return versionsData;
+    if (analysis?.current_version) return [analysis.current_version];
+    return [];
+  }, [versionsData, analysis]);
 
   return (
     <>
@@ -434,7 +435,10 @@ export function CreditAnalysisDetailPage(): React.JSX.Element {
               Histórico de versões
             </h2>
 
-            <CreditAnalysisVersionTimeline versions={versions} isLoading={isLoading} />
+            <CreditAnalysisVersionTimeline
+              versions={versions}
+              isLoading={isLoading || versionsLoading}
+            />
           </div>
         </div>
       </div>

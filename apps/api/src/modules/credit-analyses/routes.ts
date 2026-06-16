@@ -33,6 +33,7 @@ import {
   getAnalysisController,
   listAnalysesByLeadController,
   listAnalysesController,
+  listVersionsController,
   requestReviewController,
 } from './controller.js';
 import {
@@ -43,6 +44,7 @@ import {
   CreditAnalysisRequestReviewSchema,
   CreditAnalysisResponseSchema,
   CreditAnalysisVersionCreateSchema,
+  CreditAnalysisVersionResponseSchema,
   analysisIdParamSchema,
   leadIdParamSchema,
 } from './schemas.js';
@@ -142,6 +144,27 @@ export const creditAnalysesRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: WRITE_PERMS })],
     },
     createAnalysisController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // GET /api/credit-analyses/:id/versions — histórico de versões imutável
+  // ---------------------------------------------------------------------------
+  app.get(
+    '/api/credit-analyses/:id/versions',
+    {
+      schema: {
+        tags: ['Credit Analyses'],
+        summary: 'Listar versões de uma análise',
+        description: 'Retorna todas as versões de parecer de uma análise, ordem DESC.',
+        security: [{ bearerAuth: [] }],
+        params: analysisIdParamSchema,
+        response: {
+          200: z.array(CreditAnalysisVersionResponseSchema),
+        },
+      },
+      preHandler: [authorize({ permissions: READ_PERMS })],
+    },
+    listVersionsController,
   );
 
   // ---------------------------------------------------------------------------

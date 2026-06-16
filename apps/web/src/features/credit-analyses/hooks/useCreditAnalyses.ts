@@ -23,6 +23,7 @@ import {
   decideCreditAnalysis,
   fetchCreditAnalysis,
   fetchCreditAnalysesList,
+  fetchCreditAnalysisVersions,
   fetchLeadCreditAnalyses,
   requestCreditAnalysisReview,
 } from '../api';
@@ -34,6 +35,7 @@ import type {
   CreditAnalysisRequestReviewForm,
   CreditAnalysisResponse,
   CreditAnalysisVersionForm,
+  CreditAnalysisVersionResponse,
 } from '../schemas';
 
 // ─── Query keys ───────────────────────────────────────────────────────────────
@@ -44,6 +46,7 @@ export const CREDIT_ANALYSES_KEYS = {
   list: (filters: CreditAnalysisFilters) => [...CREDIT_ANALYSES_KEYS.lists(), filters] as const,
   details: () => [...CREDIT_ANALYSES_KEYS.all, 'detail'] as const,
   detail: (id: string) => [...CREDIT_ANALYSES_KEYS.details(), id] as const,
+  versions: (id: string) => [...CREDIT_ANALYSES_KEYS.all, 'versions', id] as const,
   leadAnalyses: (leadId: string, filters: CreditAnalysisFilters) =>
     [...CREDIT_ANALYSES_KEYS.all, 'lead', leadId, filters] as const,
 } as const;
@@ -90,6 +93,26 @@ export function useCreditAnalysis(id: string): {
   });
 
   return { data, isLoading, isError, error: error as Error | null, refetch };
+}
+
+// ─── useAnalysisVersions ──────────────────────────────────────────────────────
+
+/**
+ * Histórico completo de versões de uma análise (GET /api/credit-analyses/:id/versions).
+ * Invalida automaticamente quando uma nova versão é adicionada.
+ */
+export function useAnalysisVersions(analysisId: string): {
+  data: CreditAnalysisVersionResponse[] | undefined;
+  isLoading: boolean;
+  isError: boolean;
+} {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: CREDIT_ANALYSES_KEYS.versions(analysisId),
+    queryFn: () => fetchCreditAnalysisVersions(analysisId),
+    enabled: Boolean(analysisId),
+    staleTime: 30_000,
+  });
+  return { data, isLoading, isError };
 }
 
 // ─── useLeadCreditAnalyses ────────────────────────────────────────────────────
@@ -165,9 +188,8 @@ export function useAddVersion(
   const { mutate, isPending } = useMutation({
     mutationFn: (body: CreditAnalysisVersionForm) => addCreditAnalysisVersion(analysisId, body),
     onSuccess: (data) => {
-      void queryClient.invalidateQueries({
-        queryKey: CREDIT_ANALYSES_KEYS.detail(analysisId),
-      });
+      void queryClient.invalidateQueries({ queryKey: CREDIT_ANALYSES_KEYS.detail(analysisId) });
+      void queryClient.invalidateQueries({ queryKey: CREDIT_ANALYSES_KEYS.versions(analysisId) });
       void queryClient.invalidateQueries({ queryKey: CREDIT_ANALYSES_KEYS.lists() });
       callbacks?.onSuccess?.(data);
     },
@@ -198,9 +220,8 @@ export function useDecideAnalysis(
   const { mutate, isPending } = useMutation({
     mutationFn: (body: CreditAnalysisDecideForm) => decideCreditAnalysis(analysisId, body),
     onSuccess: (data) => {
-      void queryClient.invalidateQueries({
-        queryKey: CREDIT_ANALYSES_KEYS.detail(analysisId),
-      });
+      void queryClient.invalidateQueries({ queryKey: CREDIT_ANALYSES_KEYS.detail(analysisId) });
+      void queryClient.invalidateQueries({ queryKey: CREDIT_ANALYSES_KEYS.versions(analysisId) });
       void queryClient.invalidateQueries({ queryKey: CREDIT_ANALYSES_KEYS.lists() });
       callbacks?.onSuccess?.(data);
     },
@@ -231,9 +252,8 @@ export function useRequestReview(
     mutationFn: (body: CreditAnalysisRequestReviewForm) =>
       requestCreditAnalysisReview(analysisId, body),
     onSuccess: (data) => {
-      void queryClient.invalidateQueries({
-        queryKey: CREDIT_ANALYSES_KEYS.detail(analysisId),
-      });
+      void queryClient.invalidateQueries({ queryKey: CREDIT_ANALYSES_KEYS.detail(analysisId) });
+      void queryClient.invalidateQueries({ queryKey: CREDIT_ANALYSES_KEYS.versions(analysisId) });
       void queryClient.invalidateQueries({ queryKey: CREDIT_ANALYSES_KEYS.lists() });
       callbacks?.onSuccess?.(data);
     },

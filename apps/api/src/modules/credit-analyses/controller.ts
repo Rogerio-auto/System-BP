@@ -35,6 +35,7 @@ import {
   getAnalysisById,
   listAnalyses,
   listAnalysesByLead,
+  listVersionsByAnalysis,
   requestReview,
 } from './service.js';
 
@@ -149,6 +150,20 @@ export async function decideAnalysisController(
   const { id } = typedParams<AnalysisIdParam>(request);
   const result = await decideAnalysis(db, actor, id, typedBody<CreditAnalysisDecide>(request));
   return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/credit-analyses/:id/versions
+// ---------------------------------------------------------------------------
+
+export async function listVersionsController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const { id } = typedParams<AnalysisIdParam>(request);
+  const versions = await listVersionsByAnalysis(db, actor, id);
+  return reply.status(200).send(versions);
 }
 
 // ---------------------------------------------------------------------------

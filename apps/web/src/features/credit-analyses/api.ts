@@ -19,6 +19,7 @@ import type {
   CreditAnalysisRequestReviewForm,
   CreditAnalysisResponse,
   CreditAnalysisVersionForm,
+  CreditAnalysisVersionResponse,
 } from './schemas';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -50,6 +51,18 @@ export async function fetchCreditAnalysesList(
  */
 export async function fetchCreditAnalysis(id: string): Promise<CreditAnalysisResponse> {
   return api.get<CreditAnalysisResponse>(`/api/credit-analyses/${encodeURIComponent(id)}`);
+}
+
+/**
+ * GET /api/credit-analyses/:id/versions — histórico completo de versões.
+ * Permissão: credit_analyses:read
+ */
+export async function fetchCreditAnalysisVersions(
+  id: string,
+): Promise<CreditAnalysisVersionResponse[]> {
+  return api.get<CreditAnalysisVersionResponse[]>(
+    `/api/credit-analyses/${encodeURIComponent(id)}/versions`,
+  );
 }
 
 /**

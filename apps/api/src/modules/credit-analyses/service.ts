@@ -43,6 +43,7 @@ import {
   findCurrentVersion,
   findLeadName,
   findLeadNamesByIds,
+  findVersionsByAnalysisId,
   insertAnalysis,
   insertVersion,
   nextVersionNumber,
@@ -235,6 +236,23 @@ export async function getAnalysisById(
   if (!analysis) throw new NotFoundError('Análise de crédito não encontrada');
 
   return toAnalysisResponse(db, analysis, await findLeadName(db, analysis.leadId));
+}
+
+// ---------------------------------------------------------------------------
+// List versions of an analysis
+// ---------------------------------------------------------------------------
+
+export async function listVersionsByAnalysis(
+  db: Database,
+  actor: ActorContext,
+  analysisId: string,
+): Promise<CreditAnalysisVersionResponse[]> {
+  // Valida que a análise existe e pertence à org + city scope do actor
+  const analysis = await findAnalysisById(db, analysisId, actor.organizationId, actor.cityScopeIds);
+  if (!analysis) throw new NotFoundError('Análise de crédito não encontrada');
+
+  const versions = await findVersionsByAnalysisId(db, analysisId);
+  return versions.map((v) => toVersionResponse(v));
 }
 
 // ---------------------------------------------------------------------------
