@@ -81,6 +81,7 @@ function mapContractRow(row: typeof contracts.$inferSelect): ContractResponse {
     signed_at: row.signedAt ? row.signedAt.toISOString() : null,
     first_due_date: row.firstDueDate ?? null,
     last_due_date: row.lastDueDate ?? null,
+    analysis_id: row.analysisId ?? null,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };
@@ -200,6 +201,7 @@ export async function createContract(
       status: 'draft',
       firstDueDate: input.first_due_date ?? null,
       lastDueDate: input.last_due_date ?? null,
+      analysisId: input.analysis_id ?? null,
     })
     .returning();
 
