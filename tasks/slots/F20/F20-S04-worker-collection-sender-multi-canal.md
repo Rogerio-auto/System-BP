@@ -3,20 +3,19 @@ id: F20-S04
 title: Worker — collection-sender e collection-scheduler: multi-canal via tabela channels
 phase: F20
 task_ref: docs/planejamento-2026-06-multi-canal.md
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: null
 completed_at: 2026-06-17T05:32:44Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/301
 depends_on: [F20-S01, F20-S02]
 blocks: []
 labels: [backend, worker, cobranca, multi-canal, whatsapp]
 source_docs: []
 docs_required: false
 ---
-
 # F20-S04 — Worker: collection-sender + collection-scheduler multi-canal
 
 ## Objetivo

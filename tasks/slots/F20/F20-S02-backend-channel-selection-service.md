@@ -3,20 +3,19 @@ id: F20-S02
 title: Backend — Channel Selection Service (resolução de canal para workers e módulos)
 phase: F20
 task_ref: docs/planejamento-2026-06-multi-canal.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-17T04:14:58Z
 completed_at: 2026-06-17T04:26:37Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/300
 depends_on: [F20-S01]
 blocks: [F20-S03, F20-S04, F20-S05, F20-S06]
 labels: [backend, multi-canal, whatsapp, channels]
 source_docs: []
 docs_required: false
 ---
-
 # F20-S02 — Backend: Channel Selection Service
 
 ## Objetivo
