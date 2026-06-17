@@ -55,6 +55,7 @@ import { tutorialsRoutes } from './modules/tutorials/routes.js';
 import { usersRoutes } from './modules/users/routes.js';
 import { whatsappRoutes } from './modules/whatsapp/routes.js';
 import { openapiPlugin } from './plugins/openapi.js';
+import { socketPlugin } from './plugins/socket.js';
 import { dataSubjectRoutes } from './routes/data-subject.routes.js';
 import { isAppError } from './shared/errors.js';
 
@@ -230,6 +231,13 @@ export async function buildApp() {
     timeWindow: '1 minute',
   });
   await app.register(sensible);
+
+  // Socket.io — namespace /livechat (F16-S25).
+  // Deve ser registrado antes do listen() para que o SocketIOServer se anexe
+  // ao servidor HTTP antes que ele comece a aceitar conexões.
+  // O relay (startSocketRelay) é iniciado em server.ts, após app.listen(),
+  // para não abrir conexão RabbitMQ em testes (buildApp sem listen).
+  await app.register(socketPlugin);
 
   // OpenAPI 3.1 spec — exposta quando OPENAPI_PUBLIC_ENABLED=true ou fora de produção.
   // Em produção sem a flag: plugin NÃO é registrado → /openapi.json retorna 404 (sem fingerprinting).
