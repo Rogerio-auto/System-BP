@@ -197,6 +197,24 @@ const envSchema = z.object({
   // Manter em segredo — nunca exposto no frontend.
   FACEBOOK_APP_SECRET: z.string().min(1).optional(),
 
+  // ---- IA no livechat (F16-S28) -------------------------------------------
+  // Allowlist de numeros de telefone para o agente IA responder durante homologacao.
+  // Formato: CSV de telefones normalizados (apenas digitos, sem +).
+  // Ex: "5569999990000,5569988887777"
+  // Vazio (default): sem restricao de numero — comportamento guiado pela flag ai.livechat_agent.enabled.
+  // LGPD: telefones nunca logados em texto plano — apenas a contagem da lista eh logada.
+  AI_LIVECHAT_ALLOWLIST: z
+    .string()
+    .optional()
+    .transform((v) =>
+      v
+        ? v
+            .split(',')
+            .map((s) => s.trim().replace(/[^0-9]/g, ''))
+            .filter(Boolean)
+        : [],
+    ),
+
   // ---- Redis (F16-S01 live chat) ------------------------------------------
   REDIS_URL: z.string().url().optional().default('redis://localhost:6379'),
 

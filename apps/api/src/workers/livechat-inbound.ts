@@ -57,6 +57,7 @@ import {
   publish,
   QUEUES,
 } from '../lib/queue/index.js';
+import { shouldAiRespond } from '../modules/livechat/ai-gate.js';
 import {
   ensureContactConversation,
   findChannel,
@@ -290,6 +291,49 @@ export async function processMessage(
         QUEUES.socketRelay,
         makeEnvelope(QUEUES.socketRelay, organizationId, relayPayload),
       );
+
+      // ----------------------------------------------------------------
+      // 3f. Gate da IA — publica em hm.q.livechat.ai se gate passar (F16-S28)
+      // Falha de publish nao quebra o ack: try/catch com warning.
+      // LGPD: job sem PII bruta — apenas IDs internos opacos + contactRemoteId opaco.
+      // contactRemoteId e opaco (identificador do provider, sem PII legivel fora contexto).
+      // ----------------------------------------------------------------
+      try {
+        const aiShouldRespond = await shouldAiRespond({
+          db,
+          organizationId,
+          // LGPD: contactRemoteId nunca logado — apenas comparado com allowlist
+          contactRemoteId: event.contactRemoteId,
+          // `message.type` e o tipo real persistido (normalizado pelo schema)
+          messageType: message.type,
+        });
+
+        if (aiShouldRespond) {
+          await publish(
+            QUEUES.livechatAi,
+            makeEnvelope(QUEUES.livechatAi, organizationId, {
+              organizationId,
+              channelId,
+              conversationId,
+              messageId: message.id,
+              // contactRemoteId opaco: nao eh CPF nem nome — e o ID do provider (ex: wamid normalizado)
+              // Necessario para o worker de IA identificar a origem da resposta.
+              contactRemoteId: event.contactRemoteId,
+            }),
+          );
+
+          log.info(
+            { organizationId, channelId, conversationId, messageId: message.id },
+            'livechat-inbound: job de IA enfileirado em hm.q.livechat.ai',
+          );
+        }
+      } catch (err) {
+        // Falha de gate/publish nao quebra o ack — apenas warning
+        log.warn(
+          { err, organizationId, channelId, conversationId },
+          'livechat-inbound: falha ao verificar gate IA ou publicar job — continuando',
+        );
+      }
 
       return 'ack';
     }

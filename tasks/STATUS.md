@@ -198,7 +198,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S25 | Ligar tempo real — registrar socketPlugin + startSocketRelay no boot                                | 🟣 review    | critical   | —                                  |
 | F16-S26 | Conversations backend — read emite conversation:updated + PATCH /lead aceita cityId                 | 🟢 available | high       | F16-S25                            |
 | F16-S27 | Front livechat — badge em tempo real, marcar lida ao abrir e Criar lead com cidade                  | 🟢 available | high       | F16-S25, F16-S26                   |
-| F16-S28 | IA no livechat — gate (flag + allowlist de teste) e trigger no inbound                              | 🟢 available | high       | —                                  |
+| F16-S28 | IA no livechat — gate (flag + allowlist de teste) e trigger no inbound                              | 🟣 review    | high       | —                                  |
 | F16-S29 | Worker livechat-ai — LangGraph responde no livechat via send service                                | 🟢 available | high       | F16-S28                            |
 
 ## Fase 17 —

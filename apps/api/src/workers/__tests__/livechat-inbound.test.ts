@@ -17,6 +17,8 @@
 //  10. Evento não suportado (story_mention) → ack silencioso
 //  11. [F16-S22] conversa nova (leadId null) → chama linkOrCreateLeadForConversation
 //  12. [F16-S22] conversa existente com lead (leadId set) → pula auto-link
+//  13. [F16-S28] gate IA passa → publica em hm.q.livechat.ai
+//  14. [F16-S28] gate IA nao passa (falha) → nao publica, ack normal
 // =============================================================================
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -147,6 +149,7 @@ vi.mock('../../lib/queue/index.js', () => ({
     inboundMedia: 'hm.q.inbound.media',
     outboundRequest: 'hm.q.outbound.request',
     socketRelay: 'hm.q.socket.relay',
+    livechatAi: 'hm.q.livechat.ai',
   },
 }));
 
@@ -197,6 +200,15 @@ vi.mock('../../modules/livechat/service.js', () => ({
       this.name = 'NotFoundError';
     }
   },
+}));
+
+// ---------------------------------------------------------------------------
+// Mock ai-gate (F16-S28)
+// ---------------------------------------------------------------------------
+const mockShouldAiRespond = vi.fn().mockResolvedValue(false);
+
+vi.mock('../../modules/livechat/ai-gate.js', () => ({
+  shouldAiRespond: (...args: unknown[]) => mockShouldAiRespond(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -615,5 +627,56 @@ describe('processMessage', () => {
     expect(result).toBe('ack');
     // Com leadId já preenchido, não deve chamar linkOrCreateLeadForConversation
     expect(mockLinkOrCreateLeadForConversation).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Cenário 13: [F16-S28] gate IA passa → publica em hm.q.livechat.ai
+  // -------------------------------------------------------------------------
+  it('13. [F16-S28] shouldAiRespond=true → publica em hm.q.livechat.ai', async () => {
+    mockShouldAiRespond.mockResolvedValueOnce(true);
+
+    const event = makeMessageEvent();
+    const buf = makeEnvelopeBuffer(event);
+    mockEnvelopeSuccess(event);
+
+    const result = await processMessage(buf, mockDb as never);
+
+    expect(result).toBe('ack');
+    // Deve ter publicado no livechat.ai
+    expect(mockPublish).toHaveBeenCalledWith(
+      'hm.q.livechat.ai',
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          organizationId: ORG_ID,
+          conversationId: CONVERSATION_ID,
+          messageId: MESSAGE_ID,
+        }),
+      }),
+    );
+    // Deve ter publicado no socket relay também
+    expect(mockPublish).toHaveBeenCalledWith(
+      'hm.q.socket.relay',
+      expect.objectContaining({ payload: expect.objectContaining({ event: 'message:new' }) }),
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Cenário 14: [F16-S28] gate IA falha → nao publica, ack normal
+  // -------------------------------------------------------------------------
+  it('14. [F16-S28] shouldAiRespond lança erro → não publica em livechat.ai, ack normal', async () => {
+    mockShouldAiRespond.mockRejectedValueOnce(new Error('gate error'));
+
+    const event = makeMessageEvent();
+    const buf = makeEnvelopeBuffer(event);
+    mockEnvelopeSuccess(event);
+
+    const result = await processMessage(buf, mockDb as never);
+
+    // Falha do gate nao deve quebrar o ack
+    expect(result).toBe('ack');
+    // Nao deve ter publicado no livechat.ai
+    expect(mockPublish).not.toHaveBeenCalledWith('hm.q.livechat.ai', expect.anything());
+    // Mas deve ter publicado no socket relay (pipeline normal)
+    expect(mockPublish).toHaveBeenCalledWith('hm.q.socket.relay', expect.anything());
   });
 });

@@ -3,12 +3,12 @@ id: F16-S28
 title: IA no livechat — gate (flag + allowlist de teste) e trigger no inbound
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-17T20:57:02Z
+completed_at: 2026-06-17T21:04:44Z
 pr_url: null
 depends_on: []
 blocks: [F16-S29]
