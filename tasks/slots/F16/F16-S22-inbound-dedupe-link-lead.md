@@ -3,13 +3,13 @@ id: F16-S22
 title: Inbound dedupe-and-link contato→lead + flag auto-lead
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#1-fluxo-de-mensagem-inbound
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-17T17:45:51Z
 completed_at: 2026-06-17T18:31:37Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/307
 depends_on: [F16-S07, F16-S08]
 blocks: [F16-S23, F16-S24]
 labels: [lgpd-impact]
