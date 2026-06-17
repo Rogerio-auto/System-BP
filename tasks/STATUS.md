@@ -262,8 +262,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------- | ---------------------------------- |
 | F20-S01 | Schema — channel_id em followup_rules, followup_jobs, collection_rules, collection_jobs, credit_simulations (migration 0067) | 🟣 review      | high       | —                                  |
 | F20-S02 | Backend — Channel Selection Service (resolução de canal para workers e módulos)                                              | 🟣 review      | high       | F20-S01                            |
-| F20-S03 | Worker — followup-sender e followup-scheduler: multi-canal via tabela channels                                               | 🔵 in-progress | high       | F20-S01, F20-S02                   |
-| F20-S04 | Worker — collection-sender e collection-scheduler: multi-canal via tabela channels                                           | 🟢 available   | high       | F20-S01, F20-S02                   |
+| F20-S03 | Worker — followup-sender e followup-scheduler: multi-canal via tabela channels                                               | 🟢 available   | high       | F20-S01, F20-S02                   |
+| F20-S04 | Worker — collection-sender e collection-scheduler: multi-canal via tabela channels                                           | 🔵 in-progress | high       | F20-S01, F20-S02                   |
 | F20-S05 | Backend — simulations/service + billing/service: multi-canal via tabela channels                                             | 🟢 available   | high       | F20-S01, F20-S02                   |
 | F20-S06 | Backend — templates/metaClient: gestão de templates HSM via canal do banco                                                   | 🟢 available   | medium     | F20-S02, F20-S05                   |
 | F20-S07 | Frontend — canal padrão, seletor de canal em regras e simulações                                                             | 🟢 available   | high       | F20-S01, F20-S05                   |
