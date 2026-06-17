@@ -18,6 +18,7 @@
 import * as React from 'react';
 
 import { ChatList } from './ChatList';
+import { ConversationPanel } from './ConversationPanel';
 
 // ---------------------------------------------------------------------------
 // Placeholder da coluna de conversa (S17 vai substituir)
@@ -173,7 +174,11 @@ export function ConversationsLayout(): React.JSX.Element {
             </div>
           )}
 
-          {selectedId ? <ConversationPlaceholder /> : <ConversationPlaceholder />}
+          {selectedId !== null ? (
+            <ConversationPanel conversationId={selectedId} />
+          ) : (
+            <ConversationPlaceholder />
+          )}
         </main>
       )}
 

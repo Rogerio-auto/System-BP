@@ -123,8 +123,8 @@ export function ContextualHelp({
     // Telemetria: registra tutorial_opened fire-and-forget (F12-S07).
     // Rate-limit no servidor de 30s — cliques rápidos são silenciados.
     trackEvent({
-      tutorialId: tutorial.id,
-      featureKey: tutorial.featureKey,
+      tutorialId: drawerTutorial.id,
+      featureKey: drawerTutorial.featureKey,
       eventType: 'tutorial_opened',
     });
   }

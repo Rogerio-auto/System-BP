@@ -80,6 +80,7 @@ function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
     lastInboundAt: null,
     lastMessageAt: null,
     kind: 'dm',
+    provider: 'meta_whatsapp',
     unreadCount: 0,
     createdAt: '2026-06-10T10:00:00.000Z',
     updatedAt: '2026-06-10T10:00:00.000Z',

@@ -166,6 +166,7 @@ export const ConversationSchema = z
       .nullable()
       .describe('Timestamp da última mensagem (inbound ou outbound).'),
     kind: ConversationKindSchema,
+    provider: ChannelProviderSchema.describe('Provider do canal da conversa.'),
     unreadCount: z.number().int().min(0).describe('Número de mensagens inbound não lidas.'),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
@@ -185,6 +186,7 @@ export const ConversationSchema = z
       lastInboundAt: '2026-06-16T10:00:00.000Z',
       lastMessageAt: '2026-06-16T10:00:00.000Z',
       kind: 'dm',
+      provider: 'meta_whatsapp',
       unreadCount: 2,
       createdAt: '2026-06-15T08:00:00.000Z',
       updatedAt: '2026-06-16T10:00:00.000Z',
@@ -223,6 +225,7 @@ export const ConversationDetailSchema = ConversationSchema.extend({
     lastInboundAt: '2026-06-16T10:00:00.000Z',
     lastMessageAt: '2026-06-16T10:00:00.000Z',
     kind: 'dm',
+    provider: 'meta_whatsapp',
     unreadCount: 0,
     createdAt: '2026-06-15T08:00:00.000Z',
     updatedAt: '2026-06-16T10:00:00.000Z',

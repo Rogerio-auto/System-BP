@@ -22,12 +22,95 @@ import * as React from 'react';
 
 import { cn } from '../../../lib/cn';
 import { useConversationSocket } from '../hooks/useConversationSocket';
-import { useMessages } from '../queries';
-import type { Message } from '../types';
+import { useConversation, useMessages } from '../queries';
+import type { ChannelProvider, Message } from '../types';
 
 import { MessageBubble } from './MessageBubble';
 import { isDifferentDay, formatDaySeparator } from './MessageBubble/utils';
 import { MessageComposer } from './MessageComposer';
+
+// ─── ConversationHeader ───────────────────────────────────────────────────────
+
+function ProviderBadge({ provider }: { provider: ChannelProvider }): React.JSX.Element {
+  const color =
+    provider === 'meta_whatsapp'
+      ? '#25d366'
+      : provider === 'meta_instagram'
+        ? '#e1306c'
+        : 'var(--brand-azul)';
+
+  const label =
+    provider === 'meta_whatsapp'
+      ? 'WhatsApp'
+      : provider === 'meta_instagram'
+        ? 'Instagram'
+        : 'Chat';
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-pill font-sans font-medium"
+      style={{
+        padding: '2px 8px',
+        fontSize: 11,
+        background: `color-mix(in srgb, ${color} 15%, transparent)`,
+        color,
+        border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+interface ConversationHeaderProps {
+  conversationId: string;
+}
+
+function ConversationHeader({ conversationId }: ConversationHeaderProps): React.JSX.Element {
+  const { data } = useConversation(conversationId);
+
+  const contactName = data?.data.contactName ?? data?.data.contactRemoteId ?? '…';
+  const provider = data?.composerState.provider;
+  const initial = contactName.charAt(0).toUpperCase();
+
+  return (
+    <div
+      className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+      style={{
+        borderBottom: '1px solid var(--border-subtle)',
+        background: 'var(--bg-elev-1)',
+        boxShadow: 'var(--elev-1)',
+      }}
+    >
+      {/* Avatar */}
+      <span
+        className="flex-shrink-0 inline-flex items-center justify-center rounded-full font-sans font-bold select-none"
+        style={{
+          width: 36,
+          height: 36,
+          background: 'var(--grad-azul)',
+          color: 'var(--brand-branco)',
+          fontSize: 'var(--text-sm)',
+          boxShadow: 'var(--elev-2)',
+        }}
+        aria-hidden="true"
+      >
+        {initial}
+      </span>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+        <span
+          className="font-sans font-semibold truncate"
+          style={{ fontSize: 'var(--text-sm)', color: 'var(--text)', letterSpacing: '-0.01em' }}
+        >
+          {contactName}
+        </span>
+        {provider !== undefined && <ProviderBadge provider={provider} />}
+      </div>
+    </div>
+  );
+}
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
@@ -302,6 +385,7 @@ export function ConversationPanel({
   if (isLoading) {
     return (
       <div className="flex flex-col h-full bg-surface-1">
+        <ConversationHeader conversationId={conversationId} />
         <div className="flex-1 overflow-hidden">
           <MessageSkeleton />
         </div>
@@ -314,6 +398,7 @@ export function ConversationPanel({
   if (isError) {
     return (
       <div className="flex flex-col h-full bg-surface-1">
+        <ConversationHeader conversationId={conversationId} />
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
           <div
             className="w-10 h-10 rounded-md flex items-center justify-center"
@@ -364,6 +449,7 @@ export function ConversationPanel({
   if (allMessages.length === 0) {
     return (
       <div className="flex flex-col h-full bg-surface-1">
+        <ConversationHeader conversationId={conversationId} />
         <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
           <div
             className="w-12 h-12 rounded-lg flex items-center justify-center"
@@ -400,6 +486,7 @@ export function ConversationPanel({
   // ── Estado principal ──────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full bg-surface-1">
+      <ConversationHeader conversationId={conversationId} />
       <MessageList
         items={listItems}
         onLoadMore={handleLoadMore}

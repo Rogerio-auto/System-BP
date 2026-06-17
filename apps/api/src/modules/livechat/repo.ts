@@ -26,7 +26,7 @@
 //   - Todos os métodos recebem `db: Database` para facilitar testes.
 // =============================================================================
 
-import { and, asc, desc, eq, isNull, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, isNull, lt, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import { channels } from '../../db/schema/channels.js';
@@ -197,16 +197,20 @@ export async function findConversationById(
   return row;
 }
 
+/** Conversa com provider do canal associado (denormalizado via JOIN). */
+export type ConversationRow = Conversation & { provider: string };
+
 /**
  * Lista conversas com filtros, escopo de cidade e paginação por cursor.
  *
  * Ordenação: last_message_at DESC (mais recente primeiro) para o ChatList.
  * LGPD: contact_phone_enc nunca retornado nesta listagem — coluna excluída.
+ * Provider: incluído via INNER JOIN com channels (channelId NOT NULL).
  */
 export async function listConversations(
   db: Database,
   filter: ListConversationsFilter,
-): Promise<Conversation[]> {
+): Promise<ConversationRow[]> {
   const { organizationId, cityScopeIds, channelId, status, assignedUserId, cursor, limit } = filter;
 
   const userCtx: UserScopeCtx = { cityScopeIds };
@@ -247,12 +251,20 @@ export async function listConversations(
     conditions.push(scopeCondition);
   }
 
-  return db
-    .select()
+  // INNER JOIN com channels: channelId é NOT NULL, logo não perde linhas.
+  // getTableColumns: spread seguro sem listar colunas manualmente.
+  const rows = await db
+    .select({
+      ...getTableColumns(conversations),
+      provider: channels.provider,
+    })
     .from(conversations)
+    .innerJoin(channels, eq(conversations.channelId, channels.id))
     .where(and(...conditions))
     .orderBy(desc(conversations.lastMessageAt))
     .limit(limit);
+
+  return rows as ConversationRow[];
 }
 
 /**

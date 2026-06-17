@@ -69,6 +69,7 @@ export interface Conversation {
   readonly lastInboundAt: string | null;
   readonly lastMessageAt: string | null;
   readonly kind: ConversationKind;
+  readonly provider: ChannelProvider;
   readonly unreadCount: number;
   readonly createdAt: string;
   readonly updatedAt: string;

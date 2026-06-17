@@ -25,12 +25,12 @@ import pino from 'pino';
 
 import type { Database } from '../../db/client.js';
 import { conversations } from '../../db/schema/conversations.js';
-import type { Conversation } from '../../db/schema/conversations.js';
 import type { Message } from '../../db/schema/messages.js';
 import { messages } from '../../db/schema/messages.js';
 import { whatsappTemplates } from '../../db/schema/whatsappTemplates.js';
 import { decryptPii } from '../../lib/crypto/pii.js';
 import type { UserScopeCtx } from '../../shared/scope.js';
+import type { ConversationRow } from '../livechat/repo.js';
 import type { ComposerState } from '../livechat/schemas.js';
 import {
   findChannel,
@@ -66,10 +66,10 @@ const log = pino({
 // ---------------------------------------------------------------------------
 
 /**
- * Converte uma Conversation (Drizzle) para o DTO público de listagem.
+ * Converte uma ConversationRow (Drizzle + provider join) para o DTO público de listagem.
  * SEM contactPhone (LGPD M1).
  */
-function toConversationDto(conv: Conversation): Omit<ConversationDetail, 'contactPhone'> {
+function toConversationDto(conv: ConversationRow): Omit<ConversationDetail, 'contactPhone'> {
   return {
     id: conv.id,
     organizationId: conv.organizationId,
@@ -84,6 +84,7 @@ function toConversationDto(conv: Conversation): Omit<ConversationDetail, 'contac
     lastInboundAt: conv.lastInboundAt?.toISOString() ?? null,
     lastMessageAt: conv.lastMessageAt?.toISOString() ?? null,
     kind: conv.kind as ConversationDetail['kind'],
+    provider: conv.provider as ConversationDetail['provider'],
     unreadCount: conv.unreadCount,
     createdAt: conv.createdAt.toISOString(),
     updatedAt: conv.updatedAt.toISOString(),
@@ -231,8 +232,11 @@ export async function getConversationDetailService(
     contactPhone = await decryptPii(conv.contactPhoneEnc);
   }
 
+  // Enrichece com provider do canal (já carregado no passo 2)
+  const convWithProvider: ConversationRow = { ...conv, provider: channel.provider };
+
   const data: ConversationDetail = {
-    ...toConversationDto(conv),
+    ...toConversationDto(convWithProvider),
     contactPhone,
   };
 

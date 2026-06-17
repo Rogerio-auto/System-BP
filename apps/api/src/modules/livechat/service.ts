@@ -51,6 +51,7 @@ import {
   updateConversationOnOutbound,
   updateMessageViewStatus,
 } from './repo.js';
+import type { ConversationRow } from './repo.js';
 import type {
   ComposerState,
   EnsureContactConversationInput,
@@ -391,11 +392,12 @@ export async function getConversation(
 /**
  * Lista conversas com filtros e escopo de cidade.
  * LGPD: contact_phone_enc nunca retornado nesta chamada.
+ * Provider incluído via JOIN com channels.
  */
 export async function listConversations(
   db: Database,
   filter: ListConversationsFilter,
-): Promise<Conversation[]> {
+): Promise<ConversationRow[]> {
   return repoListConversations(db, filter);
 }
 
