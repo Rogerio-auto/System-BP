@@ -52,6 +52,7 @@ import {
   ForbiddenError,
   NotFoundError,
 } from '../../shared/errors.js';
+import { resolveChannelForSend } from '../channels/channel-selection.service.js';
 
 import { calculate } from './calculator.js';
 import {
@@ -507,8 +508,14 @@ export interface SendSimulationOptions {
   /** Chave de idempotência do header Idempotency-Key (UUID). */
   idempotencyKey: string;
   /**
+   * UUID do canal WhatsApp a usar (F20-S05: multi-canal).
+   * null/undefined = usar canal padrão ou primeiro ativo da organização.
+   * LGPD: channelId é ID técnico, não PII — pode ser logado.
+   */
+  channelId?: string | null;
+  /**
    * MetaWhatsAppClient injetável para testes.
-   * undefined | null = usar env (lança ExternalServiceError se não configurado).
+   * undefined | null = usar banco (resolveChannelForSend).
    */
   metaClient?: MetaWhatsAppClient | null | undefined;
 }
@@ -641,28 +648,26 @@ export async function sendSimulation(
 
   // ---------------------------------------------------------------------------
   // 5. Obter MetaWhatsAppClient
-  //    ExternalServiceError propagada se META_WHATSAPP_ACCESS_TOKEN ou
-  //    META_WHATSAPP_PHONE_NUMBER_ID não estiverem configurados.
+  //
+  //    F20-S05: credenciais resolvidas da tabela channels (não de env vars).
+  //    Prioridade: opts.metaClient (injeção p/ testes) → resolveChannelForSend.
+  //
+  //    resolveChannelForSend lança ExternalServiceError se org sem canal ativo.
+  //    LGPD: channelId logado pelo channel-selection.service; accessToken NUNCA.
   // ---------------------------------------------------------------------------
   let metaClient: MetaWhatsAppClient;
-  // `opts.metaClient` pode ser undefined (não passado), null (explícito) ou instance
-  // Com exactOptionalPropertyTypes, verificamos ambos undefined e null
+  // `opts.metaClient` pode ser undefined (não passado), null (explícito) ou instance.
+  // Com exactOptionalPropertyTypes, verificamos ambos undefined e null.
   const injectedClient = opts.metaClient;
   if (injectedClient !== undefined && injectedClient !== null) {
     metaClient = injectedClient;
   } else {
-    // Construtor lança ExternalServiceError se env não configurado
-    try {
-      metaClient = new MetaWhatsAppClient();
-    } catch (err) {
-      if (err instanceof ExternalServiceError) {
-        throw new ExternalServiceError(
-          `Meta WhatsApp não configurado — não é possível enviar a simulação: ${err.message}`,
-          { code: 'meta_not_configured', original: err.message },
-        );
-      }
-      throw err;
-    }
+    // Resolve credenciais do canal no banco — ExternalServiceError se sem canal ativo.
+    const resolved = await resolveChannelForSend(db, actor.organizationId, opts.channelId ?? null);
+    metaClient = new MetaWhatsAppClient({
+      accessToken: resolved.accessToken,
+      phoneNumberId: resolved.phoneNumberId,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -696,7 +701,18 @@ export async function sendSimulation(
   await db.transaction(async (tx) => {
     const txDb = tx as unknown as Database;
 
-    // 7a. INSERT interaction (channel whatsapp, outbound)
+    // 7a. Gravar channel_id na simulação (F20-S05: auditoria de canal).
+    //     SQL raw: gravamos o channelId do opts para rastreabilidade do canal usado.
+    //     LGPD: channel_id é ID técnico — não é PII.
+    if (opts.channelId !== null && opts.channelId !== undefined) {
+      await txDb.execute(
+        sql`UPDATE credit_simulations
+            SET channel_id = ${opts.channelId}::uuid
+            WHERE id = ${simulationId}`,
+      );
+    }
+
+    // 7b. INSERT interaction (channel whatsapp, outbound)
     //     external_ref = idempotency key → dedupe pela unique constraint
     //     content: sem PII bruta — apenas IDs opacos
     await txDb.insert(interactions).values({
@@ -714,7 +730,7 @@ export async function sendSimulation(
       },
     });
 
-    // 7b. EMIT simulations.sent_to_customer (sem PII)
+    // 7c. EMIT simulations.sent_to_customer (sem PII)
     //     Reutiliza o evento já tipado no AppEventDataMap (events/types.ts).
     //     message_id = wamid retornado pela Meta.
     await emit(txDb as unknown as Parameters<typeof emit>[0], {
@@ -732,7 +748,7 @@ export async function sendSimulation(
       },
     });
 
-    // 7c. AUDIT LOG
+    // 7d. AUDIT LOG
     await auditLog(txDb as unknown as Parameters<typeof auditLog>[0], {
       organizationId: actor.organizationId,
       actor: buildAuditActor(actor),

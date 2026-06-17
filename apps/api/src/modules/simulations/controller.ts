@@ -99,7 +99,12 @@ export async function sendSimulationController(
     'idempotency-key'
   ] as string;
 
-  const result = await sendSimulation(db, actor, simulationId, { idempotencyKey });
+  // channelId vem do body opcional (F20-S05: multi-canal).
+  // `as` justificado: Zod schema da rota valida o body como SendSimulationBodySchema.
+  const body = request.body as { channelId?: string | null } | undefined;
+  const channelId = body?.channelId ?? null;
+
+  const result = await sendSimulation(db, actor, simulationId, { idempotencyKey, channelId });
 
   return reply.status(200).send(result);
 }

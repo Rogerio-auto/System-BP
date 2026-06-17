@@ -134,6 +134,28 @@ export type SimulationListResponse = z.infer<typeof SimulationListResponseSchema
 // ---------------------------------------------------------------------------
 
 /**
+ * Body opcional do endpoint POST /api/simulations/:id/send.
+ *
+ * channelId: UUID do canal WhatsApp a usar para envio.
+ * Se omitido ou null, resolveChannelForSend usa o canal padrão (is_default=true)
+ * ou o primeiro canal ativo da organização.
+ *
+ * LGPD: channelId é ID técnico — não é PII; pode ser logado.
+ */
+export const SendSimulationBodySchema = z
+  .object({
+    channelId: z
+      .string()
+      .uuid('channelId deve ser UUID')
+      .nullable()
+      .optional()
+      .describe('UUID do canal WhatsApp a usar — omitir para usar o canal padrão da org'),
+  })
+  .optional();
+
+export type SendSimulationBody = z.infer<typeof SendSimulationBodySchema>;
+
+/**
  * Resposta do endpoint POST /api/simulations/:id/send.
  * Retornado em 200 tanto no disparo real como no caso idempotente (já enviado).
  */

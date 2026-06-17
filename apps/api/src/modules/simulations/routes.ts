@@ -30,6 +30,7 @@ import { authorize } from '../auth/middlewares/authorize.js';
 import { createSimulationController, sendSimulationController } from './controller.js';
 import { findLeadForSimulation, findSimulationsByLeadId } from './repository.js';
 import {
+  SendSimulationBodySchema,
   SendSimulationResponseSchema,
   SimulationCreateSchema,
   SimulationListQuerySchema,
@@ -195,6 +196,7 @@ export const simulationsRoutes: FastifyPluginAsyncZod = async (app) => {
           'Responde `already_sent` se a chave já foi usada nesta organização. ' +
           'Retorna 502 se a integração Meta WhatsApp não estiver configurada.',
         security: [{ bearerAuth: [] }],
+        body: SendSimulationBodySchema,
         params: z.object({
           id: z.string().uuid('id deve ser UUID').describe('UUID da simulação a enviar'),
         }),
