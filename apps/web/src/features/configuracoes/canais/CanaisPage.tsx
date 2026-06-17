@@ -23,6 +23,7 @@ import {
   useChannels,
   useConnectChannel,
   useDeleteChannel,
+  useSetDefaultChannel,
 } from './useChannels';
 
 // ─── Ícones SVG inline ────────────────────────────────────────────────────────
@@ -141,6 +142,104 @@ function StatusBadge({ isActive }: { isActive: boolean }): React.JSX.Element {
   );
 }
 
+// ─── Badge / botão de canal padrão ───────────────────────────────────────────
+
+type DefaultState = 'is_default' | 'set_default' | 'only_one';
+
+interface DefaultBadgeButtonProps {
+  state: DefaultState;
+  onSetDefault: () => void;
+  isPending: boolean;
+  error: string | null;
+}
+
+function DefaultBadgeButton({
+  state,
+  onSetDefault,
+  isPending,
+  error,
+}: DefaultBadgeButtonProps): React.JSX.Element {
+  if (state === 'is_default') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-sans text-xs font-semibold"
+        style={{ background: 'var(--success-bg)', color: 'var(--success)' }}
+        aria-label="Canal padrão da organização"
+      >
+        {/* Check icon */}
+        <svg
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          className="w-3 h-3 shrink-0"
+          aria-hidden="true"
+        >
+          <path d="M2 6l3 3 5-5" />
+        </svg>
+        Padrão
+      </span>
+    );
+  }
+
+  if (state === 'only_one') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-sans text-xs font-medium"
+        style={{ background: 'var(--surface-muted)', color: 'var(--text-3)' }}
+        aria-label="Canal único — é o padrão implícito"
+      >
+        Único canal
+      </span>
+    );
+  }
+
+  // state === 'set_default'
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={onSetDefault}
+        disabled={isPending}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-sans text-xs font-medium border border-border text-ink-3 transition-all duration-fast hover:text-azul hover:border-azul/40 hover:bg-azul/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-label="Definir como canal padrão"
+      >
+        {isPending ? (
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            className="w-3 h-3 animate-spin shrink-0"
+            aria-hidden="true"
+          >
+            <circle cx="8" cy="8" r="5.5" strokeOpacity={0.25} />
+            <path d="M8 2.5a5.5 5.5 0 0 1 5.5 5.5" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            className="w-3 h-3 shrink-0"
+            aria-hidden="true"
+          >
+            <circle cx="6" cy="6" r="4.5" />
+            <path d="M6 3.5v2.5l1.5 1.5" strokeLinecap="round" />
+          </svg>
+        )}
+        {isPending ? 'Definindo…' : 'Definir como padrão'}
+      </button>
+      {error && (
+        <span className="font-sans text-xs" style={{ color: 'var(--danger)' }} role="alert">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── Diálogo de confirmação de desconexão ─────────────────────────────────────
 
 interface ConfirmDialogProps {
@@ -226,14 +325,22 @@ function ConfirmDialog({
 
 interface ChannelCardProps {
   channel: ChannelResponse;
+  defaultState: DefaultState;
   onDisconnect: (id: string) => void;
   isDisconnecting: boolean;
+  onSetDefault: (id: string) => void;
+  isSettingDefault: boolean;
+  setDefaultError: string | null;
 }
 
 function ChannelCard({
   channel,
+  defaultState,
   onDisconnect,
   isDisconnecting,
+  onSetDefault,
+  isSettingDefault,
+  setDefaultError,
 }: ChannelCardProps): React.JSX.Element {
   const [confirmOpen, setConfirmOpen] = React.useState(false);
 
@@ -279,8 +386,14 @@ function ChannelCard({
           )}
         </div>
 
-        {/* Badge + botão */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Badge padrão + badge status + botão excluir */}
+        <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
+          <DefaultBadgeButton
+            state={defaultState}
+            onSetDefault={() => onSetDefault(channel.id)}
+            isPending={isSettingDefault}
+            error={setDefaultError}
+          />
           <StatusBadge isActive={channel.is_active} />
           <button
             type="button"
@@ -319,6 +432,10 @@ interface ConnectedChannelsSectionProps {
   onDisconnect: (id: string) => void;
   disconnectingId: string | null;
   isPendingDisconnect: boolean;
+  onSetDefault: (id: string) => void;
+  settingDefaultId: string | null;
+  isPendingSetDefault: boolean;
+  setDefaultErrors: Record<string, string>;
 }
 
 function ConnectedChannelsSection({
@@ -329,6 +446,10 @@ function ConnectedChannelsSection({
   onDisconnect,
   disconnectingId,
   isPendingDisconnect,
+  onSetDefault,
+  settingDefaultId,
+  isPendingSetDefault,
+  setDefaultErrors,
 }: ConnectedChannelsSectionProps): React.JSX.Element {
   if (isError) {
     return (
@@ -380,16 +501,33 @@ function ConnectedChannelsSection({
     );
   }
 
+  const isOnlyOne = channels.length === 1;
+
   return (
     <div className="flex flex-col gap-2">
-      {channels.map((channel) => (
-        <ChannelCard
-          key={channel.id}
-          channel={channel}
-          onDisconnect={onDisconnect}
-          isDisconnecting={isPendingDisconnect && disconnectingId === channel.id}
-        />
-      ))}
+      {channels.map((channel) => {
+        let defaultState: DefaultState;
+        if (isOnlyOne) {
+          defaultState = 'only_one';
+        } else if (channel.is_default) {
+          defaultState = 'is_default';
+        } else {
+          defaultState = 'set_default';
+        }
+
+        return (
+          <ChannelCard
+            key={channel.id}
+            channel={channel}
+            defaultState={defaultState}
+            onDisconnect={onDisconnect}
+            isDisconnecting={isPendingDisconnect && disconnectingId === channel.id}
+            onSetDefault={onSetDefault}
+            isSettingDefault={isPendingSetDefault && settingDefaultId === channel.id}
+            setDefaultError={setDefaultErrors[channel.id] ?? null}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -679,6 +817,51 @@ export function CanaisPage(): React.JSX.Element {
   const { channels, isLoading, isError, refetch } = useChannels();
   const { deleteChannel, isPending: isDeleting, pendingId: deletingId } = useDeleteChannel();
 
+  // Erros inline por canal (sem toast — conforme DoD)
+  const [setDefaultErrors, setSetDefaultErrors] = React.useState<Record<string, string>>({});
+
+  // pendingChannelIdRef: rastreia qual canal está sendo definido como padrão
+  // para associar o erro ao canal correto no onError
+  const pendingChannelIdRef = React.useRef<string | null>(null);
+
+  const {
+    setDefault: setDefaultMutation,
+    isPending: isSettingDefault,
+    pendingId: settingDefaultId,
+  } = useSetDefaultChannel({
+    onSuccess: () => {
+      if (pendingChannelIdRef.current) {
+        setSetDefaultErrors((prev) => {
+          const next = { ...prev };
+          delete next[pendingChannelIdRef.current!];
+          return next;
+        });
+      }
+    },
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : 'Erro ao definir canal padrão.';
+      if (pendingChannelIdRef.current) {
+        const id = pendingChannelIdRef.current;
+        setSetDefaultErrors((prev) => ({ ...prev, [id]: msg }));
+      }
+    },
+  });
+
+  const handleSetDefault = React.useCallback(
+    (channelId: string): void => {
+      pendingChannelIdRef.current = channelId;
+      // Limpa erro anterior deste canal antes de nova tentativa
+      setSetDefaultErrors((prev) => {
+        if (!prev[channelId]) return prev;
+        const next = { ...prev };
+        delete next[channelId];
+        return next;
+      });
+      setDefaultMutation(channelId);
+    },
+    [setDefaultMutation],
+  );
+
   return (
     <div
       className="flex flex-col gap-8"
@@ -722,6 +905,10 @@ export function CanaisPage(): React.JSX.Element {
           onDisconnect={deleteChannel}
           disconnectingId={deletingId}
           isPendingDisconnect={isDeleting}
+          onSetDefault={handleSetDefault}
+          settingDefaultId={settingDefaultId}
+          isPendingSetDefault={isSettingDefault}
+          setDefaultErrors={setDefaultErrors}
         />
       </div>
 

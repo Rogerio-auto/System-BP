@@ -59,6 +59,8 @@ export const CollectionRuleFormSchema = z.object({
   applies_to_status: PaymentDueStatusSchema.nullable().optional(),
   is_active: z.boolean().optional().default(false),
   max_attempts: z.number().int().min(1).max(10).optional().default(3),
+  // F20-S07: canal de envio opcional. null = usar canal padrão da organização.
+  channel_id: z.string().uuid().nullable().optional(),
 });
 
 export type CollectionRuleForm = z.infer<typeof CollectionRuleFormSchema>;
@@ -119,6 +121,8 @@ export interface CollectionRuleResponse {
   applies_to_status: PaymentDueStatus | null;
   is_active: boolean;
   max_attempts: number;
+  // F20-S07: canal de envio. null = canal padrão da organização.
+  channel_id: string | null;
   created_at: string;
   updated_at: string;
 }

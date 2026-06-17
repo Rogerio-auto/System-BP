@@ -81,11 +81,21 @@ function classifySendError(err: unknown): SendSimulationError {
 
 // ─── Fetcher ──────────────────────────────────────────────────────────────────
 
-async function postSendSimulation(simulationId: string): Promise<SendSimulationResponse> {
+interface SendSimulationParams {
+  simulationId: string;
+  /** UUID do canal de envio. null = usar canal padrão da organização. */
+  channelId?: string | null;
+}
+
+async function postSendSimulation(params: SendSimulationParams): Promise<SendSimulationResponse> {
   const idempotencyKey = crypto.randomUUID();
+  const body: Record<string, unknown> = {};
+  if (params.channelId) {
+    body.channelId = params.channelId;
+  }
   return api.post<SendSimulationResponse>(
-    `/api/simulations/${encodeURIComponent(simulationId)}/send`,
-    {},
+    `/api/simulations/${encodeURIComponent(params.simulationId)}/send`,
+    body,
     { headers: { 'idempotency-key': idempotencyKey } },
   );
 }
@@ -100,27 +110,33 @@ interface UseSendSimulationCallbacks {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
- * Mutation de envio de simulação por WhatsApp (F14-S06).
+ * Mutation de envio de simulação por WhatsApp (F14-S06, atualizado F20-S07).
  *
  * Uso:
  *   const { send, isPending, sendError, reset } = useSendSimulation({
  *     onSuccess: (data) => toast('Simulação enviada!'),
  *     onError: (err) => toast(err.message, 'danger'),
  *   });
- *   send(simulationId);
+ *   send(simulationId);                       // usa canal padrão
+ *   send(simulationId, channelId);            // usa canal específico (F20-S07)
  *
  * - Gera Idempotency-Key (UUID v4) automaticamente a cada chamada.
  * - isPending: true enquanto a requisição está em voo (use para desabilitar botão).
  * - sendError: erro tipado para UX específica por código (null quando sem erro).
  * - reset: limpa o estado de erro (use após fechar banner de erro).
+ * - channelId opcional: null/undefined = canal padrão da org.
  */
 export function useSendSimulation(callbacks?: UseSendSimulationCallbacks): {
-  send: (simulationId: string) => void;
+  send: (simulationId: string, channelId?: string | null) => void;
   isPending: boolean;
   sendError: SendSimulationError | null;
   reset: () => void;
 } {
-  const { mutate, isPending, error, reset } = useMutation<SendSimulationResponse, unknown, string>({
+  const { mutate, isPending, error, reset } = useMutation<
+    SendSimulationResponse,
+    unknown,
+    SendSimulationParams
+  >({
     mutationFn: postSendSimulation,
     onSuccess: (data) => {
       callbacks?.onSuccess?.(data);
@@ -133,7 +149,8 @@ export function useSendSimulation(callbacks?: UseSendSimulationCallbacks): {
   const sendError: SendSimulationError | null = error ? classifySendError(error) : null;
 
   return {
-    send: (simulationId: string) => mutate(simulationId),
+    send: (simulationId: string, channelId?: string | null) =>
+      mutate({ simulationId, channelId: channelId ?? null }),
     isPending,
     sendError,
     reset,

@@ -29,6 +29,7 @@ import { useToast } from '../../components/ui/Toast';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useAuthStore } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
+import { useChannels } from '../configuracoes/canais/useChannels';
 import { ContextualHelp } from '../help/contextual';
 import { buildTemplateOptions } from '../templates/buildTemplateOptions';
 import { useTemplates } from '../templates/hooks/useTemplates';
@@ -150,6 +151,19 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
     [templatesData],
   );
 
+  // Canais disponíveis — seletor só exibido quando há mais de 1 canal (F20-S07).
+  const { channels } = useChannels();
+  const channelOptions = React.useMemo(
+    () => [
+      { value: '', label: 'Canal padrão da organização' },
+      ...channels.map((c) => ({
+        value: c.id,
+        label: c.display_handle ? `${c.name} (${c.display_handle})` : c.name,
+      })),
+    ],
+    [channels],
+  );
+
   const [formData, setFormData] = React.useState<CollectionRuleForm>({
     key: rule?.key ?? '',
     name: rule?.name ?? '',
@@ -159,6 +173,7 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
     applies_to_status: rule?.applies_to_status ?? null,
     is_active: rule?.is_active ?? false,
     max_attempts: rule?.max_attempts ?? 3,
+    channel_id: rule?.channel_id ?? null,
   });
 
   const [errors, setErrors] = React.useState<Partial<Record<keyof CollectionRuleForm, string>>>({});
@@ -356,6 +371,23 @@ function RuleModal({ rule, onClose }: RuleModalProps): React.JSX.Element {
               error={errors.max_attempts}
             />
           </div>
+
+          {/* Seletor de canal — F20-S07. Só exibido quando há mais de 1 canal. */}
+          {channels.length > 1 && (
+            <Select
+              id="collection-rule-channel-id"
+              label="Canal de envio (opcional)"
+              value={formData.channel_id ?? ''}
+              options={channelOptions}
+              onChange={(e) =>
+                setFormData((f) => ({
+                  ...f,
+                  channel_id: e.target.value || null,
+                }))
+              }
+              hint="Em branco = canal padrão da organização"
+            />
+          )}
 
           {/* Toggle is_active */}
           <label className="flex items-center gap-3 cursor-pointer">

@@ -26,6 +26,7 @@ import {
   connectChannelController,
   deleteChannelController,
   listChannelsController,
+  setDefaultChannelController,
 } from './controller.js';
 import {
   ChannelIdParamSchema,
@@ -33,6 +34,7 @@ import {
   ChannelListResponseSchema,
   ChannelResponseSchema,
   ConnectChannelSchema,
+  SetDefaultChannelParamSchema,
 } from './schemas.js';
 
 export const channelsRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -116,5 +118,32 @@ export const channelsRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: ['channel.connect'] })],
     },
     deleteChannelController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // PATCH /api/channels/:id/default — definir canal padrão
+  // ---------------------------------------------------------------------------
+  app.patch(
+    '/api/channels/:id/default',
+    {
+      schema: {
+        tags: ['Canais'],
+        summary: 'Definir canal padrão',
+        description:
+          'Define o canal como padrão da organização em transação única: ' +
+          'SET is_default = false para todos os canais da org, depois ' +
+          'SET is_default = true para o canal :id. ' +
+          'Garante que exatamente um canal tenha is_default = true por org. ' +
+          'Retorna 404 se o canal não for encontrado. ' +
+          'Permissão: channels:manage.',
+        security: [{ bearerAuth: [] }],
+        params: SetDefaultChannelParamSchema,
+        response: {
+          200: ChannelResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['channels:manage'] })],
+    },
+    setDefaultChannelController,
   );
 };

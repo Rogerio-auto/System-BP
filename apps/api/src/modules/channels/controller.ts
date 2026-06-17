@@ -14,9 +14,19 @@ import { db } from '../../db/client.js';
 import { ForbiddenError } from '../../shared/errors.js';
 import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.js';
 
-import type { ChannelIdParam, ChannelListQuery, ConnectChannelBody } from './schemas.js';
+import type {
+  ChannelIdParam,
+  ChannelListQuery,
+  ConnectChannelBody,
+  SetDefaultChannelParam,
+} from './schemas.js';
 import type { ActorContext } from './service.js';
-import { connectChannelService, deleteChannelService, listChannelsService } from './service.js';
+import {
+  connectChannelService,
+  deleteChannelService,
+  listChannelsService,
+  setDefaultChannelService,
+} from './service.js';
 
 // ---------------------------------------------------------------------------
 // Helper: ActorContext de request.user
@@ -83,4 +93,18 @@ export async function deleteChannelController(
   const params = typedParams<ChannelIdParam>(request);
   await deleteChannelService(db, actor, params.id);
   return reply.status(204).send();
+}
+
+// ---------------------------------------------------------------------------
+// PATCH /api/channels/:id/default
+// ---------------------------------------------------------------------------
+
+export async function setDefaultChannelController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const params = typedParams<SetDefaultChannelParam>(request);
+  const result = await setDefaultChannelService(db, actor, params.id);
+  return reply.status(200).send(result);
 }

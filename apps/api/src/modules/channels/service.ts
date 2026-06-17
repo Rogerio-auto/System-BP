@@ -38,6 +38,7 @@ import {
   findChannelByProviderKey,
   findChannels,
   insertChannelWithSecrets,
+  setDefaultChannel,
   softDeleteChannel,
 } from './repository.js';
 import type {
@@ -354,6 +355,64 @@ export async function listChannelsService(
   });
 
   return { data: rows.map(toChannelResponse) };
+}
+
+// ---------------------------------------------------------------------------
+// setDefaultChannelService — PATCH /api/channels/:id/default
+// ---------------------------------------------------------------------------
+
+/**
+ * Define o canal `channelId` como padrão da organização.
+ *
+ * Executa em transação única:
+ *   1. SET is_default = false para todos os canais da org.
+ *   2. SET is_default = true  para o canal alvo.
+ *   3. Audit log CHANNEL_DEFAULT_SET.
+ *
+ * Lança NotFoundError (404) se o canal não pertencer à organização ou já
+ * estiver deletado.
+ *
+ * Permissão necessária: channels:manage (verificada no middleware `authorize`).
+ */
+export async function setDefaultChannelService(
+  db: Database,
+  actor: ActorContext,
+  channelId: string,
+): Promise<ChannelResponse> {
+  const result = await db.transaction(async (tx) => {
+    const updated = await setDefaultChannel(
+      // `as` justificado: Drizzle transaction é estruturalmente compatível com Database
+      tx as unknown as Database,
+      actor.organizationId,
+      channelId,
+    );
+
+    if (updated === undefined) {
+      throw new NotFoundError('Canal não encontrado ou já removido');
+    }
+
+    await auditLog(
+      // `as` justificado: AuditTx é interface estrutural compatível com a tx Drizzle
+      tx as unknown as Parameters<typeof auditLog>[0],
+      {
+        organizationId: actor.organizationId,
+        actor: {
+          userId: actor.userId,
+          role: actor.role,
+          ip: actor.ip ?? null,
+          userAgent: actor.userAgent ?? null,
+        },
+        action: 'channel.default_set',
+        resource: { type: 'channel', id: channelId },
+        // LGPD §8.5: sem PII no audit log — apenas IDs opacos
+        after: { channelId, setDefaultBy: actor.userId },
+      },
+    );
+
+    return updated;
+  });
+
+  return toChannelResponse(result);
 }
 
 // ---------------------------------------------------------------------------
