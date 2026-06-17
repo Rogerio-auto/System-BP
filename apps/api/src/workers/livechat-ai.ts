@@ -40,7 +40,7 @@ type LivechatAiJob = z.infer<typeof LivechatAiJobSchema>;
 
 function makeBotActor(organizationId: string): SendActorContext {
   return {
-    userId: 'system-ai-bot',
+    userId: null, // sistema/bot: null para FK uuid valida no audit_logs
     organizationId,
     role: 'system',
     cityScopeIds: null,

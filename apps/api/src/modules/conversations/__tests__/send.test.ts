@@ -111,7 +111,7 @@ function makeMessage() {
 
 function makeActorContext(
   overrides: Partial<{
-    userId: string;
+    userId: string | null;
     organizationId: string;
     role: string;
     cityScopeIds: string[] | null;
@@ -512,6 +512,43 @@ describe('sendMessage', () => {
         after: expect.not.objectContaining({
           content: 'Texto sigiloso com CPF 111.222.333-44',
         }),
+      }),
+    );
+  });
+
+  it('sistema/bot: actor userId=null => auditLog chamado com actor=null (FK uuid segura)', async () => {
+    const botActor = makeActorContext({ userId: null });
+    await sendMessage(
+      fakeDb,
+      botActor,
+      CONV_ID,
+      { type: 'text', content: 'Resposta automatica do bot' },
+      IDEMPOTENCY_KEY,
+    );
+
+    // Garante que actor=null (nao 'system-ai-bot') — actorUserId no DB sera null (FK valida)
+    expect(mockedAuditLog).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        actor: null,
+        action: 'livechat.message_sent',
+      }),
+    );
+  });
+
+  it('humano: actor userId real => auditLog chamado com actor.userId preenchido', async () => {
+    await sendMessage(
+      fakeDb,
+      makeActorContext({ userId: USER_ID }),
+      CONV_ID,
+      { type: 'text', content: 'Mensagem humana' },
+      IDEMPOTENCY_KEY,
+    );
+
+    expect(mockedAuditLog).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        actor: expect.objectContaining({ userId: USER_ID }),
       }),
     );
   });

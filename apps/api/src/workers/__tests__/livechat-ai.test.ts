@@ -25,13 +25,11 @@ vi.mock('../../config/env.js', () => ({
   },
 }));
 vi.mock('pg', () => {
-  const M = vi
-    .fn()
-    .mockImplementation(() => ({
-      query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
-      end: vi.fn().mockResolvedValue(undefined),
-      on: vi.fn(),
-    }));
+  const M = vi.fn().mockImplementation(() => ({
+    query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+    end: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+  }));
   return { Pool: M, default: { Pool: M } };
 });
 
@@ -94,15 +92,13 @@ const { logInfo, logWarn, logError, logFatal } = vi.hoisted(() => ({
 }));
 vi.mock('../../lib/logger.js', () => ({
   logger: {
-    child: vi
-      .fn()
-      .mockReturnValue({
-        info: logInfo,
-        debug: vi.fn(),
-        warn: logWarn,
-        error: logError,
-        fatal: logFatal,
-      }),
+    child: vi.fn().mockReturnValue({
+      info: logInfo,
+      debug: vi.fn(),
+      warn: logWarn,
+      error: logError,
+      fatal: logFatal,
+    }),
   },
 }));
 
@@ -225,7 +221,7 @@ describe('processJob (F16-S29)', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       db,
       expect.objectContaining({
-        userId: 'system-ai-bot',
+        userId: null,
         organizationId: ORG,
         role: 'system',
         cityScopeIds: null,
