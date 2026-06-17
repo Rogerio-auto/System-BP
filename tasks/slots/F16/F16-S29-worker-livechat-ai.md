@@ -73,11 +73,31 @@ outbound + publica socket relay + envia pelo adapter do canal). Estado do grafo 
 - `apps/api/src/workers/index.ts`
 - `apps/api/package.json`
 - `apps/api/src/modules/livechat/ai-conversation-state.ts`
+- `apps/api/src/modules/conversations/send.service.ts` (correção do ator de sistema — ver §Correção obrigatória)
 - `apps/api/src/workers/__tests__/livechat-ai.test.ts`
+- `apps/api/src/modules/conversations/__tests__/send.test.ts`
+
+## Correção obrigatória (revisão 2026-06-17 — PR #313)
+
+**Bug bloqueante encontrado em review:** o worker monta um ator com `userId: 'system-ai-bot'`
+e chama `sendMessage`, que grava `auditLog` com `actor_user_id = 'system-ai-bot'`. Mas
+`audit_logs.actor_user_id` é **`uuid` com FK → `users(id)`** (migration 0004). `'system-ai-bot'`
+não é um UUID → o insert do audit **quebra em runtime em TODO reply bem-sucedido** (não só no erro).
+Os testes passaram porque mockam `sendMessage` — não exercitam o `auditLog` real.
+
+**Correção exigida:**
+
+- Alargar `SendActorContext.userId` para `string | null` em `send.service.ts` (o `auditLog` já faz
+  `?? null`; `actor_user_id` é nullable). Conferir que nenhum outro consumidor de `actor.userId`
+  no `sendMessage` exige non-null.
+- `makeBotActor` passa `userId: null`, `role: 'system'` (ação de sistema, FK-válida, auditável).
+- Adicionar teste que exercite o caminho real do `auditLog` com ator de sistema (não mock) — ou no
+  mínimo um teste que falharia se `actor_user_id` recebesse string não-UUID.
+- Callers humanos existentes (rota de envio) passam `userId` real — não devem quebrar com a tipagem
+  alargada.
 
 ## Arquivos proibidos (`files_forbidden`)
 
-- `apps/api/src/modules/conversations/send.service.ts` (consumir `sendMessage`, não editar)
 - `apps/api/src/integrations/langgraph/**` (client existente — reusar, não editar)
 - `apps/api/src/modules/whatsapp/**` (pipeline antigo)
 - `apps/api/src/lib/queue/topology.ts` (fila já declarada em F16-S28)
