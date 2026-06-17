@@ -3,11 +3,11 @@ id: F20-S04
 title: Worker — collection-sender e collection-scheduler: multi-canal via tabela channels
 phase: F20
 task_ref: docs/planejamento-2026-06-multi-canal.md
-status: available
+status: in-progress
 priority: high
 estimated_size: L
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-17T05:09:06Z
 completed_at: null
 pr_url: null
 depends_on: [F20-S01, F20-S02]
