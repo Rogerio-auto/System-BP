@@ -87,7 +87,9 @@ async function buildMetaTemplatesClient(organizationId: string): Promise<MetaTem
   return new MetaTemplatesClient({
     accessToken: resolved.accessToken,
     wabaId: resolved.wabaId,
-    appId: resolved.metaAppId ?? undefined,
+    ...(resolved.metaAppId !== null && resolved.metaAppId !== undefined
+      ? { appId: resolved.metaAppId }
+      : {}),
   });
 }
 
