@@ -260,4 +260,53 @@ describe('linkOrCreateConversationLead', () => {
     expect(auditCall.after).not.toHaveProperty('contactPhone');
     expect(auditCall.after).not.toHaveProperty('phone');
   });
+
+  // F16-S26: body.cityId permite criar lead em canal sem cidade configurada
+  it('F16-S26: cria lead usando body.cityId quando canal sem cityId', async () => {
+    const BODY_CITY_ID = 'cccccccc-0007-0000-0000-000000000001';
+    mockGetConversation.mockResolvedValue(makeConversation({ leadId: null }));
+    // Canal sem cityId
+    mockFindChannel.mockResolvedValue(makeChannel({ cityId: null }));
+    mockGetOrCreateLead.mockResolvedValue({ lead_id: LEAD_ID, created: true });
+    const { linkOrCreateConversationLead: fn } = await import('../service.js');
+    // body.cityId fornecido pelo front (seletor de cidade F16-S27)
+    const result = await fn({} as never, makeActor(), CONV_ID, { cityId: BODY_CITY_ID });
+    expect(result).toEqual({ conversationId: CONV_ID, leadId: LEAD_ID, created: true });
+    expect(mockGetOrCreateLead).toHaveBeenCalledWith(
+      {},
+      ORG_ID,
+      expect.objectContaining({ cityId: BODY_CITY_ID }),
+      null,
+    );
+  });
+
+  it('F16-S26: body.cityId sobrepoe channel.cityId na criacao do lead', async () => {
+    const BODY_CITY_ID = 'cccccccc-0007-0000-0000-000000000001';
+    mockGetConversation.mockResolvedValue(makeConversation({ leadId: null }));
+    // Canal TEM cityId — body.cityId deve ser preferido
+    mockFindChannel.mockResolvedValue(makeChannel({ cityId: CITY_ID }));
+    mockGetOrCreateLead.mockResolvedValue({ lead_id: LEAD_ID, created: true });
+    const { linkOrCreateConversationLead: fn } = await import('../service.js');
+    const result = await fn({} as never, makeActor(), CONV_ID, { cityId: BODY_CITY_ID });
+    expect(result).toEqual({ conversationId: CONV_ID, leadId: LEAD_ID, created: true });
+    expect(mockGetOrCreateLead).toHaveBeenCalledWith(
+      {},
+      ORG_ID,
+      expect.objectContaining({ cityId: BODY_CITY_ID }),
+      null,
+    );
+  });
+
+  it('F16-S26: 422 apenas quando canal E body sem cityId', async () => {
+    mockGetConversation.mockResolvedValue(makeConversation({ leadId: null }));
+    // Nem canal nem body tem cityId
+    mockFindChannel.mockResolvedValue(makeChannel({ cityId: null }));
+    const { linkOrCreateConversationLead: fn, MissingChannelCityError } = await import(
+      '../service.js'
+    );
+    await expect(fn({} as never, makeActor(), CONV_ID, {})).rejects.toBeInstanceOf(
+      MissingChannelCityError,
+    );
+    expect(mockGetOrCreateLead).not.toHaveBeenCalled();
+  });
 });

@@ -17,7 +17,7 @@
 //   - Todos os métodos recebem organizationId explícito (preparado para F17).
 //   - applyCityScope aplicado via UserScopeCtx passado do request.user.
 //
-// Leitura: NÃO emite eventos de outbox (leituras são idempotentes e sem side-effects).
+// markConversationRead: emite conversation:updated no socket relay (F16-S26) após zerar unread_count.
 // =============================================================================
 
 import { and, asc, eq, isNull } from 'drizzle-orm';
@@ -343,6 +343,22 @@ async function markConversationRead(
         isNull(messages.viewStatus),
       ),
     );
+
+  // F16-S26: emitir conversation:updated no socket relay para o badge de não-lidas
+  // atualizar em tempo real em todos os atendentes (room = workspace:{orgId}).
+  // LGPD: payload contém apenas IDs opacos — sem content/PII (doc 17 §8.1).
+  // Fire-and-forget: falha de publish não deve interromper o GET /messages.
+  await publish(
+    QUEUES.socketRelay,
+    makeEnvelope(QUEUES.socketRelay, organizationId, {
+      room: `workspace:${organizationId}`,
+      event: 'conversation:updated',
+      data: {
+        conversationId,
+        unreadCount: 0,
+      },
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -568,9 +584,12 @@ export async function linkOrCreateConversationLead(
     }
 
     // Busca canal para obter cityId
+    // F16-S26: body.cityId permite sobrepor o canal sem cidade configurada.
+    // Canal sem cidade E body sem cityId → 422 (leads.city_id é NOT NULL — F3-S04).
     const channel = await findChannel(db, conv.channelId, organizationId);
+    const resolvedCityId = body.cityId ?? channel.cityId ?? null;
 
-    if (channel.cityId === null || channel.cityId === undefined) {
+    if (resolvedCityId === null) {
       throw new MissingChannelCityError();
     }
 
@@ -602,7 +621,7 @@ export async function linkOrCreateConversationLead(
         source: 'whatsapp',
         chatwootConversationId: undefined,
         correlationId: undefined,
-        cityId: channel.cityId,
+        cityId: resolvedCityId,
       },
       null,
     );
