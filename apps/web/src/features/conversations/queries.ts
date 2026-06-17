@@ -25,6 +25,8 @@ import type {
   ConversationDetailResponse,
   ConversationListResponse,
   ConversationsQueryParams,
+  LinkLeadBody,
+  LinkLeadResponse,
   MessageListResponse,
   MessagesQueryParams,
 } from './types';
@@ -235,6 +237,78 @@ export function useResolveConversation(conversationId: string) {
     mutationFn: () =>
       api.patch<unknown>(`/api/conversations/${encodeURIComponent(conversationId)}/resolve`, {}),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
+      void qc.invalidateQueries({ queryKey: conversationKeys.all });
+    },
+  });
+}
+
+/**
+ * useLinkLead — vincula (ou cria) um lead para uma conversa.
+ *
+ * PATCH /api/conversations/:id/lead
+ * Body: { leadId?: string } — omitir leadId para criar novo lead via dados do contato.
+ * Requer `livechat:conversation:manage`.
+ *
+ * Estratégia de atualização:
+ *   - Atualização otimista do detalhe da conversa (leadId).
+ *   - Em caso de erro: rollback para o valor anterior.
+ *   - Em caso de sucesso: invalida detalhe + lista para garantir consistência.
+ *   - Socket `conversation:updated` também invalida o detalhe via useConversationSocket.
+ *
+ * LGPD (doc 17 §8.1): body e response usam apenas UUIDs opacos — sem PII.
+ */
+export function useLinkLead(conversationId: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: LinkLeadBody) =>
+      api.patch<LinkLeadResponse>(
+        `/api/conversations/${encodeURIComponent(conversationId)}/lead`,
+        body,
+      ),
+
+    onMutate: async (body) => {
+      // Cancela queries concorrentes para evitar sobrescrita
+      await qc.cancelQueries({ queryKey: conversationKeys.detail(conversationId) });
+
+      // Snapshot anterior para rollback
+      const previous = qc.getQueryData<ConversationDetailResponse>(
+        conversationKeys.detail(conversationId),
+      );
+
+      // Atualização otimista — leadId ainda desconhecido se for criação (body sem leadId)
+      // Usamos um placeholder temporário apenas quando há leadId explícito
+      if (previous && body.leadId) {
+        qc.setQueryData<ConversationDetailResponse>(conversationKeys.detail(conversationId), {
+          ...previous,
+          data: { ...previous.data, leadId: body.leadId },
+        });
+      }
+
+      return { previous };
+    },
+
+    onError: (_err, _vars, context) => {
+      // Rollback em caso de erro
+      if (context?.previous) {
+        qc.setQueryData(conversationKeys.detail(conversationId), context.previous);
+      }
+    },
+
+    onSuccess: (response) => {
+      // Atualiza o detalhe com o leadId real (especialmente importante no caso de criação)
+      const current = qc.getQueryData<ConversationDetailResponse>(
+        conversationKeys.detail(conversationId),
+      );
+      if (current) {
+        qc.setQueryData<ConversationDetailResponse>(conversationKeys.detail(conversationId), {
+          ...current,
+          data: { ...current.data, leadId: response.leadId },
+        });
+      }
+
+      // Invalida para garantir consistência total com o servidor
       void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
       void qc.invalidateQueries({ queryKey: conversationKeys.all });
     },

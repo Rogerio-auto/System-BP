@@ -20,12 +20,14 @@
 // =============================================================================
 
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 
 import { useAuth } from '../../../lib/auth-store';
 import {
   useAgentUsers,
   useAssignConversation,
   useConversation,
+  useLinkLead,
   useResolveConversation,
 } from '../queries';
 import type { ChannelProvider, ConversationStatus } from '../types';
@@ -350,6 +352,179 @@ function ActionButton({
   );
 }
 
+// ─── LeadSection ──────────────────────────────────────────────────────────────
+
+/**
+ * LeadSection — mostra o lead vinculado ou botão para criar/vincular.
+ *
+ * - leadId presente: link para /crm/:id (rota canônica em App.tsx).
+ * - leadId ausente + canManage: botão "Criar lead" (cria via PATCH sem body leadId).
+ *
+ * LGPD (doc 17 §8.1): leadId é UUID opaco — sem PII.
+ * DS: tokens canônicos do doc 18 — sem hex hardcoded.
+ */
+function LeadSection({
+  conversationId,
+  leadId,
+  canManage,
+}: {
+  conversationId: string;
+  leadId: string | null;
+  canManage: boolean;
+}): React.JSX.Element {
+  const linkLead = useLinkLead(conversationId);
+
+  function handleCreateLead(): void {
+    linkLead.mutate({});
+  }
+
+  return (
+    <div
+      style={{
+        padding: '16px',
+        borderBottom: '1px solid var(--border-subtle)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}
+    >
+      <SectionHeader>Lead no CRM</SectionHeader>
+
+      {leadId !== null ? (
+        /* Lead vinculado — link para o perfil */
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            aria-hidden="true"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              background: 'color-mix(in srgb, var(--brand-azul) 14%, transparent)',
+              color: 'var(--brand-azul)',
+              flexShrink: 0,
+            }}
+          >
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ width: 14, height: 14 }}
+              aria-hidden="true"
+            >
+              <path d="M8 7a3 3 0 100-6 3 3 0 000 6z" />
+              <path d="M2 15a6 6 0 0112 0" />
+            </svg>
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Link
+              to={`/crm/${leadId}`}
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 'var(--text-sm)',
+                fontWeight: 500,
+                color: 'var(--brand-azul)',
+                textDecoration: 'none',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                display: 'block',
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none';
+              }}
+            >
+              Ver perfil do lead
+            </Link>
+            <p
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                color: 'var(--text-3)',
+                margin: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {leadId}
+            </p>
+          </div>
+        </div>
+      ) : canManage ? (
+        /* Sem lead + tem permissão — botão Criar lead */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <p
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-3)',
+              margin: 0,
+              fontStyle: 'italic',
+            }}
+          >
+            Contato sem lead no CRM.
+          </p>
+          <ActionButton
+            onClick={handleCreateLead}
+            loading={linkLead.isPending}
+            disabled={linkLead.isPending}
+          >
+            Criar lead
+          </ActionButton>
+          {linkLead.isError && (
+            <p
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 10,
+                color: 'var(--danger)',
+                margin: 0,
+                textAlign: 'center',
+              }}
+            >
+              Falha ao criar lead. Tente novamente.
+            </p>
+          )}
+          {linkLead.isSuccess && (
+            <p
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 10,
+                color: 'var(--success)',
+                margin: 0,
+                textAlign: 'center',
+              }}
+            >
+              Lead criado e vinculado com sucesso.
+            </p>
+          )}
+        </div>
+      ) : (
+        /* Sem lead + sem permissão — mensagem informativa */
+        <p
+          style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--text-3)',
+            margin: 0,
+            fontStyle: 'italic',
+          }}
+        >
+          Sem lead vinculado.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── ContactPanel ─────────────────────────────────────────────────────────────
 
 interface ContactPanelProps {
@@ -544,6 +719,9 @@ export function ContactPanel({ conversationId }: ContactPanelProps): React.JSX.E
           </InfoRow>
         )}
       </div>
+
+      {/* ── Lead no CRM ───────────────────────────────────────────────────────── */}
+      <LeadSection conversationId={conversationId} leadId={conv.leadId} canManage={canManage} />
 
       {/* ── Atendente ──────────────────────────────────────────────────────── */}
       <div
