@@ -209,3 +209,33 @@ export interface MessagesQueryParams {
   readonly before?: string;
   readonly limit?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Link Lead — espelha LinkLeadBodySchema / LinkLeadResponseSchema de F16-S23
+// (apps/api/src/modules/conversations/schemas.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * Body do PATCH /api/conversations/:id/lead.
+ *
+ * - leadId presente: vincula lead existente.
+ * - leadId ausente: cria novo lead via dados do contato + cityId do canal.
+ *
+ * LGPD (doc 17 §8.1): leadId é UUID opaco — sem PII.
+ */
+export interface LinkLeadBody {
+  /** UUID do lead a vincular. Omitir para criar novo lead. */
+  readonly leadId?: string;
+}
+
+/**
+ * Resposta do PATCH /api/conversations/:id/lead.
+ *
+ * LGPD: apenas IDs opacos — sem PII.
+ */
+export interface LinkLeadResponse {
+  readonly conversationId: string;
+  readonly leadId: string;
+  /** true = lead criado agora; false = lead existente vinculado. */
+  readonly created: boolean;
+}
