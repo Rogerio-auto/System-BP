@@ -75,6 +75,11 @@ async function apiDeleteChannel(id: string): Promise<void> {
   await api.delete(`/api/channels/${encodeURIComponent(id)}`);
 }
 
+async function apiSetDefaultChannel(id: string): Promise<ChannelResponse> {
+  const raw = await api.patch(`/api/channels/${encodeURIComponent(id)}/default`, {});
+  return ChannelResponseSchema.parse(raw);
+}
+
 // ---------------------------------------------------------------------------
 // Query key factory
 // ---------------------------------------------------------------------------
@@ -136,6 +141,40 @@ export function useConnectChannel(opts: UseConnectChannelOptions = {}): {
   });
 
   return { connect: (body) => mutation.mutate(body), isPending: mutation.isPending };
+}
+
+// ---------------------------------------------------------------------------
+// useSetDefaultChannel — mutation PATCH /api/channels/:id/default
+// ---------------------------------------------------------------------------
+
+interface UseSetDefaultChannelOptions {
+  onSuccess?: (() => void) | undefined;
+  onError?: ((err: unknown) => void) | undefined;
+}
+
+export function useSetDefaultChannel(opts: UseSetDefaultChannelOptions = {}): {
+  setDefault: (id: string) => void;
+  isPending: boolean;
+  pendingId: string | null;
+} {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (id: string) => apiSetDefaultChannel(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: CHANNELS_QUERY_KEY.all });
+      opts.onSuccess?.();
+    },
+    onError: (err: unknown) => {
+      opts.onError?.(err);
+    },
+  });
+
+  return {
+    setDefault: (id) => mutation.mutate(id),
+    isPending: mutation.isPending,
+    pendingId: mutation.isPending ? (mutation.variables ?? null) : null,
+  };
 }
 
 // ---------------------------------------------------------------------------

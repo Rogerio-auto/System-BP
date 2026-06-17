@@ -188,3 +188,13 @@ export const ChannelIdParamSchema = z.object({
 });
 
 export type ChannelIdParam = z.infer<typeof ChannelIdParamSchema>;
+
+// ---------------------------------------------------------------------------
+// SetDefaultChannelParamSchema — PATCH /api/channels/:id/default
+// ---------------------------------------------------------------------------
+
+export const SetDefaultChannelParamSchema = z.object({
+  id: z.string().uuid().describe('UUID do canal a ser definido como padrão'),
+});
+
+export type SetDefaultChannelParam = z.infer<typeof SetDefaultChannelParamSchema>;

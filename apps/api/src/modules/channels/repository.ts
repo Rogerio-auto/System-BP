@@ -315,3 +315,44 @@ export async function softDeleteChannel(
 
   return result.length > 0;
 }
+
+// ---------------------------------------------------------------------------
+// setDefaultChannel — PATCH /api/channels/:id/default
+// ---------------------------------------------------------------------------
+
+/**
+ * Define `channelId` como canal padrão da organização em transação única:
+ *   1. SET is_default = false WHERE organization_id = orgId AND id != channelId
+ *   2. SET is_default = true  WHERE id = channelId AND organization_id = orgId
+ *
+ * Retorna a ChannelRow atualizada, ou undefined se o canal não existir/não
+ * pertencer à organização.
+ *
+ * Deve ser chamado dentro de uma transação fornecida pelo caller (service).
+ */
+export async function setDefaultChannel(
+  tx: Database,
+  organizationId: string,
+  channelId: string,
+): Promise<ChannelRow | undefined> {
+  // Passo 1: limpar is_default de todos os outros canais da org
+  await tx
+    .update(channels)
+    .set({ isDefault: false })
+    .where(and(eq(channels.organizationId, organizationId), isNull(channels.deletedAt)));
+
+  // Passo 2: marcar o canal alvo como padrão
+  const rows = await tx
+    .update(channels)
+    .set({ isDefault: true })
+    .where(
+      and(
+        eq(channels.id, channelId),
+        eq(channels.organizationId, organizationId),
+        isNull(channels.deletedAt),
+      ),
+    )
+    .returning(PUBLIC_CHANNEL_COLUMNS);
+
+  return rows[0];
+}

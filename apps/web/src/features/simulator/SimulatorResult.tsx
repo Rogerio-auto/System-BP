@@ -34,6 +34,7 @@ import { useSendSimulation } from '../../hooks/simulator/useSendSimulation';
 import type { SimulationError } from '../../hooks/simulator/useSimulate';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { cn } from '../../lib/cn';
+import { useChannels } from '../configuracoes/canais/useChannels';
 
 import { AmortizationTable } from './AmortizationTable';
 
@@ -283,12 +284,17 @@ function SendErrorBanner({
 // ─── Botão de envio ao cliente ────────────────────────────────────────────────
 
 /**
- * Botão "Enviar ao cliente" com gating por flag + telefone.
+ * Botão "Enviar ao cliente" com gating por flag + telefone + seletor de canal (F20-S07).
  *
  * Gates (F18-S12):
  *   - Flag `simulations.send.enabled` desligada → componente não é renderizado.
  *   - Lead sem telefone → botão desabilitado com tooltip "Lead sem telefone cadastrado".
  *   - Ambos OK → botão habilitado.
+ *
+ * Canal (F20-S07):
+ *   - Se só há 1 canal ou nenhum: exibe "Será enviado por: [nome do canal padrão]" em texto.
+ *   - Se há múltiplos canais: mostra seletor inline de canal.
+ *   - channelId null = usar canal padrão da org.
  *
  * Toasts:
  *   - Sucesso: "Simulação enviada via WhatsApp ✓"
@@ -307,6 +313,14 @@ function SendToClientButton({
   const { enabled: sendFlagEnabled, isLoading: sendFlagLoading } = useFeatureFlag(
     'simulations.send.enabled',
   );
+
+  // Canal selecionado — null = padrão da org (F20-S07)
+  const [selectedChannelId, setSelectedChannelId] = React.useState<string | null>(null);
+  const [showChannelSelect, setShowChannelSelect] = React.useState(false);
+
+  const { channels } = useChannels();
+  const hasMultipleChannels = channels.length > 1;
+  const defaultChannel = channels.find((c) => c.is_default) ?? channels[0];
 
   const [sendError, setSendError] = React.useState<SendSimulationError | null>(null);
 
@@ -347,9 +361,63 @@ function SendToClientButton({
       ? 'Lead sem telefone cadastrado'
       : undefined;
 
+  // Nome do canal que será usado no envio
+  const effectiveChannel = selectedChannelId
+    ? (channels.find((c) => c.id === selectedChannelId) ?? defaultChannel)
+    : defaultChannel;
+
+  const channelLabel = effectiveChannel?.name ?? 'Canal padrão';
+
   return (
     <div className="flex flex-col gap-2">
       {sendError && <SendErrorBanner error={sendError} onDismiss={() => setSendError(null)} />}
+
+      {/* Indicador de canal (F20-S07) */}
+      {canSend && (
+        <div className="flex items-center gap-2">
+          <span className="font-sans text-xs text-ink-3">
+            Será enviado por: <span className="font-medium text-ink-2">{channelLabel}</span>
+          </span>
+          {hasMultipleChannels && (
+            <button
+              type="button"
+              onClick={() => setShowChannelSelect((v) => !v)}
+              className="font-sans text-xs text-azul underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20 rounded-xs"
+              aria-expanded={showChannelSelect}
+            >
+              {showChannelSelect ? 'fechar' : 'trocar'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Seletor inline de canal (F20-S07) — só quando múltiplos */}
+      {canSend && hasMultipleChannels && showChannelSelect && (
+        <select
+          value={selectedChannelId ?? ''}
+          onChange={(e) => {
+            setSelectedChannelId(e.target.value || null);
+            setShowChannelSelect(false);
+          }}
+          className={cn(
+            'w-full appearance-none font-sans text-sm font-medium text-ink',
+            'bg-surface-1 rounded-sm px-3 py-2 pr-8 border border-border-strong',
+            'shadow-[inset_0_1px_2px_var(--border-inner-dark)]',
+            'transition-[border-color,box-shadow] duration-fast ease',
+            'focus:outline-none focus:border-azul',
+            'focus:shadow-[0_0_0_3px_rgba(27,58,140,0.15),inset_0_1px_2px_var(--border-inner-dark)]',
+          )}
+          aria-label="Selecionar canal de envio"
+        >
+          <option value="">Canal padrão da organização</option>
+          {channels.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.display_handle ? `${c.name} (${c.display_handle})` : c.name}
+            </option>
+          ))}
+        </select>
+      )}
+
       <Button
         variant="secondary"
         size="sm"
@@ -362,7 +430,7 @@ function SendToClientButton({
         }
         onClick={() => {
           setSendError(null);
-          send(simulationId);
+          send(simulationId, selectedChannelId);
         }}
         leftIcon={
           isPending ? (

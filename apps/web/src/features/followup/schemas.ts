@@ -55,6 +55,8 @@ export const FollowupRuleFormSchema = z.object({
     .max(10)
     .optional()
     .default(3),
+  // F20-S07: canal de envio opcional. null = usar canal padrão da organização.
+  channel_id: z.string().uuid().nullable().optional(),
 });
 
 export type FollowupRuleForm = z.infer<typeof FollowupRuleFormSchema>;
@@ -75,6 +77,8 @@ export interface FollowupRuleResponse {
   applies_to_outcome: string | null;
   is_active: boolean;
   max_attempts: number;
+  // F20-S07: canal de envio. null = canal padrão da organização.
+  channel_id: string | null;
   created_at: string;
   updated_at: string;
 }

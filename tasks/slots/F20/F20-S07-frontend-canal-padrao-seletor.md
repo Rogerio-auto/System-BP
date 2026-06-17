@@ -3,12 +3,12 @@ id: F20-S07
 title: Frontend — canal padrão, seletor de canal em regras e simulações
 phase: F20
 task_ref: docs/planejamento-2026-06-multi-canal.md
-status: available
+status: review
 priority: high
 estimated_size: L
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-17T05:51:20Z
+completed_at: 2026-06-17T06:07:13Z
 pr_url: null
 depends_on: [F20-S01, F20-S05]
 blocks: []
@@ -16,6 +16,8 @@ labels: [frontend, multi-canal, whatsapp, configuracoes, followup, cobranca, sim
 source_docs:
   - docs/18-design-system.md
 docs_required: true
+docs_artifacts:
+  - docs/help/guias/admin/canal-padrao.mdx
 ---
 
 # F20-S07 — Frontend: canal padrão + seletor de canal em regras e simulações
