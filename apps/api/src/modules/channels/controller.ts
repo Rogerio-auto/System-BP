@@ -18,12 +18,16 @@ import type {
   ChannelIdParam,
   ChannelListQuery,
   ConnectChannelBody,
+  MetaDiscoverBody,
+  MetaEmbeddedSignupBody,
   SetDefaultChannelParam,
 } from './schemas.js';
 import type { ActorContext } from './service.js';
 import {
   connectChannelService,
+  connectEmbeddedSignupService,
   deleteChannelService,
+  discoverMetaWhatsAppService,
   listChannelsService,
   setDefaultChannelService,
 } from './service.js';
@@ -107,4 +111,32 @@ export async function setDefaultChannelController(
   const params = typedParams<SetDefaultChannelParam>(request);
   const result = await setDefaultChannelService(db, actor, params.id);
   return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/channels/meta/whatsapp/discover — Meta Embedded Signup (passo 1)
+// ---------------------------------------------------------------------------
+
+export async function discoverMetaWhatsAppController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const body = typedBody<MetaDiscoverBody>(request);
+  const result = await discoverMetaWhatsAppService(db, actor, body);
+  return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/channels/meta/whatsapp/embedded-signup — Meta Embedded Signup (passo 2)
+// ---------------------------------------------------------------------------
+
+export async function connectEmbeddedSignupController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const body = typedBody<MetaEmbeddedSignupBody>(request);
+  const result = await connectEmbeddedSignupService(db, actor, body);
+  return reply.status(201).send(result);
 }

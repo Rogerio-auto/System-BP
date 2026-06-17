@@ -198,3 +198,65 @@ export const SetDefaultChannelParamSchema = z.object({
 });
 
 export type SetDefaultChannelParam = z.infer<typeof SetDefaultChannelParamSchema>;
+
+// ---------------------------------------------------------------------------
+// Meta Embedded Signup — POST /api/channels/meta/whatsapp/discover
+// ---------------------------------------------------------------------------
+
+/**
+ * Body de POST /api/channels/meta/whatsapp/discover.
+ * `code` é o one-time code retornado pelo SDK do Facebook após o FB.login OAuth flow.
+ * LGPD: code é efêmero e sem PII — descartado após troca pelo access_token.
+ */
+export const MetaDiscoverBodySchema = z.object({
+  code: z.string().min(1).describe('Code one-time retornado pelo FB.login() do SDK da Meta'),
+});
+
+export type MetaDiscoverBody = z.infer<typeof MetaDiscoverBodySchema>;
+
+/**
+ * Número de telefone descoberto via Graph API após exchange do code.
+ * Expõe apenas campos técnicos — sem PII além do número de telefone formatado.
+ */
+export const MetaDiscoveredPhoneSchema = z.object({
+  phoneNumberId: z.string().min(1).describe('Phone Number ID técnico da Meta'),
+  displayPhoneNumber: z.string().min(1).describe('Número de telefone no formato de exibição'),
+  verifiedName: z.string().min(1).describe('Nome verificado associado ao número'),
+  wabaId: z.string().min(1).describe('WABA ID do WhatsApp Business Account'),
+  wabaName: z.string().min(1).describe('Nome do WhatsApp Business Account'),
+});
+
+export type MetaDiscoveredPhone = z.infer<typeof MetaDiscoveredPhoneSchema>;
+
+/**
+ * Resposta de POST /api/channels/meta/whatsapp/discover.
+ *
+ * `pendingToken` é um JWT de curta duração (10min) assinado pelo backend contendo
+ * o access_token e a lista de telefones. O frontend passa este token opaco
+ * de volta em /embedded-signup sem nunca ver o access_token real.
+ *
+ * LGPD: access_token NÃO aparece na resposta — encapsulado no pendingToken.
+ */
+export const MetaDiscoverResponseSchema = z.object({
+  pendingToken: z.string().describe('JWT assinado com dados da sessão OAuth (expira em 10min)'),
+  phones: z.array(MetaDiscoveredPhoneSchema),
+});
+
+export type MetaDiscoverResponse = z.infer<typeof MetaDiscoverResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Meta Embedded Signup — POST /api/channels/meta/whatsapp/embedded-signup
+// ---------------------------------------------------------------------------
+
+/**
+ * Body de POST /api/channels/meta/whatsapp/embedded-signup.
+ * `pendingToken` + `phoneNumberId` → cria o canal com o acesso_token encapsulado.
+ */
+export const MetaEmbeddedSignupBodySchema = z.object({
+  pendingToken: z.string().min(1).describe('Token retornado por /discover (válido 10min)'),
+  phoneNumberId: z.string().min(1).describe('Phone Number ID selecionado pelo usuário'),
+  name: z.string().min(1).max(100).describe('Nome amigável do canal'),
+  cityId: z.string().uuid().nullable().optional().describe('UUID da cidade escopo do canal'),
+});
+
+export type MetaEmbeddedSignupBody = z.infer<typeof MetaEmbeddedSignupBodySchema>;

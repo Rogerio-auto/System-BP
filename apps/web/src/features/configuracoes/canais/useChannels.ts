@@ -58,6 +58,30 @@ export interface ConnectMetaWhatsAppBody {
 }
 
 // ---------------------------------------------------------------------------
+// Tipos Meta Embedded Signup
+// ---------------------------------------------------------------------------
+
+export interface MetaDiscoveredPhone {
+  readonly phoneNumberId: string;
+  readonly displayPhoneNumber: string;
+  readonly verifiedName: string;
+  readonly wabaId: string;
+  readonly wabaName: string;
+}
+
+export interface MetaDiscoverResponse {
+  readonly pendingToken: string;
+  readonly phones: MetaDiscoveredPhone[];
+}
+
+export interface MetaEmbeddedSignupBody {
+  readonly pendingToken: string;
+  readonly phoneNumberId: string;
+  readonly name: string;
+  readonly cityId?: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // API functions
 // ---------------------------------------------------------------------------
 
@@ -175,6 +199,77 @@ export function useSetDefaultChannel(opts: UseSetDefaultChannelOptions = {}): {
     isPending: mutation.isPending,
     pendingId: mutation.isPending ? (mutation.variables ?? null) : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// useDiscoverMetaWhatsApp — mutation POST /api/channels/meta/whatsapp/discover
+// ---------------------------------------------------------------------------
+
+/**
+ * Troca o code OAuth do Meta SDK por um pendingToken + lista de phones.
+ * Passo 1 do fluxo de Embedded Signup.
+ */
+export function useDiscoverMetaWhatsApp(): {
+  discover: (code: string) => Promise<MetaDiscoverResponse>;
+  isPending: boolean;
+} {
+  const mutation = useMutation({
+    mutationFn: async (code: string): Promise<MetaDiscoverResponse> => {
+      const raw = await api.post<MetaDiscoverResponse>('/api/channels/meta/whatsapp/discover', {
+        code,
+      });
+      return raw;
+    },
+  });
+
+  return {
+    discover: (code) => mutation.mutateAsync(code),
+    isPending: mutation.isPending,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// useConnectEmbeddedSignup — mutation POST /api/channels/meta/whatsapp/embedded-signup
+// ---------------------------------------------------------------------------
+
+interface UseConnectEmbeddedSignupOptions {
+  onSuccess?: ((channel: ChannelResponse) => void) | undefined;
+}
+
+/**
+ * Finaliza a conexão de um canal WhatsApp via Embedded Signup.
+ * Passo 2 do fluxo — recebe pendingToken + phoneNumberId selecionado.
+ */
+export function useConnectEmbeddedSignup(opts: UseConnectEmbeddedSignupOptions = {}): {
+  connect: (body: MetaEmbeddedSignupBody) => void;
+  isPending: boolean;
+} {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (body: MetaEmbeddedSignupBody): Promise<ChannelResponse> => {
+      const raw = await api.post<ChannelResponse>(
+        '/api/channels/meta/whatsapp/embedded-signup',
+        body,
+      );
+      return ChannelResponseSchema.parse(raw);
+    },
+    onSuccess: (channel) => {
+      void queryClient.invalidateQueries({ queryKey: CHANNELS_QUERY_KEY.all });
+      toast('Canal WhatsApp conectado com sucesso!', 'success');
+      opts.onSuccess?.(channel);
+    },
+    onError: (err: unknown) => {
+      if (err instanceof ApiError && err.status === 409) {
+        toast('Este número de WhatsApp já está cadastrado.', 'danger');
+        return;
+      }
+      toast('Erro ao conectar canal. Tente novamente.', 'danger');
+    },
+  });
+
+  return { connect: (body) => mutation.mutate(body), isPending: mutation.isPending };
 }
 
 // ---------------------------------------------------------------------------

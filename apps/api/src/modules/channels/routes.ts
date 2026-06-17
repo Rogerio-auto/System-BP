@@ -24,7 +24,9 @@ import { authorize } from '../auth/middlewares/authorize.js';
 
 import {
   connectChannelController,
+  connectEmbeddedSignupController,
   deleteChannelController,
+  discoverMetaWhatsAppController,
   listChannelsController,
   setDefaultChannelController,
 } from './controller.js';
@@ -34,6 +36,9 @@ import {
   ChannelListResponseSchema,
   ChannelResponseSchema,
   ConnectChannelSchema,
+  MetaDiscoverBodySchema,
+  MetaDiscoverResponseSchema,
+  MetaEmbeddedSignupBodySchema,
   SetDefaultChannelParamSchema,
 } from './schemas.js';
 
@@ -145,5 +150,58 @@ export const channelsRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: ['channels:manage'] })],
     },
     setDefaultChannelController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/channels/meta/whatsapp/discover — Meta Embedded Signup (passo 1)
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/channels/meta/whatsapp/discover',
+    {
+      schema: {
+        tags: ['Canais'],
+        summary: 'Descobrir canais via Meta SDK (passo 1)',
+        description:
+          'Troca o code OAuth retornado pelo SDK do Facebook (FB.login) por um ' +
+          'access_token temporário e lista os números de WhatsApp acessíveis. ' +
+          'Retorna um pendingToken JWT (válido 10min) + lista de phones. ' +
+          'O pendingToken encapsula o access_token — nunca exposto ao frontend. ' +
+          'LGPD: code descartado após troca; access_token encapsulado no JWT (sem PII de titular).',
+        security: [{ bearerAuth: [] }],
+        body: MetaDiscoverBodySchema,
+        response: {
+          200: MetaDiscoverResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['channel.connect'] })],
+    },
+    discoverMetaWhatsAppController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/channels/meta/whatsapp/embedded-signup — Meta Embedded Signup (passo 2)
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/channels/meta/whatsapp/embedded-signup',
+    {
+      schema: {
+        tags: ['Canais'],
+        summary: 'Conectar canal via Meta SDK (passo 2)',
+        description:
+          'Finaliza a conexão de um canal WhatsApp Business via Embedded Signup. ' +
+          'Recebe o pendingToken do passo 1 + o phoneNumberId selecionado pelo usuário. ' +
+          'Verifica a credencial via Graph API, cifra e persiste em transação. ' +
+          'Equivalente ao /connect mas com credenciais gerenciadas pelo fluxo OAuth. ' +
+          'Retorna 409 se o número já estiver cadastrado. ' +
+          'LGPD: access_token cifrado (encryptPii) antes de persistir — nunca retornado.',
+        security: [{ bearerAuth: [] }],
+        body: MetaEmbeddedSignupBodySchema,
+        response: {
+          201: ChannelResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['channel.connect'] })],
+    },
+    connectEmbeddedSignupController,
   );
 };

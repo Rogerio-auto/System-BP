@@ -24,7 +24,14 @@ export type ErrorCode =
   | 'FEATURE_DISABLED'
   | 'FEATURE_HIDDEN'
   // F19-S03: encaminhamento advocacia — cooldown de 7 dias entre encaminhamentos
-  | 'LAW_FIRM_COOLDOWN';
+  | 'LAW_FIRM_COOLDOWN'
+  // Meta Embedded Signup (canais)
+  | 'FEATURE_NOT_CONFIGURED'
+  | 'META_TOKEN_EXCHANGE_FAILED'
+  | 'META_NO_WABA'
+  | 'META_NO_PHONES'
+  | 'CONFIGURATION_ERROR'
+  | 'PHONE_NOT_IN_TOKEN';
 
 // ---------------------------------------------------------------------------
 // Classe base

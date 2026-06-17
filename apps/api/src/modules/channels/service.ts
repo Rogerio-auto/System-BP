@@ -26,6 +26,9 @@
 //   - Credencial inválida → ChannelInvalidCredentialError (422 VALIDATION_ERROR)
 //   - Canal não encontrado → NotFoundError (404)
 // =============================================================================
+import { SignJWT, jwtVerify } from 'jose';
+
+import { env } from '../../config/env.js';
 import type { Database } from '../../db/client.js';
 import { ProviderError, isProviderError } from '../../integrations/channels/shared/errors.js';
 import { createGraphClient } from '../../integrations/channels/shared/graphClient.js';
@@ -46,6 +49,10 @@ import type {
   ChannelListResponse,
   ChannelResponse,
   ConnectChannelBody,
+  MetaDiscoverBody,
+  MetaDiscoverResponse,
+  MetaDiscoveredPhone,
+  MetaEmbeddedSignupBody,
 } from './schemas.js';
 
 // ---------------------------------------------------------------------------
@@ -413,6 +420,219 @@ export async function setDefaultChannelService(
   });
 
   return toChannelResponse(result);
+}
+
+// ---------------------------------------------------------------------------
+// Meta Embedded Signup — helpers internos
+// ---------------------------------------------------------------------------
+
+/** Issuer/Audience do pending token (distinto dos auth tokens). */
+const PENDING_TOKEN_ISS = 'elemento:channels:embedded-signup';
+
+interface PendingTokenPayload {
+  /** Access token do usuário Meta (curta duração — contido no JWT, nunca exposto). */
+  readonly at: string;
+  /** Telefones descobertos — passados de volta pelo frontend no embedded-signup. */
+  readonly phones: MetaDiscoveredPhone[];
+}
+
+async function signPendingToken(payload: PendingTokenPayload): Promise<string> {
+  const secret = new TextEncoder().encode(env.JWT_ACCESS_SECRET);
+  return new SignJWT({ at: payload.at, phones: payload.phones })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuer(PENDING_TOKEN_ISS)
+    .setAudience(PENDING_TOKEN_ISS)
+    .setIssuedAt()
+    .setExpirationTime('10m')
+    .sign(secret);
+}
+
+async function verifyPendingToken(token: string): Promise<PendingTokenPayload> {
+  const secret = new TextEncoder().encode(env.JWT_ACCESS_SECRET);
+  try {
+    const { payload } = await jwtVerify(token, secret, {
+      algorithms: ['HS256'],
+      issuer: PENDING_TOKEN_ISS,
+      audience: PENDING_TOKEN_ISS,
+    });
+    if (typeof payload['at'] !== 'string' || !Array.isArray(payload['phones'])) {
+      throw new AppError(422, 'VALIDATION_ERROR', 'pendingToken com payload inválido');
+    }
+    // `as` justificado: shape validada acima (at: string, phones: array)
+    return { at: payload['at'], phones: payload['phones'] as MetaDiscoveredPhone[] };
+  } catch (e) {
+    if (e instanceof AppError) throw e;
+    throw new AppError(422, 'VALIDATION_ERROR', 'pendingToken inválido ou expirado');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// discoverMetaWhatsAppService — POST /api/channels/meta/whatsapp/discover
+// ---------------------------------------------------------------------------
+
+/**
+ * Troca o code OAuth do Meta SDK por um access_token e descobre os números
+ * de WhatsApp associados às WABAs do usuário.
+ *
+ * Fluxo:
+ * 1. POST /oauth/access_token (code → user_access_token).
+ * 2. GET /me/whatsapp_business_accounts (lista WABAs acessíveis).
+ * 3. Para cada WABA: GET /{waba_id}/phone_numbers (lista números).
+ * 4. Assina pendingToken JWT (10min) com o access_token encapsulado.
+ * 5. Retorna { pendingToken, phones[] } — o access_token NUNCA chega ao front.
+ *
+ * LGPD: access_token não é PII de titular mas é segredo operacional —
+ * encapsulado no JWT, nunca logado, nunca retornado em texto claro.
+ *
+ * @throws AppError 422 FEATURE_NOT_CONFIGURED se FACEBOOK_APP_ID/SECRET ausentes.
+ * @throws AppError 422 META_TOKEN_EXCHANGE_FAILED se o code for inválido.
+ */
+export async function discoverMetaWhatsAppService(
+  _db: Database,
+  _actor: ActorContext,
+  body: MetaDiscoverBody,
+): Promise<MetaDiscoverResponse> {
+  if (!env.FACEBOOK_APP_ID || !env.FACEBOOK_APP_SECRET) {
+    throw new AppError(
+      422,
+      'FEATURE_NOT_CONFIGURED',
+      'Meta Embedded Signup não está configurado neste servidor. Configure FACEBOOK_APP_ID e FACEBOOK_APP_SECRET.',
+    );
+  }
+
+  // 1. Exchange code → user_access_token
+  const tokenUrl = new URL('https://graph.facebook.com/v23.0/oauth/access_token');
+  tokenUrl.searchParams.set('client_id', env.FACEBOOK_APP_ID);
+  tokenUrl.searchParams.set('client_secret', env.FACEBOOK_APP_SECRET);
+  tokenUrl.searchParams.set('code', body.code);
+
+  const tokenRes = await fetch(tokenUrl.toString(), { method: 'GET' });
+  if (!tokenRes.ok) {
+    throw new AppError(
+      422,
+      'META_TOKEN_EXCHANGE_FAILED',
+      'Falha ao trocar o code pelo access_token da Meta. O code pode ter expirado.',
+    );
+  }
+  const tokenData = (await tokenRes.json()) as { access_token?: string };
+  if (typeof tokenData.access_token !== 'string' || tokenData.access_token === '') {
+    throw new AppError(422, 'META_TOKEN_EXCHANGE_FAILED', 'Meta retornou access_token inválido.');
+  }
+  const accessToken = tokenData.access_token;
+
+  // 2. Listar WABAs acessíveis pelo usuário
+  const client = createGraphClient({ accessToken, maxAttempts: 1, defaultTimeoutMs: 15_000 });
+
+  interface WabaListResponse {
+    readonly data: ReadonlyArray<{ readonly id: string; readonly name: string }>;
+  }
+  const wabaList = await client.get<WabaListResponse>('/me/whatsapp_business_accounts', {
+    params: { fields: 'id,name' },
+  });
+
+  if (!Array.isArray(wabaList.data) || wabaList.data.length === 0) {
+    throw new AppError(
+      422,
+      'META_NO_WABA',
+      'Nenhuma conta WhatsApp Business encontrada para este usuário Meta. Verifique se o usuário tem acesso ao WABA no Meta Business Manager.',
+    );
+  }
+
+  // 3. Para cada WABA, buscar os números de telefone disponíveis
+  interface PhoneListItem {
+    readonly id: string;
+    readonly display_phone_number: string;
+    readonly verified_name: string;
+  }
+  interface PhoneListResponse {
+    readonly data: ReadonlyArray<PhoneListItem>;
+  }
+
+  const phones: MetaDiscoveredPhone[] = [];
+
+  for (const waba of wabaList.data) {
+    const phoneList = await client.get<PhoneListResponse>(`/${waba.id}/phone_numbers`, {
+      params: { fields: 'id,display_phone_number,verified_name' },
+    });
+
+    if (!Array.isArray(phoneList.data)) continue;
+
+    for (const p of phoneList.data) {
+      phones.push({
+        phoneNumberId: p.id,
+        displayPhoneNumber: p.display_phone_number,
+        verifiedName: p.verified_name,
+        wabaId: waba.id,
+        wabaName: waba.name,
+      });
+    }
+  }
+
+  if (phones.length === 0) {
+    throw new AppError(
+      422,
+      'META_NO_PHONES',
+      'Nenhum número de telefone WhatsApp encontrado nas contas WABA deste usuário.',
+    );
+  }
+
+  // 4. Assinar pending token — access_token encapsulado, nunca exposto ao front
+  const pendingToken = await signPendingToken({ at: accessToken, phones });
+
+  return { pendingToken, phones };
+}
+
+// ---------------------------------------------------------------------------
+// connectEmbeddedSignupService — POST /api/channels/meta/whatsapp/embedded-signup
+// ---------------------------------------------------------------------------
+
+/**
+ * Finaliza a conexão de um canal WhatsApp via Embedded Signup.
+ *
+ * Fluxo:
+ * 1. Verifica e decodifica o pendingToken (expira em 10min).
+ * 2. Encontra o phoneNumberId selecionado na lista do token.
+ * 3. Chama connectChannelService com o access_token do token + App Secret da env.
+ *
+ * @throws AppError 422 se o pendingToken expirou ou o phoneNumberId não está no token.
+ */
+export async function connectEmbeddedSignupService(
+  db: Database,
+  actor: ActorContext,
+  body: MetaEmbeddedSignupBody,
+): Promise<ChannelResponse> {
+  if (!env.FACEBOOK_APP_SECRET) {
+    throw new AppError(
+      500,
+      'CONFIGURATION_ERROR',
+      'FACEBOOK_APP_SECRET não configurado — necessário para validação de webhook.',
+    );
+  }
+
+  // 1. Verificar e decodificar pending token
+  const decoded = await verifyPendingToken(body.pendingToken);
+
+  // 2. Encontrar o número selecionado
+  const selectedPhone = decoded.phones.find((p) => p.phoneNumberId === body.phoneNumberId);
+  if (selectedPhone === undefined) {
+    throw new AppError(
+      422,
+      'PHONE_NOT_IN_TOKEN',
+      'O phoneNumberId selecionado não consta no token de sessão. Inicie o fluxo novamente.',
+    );
+  }
+
+  // 3. Conectar canal usando o fluxo padrão (inclui verificação via Graph API + cifragem)
+  return connectChannelService(db, actor, {
+    provider: 'meta_whatsapp',
+    name: body.name,
+    phoneNumber: selectedPhone.displayPhoneNumber,
+    accessToken: decoded.at,
+    appSecret: env.FACEBOOK_APP_SECRET,
+    phoneNumberId: selectedPhone.phoneNumberId,
+    wabaId: selectedPhone.wabaId,
+    cityId: body.cityId ?? null,
+  });
 }
 
 // ---------------------------------------------------------------------------

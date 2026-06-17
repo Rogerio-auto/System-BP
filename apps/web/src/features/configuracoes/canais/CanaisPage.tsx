@@ -17,6 +17,7 @@ import { useForm } from 'react-hook-form';
 import { useAuth } from '../../../lib/auth-store';
 import { cn } from '../../../lib/cn';
 
+import { MetaSignupFlow } from './MetaSignupFlow';
 import {
   type ChannelResponse,
   type ConnectMetaWhatsAppBody,
@@ -804,6 +805,84 @@ function ConnectChannelForm(): React.JSX.Element {
   );
 }
 
+// ─── Seção "Conectar novo canal" com abas ────────────────────────────────────
+
+type ConnectTab = 'meta_sdk' | 'manual';
+
+function ConnectNewChannelSection(): React.JSX.Element {
+  const [activeTab, setActiveTab] = React.useState<ConnectTab>('meta_sdk');
+
+  const tabs: { id: ConnectTab; label: string }[] = [
+    { id: 'meta_sdk', label: 'Conectar com Meta' },
+    { id: 'manual', label: 'Configuração manual' },
+  ];
+
+  return (
+    <div
+      className="flex flex-col gap-4"
+      style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.1s both' }}
+    >
+      <h2
+        className="font-sans font-semibold uppercase tracking-widest text-ink-3"
+        style={{ fontSize: '0.7rem', letterSpacing: '0.12em' }}
+      >
+        Conectar novo canal
+      </h2>
+      <div
+        className="rounded-lg border border-border overflow-hidden"
+        style={{ background: 'var(--bg-elev-1)', boxShadow: 'var(--elev-2)' }}
+      >
+        {/* Abas */}
+        <div className="flex border-b border-border" role="tablist" aria-label="Método de conexão">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`tab-panel-${tab.id}`}
+                id={`tab-${tab.id}`}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'relative px-5 py-3 font-sans font-medium text-sm transition-colors duration-fast',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-azul/30',
+                  isActive ? 'text-azul' : 'text-ink-3 hover:text-ink',
+                )}
+              >
+                {tab.label}
+                {/* Indicador ativo */}
+                {isActive && (
+                  <span
+                    className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+                    style={{ background: 'var(--brand-azul)' }}
+                    aria-hidden="true"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Painel ativo */}
+        <div className="p-5">
+          {activeTab === 'meta_sdk' && (
+            <div role="tabpanel" id="tab-panel-meta_sdk" aria-labelledby="tab-meta_sdk">
+              <MetaSignupFlow />
+            </div>
+          )}
+          {activeTab === 'manual' && (
+            <div role="tabpanel" id="tab-panel-manual" aria-labelledby="tab-manual">
+              <ConnectChannelForm />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 /**
@@ -913,25 +992,7 @@ export function CanaisPage(): React.JSX.Element {
       </div>
 
       {/* ── Conectar novo canal (gated por permissão) ───────────────────────── */}
-      {canConnect && (
-        <div
-          className="flex flex-col gap-4"
-          style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.1s both' }}
-        >
-          <h2
-            className="font-sans font-semibold uppercase tracking-widest text-ink-3"
-            style={{ fontSize: '0.7rem', letterSpacing: '0.12em' }}
-          >
-            Conectar novo canal
-          </h2>
-          <div
-            className="rounded-lg border border-border p-5"
-            style={{ background: 'var(--bg-elev-1)', boxShadow: 'var(--elev-2)' }}
-          >
-            <ConnectChannelForm />
-          </div>
-        </div>
-      )}
+      {canConnect && <ConnectNewChannelSection />}
     </div>
   );
 }
