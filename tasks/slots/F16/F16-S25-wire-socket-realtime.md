@@ -3,12 +3,12 @@ id: F16-S25
 title: Ligar tempo real — registrar socketPlugin + startSocketRelay no boot
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#realtime
-status: in-progress
+status: review
 priority: critical
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-17T20:45:35Z
-completed_at: null
+completed_at: 2026-06-17T20:54:20Z
 pr_url: null
 depends_on: []
 blocks: [F16-S26, F16-S27]
