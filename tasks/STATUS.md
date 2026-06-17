@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 24    | 2   | 0   | 0   | 0   | 0   | 22  |
+| F16  | 24    | 1   | 0   | 0   | 0   | 1   | 22  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -193,7 +193,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S20 | Composer — emoji picker                                                                             | ✅ done      | medium     | F16-S17                            |
 | F16-S21 | Composer — gravação de áudio PTT (push-to-talk)                                                     | ✅ done      | medium     | F16-S18                            |
 | F16-S22 | Inbound dedupe-and-link contato→lead + flag auto-lead                                               | ✅ done      | high       | F16-S07, F16-S08                   |
-| F16-S23 | API vincular/criar lead da conversa (1-clique manual)                                               | 🟢 available | high       | F16-S22                            |
+| F16-S23 | API vincular/criar lead da conversa (1-clique manual)                                               | 🟣 review    | high       | F16-S22                            |
 | F16-S24 | Painel de contato — vínculo de lead e ação criar lead                                               | 🟢 available | high       | F16-S23                            |
 
 ## Fase 17 —

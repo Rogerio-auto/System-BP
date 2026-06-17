@@ -38,12 +38,19 @@ import { typedBody, typedParams, typedQuery } from '../../shared/fastify-types.j
 import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
 
-import type { ConversationIdParam, ConversationListQuery, MessageListQuery } from './schemas.js';
+import type {
+  ConversationIdParam,
+  ConversationListQuery,
+  MessageListQuery,
+  LinkLeadBody,
+} from './schemas.js';
 import {
   ConversationDetailResponseSchema,
   ConversationIdParamSchema,
   ConversationListQuerySchema,
   ConversationListResponseSchema,
+  LinkLeadBodySchema,
+  LinkLeadResponseSchema,
   MessageListQuerySchema,
   MessageListResponseSchema,
   WindowStateSchema,
@@ -71,6 +78,7 @@ import {
   getConversationTemplatesService,
   getMessagesService,
   getWindowService,
+  linkOrCreateConversationLead,
   listConversationsService,
 } from './service.js';
 
@@ -449,6 +457,39 @@ export const conversationsRoutes: FastifyPluginAsyncZod = async (app) => {
       const actor = getWriteActor(request);
       const { id: conversationId } = typedParams<{ id: string }>(request);
       const result = await resolveConversation(db, actor, conversationId);
+      return reply.status(200).send(result);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // PATCH /api/conversations/:id/lead — vincular/criar lead da conversa (F16-S23)
+  // -------------------------------------------------------------------------
+  app.patch(
+    '/api/conversations/:id/lead',
+    {
+      schema: {
+        tags: ['Live Chat'],
+        summary: 'Vincular ou criar lead da conversa',
+        description:
+          'Vincula a conversa a um lead existente ou cria+vincula um novo lead em 1 clique. ' +
+          'Se leadId informado: vincula lead existente (409 se já vinculado a outro). ' +
+          'Se leadId omitido: cria+vincula lead via telefone+nome do contato e cityId do canal ' +
+          '(422 se canal sem cityId). Idempotente: mesmo lead já vinculado retorna 200 sem mutar. ' +
+          'LGPD: audit log e socket relay sem PII bruta — apenas IDs opacos.',
+        security: [{ bearerAuth: [] }],
+        params: ConversationIdParamSchema,
+        body: LinkLeadBodySchema,
+        response: {
+          200: LinkLeadResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['livechat:conversation:manage'] })],
+    },
+    async (request, reply) => {
+      const actor = getWriteActor(request);
+      const { id: conversationId } = typedParams<{ id: string }>(request);
+      const body = typedBody<LinkLeadBody>(request);
+      const result = await linkOrCreateConversationLead(db, actor, conversationId, body);
       return reply.status(200).send(result);
     },
   );

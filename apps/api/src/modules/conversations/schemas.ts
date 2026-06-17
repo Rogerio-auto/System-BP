@@ -365,3 +365,50 @@ export const MessageListResponseSchema = z
     },
   });
 export type MessageListResponse = z.infer<typeof MessageListResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// F16-S23 — PATCH /api/conversations/:id/lead
+// ---------------------------------------------------------------------------
+
+/**
+ * Body do PATCH /api/conversations/:id/lead.
+ *
+ * Se `leadId` presente: vincula lead existente.
+ * Se `leadId` ausente: cria novo lead via getOrCreateLead usando dados do contato + cityId do canal.
+ *
+ * LGPD (doc 17 §8.1): body não contém PII direta — leadId é UUID opaco.
+ */
+export const LinkLeadBodySchema = z
+  .object({
+    leadId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe(
+        'UUID do lead existente a vincular. Omitir para criar novo lead via dados do contato.',
+      ),
+  })
+  .openapi({
+    example: { leadId: '550e8400-e29b-41d4-a716-446655440099' },
+  });
+export type LinkLeadBody = z.infer<typeof LinkLeadBodySchema>;
+
+/**
+ * Resposta do PATCH /api/conversations/:id/lead.
+ *
+ * LGPD: apenas IDs opacos — sem PII.
+ */
+export const LinkLeadResponseSchema = z
+  .object({
+    conversationId: z.string().uuid().describe('UUID da conversa.'),
+    leadId: z.string().uuid().describe('UUID do lead vinculado.'),
+    created: z.boolean().describe('true = lead criado agora; false = lead existente vinculado.'),
+  })
+  .openapi({
+    example: {
+      conversationId: '550e8400-e29b-41d4-a716-446655440000',
+      leadId: '550e8400-e29b-41d4-a716-446655440099',
+      created: false,
+    },
+  });
+export type LinkLeadResponse = z.infer<typeof LinkLeadResponseSchema>;
