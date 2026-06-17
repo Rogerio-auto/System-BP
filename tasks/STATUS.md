@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 29    | 4   | 0   | 0   | 0   | 1   | 24  |
+| F16  | 29    | 3   | 0   | 0   | 0   | 0   | 26  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -195,10 +195,10 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S22 | Inbound dedupe-and-link contato→lead + flag auto-lead                                               | ✅ done      | high       | F16-S07, F16-S08                   |
 | F16-S23 | API vincular/criar lead da conversa (1-clique manual)                                               | ✅ done      | high       | F16-S22                            |
 | F16-S24 | Painel de contato — vínculo de lead e ação criar lead                                               | ✅ done      | high       | F16-S23                            |
-| F16-S25 | Ligar tempo real — registrar socketPlugin + startSocketRelay no boot                                | 🟣 review    | critical   | —                                  |
+| F16-S25 | Ligar tempo real — registrar socketPlugin + startSocketRelay no boot                                | ✅ done      | critical   | —                                  |
 | F16-S26 | Conversations backend — read emite conversation:updated + PATCH /lead aceita cityId                 | 🟢 available | high       | F16-S25                            |
 | F16-S27 | Front livechat — badge em tempo real, marcar lida ao abrir e Criar lead com cidade                  | 🟢 available | high       | F16-S25, F16-S26                   |
-| F16-S28 | IA no livechat — gate (flag + allowlist de teste) e trigger no inbound                              | 🟣 review    | high       | —                                  |
+| F16-S28 | IA no livechat — gate (flag + allowlist de teste) e trigger no inbound                              | ✅ done      | high       | —                                  |
 | F16-S29 | Worker livechat-ai — LangGraph responde no livechat via send service                                | 🟢 available | high       | F16-S28                            |
 
 ## Fase 17 —
