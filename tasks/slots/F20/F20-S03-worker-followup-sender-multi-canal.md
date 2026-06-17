@@ -3,12 +3,12 @@ id: F20-S03
 title: Worker — followup-sender e followup-scheduler: multi-canal via tabela channels
 phase: F20
 task_ref: docs/planejamento-2026-06-multi-canal.md
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: null
-claimed_at: 2026-06-17T05:07:51Z
-completed_at: null
+claimed_at: null
+completed_at: 2026-06-17T05:25:19Z
 pr_url: null
 depends_on: [F20-S01, F20-S02]
 blocks: []
