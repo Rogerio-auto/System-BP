@@ -498,7 +498,7 @@ function LeadSection({
               style={{
                 fontFamily: 'var(--font-sans)',
                 fontSize: 10,
-                color: '#16a34a',
+                color: 'var(--success)',
                 margin: 0,
                 textAlign: 'center',
               }}
