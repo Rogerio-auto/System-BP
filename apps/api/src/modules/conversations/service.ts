@@ -28,9 +28,16 @@ import { conversations } from '../../db/schema/conversations.js';
 import type { Message } from '../../db/schema/messages.js';
 import { messages } from '../../db/schema/messages.js';
 import { whatsappTemplates } from '../../db/schema/whatsappTemplates.js';
+import type { AuditTx } from '../../lib/audit.js';
+import { auditLog } from '../../lib/audit.js';
 import { decryptPii } from '../../lib/crypto/pii.js';
+import { makeEnvelope, publish } from '../../lib/queue/index.js';
+import { QUEUES } from '../../lib/queue/topology.js';
+import { AppError, ConflictError } from '../../shared/errors.js';
 import type { UserScopeCtx } from '../../shared/scope.js';
+import { getOrCreateLead } from '../leads/service.js';
 import type { ConversationRow } from '../livechat/repo.js';
+import { linkConversationLead } from '../livechat/repo.js';
 import type { ComposerState } from '../livechat/schemas.js';
 import {
   findChannel,
@@ -47,6 +54,8 @@ import type {
   MessageListResponse,
   MessageListQuery,
   WindowState,
+  LinkLeadBody,
+  LinkLeadResponse,
 } from './schemas.js';
 
 // ---------------------------------------------------------------------------
@@ -435,4 +444,213 @@ export async function getWindowService(
 
   const composerStateRaw = getComposerState(conv, channel);
   return toWindowStateDto(composerStateRaw);
+}
+
+// ---------------------------------------------------------------------------
+// F16-S23 — linkOrCreateConversationLead
+// ---------------------------------------------------------------------------
+
+/**
+ * Contexto de ator para operações de escrita no módulo de conversas (lead-link).
+ */
+export interface LeadLinkActorContext {
+  readonly userId: string;
+  readonly organizationId: string;
+  readonly role: string;
+  readonly cityScopeIds: string[] | null;
+  readonly ip?: string | null;
+  readonly userAgent?: string | null;
+}
+
+/**
+ * Erro 409: a conversa já está vinculada a um lead diferente.
+ * Não trocamos vínculo silenciosamente — o agente deve confirmar a ação.
+ */
+export class ConversationAlreadyLinkedError extends ConflictError {
+  constructor(
+    public readonly existingLeadId: string,
+    public readonly requestedLeadId: string,
+  ) {
+    super(
+      `Conversa já está vinculada ao lead ${existingLeadId}. ` +
+        `Não é possível trocar para ${requestedLeadId} silenciosamente.`,
+    );
+    this.name = 'ConversationAlreadyLinkedError';
+  }
+}
+
+/**
+ * Erro 422: o agente tentou criar um lead novo mas o canal não tem cityId.
+ * Tech debt F3-S04: leads.city_id é NOT NULL — criação sem cidade é inválida.
+ */
+export class MissingChannelCityError extends AppError {
+  constructor() {
+    super(
+      422,
+      'VALIDATION_ERROR',
+      'Não é possível criar lead: o canal desta conversa não possui cidade configurada. ' +
+        'Vincule um lead existente via leadId ou configure a cidade do canal.',
+    );
+    this.name = 'MissingChannelCityError';
+  }
+}
+
+/**
+ * Vincula a conversa a um lead existente OU cria+vincula um novo lead em 1 clique.
+ *
+ * Pipeline:
+ *   1. Valida conversa no escopo do ator (404 se não existir / fora do escopo).
+ *   2. Se body.leadId presente:
+ *      a. Idempotência: já vinculado ao MESMO lead → 200 no-op.
+ *      b. Já vinculado a DIFERENTE lead → 409 (não troca silenciosamente).
+ *      c. Sem vínculo → chama linkConversationLead (livechat/repo).
+ *   3. Se body.leadId ausente:
+ *      a. Canal sem cityId → 422 (tech debt: leads.city_id NOT NULL).
+ *      b. Decifra contactPhoneEnc → E.164 → getOrCreateLead → linkConversationLead.
+ *   4. Emite audit log conversation.lead_linked (apenas IDs opacos — LGPD §8.5).
+ *   5. Publica socket relay conversation:updated com leadId (sem PII bruta — LGPD §8.1).
+ *
+ * LGPD (doc 17 §8.1, §8.3, §8.5):
+ *   - contactPhoneEnc decifrado apenas internamente — nunca logado.
+ *   - Audit log: apenas IDs opacos (conversationId, leadId, channelId).
+ *   - Socket payload: apenas IDs opacos.
+ */
+export async function linkOrCreateConversationLead(
+  db: Database,
+  actor: LeadLinkActorContext,
+  conversationId: string,
+  body: LinkLeadBody,
+): Promise<LinkLeadResponse> {
+  const { organizationId, cityScopeIds } = actor;
+
+  log.debug(
+    { organizationId, conversationId, hasLeadId: body.leadId !== undefined },
+    'conversations.service: linkOrCreateConversationLead',
+  );
+
+  // 1. Valida conversa no escopo do ator
+  const userCtx: UserScopeCtx = { cityScopeIds };
+  const conv = await getConversation(db, conversationId, organizationId, userCtx);
+
+  let leadId: string;
+  let created = false;
+
+  if (body.leadId !== undefined) {
+    // Caminho A: vincular lead existente
+
+    if (conv.leadId !== null) {
+      // Idempotência: já vinculado ao mesmo lead → 200 no-op
+      if (conv.leadId === body.leadId) {
+        log.debug(
+          { organizationId, conversationId, leadId: body.leadId },
+          'conversations.service: já vinculado ao mesmo lead — no-op',
+        );
+        return { conversationId, leadId: conv.leadId, created: false };
+      }
+      // Já vinculado a lead DIFERENTE → 409
+      throw new ConversationAlreadyLinkedError(conv.leadId, body.leadId);
+    }
+
+    // Vínculo novo — chama helper do livechat/repo (F16-S22)
+    await linkConversationLead(db, conversationId, organizationId, body.leadId);
+    leadId = body.leadId;
+    created = false;
+  } else {
+    // Caminho B: criar + vincular lead novo
+
+    // Idempotência: já tem lead → no-op (não criamos duplicata)
+    if (conv.leadId !== null) {
+      log.debug(
+        { organizationId, conversationId, leadId: conv.leadId },
+        'conversations.service: conversa já tem lead — no-op na criação',
+      );
+      return { conversationId, leadId: conv.leadId, created: false };
+    }
+
+    // Busca canal para obter cityId
+    const channel = await findChannel(db, conv.channelId, organizationId);
+
+    if (channel.cityId === null || channel.cityId === undefined) {
+      throw new MissingChannelCityError();
+    }
+
+    // Decifra telefone do contato (LGPD: não logar)
+    const phoneDigitRegex = /^\d{10,15}$/;
+    let phone: string;
+
+    if (conv.contactPhoneEnc !== null && conv.contactPhoneEnc !== undefined) {
+      const decrypted = await decryptPii(conv.contactPhoneEnc);
+      phone = decrypted;
+    } else if (phoneDigitRegex.test(conv.contactRemoteId)) {
+      phone = `+${conv.contactRemoteId}`;
+    } else {
+      // Provider não fornece telefone (ex: Instagram DM com IGSID)
+      throw new AppError(
+        422,
+        'VALIDATION_ERROR',
+        'Não é possível criar lead: o contato desta conversa não possui número de telefone. ' +
+          'Vincule um lead existente via leadId.',
+      );
+    }
+
+    const result = await getOrCreateLead(
+      db,
+      organizationId,
+      {
+        phone,
+        name: conv.contactName ?? undefined,
+        source: 'whatsapp',
+        chatwootConversationId: undefined,
+        correlationId: undefined,
+        cityId: channel.cityId,
+      },
+      null,
+    );
+
+    await linkConversationLead(db, conversationId, organizationId, result.lead_id);
+    leadId = result.lead_id;
+    created = result.created;
+  }
+
+  // 4. Audit log — apenas IDs opacos (LGPD §8.5)
+  // 'as unknown as AuditTx' justificado: db satisfaz a interface AuditTx (insert),
+  // mas Drizzle não expõe tipagem compatível diretamente sem cast.
+  await auditLog(db as unknown as AuditTx, {
+    organizationId,
+    actor: {
+      userId: actor.userId,
+      role: actor.role,
+      ip: actor.ip ?? null,
+      userAgent: actor.userAgent ?? null,
+    },
+    action: 'conversation.lead_linked',
+    resource: { type: 'conversation', id: conversationId },
+    after: {
+      conversationId,
+      leadId,
+      created,
+      channelId: conv.channelId,
+    },
+  });
+
+  // 5. Socket relay — conversation:updated com leadId (sem PII bruta — LGPD §8.1)
+  await publish(
+    QUEUES.socketRelay,
+    makeEnvelope(QUEUES.socketRelay, organizationId, {
+      room: conversationId,
+      event: 'conversation:updated',
+      data: {
+        conversationId,
+        leadId,
+        organizationId,
+      },
+    }),
+  );
+
+  log.info(
+    { organizationId, conversationId, leadId, created },
+    'conversations.service: lead vinculado',
+  );
+
+  return { conversationId, leadId, created };
 }
