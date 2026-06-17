@@ -33,6 +33,7 @@ import { MetaWhatsAppClient } from '../../integrations/meta-whatsapp/client.js';
 import { auditLog } from '../../lib/audit.js';
 import type { AuditTx } from '../../lib/audit.js';
 import { AppError, NotFoundError } from '../../shared/errors.js';
+import { resolveChannelForSend } from '../channels/channel-selection.service.js';
 
 import {
   cancelCollectionJob,
@@ -539,6 +540,7 @@ export async function attachBoletoUploadService(
   file: { bytes: Buffer; mimeType: string; filename?: string },
   idempotencyKey: string,
   _allowedHosts: string[],
+  channelId?: string | null,
 ): Promise<BoletoResponse> {
   // HIGH-02: verificar idempotency-key antes de processar (fora da tx — leitura rápida).
   // Re-enviar a mesma key retorna a resposta cacheada sem re-executar upload para a Meta.
@@ -565,7 +567,11 @@ export async function attachBoletoUploadService(
   // Upload para a Meta (fora da tx — operação externa, não revertível).
   // LGPD §8.3: bytes/filename nunca logados pelo cliente Meta.
   // Erros propagam para o caller (route) que exibe ExternalServiceError como 502.
-  const metaClient = new MetaWhatsAppClient();
+  const resolvedChannel = await resolveChannelForSend(db, organizationId, channelId ?? null);
+  const metaClient = new MetaWhatsAppClient({
+    accessToken: resolvedChannel.accessToken,
+    phoneNumberId: resolvedChannel.phoneNumberId,
+  });
   const { mediaId } = await metaClient.uploadMedia({
     bytes: file.bytes,
     mimeType: file.mimeType,
