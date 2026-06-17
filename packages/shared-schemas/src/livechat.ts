@@ -128,6 +128,7 @@ export const InboundEventSchema = z.discriminatedUnion('type', [
     channelId: z.string().uuid(),
     provider: ChannelProviderSchema,
     contactRemoteId: z.string().min(1),
+    contactName: z.string().optional(),
     externalId: z.string().min(1),
     messageType: MessageTypeSchema,
     content: z.string().optional(),

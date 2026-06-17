@@ -127,6 +127,15 @@ export async function findOrCreateConversation(
     .limit(1);
 
   if (existing !== undefined) {
+    // Atualiza contactName se chegou nome e a conversa ainda não tem
+    if (contactName !== undefined && contactName !== '' && existing.contactName === null) {
+      const [updated] = await db
+        .update(conversations)
+        .set({ contactName })
+        .where(eq(conversations.id, existing.id))
+        .returning();
+      return { conversation: (updated ?? existing) as Conversation, created: false };
+    }
     return { conversation: existing, created: false };
   }
 

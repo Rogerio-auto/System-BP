@@ -175,6 +175,8 @@ export async function processMessage(
         channelId,
         // LGPD: contactRemoteId pode ser telefone E.164 — não logar
         contactRemoteId: event.contactRemoteId,
+        // Nome de exibição do contato (opcional — vem do array contacts do webhook)
+        contactName: event.contactName,
         // cityId herdado do canal para applyCityScope
         cityId: channel.cityId ?? undefined,
       });

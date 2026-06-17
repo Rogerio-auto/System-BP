@@ -294,8 +294,16 @@ export function parseMetaWebhookEnvelope(
       const { value } = change;
 
       // ── Messages ─────────────────────────────────────────────────────────
+      // Monta mapa wa_id → nome de exibição a partir do array contacts do value
+      const contactNameByWaId = new Map<string, string>();
+      for (const contact of value.contacts ?? []) {
+        const name = contact.profile?.name;
+        if (name !== undefined && name !== '') {
+          contactNameByWaId.set(contact.wa_id, name);
+        }
+      }
       for (const msg of value.messages ?? []) {
-        const parsed = parseMessage(msg, opts);
+        const parsed = parseMessage(msg, opts, contactNameByWaId.get(msg.from));
         if (parsed !== null) {
           events.push(parsed);
         }
@@ -320,13 +328,18 @@ export function parseMetaWebhookEnvelope(
 
 // MetaMessage interface defined above MetaMessageSchema to break TS7056 inference chain
 
-function parseMessage(msg: MetaMessage, opts: ParseInboundOptions): InboundEvent | null {
+function parseMessage(
+  msg: MetaMessage,
+  opts: ParseInboundOptions,
+  contactName?: string,
+): InboundEvent | null {
   const { organizationId, channelId } = opts;
   const base = {
     organizationId,
     channelId,
     provider: 'meta_whatsapp' as const,
     contactRemoteId: msg.from,
+    contactName,
     externalId: msg.id,
     rawTimestamp: msg.timestamp,
   };
