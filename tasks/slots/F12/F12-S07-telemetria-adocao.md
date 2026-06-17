@@ -3,12 +3,12 @@ id: F12-S07
 title: Telemetria de adoção de tutoriais (opened/completed) — fase 2
 phase: F12
 task_ref: docs/21-tutoriais-em-video.md#10
-status: in-progress
+status: review
 priority: low
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-17T04:03:51Z
-completed_at: null
+completed_at: 2026-06-17T04:23:54Z
 pr_url: null
 depends_on: [F12-S02]
 blocks: []
