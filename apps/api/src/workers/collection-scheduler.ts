@@ -37,6 +37,7 @@ import { db as defaultDb } from '../db/client.js';
 import type { Database } from '../db/client.js';
 import { collectionJobs, collectionRules, paymentDues } from '../db/schema/index.js';
 import type { CollectionRule } from '../db/schema/index.js';
+import { resolveChannelForSend } from '../modules/channels/channel-selection.service.js';
 import { isFlagEnabled } from '../modules/featureFlags/service.js';
 
 import { createWorkerRuntime } from './_runtime.js';
@@ -196,6 +197,17 @@ export async function processCollectionRule(
   if (!dryRun && duesMatched > 0) {
     const scheduledAt = new Date();
 
+    // Resolver canal para este job — usa rule.channelId se definido, senão fallback ao canal
+    // padrão da org. Falha graciosamente (null) se a org não tiver canal ativo ainda.
+    // O sender resolverá novamente no momento do envio; channelId aqui é apenas uma hint
+    // para roteamento eficiente de lotes (e rastreabilidade).
+    const defaultChannel = await resolveChannelForSend(
+      database,
+      rule.organizationId,
+      rule.channelId ?? undefined,
+    ).catch(() => null);
+    const channelIdToAssign = defaultChannel?.channelId ?? null;
+
     for (const due of eligibleDues) {
       const idempotencyKey = buildCollectionIdempotencyKey(due.dueDate, rule.key);
 
@@ -211,6 +223,7 @@ export async function processCollectionRule(
           status: 'scheduled',
           attemptCount: 0,
           idempotencyKey,
+          channelId: channelIdToAssign,
         })
         .onConflictDoNothing()
         .returning({ id: collectionJobs.id });

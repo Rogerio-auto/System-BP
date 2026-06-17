@@ -77,6 +77,7 @@ import type {
 } from '../integrations/meta-whatsapp/types.js';
 import { auditLog } from '../lib/audit.js';
 import type { AuditTx } from '../lib/audit.js';
+import { resolveChannelForSend } from '../modules/channels/channel-selection.service.js';
 import { isFlagEnabled } from '../modules/featureFlags/service.js';
 import { AppError, ExternalServiceError } from '../shared/errors.js';
 
@@ -1005,6 +1006,78 @@ export async function processCollectionJob(
   }
 
   // -------------------------------------------------------------------------
+  // 6.5. Resolver canal WhatsApp (F20-S04 — multi-canal via tabela channels)
+  //
+  // Quando metaClient não é injetado (produção), resolve as credenciais do canal
+  // a partir do job.channelId (ou fallback ao canal padrão da org).
+  // metaClient injetado (testes) é usado diretamente — sem chamada ao banco.
+  // LGPD: accessToken NUNCA logado — apenas channelId e channelName.
+  // -------------------------------------------------------------------------
+  let effectiveMetaClient: MetaWhatsAppClient | null = metaClient;
+
+  if (effectiveMetaClient === null && !dryRun) {
+    const resolved = await resolveChannelForSend(
+      database,
+      job.organizationId,
+      job.channelId ?? undefined,
+    ).catch((err: unknown) => {
+      logger.error(
+        {
+          event: 'collection_sender.channel_not_found',
+          job_id: job.id,
+          // LGPD: channelId é ID técnico — não é PII
+          channel_id: job.channelId,
+          err: { message: err instanceof Error ? err.message : String(err) },
+        },
+        `job ${job.id}: canal WhatsApp não encontrado — job falhará`,
+      );
+      return null;
+    });
+
+    if (resolved === null) {
+      const errorMsg = 'Nenhum canal WhatsApp ativo configurado para esta organização';
+      const newAttemptCount = job.attemptCount + 1;
+
+      await database
+        .update(collectionJobs)
+        .set({
+          status: 'failed',
+          attemptCount: newAttemptCount,
+          lastError: errorMsg,
+          updatedAt: new Date(),
+        })
+        .where(eq(collectionJobs.id, job.id));
+
+      return {
+        jobId: job.id,
+        paymentDueId: job.paymentDueId,
+        templateKey: ctx.template.name,
+        outcome: 'failed',
+        error: 'channel_not_found',
+        attemptCount: newAttemptCount,
+        terminal: true,
+      };
+    }
+
+    // LGPD §8.3: channelName e channelId são metadados seguros para log;
+    // resolved.accessToken NUNCA é logado.
+    logger.info(
+      {
+        event: 'collection_sender.channel_resolved',
+        job_id: job.id,
+        channel_id: resolved.channelId,
+        channel_name: resolved.channelName,
+      },
+      `job ${job.id}: canal ${resolved.channelName} resolvido para envio`,
+    );
+
+    effectiveMetaClient = new MetaWhatsAppClient({
+      accessToken: resolved.accessToken,
+      phoneNumberId: resolved.phoneNumberId,
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // 7. Resolver header de boleto (F5-S14)
   //
   // Feito ANTES do lock otimista para detectar boleto_missing sem consumir o lock.
@@ -1014,9 +1087,9 @@ export async function processCollectionJob(
   const templateNeedsBoleto =
     ctx.template.headerType === 'document' || ctx.template.headerType === 'image';
 
-  if (templateNeedsBoleto && !dryRun && metaClient !== null) {
+  if (templateNeedsBoleto && !dryRun && effectiveMetaClient !== null) {
     try {
-      headerResolution = await resolveMediaHeader(database, ctx, metaClient, logger);
+      headerResolution = await resolveMediaHeader(database, ctx, effectiveMetaClient, logger);
     } catch (err) {
       // Erro de re-upload (download falhou, Meta upload falhou) → retryável
       const errorMsg =
@@ -1218,7 +1291,7 @@ export async function processCollectionJob(
   // 10. Dry-run: logar sem chamar API
   // LGPD: não logar `to` (phoneE164) — apenas template_name.
   // -------------------------------------------------------------------------
-  if (dryRun || metaClient === null) {
+  if (dryRun || effectiveMetaClient === null) {
     logger.info(
       {
         event: 'collection_sender.dry_run',
@@ -1260,7 +1333,11 @@ export async function processCollectionJob(
   // -------------------------------------------------------------------------
   let wamid: string;
   try {
-    const result = await metaClient.sendTemplate(sendParams);
+    // effectiveMetaClient is guaranteed non-null here: dry-run path returned above,
+    // and channel resolution (step 6.5) would have returned early if null in production.
+    // In tests, metaClient is injected as non-null for paths that reach this point.
+    // Justificativa: narrowing via dryRun || effectiveMetaClient === null acima.
+    const result = await (effectiveMetaClient as MetaWhatsAppClient).sendTemplate(sendParams);
     wamid = result.wamid;
   } catch (err: unknown) {
     const errorMsg =
@@ -1639,28 +1716,17 @@ export { runtime as _workerRuntime };
 async function main(): Promise<void> {
   const tickMs = env.FOLLOWUP_SENDER_TICK_MS ?? DEFAULT_TICK_MS;
 
-  let metaClient: MetaWhatsAppClient | null = null;
-  try {
-    metaClient = new MetaWhatsAppClient();
-    runtime.logger.info(
-      { event: 'collection_sender.meta_client_ready' },
-      'cliente Meta WhatsApp inicializado (collection-sender)',
-    );
-  } catch (err: unknown) {
-    runtime.logger.warn(
-      {
-        event: 'collection_sender.meta_client_unavailable',
-        err: { message: err instanceof Error ? err.message : String(err) },
-      },
-      'META_WHATSAPP_ACCESS_TOKEN ou META_WHATSAPP_PHONE_NUMBER_ID ausente — worker em modo degradado (dry-run forçado)',
-    );
-  }
-
-  runtime.logger.info({ tick_ms: tickMs }, 'collection-sender iniciado');
+  // F20-S04: credenciais resolvidas por job via resolveChannelForSend (tabela channels).
+  // Não há mais inicialização de MetaWhatsAppClient com env vars aqui.
+  runtime.logger.info(
+    { event: 'collection_sender.started', tick_ms: tickMs },
+    'collection-sender iniciado — credenciais Meta resolvidas por job via tabela channels',
+  );
 
   while (!runtime.isShuttingDown()) {
     try {
-      await runCollectionSenderTick(defaultDb, metaClient, runtime.logger);
+      // null = sem cliente injetado; cada job resolve o canal via resolveChannelForSend.
+      await runCollectionSenderTick(defaultDb, null, runtime.logger);
     } catch (err: unknown) {
       runtime.logger.error(
         {
