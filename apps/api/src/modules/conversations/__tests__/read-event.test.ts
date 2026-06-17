@@ -123,13 +123,16 @@ describe('markConversationRead — emissão conversation:updated (F16-S26)', () 
 
     // Encontra a call do socket relay
     const relayCall = mockPublish.mock.calls.find(
-      (call) =>
-        typeof call[0] === 'string' && call[0].includes('socket.relay'),
+      (call) => typeof call[0] === 'string' && call[0].includes('socket.relay'),
     );
     expect(relayCall).toBeDefined();
 
     // Verifica o envelope (mockMakeEnvelope passa o 3º arg como está)
-    const envelope = relayCall![1] as { room: string; event: string; data: Record<string, unknown> };
+    const envelope = relayCall![1] as {
+      room: string;
+      event: string;
+      data: Record<string, unknown>;
+    };
     expect(envelope.room).toBe(`workspace:${ORG_ID}`);
     expect(envelope.event).toBe('conversation:updated');
     expect(envelope.data).toMatchObject({ conversationId: CONV_ID, unreadCount: 0 });

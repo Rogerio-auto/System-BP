@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 29    | 1   | 0   | 0   | 0   | 1   | 27  |
+| F16  | 29    | 0   | 0   | 0   | 0   | 2   | 27  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -169,37 +169,37 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 16 —
 
-| ID      | Título                                                                                              | Status       | Prioridade | Depende de                         |
-| ------- | --------------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------------------------------- |
-| F16-S01 | Infra base do live chat — Redis + RabbitMQ + R2 (clientes + topologia de filas)                     | ✅ done      | critical   | —                                  |
-| F16-S02 | Schema multicanal do live chat — channels, channel_secrets, conversations, messages, webhook_events | ✅ done      | critical   | —                                  |
-| F16-S03 | Contratos compartilhados do live chat — discriminated unions + Zod + socket events                  | ✅ done      | critical   | —                                  |
-| F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | ✅ done      | high       | F16-S02, F16-S03                   |
-| F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | ✅ done      | high       | F16-S04                            |
-| F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | ✅ done      | high       | F16-S02, F16-S03, F16-S04          |
-| F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | ✅ done      | high       | F16-S02, F16-S03                   |
-| F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | ✅ done      | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
-| F16-S09 | Worker media — download via adapter, dedup SHA-256, upload R2, media_ready                          | ✅ done      | medium     | F16-S01, F16-S05, F16-S07          |
-| F16-S10 | Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status                  | ✅ done      | high       | F16-S01, F16-S05, F16-S07          |
-| F16-S11 | Canais — connect manual (provider-discriminado, segredo cifrado) + list                             | ✅ done      | high       | F16-S02, F16-S03, F16-S04          |
-| F16-S12 | API conversas (read) — list, get, messages (cursor), window state                                   | ✅ done      | high       | F16-S03, F16-S07                   |
-| F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ✅ done      | high       | F16-S07, F16-S10, F16-S12          |
-| F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ✅ done      | medium     | F16-S01, F16-S03, F16-S07          |
-| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | ✅ done      | high       | F16-S03, F16-S12, F16-S14          |
-| F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | ✅ done      | high       | F16-S15                            |
-| F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | ✅ done      | high       | F16-S15, F16-S13                   |
-| F16-S18 | Composer — upload de mídia (imagem, vídeo, documento, áudio)                                        | ✅ done      | high       | F16-S13, F16-S17                   |
-| F16-S19 | Composer — seletor de template (janela 24h expirada)                                                | ✅ done      | high       | F16-S13, F16-S17                   |
-| F16-S20 | Composer — emoji picker                                                                             | ✅ done      | medium     | F16-S17                            |
-| F16-S21 | Composer — gravação de áudio PTT (push-to-talk)                                                     | ✅ done      | medium     | F16-S18                            |
-| F16-S22 | Inbound dedupe-and-link contato→lead + flag auto-lead                                               | ✅ done      | high       | F16-S07, F16-S08                   |
-| F16-S23 | API vincular/criar lead da conversa (1-clique manual)                                               | ✅ done      | high       | F16-S22                            |
-| F16-S24 | Painel de contato — vínculo de lead e ação criar lead                                               | ✅ done      | high       | F16-S23                            |
-| F16-S25 | Ligar tempo real — registrar socketPlugin + startSocketRelay no boot                                | ✅ done      | critical   | —                                  |
-| F16-S26 | Conversations backend — read emite conversation:updated + PATCH /lead aceita cityId                 | ✅ done      | high       | F16-S25                            |
-| F16-S27 | Front livechat — badge em tempo real, marcar lida ao abrir e Criar lead com cidade                  | 🟣 review    | high       | F16-S25, F16-S26                   |
-| F16-S28 | IA no livechat — gate (flag + allowlist de teste) e trigger no inbound                              | ✅ done      | high       | —                                  |
-| F16-S29 | Worker livechat-ai — LangGraph responde no livechat via send service                                | 🟢 available | high       | F16-S28                            |
+| ID      | Título                                                                                              | Status    | Prioridade | Depende de                         |
+| ------- | --------------------------------------------------------------------------------------------------- | --------- | ---------- | ---------------------------------- |
+| F16-S01 | Infra base do live chat — Redis + RabbitMQ + R2 (clientes + topologia de filas)                     | ✅ done   | critical   | —                                  |
+| F16-S02 | Schema multicanal do live chat — channels, channel_secrets, conversations, messages, webhook_events | ✅ done   | critical   | —                                  |
+| F16-S03 | Contratos compartilhados do live chat — discriminated unions + Zod + socket events                  | ✅ done   | critical   | —                                  |
+| F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | ✅ done   | high       | F16-S02, F16-S03                   |
+| F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | ✅ done   | high       | F16-S04                            |
+| F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | ✅ done   | high       | F16-S02, F16-S03, F16-S04          |
+| F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | ✅ done   | high       | F16-S02, F16-S03                   |
+| F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | ✅ done   | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
+| F16-S09 | Worker media — download via adapter, dedup SHA-256, upload R2, media_ready                          | ✅ done   | medium     | F16-S01, F16-S05, F16-S07          |
+| F16-S10 | Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status                  | ✅ done   | high       | F16-S01, F16-S05, F16-S07          |
+| F16-S11 | Canais — connect manual (provider-discriminado, segredo cifrado) + list                             | ✅ done   | high       | F16-S02, F16-S03, F16-S04          |
+| F16-S12 | API conversas (read) — list, get, messages (cursor), window state                                   | ✅ done   | high       | F16-S03, F16-S07                   |
+| F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ✅ done   | high       | F16-S07, F16-S10, F16-S12          |
+| F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ✅ done   | medium     | F16-S01, F16-S03, F16-S07          |
+| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | ✅ done   | high       | F16-S03, F16-S12, F16-S14          |
+| F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | ✅ done   | high       | F16-S15                            |
+| F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | ✅ done   | high       | F16-S15, F16-S13                   |
+| F16-S18 | Composer — upload de mídia (imagem, vídeo, documento, áudio)                                        | ✅ done   | high       | F16-S13, F16-S17                   |
+| F16-S19 | Composer — seletor de template (janela 24h expirada)                                                | ✅ done   | high       | F16-S13, F16-S17                   |
+| F16-S20 | Composer — emoji picker                                                                             | ✅ done   | medium     | F16-S17                            |
+| F16-S21 | Composer — gravação de áudio PTT (push-to-talk)                                                     | ✅ done   | medium     | F16-S18                            |
+| F16-S22 | Inbound dedupe-and-link contato→lead + flag auto-lead                                               | ✅ done   | high       | F16-S07, F16-S08                   |
+| F16-S23 | API vincular/criar lead da conversa (1-clique manual)                                               | ✅ done   | high       | F16-S22                            |
+| F16-S24 | Painel de contato — vínculo de lead e ação criar lead                                               | ✅ done   | high       | F16-S23                            |
+| F16-S25 | Ligar tempo real — registrar socketPlugin + startSocketRelay no boot                                | ✅ done   | critical   | —                                  |
+| F16-S26 | Conversations backend — read emite conversation:updated + PATCH /lead aceita cityId                 | ✅ done   | high       | F16-S25                            |
+| F16-S27 | Front livechat — badge em tempo real, marcar lida ao abrir e Criar lead com cidade                  | 🟣 review | high       | F16-S25, F16-S26                   |
+| F16-S28 | IA no livechat — gate (flag + allowlist de teste) e trigger no inbound                              | ✅ done   | high       | —                                  |
+| F16-S29 | Worker livechat-ai — LangGraph responde no livechat via send service                                | 🟣 review | high       | F16-S28                            |
 
 ## Fase 17 —
 
