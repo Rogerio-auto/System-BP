@@ -131,7 +131,7 @@ export function useSendMessage(conversationId: string) {
           if (!firstPage) return old;
           const newFirstPage: MessageListResponse = {
             ...firstPage,
-            data: [optimisticMessage, ...firstPage.data],
+            data: [...firstPage.data, optimisticMessage],
           };
           return { ...old, pages: [newFirstPage, ...old.pages.slice(1)] };
         },
