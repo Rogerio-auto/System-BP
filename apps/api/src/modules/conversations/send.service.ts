@@ -81,7 +81,8 @@ const log = pino({
 
 /** Contexto do ator autenticado (vem de request.user via controller). */
 export interface SendActorContext {
-  userId: string;
+  /** UUID do usuario autenticado. null para atores de sistema (bot/worker). */
+  userId: string | null;
   organizationId: string;
   role: string;
   cityScopeIds: string[] | null;
@@ -277,12 +278,17 @@ export async function sendMessage(
     // - apenas IDs opacos + type
     await auditLog(tx as unknown as AuditTx, {
       organizationId: actor.organizationId,
-      actor: {
-        userId: actor.userId,
-        role: actor.role,
-        ip: actor.ip ?? null,
-        userAgent: actor.userAgent ?? null,
-      },
+      // Sistema/bot: userId null => actor null (auditLog aceita AuditActor=null => actorUserId nullable no DB).
+      // Humano: userId real (UUID) => actor com dados completos.
+      actor:
+        actor.userId !== null
+          ? {
+              userId: actor.userId,
+              role: actor.role,
+              ip: actor.ip ?? null,
+              userAgent: actor.userAgent ?? null,
+            }
+          : null,
       action: 'livechat.message_sent',
       resource: { type: 'message', id: message.id },
       // LGPD: after sem content/PII — apenas IDs e tipo

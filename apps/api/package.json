@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "concurrently -n api,outbox,import,followup,lc-in,lc-media,lc-out -c blue,green,yellow,cyan,magenta,white,gray --kill-others-on-fail \"pnpm dev:api\" \"pnpm worker:outbox\" \"pnpm worker:import\" \"pnpm worker:followup\" \"pnpm worker:livechat-inbound\" \"pnpm worker:livechat-media\" \"pnpm worker:livechat-outbound\"",
+    "dev": "concurrently -n api,outbox,import,followup,lc-in,lc-media,lc-out,lc-ai -c blue,green,yellow,cyan,magenta,white,gray,red --kill-others-on-fail \"pnpm dev:api\" \"pnpm worker:outbox\" \"pnpm worker:import\" \"pnpm worker:followup\" \"pnpm worker:livechat-inbound\" \"pnpm worker:livechat-media\" \"pnpm worker:livechat-outbound\" \"pnpm worker:livechat-ai\"",
     "dev:livechat": "concurrently -n lc-in,lc-media,lc-out -c magenta,white,gray --kill-others-on-fail \"pnpm worker:livechat-inbound\" \"pnpm worker:livechat-media\" \"pnpm worker:livechat-outbound\"",
     "dev:api": "tsx watch --env-file-if-exists=../../.env src/server.ts",
     "build": "tsc -p tsconfig.build.json",
@@ -32,7 +32,8 @@
     "db:check-drift": "tsx --env-file-if-exists=../../.env scripts/check-schema-drift.ts",
     "openapi:validate": "tsx --env-file-if-exists=../../.env scripts/validate-openapi.ts",
     "openapi:examples": "tsx --env-file-if-exists=../../.env scripts/generate-schema-examples.ts",
-    "worker:livechat-outbound": "tsx --env-file-if-exists=../../.env src/workers/livechat-outbound.ts"
+    "worker:livechat-outbound": "tsx --env-file-if-exists=../../.env src/workers/livechat-outbound.ts",
+    "worker:livechat-ai": "tsx --env-file-if-exists=../../.env src/workers/livechat-ai.ts"
   },
   "dependencies": {
     "@elemento/shared-schemas": "workspace:*",

@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 29    | 1   | 0   | 0   | 1   | 0   | 27  |
+| F16  | 29    | 0   | 0   | 0   | 1   | 1   | 27  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -199,7 +199,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S26 | Conversations backend — read emite conversation:updated + PATCH /lead aceita cityId                 | ✅ done        | high       | F16-S25                            |
 | F16-S27 | Front livechat — badge em tempo real, marcar lida ao abrir e Criar lead com cidade                  | 🔵 in-progress | high       | F16-S25, F16-S26                   |
 | F16-S28 | IA no livechat — gate (flag + allowlist de teste) e trigger no inbound                              | ✅ done        | high       | —                                  |
-| F16-S29 | Worker livechat-ai — LangGraph responde no livechat via send service                                | 🟢 available   | high       | F16-S28                            |
+| F16-S29 | Worker livechat-ai — LangGraph responde no livechat via send service                                | 🟣 review      | high       | F16-S28                            |
 
 ## Fase 17 —
 

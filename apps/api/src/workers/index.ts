@@ -13,6 +13,11 @@
 //   2. Adicione o import e registerHandler() em setupWorkerHandlers() abaixo.
 //   3. Nomeie o handlerName como "<dominio>.on_<evento>" (único — idempotência).
 //
+// F16-S29: worker RabbitMQ consumer de IA do livechat.
+// Consome hm.q.livechat.ai, executa LangGraph e responde via sendMessage.
+// Iniciado como processo separado: pnpm --filter @elemento/api worker:livechat-ai
+export { processJob } from './livechat-ai.js';
+
 // COMO ADICIONAR UM NOVO WORKER PERIÓDICO:
 //   1. Implemente em workers/<nome>.ts com main() + guarda process.argv.
 //   2. Exporte a função de tick para testes (ex: runSchedulerTick).
