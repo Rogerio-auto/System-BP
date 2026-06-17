@@ -533,3 +533,39 @@ export async function insertInteractionBridge(
     externalRef: params.externalRef ?? null,
   });
 }
+
+// ---------------------------------------------------------------------------
+// lead link — set idempotente de conversations.lead_id (F16-S22)
+// ---------------------------------------------------------------------------
+
+/**
+ * Vincula uma conversa a um lead de forma idempotente.
+ *
+ * Set condicional: só atualiza quando `lead_id` ainda é NULL e a conversa
+ * pertence à organização informada. Chamadas subsequentes com o mesmo leadId
+ * são no-ops seguros (a linha já tem o valor correto).
+ *
+ * LGPD: nenhum campo PII é lido ou escrito aqui — apenas IDs opacos.
+ *
+ * @param db             Instância Drizzle (ou transação).
+ * @param conversationId UUID da conversa a vincular.
+ * @param organizationId UUID da organização (escopo multi-tenant).
+ * @param leadId         UUID do lead no CRM.
+ */
+export async function linkConversationLead(
+  db: Database,
+  conversationId: string,
+  organizationId: string,
+  leadId: string,
+): Promise<void> {
+  await db
+    .update(conversations)
+    .set({ leadId })
+    .where(
+      and(
+        eq(conversations.id, conversationId),
+        eq(conversations.organizationId, organizationId),
+        isNull(conversations.leadId),
+      ),
+    );
+}
