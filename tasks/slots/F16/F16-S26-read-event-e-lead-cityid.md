@@ -3,12 +3,12 @@ id: F16-S26
 title: Conversations backend — read emite conversation:updated + PATCH /lead aceita cityId
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#realtime
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-17T21:13:08Z
-completed_at: null
+completed_at: 2026-06-17T21:26:16Z
 pr_url: null
 depends_on: [F16-S25]
 blocks: [F16-S27]
@@ -22,7 +22,6 @@ docs_audience:
   - dev
 docs_artifacts: []
 ---
-
 # F16-S26 — Read em tempo real + cityId opcional no vínculo de lead
 
 ## Objetivo
