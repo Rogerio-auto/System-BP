@@ -54,6 +54,12 @@ const READONLY_TYPES = new Set([
 
 export interface MessageBubbleProps {
   message: Message;
+  /**
+   * Inicial do nome do contato para o avatar inbound.
+   * Passado pelo ConversationPanel a partir de `useConversation`.
+   * Quando não fornecido, usa '?' como fallback.
+   */
+  contactInitial?: string | undefined;
 }
 
 /**
@@ -63,7 +69,10 @@ export interface MessageBubbleProps {
  * à esquerda (inbound) ou à direita (outbound).
  * A bolha interna (`self-start` / `self-end`) define sua largura máxima.
  */
-export function MessageBubble({ message }: MessageBubbleProps): React.JSX.Element {
+export function MessageBubble({
+  message,
+  contactInitial = '?',
+}: MessageBubbleProps): React.JSX.Element {
   const isOutbound = message.direction === 'out';
 
   // ── Sistema: sem bolha, centralizado ──────────────────────────────────────
@@ -87,7 +96,7 @@ export function MessageBubble({ message }: MessageBubbleProps): React.JSX.Elemen
           style={{ background: 'var(--grad-azul)', boxShadow: 'var(--elev-1)' }}
           aria-hidden="true"
         >
-          C
+          {contactInitial}
         </div>
       )}
 

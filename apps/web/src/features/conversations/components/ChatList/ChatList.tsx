@@ -14,6 +14,7 @@
 
 import * as React from 'react';
 
+import { useSocket } from '../../../../lib/realtime/useSocket';
 import {
   useConversationSocket,
   type UseConversationSocketOptions,
@@ -224,6 +225,22 @@ export function ChatList({
   const socketOptions: UseConversationSocketOptions =
     selectedConversationId !== null ? { conversationId: selectedConversationId } : {};
   useConversationSocket(socketOptions);
+
+  // Ao receber um evento de nova mensagem, reseta o cursor para a primeira
+  // página para que a lista reflita novidades que chegaram no topo (ex: nova
+  // conversa que não estava na página atual). O useConversationSocket já
+  // invalida o cache — este efeito garante que o re-fetch parte da pág. 1.
+  const socket = useSocket();
+  React.useEffect(() => {
+    if (!socket) return;
+    function handleMessageNew(): void {
+      setCursor(undefined);
+    }
+    socket.on('message:new', handleMessageNew);
+    return () => {
+      socket.off('message:new', handleMessageNew);
+    };
+  }, [socket]);
 
   // ── Filtro de busca (cliente-side sobre dados acumulados) ────────────────
   const conversations: Conversation[] = React.useMemo(() => {

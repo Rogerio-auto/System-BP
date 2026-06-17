@@ -363,7 +363,7 @@ interface ContactPanelProps {
  * Ações ficam ocultas se o usuário não tem `livechat:conversation:manage`.
  */
 export function ContactPanel({ conversationId }: ContactPanelProps): React.JSX.Element {
-  const { data, isLoading } = useConversation(conversationId);
+  const { data, isLoading, isError, refetch } = useConversation(conversationId);
   const { data: usersData } = useAgentUsers();
   const { hasPermission } = useAuth();
 
@@ -372,8 +372,53 @@ export function ContactPanel({ conversationId }: ContactPanelProps): React.JSX.E
 
   const canManage = hasPermission('livechat:conversation:manage');
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return <ContactPanelSkeleton />;
+  }
+
+  if (isError || !data) {
+    return (
+      <div
+        style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          padding: 16,
+          background: 'var(--bg-elev-1)',
+        }}
+      >
+        <p
+          style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--danger)',
+            textAlign: 'center',
+            margin: 0,
+          }}
+        >
+          Erro ao carregar dados do contato.
+        </p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--brand-azul)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            textDecoration: 'underline',
+            padding: 0,
+          }}
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
   }
 
   const conv = data.data;

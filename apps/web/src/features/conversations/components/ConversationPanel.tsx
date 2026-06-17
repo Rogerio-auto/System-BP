@@ -255,6 +255,8 @@ interface MessageListProps {
   isFetchingMore: boolean;
   /** Total de mensagens antes da última atualização — para auto-scroll */
   prevCount: number;
+  /** Inicial do nome do contato para o avatar inbound */
+  contactInitial: string;
 }
 
 function MessageList({
@@ -263,12 +265,13 @@ function MessageList({
   hasMore,
   isFetchingMore,
   prevCount,
+  contactInitial,
 }: MessageListProps): React.JSX.Element {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const isInitialMount = React.useRef(true);
 
-  // Scroll inicial para o bottom
+  // Scroll inicial para o bottom — roda somente quando items são carregados pela 1ª vez.
   React.useEffect(() => {
     if (isInitialMount.current && items.length > 0) {
       bottomRef.current?.scrollIntoView({ block: 'end' });
@@ -276,7 +279,8 @@ function MessageList({
     }
   }, [items.length]);
 
-  // Auto-scroll para o bottom quando novas mensagens são adicionadas ao final
+  // Auto-scroll para o bottom quando novas mensagens são adicionadas ao final.
+  // deps: [items.length, prevCount] — evita execução em todo re-render.
   React.useEffect(() => {
     if (isInitialMount.current) return;
 
@@ -293,7 +297,7 @@ function MessageList({
         bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
       }
     }
-  });
+  }, [items.length, prevCount]);
 
   return (
     <div
@@ -310,7 +314,13 @@ function MessageList({
           if (item.kind === 'day-separator') {
             return <DaySeparator key={`sep-${item.date}-${i}`} date={item.date} />;
           }
-          return <MessageBubble key={item.message.id} message={item.message} />;
+          return (
+            <MessageBubble
+              key={item.message.id}
+              message={item.message}
+              contactInitial={contactInitial}
+            />
+          );
         })}
       </div>
 
@@ -340,6 +350,16 @@ export function ConversationPanel({
   // ── Dados ──────────────────────────────────────────────────────────────────
   const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } =
     useMessages(conversationId);
+
+  // Initial do contato para o avatar inbound (vem do detalhe da conversa).
+  // O useConversation já é chamado pelo ConversationHeader — o resultado fica
+  // no cache do TanStack Query, então não há fetch adicional aqui.
+  const { data: convDetail } = useConversation(conversationId);
+  const contactInitial = React.useMemo(() => {
+    const name = convDetail?.data.contactName ?? convDetail?.data.contactRemoteId ?? null;
+    if (!name) return '?';
+    return name.trim().charAt(0).toUpperCase();
+  }, [convDetail]);
 
   // ── Realtime ───────────────────────────────────────────────────────────────
   useConversationSocket({ conversationId });
@@ -493,6 +513,7 @@ export function ConversationPanel({
         hasMore={Boolean(hasNextPage)}
         isFetchingMore={isFetchingNextPage}
         prevCount={prevCount}
+        contactInitial={contactInitial}
       />
       <MessageComposer
         conversationId={conversationId}

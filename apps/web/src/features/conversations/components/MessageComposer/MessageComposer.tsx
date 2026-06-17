@@ -20,6 +20,7 @@
 
 import * as React from 'react';
 
+import { useAuth } from '../../../../lib/auth-store';
 import { cn } from '../../../../lib/cn';
 import {
   detectMediaKind,
@@ -283,9 +284,12 @@ export function MessageComposer({
   const { windowOpen, windowKind, isLoading } = useWindowState(conversationId);
   const sendMutation = useSendMessage(conversationId);
   const { upload, progress, abort } = useUploadMedia(conversationId);
+  const { hasPermission } = useAuth();
 
+  const canSendMessages = hasPermission('livechat:message:send');
   const isUploading = progress.phase === 'uploading' || progress.phase === 'signing';
-  const isDisabled = !windowOpen || isLoading || sendMutation.isPending || isUploading;
+  const isDisabled =
+    !windowOpen || isLoading || sendMutation.isPending || isUploading || !canSendMessages;
 
   // canSend: tem texto OU tem preview pronto (e não está em fase de erro nem uploading)
   const hasMedia = mediaPreview !== null && !isUploading && progress.phase !== 'error';
@@ -438,8 +442,19 @@ export function MessageComposer({
         />
       )}
 
+      {/* Sem permissão de envio */}
+      {!canSendMessages && (
+        <div
+          className="px-4 py-2 font-sans text-xs text-ink-3 text-center border-b border-border"
+          role="status"
+          aria-label="Você não tem permissão para enviar mensagens nesta conversa"
+        >
+          Sem permissão para enviar mensagens.
+        </div>
+      )}
+
       {/* Aviso de janela expirada */}
-      {!windowOpen && !isLoading && (
+      {canSendMessages && !windowOpen && !isLoading && (
         <WindowNotice windowKind={windowKind} onUseTemplate={onUseTemplate ?? handleUseTemplate} />
       )}
 
@@ -533,13 +548,15 @@ export function MessageComposer({
               onKeyDown={handleKeyDown}
               disabled={isDisabled || mediaPreview !== null}
               placeholder={
-                isLoading
-                  ? 'Carregando...'
-                  : !windowOpen
-                    ? 'Janela expirada — use um template'
-                    : mediaPreview !== null
-                      ? 'Pronto para enviar arquivo...'
-                      : 'Digite uma mensagem... (Ctrl+Enter para enviar)'
+                !canSendMessages
+                  ? 'Sem permissão para enviar mensagens'
+                  : isLoading
+                    ? 'Carregando...'
+                    : !windowOpen
+                      ? 'Janela expirada — use um template'
+                      : mediaPreview !== null
+                        ? 'Pronto para enviar arquivo...'
+                        : 'Digite uma mensagem... (Ctrl+Enter para enviar)'
               }
               rows={1}
               aria-label="Campo de mensagem"
