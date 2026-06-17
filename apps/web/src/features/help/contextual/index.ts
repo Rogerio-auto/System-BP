@@ -21,3 +21,7 @@ export type { TutorialEntry, UseContextualTutorialsResult } from './useContextua
 
 export { useContextualHelpStore } from './contextual-help-store';
 export type { DrawerTutorial } from './contextual-help-store';
+
+// Telemetria de adoção (F12-S07)
+export { useTrackTutorialEvent } from './useTrackTutorialEvent';
+export type { TutorialEventType } from './useTrackTutorialEvent';
