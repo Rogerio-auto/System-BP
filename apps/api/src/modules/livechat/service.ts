@@ -9,6 +9,7 @@
 //   - getConversation / listConversations: leitura com escopo de cidade.
 //   - getMessages: paginação por cursor.
 //   - getComposerState: janela 24h por provider (WA/IG/WAHA).
+//   - linkOrCreateLeadForConversation: vincula/cria lead CRM no primeiro inbound (F16-S22).
 //
 // Multi-tenant:
 //   - Todos os métodos recebem organizationId explicitamente (F17 injetará).
@@ -35,8 +36,11 @@ import type { Conversation } from '../../db/schema/conversations.js';
 import type { Message } from '../../db/schema/messages.js';
 import { emit } from '../../events/emit.js';
 import type { DrizzleTx } from '../../events/emit.js';
+import { isFlagEnabled } from '../../modules/featureFlags/service.js';
 import { NotFoundError } from '../../shared/errors.js';
 import type { UserScopeCtx } from '../../shared/scope.js';
+import { findLeadByPhoneInOrg } from '../leads/repository.js';
+import { getOrCreateLead } from '../leads/service.js';
 
 import {
   findChannelById,
@@ -45,6 +49,7 @@ import {
   insertInboundMessage,
   insertInteractionBridge,
   insertOutboundMessage,
+  linkConversationLead,
   listConversations as repoListConversations,
   listMessages as repoListMessages,
   updateConversationOnInbound,
@@ -531,6 +536,145 @@ export async function findChannel(
   organizationId: string,
 ): Promise<Channel> {
   return findChannelById(db, channelId, organizationId);
+}
+
+// ---------------------------------------------------------------------------
+// linkOrCreateLeadForConversation (F16-S22)
+//
+// Vincula a conversa a um lead CRM no primeiro inbound de um contato.
+// Deve ser chamada APÓS ensureContactConversation, apenas quando a conversa
+// não tem lead_id ainda e o contactRemoteId parece um número de telefone.
+//
+// Pipeline:
+//   1. Normaliza contactRemoteId (assumido E.164 sem '+') para phoneNormalized.
+//   2. Lookup via findLeadByPhoneInOrg — match → linkConversationLead.
+//   3. Sem match → checa flag livechat.auto_lead.enabled:
+//      a. Flag off ou canal sem cityId → deixa lead_id NULL (noop silencioso).
+//      b. Flag on e canal tem cityId → getOrCreateLead + linkConversationLead.
+//
+// LGPD §8.1/§8.3: phoneNormalized nunca logado; apenas IDs opacos nos logs.
+// Falhas não quebram o ack da mensagem — apenas loga warning.
+//
+// @param db                Instância Drizzle.
+// @param conversationId    UUID da conversa (já garantida por ensureContactConversation).
+// @param organizationId    UUID da organização.
+// @param contactRemoteId   ID do contato no provider (E.164 sem '+' para WA).
+// @param contactName       Nome do contato para o lead-shell (pode ser undefined).
+// @param cityId            Cidade do canal (obrigatória para criação de lead).
+// ---------------------------------------------------------------------------
+
+/**
+ * Parâmetros para linkOrCreateLeadForConversation.
+ * Todos os campos de PII (contactRemoteId, contactName) nunca são logados.
+ */
+export interface LinkOrCreateLeadParams {
+  conversationId: string;
+  organizationId: string;
+  /** contactRemoteId do provider (E.164 sem '+' para WhatsApp). LGPD: PII. */
+  contactRemoteId: string;
+  /** Nome do contato para eventual lead-shell. LGPD: PII. */
+  contactName: string | undefined;
+  /** cityId do canal (obrigatório para criação de lead-shell). */
+  cityId: string | undefined;
+}
+
+/**
+ * Vincula (ou cria) um lead no CRM para a conversa recém-criada.
+ *
+ * Nunca lança exceção para o caller — falhas são logas como warning e a
+ * mensagem continua com ack normal (tolerância a falha em vínculo).
+ *
+ * @returns leadId vinculado, ou null se nenhum vínculo foi feito.
+ */
+export async function linkOrCreateLeadForConversation(
+  db: Database,
+  params: LinkOrCreateLeadParams,
+): Promise<string | null> {
+  const { conversationId, organizationId, contactRemoteId, contactName, cityId } = params;
+
+  // Número E.164 sem '+': para WhatsApp contactRemoteId == phoneNormalized.
+  // Validação mínima: deve ser uma string de dígitos com comprimento plausível (10–15).
+  const phoneDigitRegex = /^\d{10,15}$/;
+  if (!phoneDigitRegex.test(contactRemoteId)) {
+    // contactRemoteId não é um número de telefone (pode ser IGSID, groupId, etc.)
+    // — não tentamos lookup; deixa lead_id NULL silenciosamente.
+    log.debug(
+      { organizationId, conversationId },
+      'livechat.service: contactRemoteId não é telefone — pula auto-link',
+    );
+    return null;
+  }
+
+  // phoneNormalized = contactRemoteId (ambos sem '+')
+  const phoneNormalized = contactRemoteId;
+
+  try {
+    // 1. Lookup por telefone normalizado na org
+    const existing = await findLeadByPhoneInOrg(db, phoneNormalized, organizationId);
+
+    if (existing !== null) {
+      // 2a. Match → link idempotente
+      await linkConversationLead(db, conversationId, organizationId, existing.id);
+      log.info(
+        { organizationId, conversationId, leadId: existing.id },
+        'livechat.service: conversa vinculada a lead existente',
+      );
+      return existing.id;
+    }
+
+    // 2b. Sem match → checar flag de criação automática
+    const { enabled: autoLeadEnabled } = await isFlagEnabled(db, 'livechat.auto_lead.enabled');
+
+    if (!autoLeadEnabled) {
+      log.debug(
+        { organizationId, conversationId },
+        'livechat.service: auto_lead desabilitado — lead_id permanece NULL',
+      );
+      return null;
+    }
+
+    if (cityId === undefined) {
+      // cityId é NOT NULL na tabela leads (tech debt F3-S04) — não pode criar sem cidade
+      log.debug(
+        { organizationId, conversationId },
+        'livechat.service: auto_lead habilitado mas canal sem cityId — lead_id permanece NULL',
+      );
+      return null;
+    }
+
+    // 3. Criar lead-shell via getOrCreateLead (emite outbox leads.created)
+    // LGPD: phone E.164 com '+' é PII — não logar; passado apenas ao service interno.
+    const phoneE164 = `+${phoneNormalized}`;
+    const result = await getOrCreateLead(
+      db,
+      organizationId,
+      {
+        phone: phoneE164,
+        name: contactName,
+        source: 'whatsapp',
+        chatwootConversationId: undefined,
+        correlationId: undefined,
+        cityId,
+      },
+      null, // requestIp: null (inbound worker não tem IP do cliente)
+    );
+
+    await linkConversationLead(db, conversationId, organizationId, result.lead_id);
+
+    log.info(
+      { organizationId, conversationId, leadId: result.lead_id, created: result.created },
+      'livechat.service: lead-shell criado e conversa vinculada',
+    );
+
+    return result.lead_id;
+  } catch (err: unknown) {
+    // Falha de vínculo não quebra o ack — loga warning com IDs opacos (sem PII)
+    log.warn(
+      { err, organizationId, conversationId },
+      'livechat.service: falha ao vincular lead — conversa segue sem lead_id',
+    );
+    return null;
+  }
 }
 
 // Re-exporta NotFoundError para conveniência dos consumers

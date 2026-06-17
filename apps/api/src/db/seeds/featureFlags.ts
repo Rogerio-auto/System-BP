@@ -264,6 +264,21 @@ const FLAGS: SeedFlag[] = [
     description: 'Importações regionais sob demanda',
     audience: {},
   },
+  // Live chat — vínculo automático de contato ao CRM (F16-S22)
+  {
+    key: 'livechat.auto_lead.enabled',
+    status: 'disabled',
+    visible: true,
+    uiLabel: 'Criação automática de lead no primeiro contato',
+    // Default off — política do cliente. Habilitar via admin após validação de rollout.
+    // Quando habilitado: primeiro inbound de contato desconhecido cria um lead-shell
+    // no CRM e vincula à conversa automaticamente.
+    // Pré-requisito: canal deve ter cityId configurado (leads.city_id NOT NULL).
+    // Ver: docs/help/guias/livechat/vinculo-automatico-crm.mdx
+    description:
+      'Criação automática de lead-shell no primeiro inbound de contato desconhecido no live chat',
+    audience: {},
+  },
 ];
 
 export async function seedFeatureFlags(): Promise<void> {

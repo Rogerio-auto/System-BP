@@ -15,6 +15,8 @@
 //   8. Status update mensagem não encontrada → ack silencioso
 //   9. Exceção no service → nack
 //  10. Evento não suportado (story_mention) → ack silencioso
+//  11. [F16-S22] conversa nova (leadId null) → chama linkOrCreateLeadForConversation
+//  12. [F16-S22] conversa existente com lead (leadId set) → pula auto-link
 // =============================================================================
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -180,10 +182,13 @@ const mockFindChannel = vi.fn();
 const mockEnsureContactConversation = vi.fn();
 const mockPersistInboundMessage = vi.fn();
 const mockUpdateViewStatus = vi.fn();
+const mockLinkOrCreateLeadForConversation = vi.fn().mockResolvedValue(null);
 
 vi.mock('../../modules/livechat/service.js', () => ({
   findChannel: (...args: unknown[]) => mockFindChannel(...args),
   ensureContactConversation: (...args: unknown[]) => mockEnsureContactConversation(...args),
+  linkOrCreateLeadForConversation: (...args: unknown[]) =>
+    mockLinkOrCreateLeadForConversation(...args),
   persistInboundMessage: (...args: unknown[]) => mockPersistInboundMessage(...args),
   updateViewStatus: (...args: unknown[]) => mockUpdateViewStatus(...args),
   NotFoundError: class NotFoundError extends Error {
@@ -290,9 +295,9 @@ beforeEach(() => {
     cityId: null,
   });
 
-  // Conversa padrão
+  // Conversa padrão (leadId null = sem vínculo de lead)
   mockEnsureContactConversation.mockResolvedValue({
-    conversation: { id: CONVERSATION_ID },
+    conversation: { id: CONVERSATION_ID, leadId: null },
     created: false,
   });
 
@@ -563,5 +568,52 @@ describe('processMessage', () => {
     expect(result).toBe('ack');
     expect(mockPersistInboundMessage).not.toHaveBeenCalled();
     expect(mockPublish).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Cenário 11: [F16-S22] conversa nova (leadId null) → chama linkOrCreateLeadForConversation
+  // -------------------------------------------------------------------------
+  it('11. [F16-S22] conversa sem lead (leadId null) → chama linkOrCreateLeadForConversation', async () => {
+    mockEnsureContactConversation.mockResolvedValueOnce({
+      conversation: { id: CONVERSATION_ID, leadId: null },
+      created: true,
+    });
+
+    const event = makeMessageEvent();
+    const buf = makeEnvelopeBuffer(event);
+    mockEnvelopeSuccess(event);
+
+    const result = await processMessage(buf, mockDb as never);
+
+    expect(result).toBe('ack');
+    expect(mockLinkOrCreateLeadForConversation).toHaveBeenCalledWith(
+      mockDb,
+      expect.objectContaining({
+        conversationId: CONVERSATION_ID,
+        organizationId: ORG_ID,
+        contactRemoteId: event.contactRemoteId,
+      }),
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Cenário 12: [F16-S22] conversa existente com lead → pula auto-link (idempotência)
+  // -------------------------------------------------------------------------
+  it('12. [F16-S22] conversa com leadId já preenchido → pula linkOrCreateLeadForConversation', async () => {
+    const EXISTING_LEAD_ID = '00000000-0000-0000-0000-000000000099';
+    mockEnsureContactConversation.mockResolvedValueOnce({
+      conversation: { id: CONVERSATION_ID, leadId: EXISTING_LEAD_ID },
+      created: false,
+    });
+
+    const event = makeMessageEvent();
+    const buf = makeEnvelopeBuffer(event);
+    mockEnvelopeSuccess(event);
+
+    const result = await processMessage(buf, mockDb as never);
+
+    expect(result).toBe('ack');
+    // Com leadId já preenchido, não deve chamar linkOrCreateLeadForConversation
+    expect(mockLinkOrCreateLeadForConversation).not.toHaveBeenCalled();
   });
 });

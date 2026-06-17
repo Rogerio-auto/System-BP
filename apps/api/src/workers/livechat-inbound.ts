@@ -11,6 +11,8 @@
 //   Para InboundEvent type='message':
 //     1. Busca canal (channel) para obter cityId.
 //     2. ensureContactConversation → garante conversa ativa (idempotente).
+//     2b. [F16-S22] linkOrCreateLeadForConversation → vincula/cria lead no primeiro inbound.
+//         - Falha não quebra o pipeline: ack normal.
 //     3. persistInboundMessage    → persiste mensagem (idempotente por external_id).
 //        - null → duplicata; ack silencioso.
 //     4. Se mediaRef → publica na fila `hm.q.inbound.media` para o media worker (S09).
@@ -58,6 +60,7 @@ import {
 import {
   ensureContactConversation,
   findChannel,
+  linkOrCreateLeadForConversation,
   persistInboundMessage,
   updateViewStatus,
 } from '../modules/livechat/service.js';
@@ -182,6 +185,22 @@ export async function processMessage(
       });
 
       const conversationId = conversation.id;
+
+      // ----------------------------------------------------------------
+      // 3b-F16-S22. Vincula/cria lead no primeiro inbound (dedupe-and-link)
+      // Apenas para conversas novas (lead_id NULL). Falha não quebra o ack.
+      // LGPD: contactRemoteId nunca logado aqui — passado opaco ao service.
+      // ----------------------------------------------------------------
+      if (conversation.leadId === null || conversation.leadId === undefined) {
+        await linkOrCreateLeadForConversation(db, {
+          conversationId,
+          organizationId,
+          // LGPD: contactRemoteId pode ser telefone E.164 — não logar
+          contactRemoteId: event.contactRemoteId,
+          contactName: event.contactName,
+          cityId: channel.cityId ?? undefined,
+        });
+      }
 
       // ----------------------------------------------------------------
       // 3c. Persiste a mensagem (idempotente por (channel_id, external_id))
