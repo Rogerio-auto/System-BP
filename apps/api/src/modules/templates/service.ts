@@ -30,8 +30,14 @@ import { db } from '../../db/client.js';
 import { emit } from '../../events/emit.js';
 import { auditLog } from '../../lib/audit.js';
 import { logger } from '../../lib/logger.js';
+import { resolveChannelForSend } from '../../modules/channels/channel-selection.service.js';
 import { isFlagEnabled } from '../../modules/featureFlags/service.js';
-import { AppError, FeatureDisabledError, NotFoundError } from '../../shared/errors.js';
+import {
+  AppError,
+  ExternalServiceError,
+  FeatureDisabledError,
+  NotFoundError,
+} from '../../shared/errors.js';
 
 import type { MetaTemplateComponent } from './metaClient.js';
 import { MetaTemplatesClient } from './metaClient.js';
@@ -53,6 +59,37 @@ import type {
   TemplateUpdate,
 } from './schemas.js';
 import { MEDIA_HEADER_TYPES } from './schemas.js';
+
+// ---------------------------------------------------------------------------
+// Factory: MetaTemplatesClient com credenciais do canal do banco (F20-S06)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve credenciais do canal via tabela `channels` e instancia MetaTemplatesClient.
+ *
+ * Centraliza a lógica F20-S06 para todos os callers deste service:
+ *   createTemplateService, updateTemplateService, syncTemplateService, syncAllService.
+ *
+ * @param organizationId  Escopo de organização para resolução de canal.
+ * @throws ExternalServiceError se nenhum canal ativo, sem WABA ID, ou sem token.
+ */
+async function buildMetaTemplatesClient(organizationId: string): Promise<MetaTemplatesClient> {
+  const resolved = await resolveChannelForSend(db, organizationId, null);
+
+  if (resolved.wabaId === null) {
+    throw new ExternalServiceError(
+      `Canal WhatsApp "${resolved.channelName}" não possui WABA ID configurado — ` +
+        'necessário para gestão de templates. Reconfigure o canal no painel administrativo.',
+      { upstreamStatus: 0 },
+    );
+  }
+
+  return new MetaTemplatesClient({
+    accessToken: resolved.accessToken,
+    wabaId: resolved.wabaId,
+    appId: resolved.metaAppId ?? undefined,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Actor context
@@ -252,7 +289,8 @@ export async function createTemplateService(
     }
   }
 
-  const metaClient = new MetaTemplatesClient();
+  // F20-S06: credenciais resolvidas via canal do banco, não via env vars.
+  const metaClient = await buildMetaTemplatesClient(actor.organizationId);
 
   const categoryMap: Record<string, 'UTILITY' | 'MARKETING' | 'AUTHENTICATION'> = {
     utility: 'UTILITY',
@@ -409,9 +447,10 @@ export async function updateTemplateService(
   }
 
   // Upload da amostra, se fornecida
+  // F20-S06: credenciais resolvidas via canal do banco, não via env vars.
   let headerHandle: string | undefined;
   if (sampleFile && sampleMime) {
-    const metaClient = new MetaTemplatesClient();
+    const metaClient = await buildMetaTemplatesClient(actor.organizationId);
     headerHandle = await metaClient.uploadSampleForTemplate(sampleFile, sampleMime);
   }
 
@@ -528,7 +567,8 @@ export async function syncTemplateService(
   const existing = await getTemplateById(db, id, actor.organizationId);
   if (!existing) throw new NotFoundError(`Template ${id} não encontrado`);
 
-  const metaClient = new MetaTemplatesClient();
+  // F20-S06: credenciais resolvidas via canal do banco, não via env vars.
+  const metaClient = await buildMetaTemplatesClient(actor.organizationId);
   const metaRecord = await metaClient.getTemplate(existing.metaTemplateId);
   const newStatus = mapMetaStatus(metaRecord.status);
 
@@ -585,7 +625,8 @@ export async function syncAllService(
   actor: ActorContext,
 ): Promise<{ synced: number; unchanged: number; errors: number }> {
   const templates = await getAllTemplates(db, actor.organizationId);
-  const metaClient = new MetaTemplatesClient();
+  // F20-S06: credenciais resolvidas via canal do banco, não via env vars.
+  const metaClient = await buildMetaTemplatesClient(actor.organizationId);
 
   let synced = 0;
   let unchanged = 0;

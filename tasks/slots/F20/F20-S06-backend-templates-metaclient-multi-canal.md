@@ -3,12 +3,12 @@ id: F20-S06
 title: Backend — templates/metaClient: gestão de templates HSM via canal do banco
 phase: F20
 task_ref: docs/planejamento-2026-06-multi-canal.md
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-17T05:51:11Z
+completed_at: 2026-06-17T06:00:32Z
 pr_url: null
 depends_on: [F20-S02, F20-S05]
 blocks: [F20-S07]
@@ -16,7 +16,6 @@ labels: [backend, templates, multi-canal, whatsapp]
 source_docs: []
 docs_required: false
 ---
-
 # F20-S06 — Backend: templates/metaClient multi-canal
 
 ## Objetivo

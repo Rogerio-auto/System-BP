@@ -19,14 +19,12 @@
 //   - WABA ID não é PII — pode aparecer em logs de contexto.
 //   - Bodies de template não contêm PII (validação upstream no createSchema).
 //
-// Nota sobre WABA_ID:
-//   A Meta requer o WABA ID (WhatsApp Business Account ID) nos endpoints de
-//   gestão de templates. META_WABA_ID foi adicionado ao envSchema (F5-S09 security fix).
-//   Fallback para META_WHATSAPP_PHONE_NUMBER_ID mantido para dev/test.
-//   ANTES DO GO-LIVE: configurar META_WABA_ID explicitamente.
+// F20-S06: Credenciais obrigatórias por injeção via canal do banco.
+//   accessToken e wabaId devem ser resolvidos via resolveChannelForSend() pelo
+//   caller antes de instanciar este cliente. Fallback para variáveis de ambiente
+//   removido: a configuração correta é exigida no canal cadastrado.
 // =============================================================================
 
-import { env } from '../../config/env.js';
 import { ExternalServiceError } from '../../shared/errors.js';
 
 // ---------------------------------------------------------------------------
@@ -166,16 +164,32 @@ interface MetaResumableFinishResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Options de injeção (para testes)
+// Options de injeção
 // ---------------------------------------------------------------------------
 
 export interface MetaTemplatesClientOptions {
+  /**
+   * Bearer token da Meta Business Suite.
+   * Obrigatório em runtime — sem este valor o constructor lança ExternalServiceError.
+   * Resolver via resolveChannelForSend() antes de instanciar (F20-S06).
+   * LGPD: nunca logar este valor.
+   *
+   * Declarado como opcional na interface para compatibilidade com testes que fazem
+   * spread parcial de overrides; validado em runtime no constructor.
+   */
   accessToken?: string;
+  /**
+   * WhatsApp Business Account ID (WABA ID).
+   * Obrigatório em runtime — sem este valor o constructor lança ExternalServiceError.
+   * Resolver via resolveChannelForSend() antes de instanciar (F20-S06).
+   *
+   * Declarado como opcional na interface para compatibilidade com testes que fazem
+   * spread parcial de overrides; validado em runtime no constructor.
+   */
   wabaId?: string;
   /**
    * Meta App ID (necessário para resumable upload de amostras de template).
-   * Lido de META_APP_ID se ausente.
-   * Opcional: uploadSampleForTemplate() lança se ausente ao ser chamado.
+   * Opcional: uploadSampleForTemplate() lança ExternalServiceError se ausente ao ser chamado.
    */
   appId?: string;
   timeoutMs?: number;
@@ -194,18 +208,16 @@ export interface MetaTemplatesClientOptions {
  *
  * Separado do MetaWhatsAppClient (envio de mensagens) por responsabilidade única.
  *
- * Configuração:
- *   META_WHATSAPP_ACCESS_TOKEN — Bearer token da Meta Business Suite.
- *   META_WABA_ID — WhatsApp Business Account ID (adicionado ao envSchema em F5-S09 security fix).
- *     Fallback para META_WHATSAPP_PHONE_NUMBER_ID em dev/test se META_WABA_ID ausente.
- *     ANTES DO GO-LIVE: configurar META_WABA_ID e remover o fallback.
+ * F20-S06: Credenciais obrigatórias por injeção — sem fallback para variáveis de
+ * ambiente. O caller deve resolver accessToken e wabaId via resolveChannelForSend()
+ * antes de instanciar este cliente.
  */
 export class MetaTemplatesClient {
   private readonly accessToken: string;
   private readonly wabaId: string;
   /**
    * App ID da Meta (opcional no construtor — obrigatório apenas para uploadSampleForTemplate).
-   * Lido de META_APP_ID no env; ausente em dev/test é aceito.
+   * Ausente em dev/test é aceito; uploadSampleForTemplate() lança se chamado sem appId.
    */
   private readonly appId: string | undefined;
   private readonly timeoutMs: number;
@@ -215,32 +227,27 @@ export class MetaTemplatesClient {
   private readonly sleepFn: (ms: number) => Promise<void>;
 
   constructor(options: MetaTemplatesClientOptions = {}) {
-    const resolvedToken = options.accessToken ?? env.META_WHATSAPP_ACCESS_TOKEN;
-
-    // L-1: META_WABA_ID agora está em env.ts (F5-S09 security fix).
-    // Fallback para META_WHATSAPP_PHONE_NUMBER_ID: funcionalmente incorreto em produção
-    // mas mantido para compatibilidade de dev/test onde apenas o phone_number_id está configurado.
-    // ANTES DO GO-LIVE: configurar META_WABA_ID explicitamente e remover o fallback.
-    const resolvedWabaId = options.wabaId ?? env.META_WABA_ID ?? env.META_WHATSAPP_PHONE_NUMBER_ID;
-
-    if (!resolvedToken) {
+    // F20-S06: accessToken e wabaId não têm mais fallback para env vars.
+    // Validados em runtime: lança ExternalServiceError se ausentes ou vazios.
+    // O caller DEVE resolver via resolveChannelForSend() antes de instanciar.
+    if (!options.accessToken) {
       throw new ExternalServiceError(
-        'META_WHATSAPP_ACCESS_TOKEN não configurado — gestão de templates Meta indisponível',
+        'Canal WhatsApp sem access token configurado — reconfigure o canal no painel administrativo',
         { upstreamStatus: 0 },
       );
     }
-    if (!resolvedWabaId) {
+    if (!options.wabaId) {
       throw new ExternalServiceError(
-        'META_WABA_ID (ou META_WHATSAPP_PHONE_NUMBER_ID) não configurado — gestão de templates Meta indisponível',
+        'Canal WhatsApp sem WABA ID configurado — reconfigure o canal no painel administrativo',
         { upstreamStatus: 0 },
       );
     }
 
-    this.accessToken = resolvedToken;
-    this.wabaId = resolvedWabaId;
-    // appId: injeção via options tem precedência (testes); depois META_APP_ID do env.
-    // Não lançamos erro aqui — uploadSampleForTemplate() lança se for chamado sem appId.
-    this.appId = options.appId ?? env.META_APP_ID;
+    this.accessToken = options.accessToken;
+    this.wabaId = options.wabaId;
+    // appId: injeção via options. Não lançamos erro aqui — uploadSampleForTemplate() lança
+    // com mensagem acionável se for chamado sem appId.
+    this.appId = options.appId;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
     this.maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
     this.backoffBaseMs = options.backoffBaseMs ?? DEFAULT_BACKOFF_BASE_MS;
