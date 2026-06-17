@@ -1,4 +1,4 @@
-// tutorials/__tests__/tutorials.test.ts — Testes das rotas de tutoriais (F12-S02 + F12-S08).
+// tutorials/__tests__/tutorials.test.ts — Testes das rotas de tutoriais (F12-S02 + F12-S08 + F12-S07).
 //
 // Cobre:
 //   1.  GET /api/help/tutorials — retorna lista de ativos (200)
@@ -18,6 +18,11 @@
 //   15. POST /api/admin/tutorials — durationSeconds ausente resulta em null na resposta (F12-S08)
 //   16. PATCH /api/admin/tutorials/:id — atualiza durationSeconds via PATCH (F12-S08)
 //   17. GET /api/help/tutorials — durationSeconds aparece na resposta pública (F12-S08)
+//   18. POST /api/help/tutorial-events — registra tutorial_opened (201) (F12-S07)
+//   19. POST /api/help/tutorial-events — registra tutorial_completed (201) (F12-S07)
+//   20. POST /api/help/tutorial-events — body inválido retorna 422 (F12-S07)
+//   21. POST /api/help/tutorial-events — 403 quando flag desabilitada (F12-S07)
+//   22. POST /api/help/tutorial-events — rate-limit: segunda chamada rápida retorna 204 (F12-S07)
 
 import type { FastifyInstance } from 'fastify';
 import Fastify from 'fastify';
@@ -98,6 +103,7 @@ const mockFindActiveByFeatureKey = vi.fn();
 const mockCreateTutorial = vi.fn();
 const mockUpdateTutorial = vi.fn();
 const mockSoftDeleteTutorial = vi.fn();
+const mockRecordTutorialEvent = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../repository.js', () => ({
   listActiveTutorials: (...args: unknown[]) => mockListActiveTutorials(...args),
@@ -107,6 +113,7 @@ vi.mock('../repository.js', () => ({
   createTutorial: (...args: unknown[]) => mockCreateTutorial(...args),
   updateTutorial: (...args: unknown[]) => mockUpdateTutorial(...args),
   softDeleteTutorial: (...args: unknown[]) => mockSoftDeleteTutorial(...args),
+  recordTutorialEvent: (...args: unknown[]) => mockRecordTutorialEvent(...args),
 }));
 
 // audit mock
@@ -593,5 +600,121 @@ describe('durationSeconds — F12-S08', () => {
     type Body = { data: (typeof tutorialPublicFixture)[] };
     const body = res.json() as Body;
     expect(body.data[0]).toHaveProperty('durationSeconds', 154);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Testes: POST /api/help/tutorial-events (F12-S07)
+// ---------------------------------------------------------------------------
+
+describe('POST /api/help/tutorial-events — F12-S07', () => {
+  let app: FastifyInstance;
+
+  const validOpenedBody = {
+    tutorialId: TUTORIAL_ID,
+    featureKey: 'crm.lead.create',
+    eventType: 'tutorial_opened',
+  };
+
+  const validCompletedBody = {
+    tutorialId: TUTORIAL_ID,
+    featureKey: 'crm.lead.create',
+    eventType: 'tutorial_completed',
+  };
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+  afterEach(() => {
+    vi.clearAllMocks();
+    featureGateShouldFail = false;
+    authorizeShouldFail = false;
+  });
+
+  it('18. registra tutorial_opened e retorna 201', async () => {
+    mockRecordTutorialEvent.mockResolvedValue(undefined);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/help/tutorial-events',
+      payload: validOpenedBody,
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(mockRecordTutorialEvent).toHaveBeenCalledOnce();
+    expect(mockRecordTutorialEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventType: 'tutorial_opened' }),
+      USER_ID,
+    );
+  });
+
+  it('19. registra tutorial_completed e retorna 201', async () => {
+    mockRecordTutorialEvent.mockResolvedValue(undefined);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/help/tutorial-events',
+      payload: validCompletedBody,
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(mockRecordTutorialEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventType: 'tutorial_completed' }),
+      USER_ID,
+    );
+  });
+
+  it('20. body inválido (eventType desconhecido) retorna 422', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/help/tutorial-events',
+      payload: {
+        tutorialId: TUTORIAL_ID,
+        featureKey: 'crm.lead.create',
+        eventType: 'tutorial_paused', // inválido
+      },
+    });
+
+    expect(res.statusCode).toBe(422);
+    expect(mockRecordTutorialEvent).not.toHaveBeenCalled();
+  });
+
+  it('21. retorna 403 quando feature flag está desabilitada', async () => {
+    featureGateShouldFail = true;
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/help/tutorial-events',
+      payload: validOpenedBody,
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(mockRecordTutorialEvent).not.toHaveBeenCalled();
+  });
+
+  it('22. rate-limit: segunda chamada rápida com mesmo (tutorialId, eventType) retorna 204', async () => {
+    // Primeira chamada — registra e seta o rate-limit no mapa in-memory.
+    mockRecordTutorialEvent.mockResolvedValue(undefined);
+    const res1 = await app.inject({
+      method: 'POST',
+      url: '/api/help/tutorial-events',
+      payload: { ...validOpenedBody, tutorialId: 'dddddddd-dddd-dddd-dddd-dddddddddddd' },
+    });
+    expect(res1.statusCode).toBe(201);
+
+    // Segunda chamada imediata com o mesmo payload — deve cair no rate-limit.
+    const res2 = await app.inject({
+      method: 'POST',
+      url: '/api/help/tutorial-events',
+      payload: { ...validOpenedBody, tutorialId: 'dddddddd-dddd-dddd-dddd-dddddddddddd' },
+    });
+    expect(res2.statusCode).toBe(204);
+    // recordTutorialEvent só foi chamado uma vez (na primeira requisição).
+    expect(mockRecordTutorialEvent).toHaveBeenCalledOnce();
   });
 });

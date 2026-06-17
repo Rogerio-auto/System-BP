@@ -32,6 +32,7 @@ import { useNavigate } from 'react-router-dom';
 import { VideoTutorial } from '../mdx-components/VideoTutorial';
 
 import { useContextualHelpStore } from './contextual-help-store';
+import { useTrackTutorialEvent } from './useTrackTutorialEvent';
 
 // ─── Ícone X (fechar) ────────────────────────────────────────────────────────
 
@@ -92,6 +93,7 @@ function hasUnsavedForm(): boolean {
 export function ContextualHelpDrawer(): React.JSX.Element {
   const { open, activeTutorial, closeDrawer } = useContextualHelpStore();
   const navigate = useNavigate();
+  const trackEvent = useTrackTutorialEvent();
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
   const drawerRef = React.useRef<HTMLDivElement>(null);
 
@@ -340,6 +342,17 @@ export function ContextualHelpDrawer(): React.JSX.Element {
               {...(activeTutorial.hash ? { hash: activeTutorial.hash } : {})}
               title={activeTutorial.title}
               eager
+              onEnded={() => {
+                // Telemetria: tutorial_completed ao fim do vídeo (F12-S07).
+                // onEnded dispara quando o player chega ao fim — convencionalmente
+                // >90% assistido (YouTube dispara ao estado ENDED = 0).
+                // Fire-and-forget: rate-limit no servidor silencia duplicatas.
+                trackEvent({
+                  tutorialId: activeTutorial.id,
+                  featureKey: activeTutorial.featureKey,
+                  eventType: 'tutorial_completed',
+                });
+              }}
             />
           )}
 

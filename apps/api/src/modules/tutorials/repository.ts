@@ -18,10 +18,12 @@ import { and, eq, isNull } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import { featureTutorials } from '../../db/schema/featureTutorials.js';
+import { tutorialEvents } from '../../db/schema/tutorialEvents.js';
 
 import type {
   CreateTutorialBody,
   PatchTutorialBody,
+  RecordTutorialEventBody,
   TutorialAdminItem,
   TutorialPublicItem,
 } from './schemas.js';
@@ -250,4 +252,31 @@ export async function softDeleteTutorial(db: Database, id: string): Promise<bool
     .returning({ id: featureTutorials.id });
 
   return rows.length > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Telemetria de adoção (F12-S07)
+// ---------------------------------------------------------------------------
+
+/**
+ * Persiste um evento de telemetria de tutorial (opened ou completed).
+ *
+ * LGPD (doc 17 §9):
+ *   - userId é pseudônimo (UUID). Sem PII adicional.
+ *   - A tabela não armazena campos de texto livre.
+ *   - FK ON DELETE SET NULL anonimiza ao deletar o usuário.
+ *
+ * Fire-and-forget no route handler — erros são silenciosos para não degradar a UX.
+ */
+export async function recordTutorialEvent(
+  db: Database,
+  input: RecordTutorialEventBody,
+  userId: string,
+): Promise<void> {
+  await db.insert(tutorialEvents).values({
+    tutorialId: input.tutorialId,
+    featureKey: input.featureKey,
+    eventType: input.eventType,
+    userId,
+  });
 }

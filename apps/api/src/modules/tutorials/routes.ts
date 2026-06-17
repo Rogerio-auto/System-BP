@@ -49,6 +49,7 @@ import {
   findTutorialById,
   listActiveTutorials,
   listAllTutorials,
+  recordTutorialEvent,
   softDeleteTutorial,
   updateTutorial,
 } from './repository.js';
@@ -56,6 +57,7 @@ import {
   CreateTutorialBodySchema,
   FeatureKeysResponseSchema,
   PatchTutorialBodySchema,
+  RecordTutorialEventBodySchema,
   TutorialAdminItemSchema,
   TutorialIdParamSchema,
   TutorialsAdminListResponseSchema,
@@ -67,6 +69,50 @@ import {
 // ---------------------------------------------------------------------------
 
 const FLAG_KEY = 'tutorials.enabled';
+
+// ---------------------------------------------------------------------------
+// Rate-limit in-memory para POST /api/help/tutorial-events (F12-S07)
+//
+// Evita ingestão duplicada do mesmo evento (tutorialId:userId:eventType)
+// em janela de 30 segundos. Mesmo padrão de help/routes.ts (doc_views).
+//
+// Limitação: single-instance. Migração futura: Redis SETNX.
+// ---------------------------------------------------------------------------
+
+const EVENT_RATE_LIMIT_MS = 30_000;
+const EVENT_GC_INTERVAL = 1_000;
+const EVENT_GC_STALE_MS = 60_000;
+
+const eventRateMap = new Map<string, number>();
+let eventInsertsSinceLastGc = 0;
+
+/**
+ * Verifica e aplica rate-limit para um evento de telemetria.
+ * Retorna false se o evento já foi registrado nos últimos 30s (duplicata).
+ * Retorna true se o evento deve ser persistido.
+ */
+function checkAndSetEventRateLimit(userId: string, tutorialId: string, eventType: string): boolean {
+  const key = `${userId}:${tutorialId}:${eventType}`;
+  const now = Date.now();
+  const lastAt = eventRateMap.get(key);
+
+  if (lastAt !== undefined && now - lastAt < EVENT_RATE_LIMIT_MS) {
+    return false; // duplicata dentro da janela
+  }
+
+  eventRateMap.set(key, now);
+
+  eventInsertsSinceLastGc++;
+  if (eventInsertsSinceLastGc >= EVENT_GC_INTERVAL) {
+    eventInsertsSinceLastGc = 0;
+    const cutoff = now - EVENT_GC_STALE_MS;
+    for (const [k, t] of eventRateMap.entries()) {
+      if (t < cutoff) eventRateMap.delete(k);
+    }
+  }
+
+  return true;
+}
 
 // ---------------------------------------------------------------------------
 // Plugin de rotas
@@ -413,6 +459,73 @@ export const tutorialsRoutes: FastifyPluginAsyncZod = async (app) => {
     async (_request, reply) => {
       // FEATURE_KEYS é readonly tuple — o cast para string[] é seguro para serialização.
       return reply.status(200).send({ data: FEATURE_KEYS as unknown as string[] });
+    },
+  );
+
+  // =========================================================================
+  // POST /api/help/tutorial-events — Ingestão de evento de adoção (F12-S07)
+  //
+  // Registra tutorial_opened (drawer aberto) ou tutorial_completed (>90% via
+  // onEnded do player). Fire-and-forget: erros são silenciosos (204 mesmo em
+  // rate-limit) para não degradar a UX do usuário.
+  //
+  // Rate-limit: 30s por (userId, tutorialId, eventType) — mesmo padrão dos
+  // doc_views em help/routes.ts. Excedente retorna 204 silenciosamente.
+  //
+  // LGPD: sem PII — apenas UUID do tutorial e featureKey (não-identificador).
+  //   userId é pseudônimo armazenado via FK com ON DELETE SET NULL.
+  // =========================================================================
+  app.post(
+    '/api/help/tutorial-events',
+    {
+      schema: {
+        tags: ['Tutorials'],
+        summary: 'Registrar evento de adoção de tutorial',
+        description:
+          'Ingere um evento de telemetria de tutorial: `tutorial_opened` (drawer de ajuda aberto' +
+          ' pelo usuário) ou `tutorial_completed` (vídeo assistido até o fim via `onEnded`' +
+          ' do player, convencionalmente >90% do conteúdo).\n\n' +
+          'Reusa a infraestrutura de telemetria de docs (F10-S12) com tabela própria' +
+          ' `tutorial_events` (sem PII além do UUID do usuário).\n\n' +
+          '**Rate-limit:** o mesmo evento `(tutorialId, eventType)` é aceito no máximo' +
+          ' 1× a cada 30 segundos por usuário. Excedente retorna `204` silenciosamente' +
+          ' (sem erro) para não degradar a UX.\n\n' +
+          '**LGPD:** nenhum dado pessoal é armazenado além do `user_id` (pseudônimo).' +
+          ' Deleção do usuário anonimiza os eventos via `ON DELETE SET NULL`.\n\n' +
+          'Requer autenticação e feature flag `tutorials.enabled` ativa.',
+        security: [{ bearerAuth: [] }],
+        body: RecordTutorialEventBodySchema,
+        response: {
+          201: { description: 'Evento registrado com sucesso.' },
+          204: {
+            description: 'Evento ignorado por rate-limit (duplicata na janela de 30s).',
+          },
+        },
+      },
+      preHandler: [authenticate(), featureGate(FLAG_KEY)],
+    },
+    async (request, reply) => {
+      if (!request.user) {
+        // Nunca ocorre pois authenticate() garante request.user preenchido,
+        // mas satisfaz o contrato TypeScript do módulo strict.
+        return reply.status(204).send();
+      }
+
+      const userId = request.user.id;
+      const body = request.body;
+
+      // Rate-limit: silencia duplicatas na janela de 30s.
+      if (!checkAndSetEventRateLimit(userId, body.tutorialId, body.eventType)) {
+        return reply.status(204).send();
+      }
+
+      // Persistência fire-and-forget — erro não degrada a UX.
+      // Lançar erro aqui seria silenciado de qualquer forma pela semântica
+      // de telemetria, mas preferimos não ocultar bugs de infra: deixamos
+      // propagar para o error handler (500 visível nos logs do servidor).
+      await recordTutorialEvent(db, body, userId);
+
+      return reply.status(201).send();
     },
   );
 };

@@ -339,3 +339,48 @@ export const FeatureKeysResponseSchema = z
   });
 
 export type FeatureKeysResponse = z.infer<typeof FeatureKeysResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /api/help/tutorial-events — Ingestão de evento de adoção (F12-S07)
+// ---------------------------------------------------------------------------
+
+/**
+ * Tipos de evento de telemetria de tutorial.
+ * tutorial_opened    — drawer aberto pelo usuário (click no ⓘ).
+ * tutorial_completed — vídeo assistido até o fim (onEnded, >90% por convenção).
+ */
+export const TutorialEventTypeSchema = z
+  .enum(['tutorial_opened', 'tutorial_completed'])
+  .describe(
+    'Tipo do evento de telemetria.' +
+      ' tutorial_opened: drawer aberto (click no ⓘ).' +
+      ' tutorial_completed: vídeo assistido até o fim (onEnded do player).',
+  );
+
+export type TutorialEventType = z.infer<typeof TutorialEventTypeSchema>;
+
+export const RecordTutorialEventBodySchema = z
+  .object({
+    tutorialId: z
+      .string()
+      .uuid()
+      .describe('UUID do tutorial que gerou o evento. Corresponde a feature_tutorials.id.'),
+    featureKey: z
+      .string()
+      .min(1)
+      .max(120)
+      .describe(
+        'Chave da funcionalidade associada ao tutorial (ex: "crm.lead.create").' +
+          ' Desnormalizado para queries agregadas sem join.',
+      ),
+    eventType: TutorialEventTypeSchema,
+  })
+  .openapi({
+    example: {
+      tutorialId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      featureKey: 'crm.lead.create',
+      eventType: 'tutorial_opened',
+    },
+  });
+
+export type RecordTutorialEventBody = z.infer<typeof RecordTutorialEventBodySchema>;

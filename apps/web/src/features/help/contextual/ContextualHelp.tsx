@@ -28,6 +28,7 @@ import { cn } from '../../../lib/cn';
 
 import { useContextualHelpStore, type DrawerTutorial } from './contextual-help-store';
 import { useContextualTutorials } from './useContextualTutorials';
+import { useTrackTutorialEvent } from './useTrackTutorialEvent';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ export function ContextualHelp({
   const { tutorialsByKey, isLoading } = useContextualTutorials();
   const { hasPermission } = useAuth();
   const openDrawer = useContextualHelpStore((s) => s.openDrawer);
+  const trackEvent = useTrackTutorialEvent();
 
   // Ainda carregando — não renderiza nada (evita flash do ícone).
   if (isLoading) return null;
@@ -118,6 +120,13 @@ export function ContextualHelp({
     // Evitar propagação para o elemento pai (ex.: botão de ação primária).
     e.stopPropagation();
     openDrawer(drawerTutorial);
+    // Telemetria: registra tutorial_opened fire-and-forget (F12-S07).
+    // Rate-limit no servidor de 30s — cliques rápidos são silenciados.
+    trackEvent({
+      tutorialId: tutorial.id,
+      featureKey: tutorial.featureKey,
+      eventType: 'tutorial_opened',
+    });
   }
 
   return (
