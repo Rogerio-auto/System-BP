@@ -345,12 +345,12 @@ export function ConversationPanel({
   useConversationSocket({ conversationId });
 
   // ── Flatten mensagens (infinite query = páginas) ───────────────────────────
-  // pages[0] = mais recente (primeira fetch), pages[N] = mais antigas.
-  // Queremos exibição cronológica (top=antigo, bottom=recente):
-  // → invertemos a ordem das páginas e dentro de cada página também.
+  // pages[0] = primeira fetch (mensagens mais recentes), pages[N] = mais antigas (load-more).
+  // Backend retorna cada página em ASC (oldest→newest) — não invertemos o conteúdo.
+  // Só invertemos a ordem das páginas para que páginas mais antigas fiquem no topo.
   const allMessages = React.useMemo<Message[]>(() => {
     if (!data) return [];
-    return [...data.pages].reverse().flatMap((page) => [...page.data].reverse());
+    return [...data.pages].reverse().flatMap((page) => page.data);
   }, [data]);
 
   const prevMessageCountRef = React.useRef(0);
