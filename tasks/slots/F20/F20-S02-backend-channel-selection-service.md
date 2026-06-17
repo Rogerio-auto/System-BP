@@ -3,11 +3,11 @@ id: F20-S02
 title: Backend — Channel Selection Service (resolução de canal para workers e módulos)
 phase: F20
 task_ref: docs/planejamento-2026-06-multi-canal.md
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-17T04:14:58Z
 completed_at: null
 pr_url: null
 depends_on: [F20-S01]
