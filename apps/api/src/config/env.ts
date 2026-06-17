@@ -138,30 +138,24 @@ const envSchema = z.object({
     .default(60_000)
     .optional(),
 
-  // ---- Meta WhatsApp Cloud API (F5-S03) ------------------------------------
-  // Access token de longa duração (System User Token) da Meta Business Suite.
-  // Permissões mínimas: whatsapp_business_messaging, whatsapp_business_management.
-  // Gerar em: business.facebook.com → System Users → Generate Token.
-  // Opcional: ausente → worker followup-sender lança ExternalServiceError ao tentar enviar.
+  // ---- Meta WhatsApp Cloud API — DEPRECATED após F20 ----------------------
+  // Estas 4 variáveis foram substituídas pela tabela `channels` (F20-S03/S04/S05/S06).
+  // Credenciais de envio agora ficam em channel_credentials JSONB cifrado e são
+  // carregadas em runtime por canal. Mantidas como optional para não quebrar
+  // deploys em transição — um warning de boot é emitido se qualquer uma ainda
+  // estiver presente no ambiente (ver apps/api/src/app.ts).
+  // MIGRAÇÃO: remova do .env e configure via /api/channels/:id (campo credentials).
+
+  // @deprecated F20 — credenciais migradas para tabela channels
   META_WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
 
-  // ID do número de telefone registrado na Meta (Phone Number ID).
-  // Encontrado em: Meta Business Suite → WhatsApp → Phone Numbers → ID.
-  // Opcional: ausente → worker followup-sender lança ExternalServiceError ao tentar enviar.
+  // @deprecated F20 — credenciais migradas para tabela channels
   META_WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
 
-  // WhatsApp Business Account ID (WABA ID) — necessário para gestão de templates (F5-S09).
-  // Diferente do Phone Number ID: é o ID da conta WABA, não do número específico.
-  // Encontrado em: Meta Business Suite → Business Settings → WhatsApp Accounts → ID.
-  // Opcional agora — ANTES DO GO-LIVE: tornar required para garantir configuração correta.
-  // Fallback em metaClient.ts usa META_WHATSAPP_PHONE_NUMBER_ID (funcionalmente incorreto em prod).
+  // @deprecated F20 — credenciais migradas para tabela channels
   META_WABA_ID: z.string().min(1).optional(),
 
-  // Meta App ID — necessário para resumable upload de amostras de templates com header de mídia
-  // (F5-S11: uploadSampleForTemplate). O App ID identifica a aplicação registrada no Meta Developers.
-  // Encontrado em: developers.facebook.com → Meus Apps → [Nome do App] → App ID (canto superior).
-  // Opcional: ausente → MetaTemplatesClient.uploadSampleForTemplate() lança ExternalServiceError
-  // apenas quando chamado. Outras operações de template não requerem esta variável.
+  // @deprecated F20 — credenciais migradas para tabela channels
   META_APP_ID: z.string().min(1).optional(),
 
   // Intervalo do tick do worker followup-sender em milissegundos.

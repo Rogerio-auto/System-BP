@@ -195,6 +195,31 @@ export async function buildApp() {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
+  // ---------------------------------------------------------------------------
+  // F20-S08: warning de boot para variáveis de ambiente deprecated.
+  // META_WHATSAPP_ACCESS_TOKEN, META_WHATSAPP_PHONE_NUMBER_ID, META_WABA_ID e
+  // META_APP_ID foram substituídas pela tabela `channels` em F20-S03/S04/S05/S06.
+  // Credenciais de envio agora ficam em channel_credentials JSONB cifrado.
+  // Remova do .env e configure via /api/channels/:id (campo credentials).
+  // WHATSAPP_APP_SECRET e WHATSAPP_VERIFY_TOKEN permanecem obrigatórios (webhook).
+  // ---------------------------------------------------------------------------
+  const deprecatedWhatsappVars = [
+    'META_WHATSAPP_ACCESS_TOKEN',
+    'META_WHATSAPP_PHONE_NUMBER_ID',
+    'META_WABA_ID',
+    'META_APP_ID',
+  ] as const;
+  for (const varName of deprecatedWhatsappVars) {
+    if (process.env[varName] !== undefined) {
+      app.log.warn(
+        { deprecatedVar: varName },
+        `[F20] Variável de ambiente deprecated detectada: ${varName}. ` +
+          'As credenciais de envio WhatsApp foram migradas para a tabela channels. ' +
+          'Remova esta variável do .env e configure as credenciais via /api/channels/:id.',
+      );
+    }
+  }
+
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cors, {
     origin: env.CORS_ALLOWED_ORIGINS,
