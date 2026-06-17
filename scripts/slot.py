@@ -2082,13 +2082,18 @@ def cmd_worktree_clean(args: argparse.Namespace) -> int:
         info("[worktree-clean] no worktrees dir — nothing to do")
         return 0
 
-    res = run_git(["worktree", "list"], check=False)
+    # --porcelain prefixa cada caminho com "worktree " e preserva o resto da
+    # linha intacto. Necessário porque o REPO_ROOT contém espaços ("Banco do
+    # Povo"): um split() ingênuo trunca o path no primeiro espaço e nenhum
+    # worktree casa o filtro abaixo (bug histórico: removed sempre 0).
+    res = run_git(["worktree", "list", "--porcelain"], check=False)
     targets: list[Path] = []
     for line in res.stdout.splitlines():
-        parts = line.split()
-        if not parts:
+        if not line.startswith("worktree "):
             continue
-        p = parts[0]
+        p = line[len("worktree "):].strip()
+        if not p:
+            continue
         path = Path(p)
         try:
             rel = path.relative_to(REPO_ROOT)
