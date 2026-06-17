@@ -3,13 +3,13 @@ id: F16-S29
 title: Worker livechat-ai — LangGraph responde no livechat via send service
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-17T21:13:53Z
 completed_at: 2026-06-17T21:51:48Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/313
 depends_on: [F16-S28]
 blocks: []
 labels: [lgpd-impact]
