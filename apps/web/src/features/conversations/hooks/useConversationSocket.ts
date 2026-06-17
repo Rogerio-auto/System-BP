@@ -116,10 +116,13 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
       // aplica atualizacao direta em TODOS os items da lista — nao invalida para evitar
       // refetch desnecessario. Invalida apenas se nao for uma atualizacao de badge puro.
       if (typeof payload.unreadCount === 'number') {
+        // Escopo APENAS às queries de lista (['conversations','list',...]).
+        // conversationKeys.all (['conversations']) com exact:false casaria também
+        // detail/messages, cujo `data` não é array → crash (.map de undefined).
         qc.setQueriesData<ConversationListResponse>(
-          { queryKey: conversationKeys.all, exact: false },
+          { queryKey: ['conversations', 'list'], exact: false },
           (old) => {
-            if (!old) return old;
+            if (!old || !Array.isArray(old.data)) return old;
             return {
               ...old,
               data: old.data.map((c: Conversation) =>
@@ -160,9 +163,9 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
   React.useEffect(() => {
     if (!conversationId) return;
     qc.setQueriesData<ConversationListResponse>(
-      { queryKey: conversationKeys.all, exact: false },
+      { queryKey: ['conversations', 'list'], exact: false },
       (old) => {
-        if (!old) return old;
+        if (!old || !Array.isArray(old.data)) return old;
         return {
           ...old,
           data: old.data.map((c: Conversation) =>
