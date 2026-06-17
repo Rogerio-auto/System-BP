@@ -9,6 +9,7 @@
 // O boot real e validado manualmente (ver PR checklist).
 // =============================================================================
 
+import type { Socket } from 'socket.io';
 import { describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -122,8 +123,7 @@ describe('socket-boot: contratos de exportacao dos modulos de boot', () => {
         auth: {},
       },
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const token = extractToken(mockSocket as any);
+    const token = extractToken(mockSocket as unknown as Socket);
     expect(token).toBe('my-token');
   });
 
