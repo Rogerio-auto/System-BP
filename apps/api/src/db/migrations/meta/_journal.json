@@ -435,6 +435,13 @@
       "when": 1781984000000,
       "tag": "0066_law_firms",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1750118400000,
+      "tag": "0067_channel_id_jobs_rules",
+      "breakpoints": true
     }
   ]
 }

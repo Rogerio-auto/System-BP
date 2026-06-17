@@ -36,6 +36,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { channels } from './channels.js';
 import { followupRules } from './followupRules.js';
 import { leads } from './leads.js';
 import { organizations } from './organizations.js';
@@ -122,6 +123,15 @@ export const followupJobs = pgTable(
      */
     idempotencyKey: text('idempotency_key').notNull(),
 
+    /**
+     * Canal WhatsApp pelo qual este job deve ser enviado.
+     * Herdado de followup_rules.channel_id no momento da criação do job.
+     * null = sem canal fixo (usa canal default da org no momento do envio).
+     * ON DELETE SET NULL: canal excluído não cancela o job — worker usa canal default.
+     * Índice parcial idx_followup_jobs_channel_scheduled filtra jobs pendentes por canal.
+     */
+    channelId: uuid('channel_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -147,6 +157,12 @@ export const followupJobs = pgTable(
       columns: [table.ruleId],
       foreignColumns: [followupRules.id],
     }).onDelete('restrict'),
+
+    fkChannel: foreignKey({
+      name: 'fk_followup_jobs_channel',
+      columns: [table.channelId],
+      foreignColumns: [channels.id],
+    }).onDelete('set null'),
 
     // -------------------------------------------------------------------------
     // Check Constraints
@@ -190,6 +206,20 @@ export const followupJobs = pgTable(
      * Suporta a tela de histórico de follow-ups na ficha do lead (F5-S05).
      */
     idxLead: index('idx_followup_jobs_lead').on(table.leadId, table.createdAt),
+
+    /**
+     * Jobs pendentes por canal (F20 — roteamento multi-canal).
+     * Query: "todos os jobs agendados para o canal X, ordered by scheduled_at".
+     * Índice parcial: exclui estados terminais (sent/failed/cancelled/customer_replied)
+     * que nunca voltam a ser processados. Mantém índice enxuto conforme volume cresce.
+     *
+     * NOTA: cláusula WHERE parcial é adicionada manualmente na migration SQL 0067
+     * pois Drizzle não suporta índices parciais nativamente.
+     */
+    idxChannelScheduled: index('idx_followup_jobs_channel_scheduled').on(
+      table.channelId,
+      table.scheduledAt,
+    ),
   }),
 );
 
