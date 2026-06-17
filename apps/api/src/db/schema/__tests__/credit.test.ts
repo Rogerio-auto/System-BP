@@ -434,6 +434,7 @@ describe('tipos Drizzle — compilação sem any', () => {
       organizationId: ORG_ID,
       leadId: LEAD_ID,
       customerId: null,
+      channelId: null,
       productId: PRODUCT_ID,
       ruleVersionId: RULE_ID,
       amountRequested: '2000.00',

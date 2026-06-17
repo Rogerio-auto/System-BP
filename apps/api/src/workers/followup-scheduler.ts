@@ -50,6 +50,7 @@ import {
   leads,
 } from '../db/schema/index.js';
 import type { FollowupRule } from '../db/schema/index.js';
+import { resolveChannelForSend } from '../modules/channels/channel-selection.service.js';
 import { isFlagEnabled } from '../modules/featureFlags/service.js';
 
 import { createWorkerRuntime } from './_runtime.js';
@@ -174,12 +175,14 @@ export interface RuleTickResult {
  * @param rule      Regra ativa a processar.
  * @param dryRun    Se true, loga mas não insere (flag followup.scheduler.enabled=disabled).
  * @param dayBucket Bucket diário UTC (YYYY-MM-DD) para idempotency_key.
+ * @param logger    Logger do worker (opcional — no-op em testes sem logger injetado).
  */
 export async function processRule(
   database: Database,
   rule: FollowupRule,
   dryRun: boolean,
   dayBucket: string,
+  logger?: SchedulerLogger,
 ): Promise<RuleTickResult> {
   let eligibleLeads: EligibleLead[] = [];
 
@@ -195,6 +198,28 @@ export async function processRule(
   let jobsCreated = 0;
 
   if (!dryRun && leadsMatched > 0) {
+    // Resolver o canal da regra antes de entrar no loop de leads (1 chamada por regra).
+    // Se a org não tiver canal ativo, `channelId` será null — o sender fará o fallback
+    // novamente no momento do envio via resolveChannelForSend(db, org, null).
+    const resolvedChannel = await resolveChannelForSend(
+      database,
+      rule.organizationId,
+      rule.channelId,
+    ).catch((err: unknown) => {
+      logger?.warn(
+        {
+          event: 'scheduler.channel_not_resolved',
+          rule_id: rule.id,
+          rule_key: rule.key,
+          organization_id: rule.organizationId,
+          err: { message: err instanceof Error ? err.message : String(err) },
+        },
+        `regra ${rule.key}: canal não resolvido — jobs serão inseridos com channel_id=null`,
+      );
+      return null;
+    });
+    const channelIdToAssign = resolvedChannel?.channelId ?? null;
+
     // INSERT em lote com ON CONFLICT DO NOTHING (idempotência garantida pelo unique index).
     const scheduledAt = new Date();
 
@@ -211,6 +236,7 @@ export async function processRule(
           organizationId: lead.organizationId,
           leadId: lead.leadId,
           ruleId: rule.id,
+          channelId: channelIdToAssign,
           scheduledAt,
           status: 'scheduled',
           attemptCount: 0,
@@ -298,7 +324,7 @@ export async function runSchedulerTick(
 
   for (const rule of activeRules) {
     try {
-      const result = await processRule(database, rule, dryRun, dayBucket);
+      const result = await processRule(database, rule, dryRun, dayBucket, logger);
       results.push(result);
 
       logger.info(

@@ -159,6 +159,7 @@ function makeJob(
     status: string;
     attemptCount: number;
     scheduledAt: Date;
+    channelId: string | null;
   }> = {},
 ): Parameters<typeof processJob>[2] {
   return {
@@ -166,6 +167,7 @@ function makeJob(
     organizationId: ORG_ID,
     leadId: LEAD_ID,
     ruleId: RULE_ID,
+    channelId: overrides.channelId !== undefined ? overrides.channelId : null,
     status: (overrides.status ?? 'scheduled') as 'scheduled',
     attemptCount: overrides.attemptCount ?? 0,
     scheduledAt: overrides.scheduledAt ?? new Date(Date.now() - 1000),
@@ -195,6 +197,7 @@ function makeCtx(
     rule: {
       id: RULE_ID,
       organizationId: ORG_ID,
+      channelId: null,
       key: 'd1',
       name: 'Follow-up D+1',
       triggerType: 'stage_inactivity',

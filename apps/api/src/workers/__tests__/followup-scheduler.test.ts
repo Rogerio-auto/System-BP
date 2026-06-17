@@ -129,6 +129,7 @@ function makeRule(
   overrides: Partial<{
     id: string;
     key: string;
+    channelId: string | null;
     triggerType: 'stage_inactivity' | 'event_based';
     waitHours: number;
     appliesToStage: string | null;
@@ -139,6 +140,7 @@ function makeRule(
   return {
     id: overrides.id ?? RULE_ID,
     organizationId: ORG_ID,
+    channelId: overrides.channelId !== undefined ? overrides.channelId : null,
     key: overrides.key ?? 'd1',
     name: 'Follow-up D+1',
     triggerType: overrides.triggerType ?? 'stage_inactivity',
