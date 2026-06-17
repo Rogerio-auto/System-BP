@@ -260,6 +260,9 @@ export async function buildApp() {
   await app.register(templatesRoutes);
   // Webhook Chatwoot (F1-S21) — entrada + idempotência + outbox
   await app.register(chatwootWebhookRoutes);
+  // F16-S06: dynamic import evita remoção pelo import-sorter automático
+  const { metaWebhookRoutes } = await import('./modules/meta-webhook/routes.js');
+  await app.register(metaWebhookRoutes);
   await app.register(usersRoutes);
   // LGPD — direitos do titular (F1-S25)
   await app.register(dataSubjectRoutes);

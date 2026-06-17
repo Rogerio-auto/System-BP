@@ -170,7 +170,7 @@ export async function persistInboundMessage(
     'livechat.service: persistInboundMessage',
   );
 
-  const inboundAt = new Date(rawTimestamp);
+  const inboundAt = new Date(Number(rawTimestamp) * 1000);
 
   try {
     return await db.transaction(async (tx) => {

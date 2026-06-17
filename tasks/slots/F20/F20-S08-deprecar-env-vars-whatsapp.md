@@ -3,13 +3,13 @@ id: F20-S08
 title: Backend — deprecar env vars META_WHATSAPP_* após migração completa para channels
 phase: F20
 task_ref: docs/planejamento-2026-06-multi-canal.md
-status: review
+status: done
 priority: low
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-17T06:11:06Z
 completed_at: 2026-06-17T06:17:27Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/306
 depends_on: [F20-S03, F20-S04, F20-S05, F20-S06]
 blocks: []
 labels: [backend, cleanup, multi-canal, whatsapp, env]

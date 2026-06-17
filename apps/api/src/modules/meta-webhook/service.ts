@@ -25,7 +25,9 @@
 import { randomUUID } from 'node:crypto';
 
 import { db } from '../../db/client.js';
+import { parseMetaWebhookEnvelope } from '../../integrations/channels/meta/whatsapp/webhook.parser.js';
 import { auditLog } from '../../lib/audit.js';
+import { logger } from '../../lib/logger.js';
 import { makeEnvelope, publish } from '../../lib/queue/index.js';
 import { QUEUES } from '../../lib/queue/topology.js';
 
@@ -105,17 +107,27 @@ export async function dispatchWebhook(
     organizationId: channel.organizationId,
   });
 
-  // Montar envelope para a fila inbound
-  const envelope = makeEnvelope(QUEUES.inboundMessage, channel.organizationId, {
-    provider: channel.provider,
-    channelId: channel.channelId,
-    entryId,
-    rawPayload: rawEntry,
-  });
-
-  // Publicar na exchange com routing key da fila inbound
-  // Routing key = nome da fila (binding topology.ts: queue.#)
-  await publish(QUEUES.inboundMessage, envelope);
+  // Parsear o entry Meta em InboundEvents (mensagens + status) e publicar cada um
+  // O worker S08 espera InboundEvent diretamente no envelope.payload
+  let eventsPublished = 0;
+  try {
+    const events = parseMetaWebhookEnvelope(
+      { object: body.object, entry: [rawEntry] },
+      { organizationId: channel.organizationId, channelId: channel.channelId },
+    );
+    for (const event of events) {
+      const envelope = makeEnvelope(QUEUES.inboundMessage, channel.organizationId, event);
+      await publish(QUEUES.inboundMessage, envelope);
+      eventsPublished++;
+    }
+  } catch (err) {
+    // Entry com estrutura inesperada — já registrado em webhook_events para replay.
+    // LGPD: não logar rawEntry.
+    logger.warn(
+      { err, channelId: channel.channelId, entryId, provider: channel.provider },
+      'meta-webhook: falha ao parsear entry — eventos não publicados',
+    );
+  }
 
   // Auditoria: webhook recebido — sem PII, apenas IDs técnicos
   await db.transaction(async (tx) => {
@@ -135,5 +147,5 @@ export async function dispatchWebhook(
     });
   });
 
-  return { published: 1, skipped: 0 };
+  return { published: eventsPublished, skipped: 0 };
 }

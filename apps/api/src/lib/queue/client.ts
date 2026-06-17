@@ -30,8 +30,10 @@ const RECONNECT_DELAY_BASE_MS = 1_000;
 // Conexao
 // ---------------------------------------------------------------------------
 
-/** Conecta ao RabbitMQ, declara a topologia e armazena a conexao no singleton. */
+/** Conecta ao RabbitMQ, declara a topologia e armazena a conexao no singleton. Idempotente. */
 export async function connectRabbitMQ(): Promise<void> {
+  if (_channel !== null) return;
+
   const url = env.RABBITMQ_URL;
 
   const connect = async (): Promise<void> => {
@@ -87,6 +89,7 @@ export function getRabbitChannel(): ConfirmChannel {
  * Usa persistent: true para garantir durabilidade (mensagem sobrevive a restart do broker).
  */
 export async function publish(routingKey: string, payload: unknown): Promise<void> {
+  if (_channel === null) await connectRabbitMQ();
   const ch = getRabbitChannel();
   const body = Buffer.from(JSON.stringify(payload));
 
