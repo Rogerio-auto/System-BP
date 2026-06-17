@@ -22,6 +22,8 @@ export const QUEUES = {
   outboundRequest: 'hm.q.outbound.request',
   /** Relay de eventos para o socket (Socket.io relay worker). */
   socketRelay: 'hm.q.socket.relay',
+  /** Jobs de processamento pelo agente IA do livechat (F16-S28). */
+  livechatAi: 'hm.q.livechat.ai',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];

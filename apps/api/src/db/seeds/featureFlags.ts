@@ -264,6 +264,21 @@ const FLAGS: SeedFlag[] = [
     description: 'Importações regionais sob demanda',
     audience: {},
   },
+  // Live chat — agente IA (F16-S28)
+  {
+    key: 'ai.livechat_agent.enabled',
+    status: 'disabled',
+    visible: true,
+    uiLabel: 'Agente IA no live chat',
+    // Default off — gate de seguranca. Habilitar APENAS apos configurar AI_LIVECHAT_ALLOWLIST
+    // com os numeros de homologacao. Em producao: habilitar apenas apos testes completos.
+    // Quando habilitado + allowlist vazia: IA responde a todos os inbounds de texto.
+    // Quando habilitado + allowlist preenchida: IA responde SOMENTE aos numeros listados.
+    // Ver: docs/help/guias/livechat/agente-ia.mdx
+    description:
+      'Habilita o agente LangGraph para responder automaticamente a mensagens do live chat',
+    audience: {},
+  },
   // Live chat — vínculo automático de contato ao CRM (F16-S22)
   {
     key: 'livechat.auto_lead.enabled',

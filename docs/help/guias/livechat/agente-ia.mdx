@@ -1,0 +1,89 @@
+---
+title: Agente IA no Live Chat
+description: Como habilitar e configurar o agente LangGraph para responder automaticamente a mensagens do live chat.
+---
+
+# Agente IA no Live Chat
+
+O Elemento pode responder automaticamente a mensagens recebidas pelo live chat usando um agente LangGraph.
+O agente analisa a conversa e envia uma resposta ao contato, sem intervenção humana.
+
+Este recurso opera atrás de um **gate de dois níveis**:
+
+1. **Feature flag** `ai.livechat_agent.enabled` — habilita o agente globalmente.
+2. **Allowlist de números** (`AI_LIVECHAT_ALLOWLIST`) — restringe quais contatos recebem resposta automática (recomendado em homologação).
+
+---
+
+## Como habilitar
+
+### Passo 1 — Configurar a allowlist de homologação (recomendado)
+
+Antes de habilitar a flag, configure a variável de ambiente `AI_LIVECHAT_ALLOWLIST` com os
+números de telefone que devem receber resposta automática durante os testes.
+
+```env
+# .env (API)
+# Formato: CSV de números normalizados (apenas dígitos, sem +)
+AI_LIVECHAT_ALLOWLIST=5569999990000,5569988887777
+```
+
+Enquanto a allowlist estiver preenchida, **somente esses números** receberão resposta do agente —
+mesmo com a flag habilitada. Isso protege cidadãos reais de receberem respostas automáticas
+durante a homologação.
+
+Para desativar a restrição de número e permitir que o agente responda a todos os contatos,
+remova a variável ou deixe-a vazia:
+
+```env
+AI_LIVECHAT_ALLOWLIST=
+```
+
+### Passo 2 — Habilitar a feature flag
+
+Via painel administrativo (**Configurações → Feature Flags**), habilite:
+
+```
+ai.livechat_agent.enabled
+```
+
+Ou via API (usuário com permissão `admin`):
+
+```http
+PATCH /api/admin/feature-flags/ai.livechat_agent.enabled
+Content-Type: application/json
+
+{ "status": "enabled" }
+```
+
+---
+
+## Comportamento
+
+| Condição | Resultado |
+|---|---|
+| Flag desabilitada | Agente não responde |
+| Flag habilitada + allowlist vazia | Agente responde a todos os inbounds de texto |
+| Flag habilitada + allowlist preenchida | Agente responde **somente** aos números da lista |
+| Mensagem de mídia (imagem, documento) | Agente não responde (apenas mensagens de texto) |
+| Mensagem duplicata (reprocessada) | Agente não responde |
+
+---
+
+## Segurança e privacidade (LGPD)
+
+- Os números da allowlist **nunca aparecem em logs** — apenas a contagem da lista é registrada.
+- O job publicado para o agente contém **apenas IDs internos opacos** — sem nome, CPF ou telefone do contato.
+- Falhas no gate (erro de banco, falha de publicação) são tratadas silenciosamente: o pipeline de mensagens
+  continua normalmente e o agente simplesmente não responde.
+
+---
+
+## Troubleshooting
+
+**O agente não está respondendo mesmo com a flag habilitada.**
+
+1. Verifique se o número do contato está na `AI_LIVECHAT_ALLOWLIST` (se preenchida).
+2. Verifique se a mensagem é de texto (`messageType: text`). Mensagens de mídia não disparam o agente.
+3. Verifique os logs da API por warnings `ai-gate:` para diagnóstico.
+4. Confirme que o worker `livechat-ai` (F16-S29) está em execução — este guia cobre apenas o gate e o enfileiramento.
