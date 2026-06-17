@@ -568,4 +568,30 @@ describe('startSocketRelay — relay RabbitMQ → Socket.io', () => {
     expect(emitFn).toHaveBeenCalledWith('conversation.updated', { status: 'resolved' });
     expect(mocks.mockChannel.ack).toHaveBeenCalledOnce();
   });
+
+  it('18. mensagem ENVELOPADA (makeEnvelope) → desempacota payload e emite na room', async () => {
+    // Regressão: os publishers reais usam makeEnvelope → {id,type,organizationId,payload,ts}.
+    // O relay deve validar envelope.payload (não o envelope cru, que não tem room/event/data).
+    const { io, emitFn, toFn } = makeIoMock();
+    await startSocketRelay(io as never);
+    const handler = captureConsumeHandler();
+
+    const envelope = {
+      id: '11111111-1111-4111-8111-111111111111',
+      type: 'hm.q.socket.relay',
+      organizationId: '22222222-2222-4222-8222-222222222222',
+      payload: {
+        room: 'workspace:org-id-test',
+        event: 'message:new',
+        data: { messageId: 'msg-enveloped' },
+      },
+      ts: Date.now(),
+    };
+    handler({ content: Buffer.from(JSON.stringify(envelope)) });
+
+    expect(toFn).toHaveBeenCalledWith('workspace:org-id-test');
+    expect(emitFn).toHaveBeenCalledWith('message:new', { messageId: 'msg-enveloped' });
+    expect(mocks.mockChannel.ack).toHaveBeenCalledOnce();
+    expect(mocks.mockChannel.nack).not.toHaveBeenCalled();
+  });
 });
