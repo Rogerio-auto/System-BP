@@ -39,6 +39,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { channels } from './channels.js';
 import { organizations } from './organizations.js';
 import { whatsappTemplates } from './whatsappTemplates.js';
 
@@ -124,6 +125,15 @@ export const collectionRules = pgTable(
      */
     maxAttempts: integer('max_attempts').notNull().default(3),
 
+    /**
+     * Canal WhatsApp pelo qual as cobranças desta regra devem ser enviadas.
+     * null = sem canal fixo (comportamento legado: usa canal default da org).
+     * ON DELETE SET NULL: canal excluído não quebra a regra — scheduler voltará
+     * ao canal default até o operador atribuir um novo canal.
+     * Requisito F20: permite segregar filas de cobrança por canal/número.
+     */
+    channelId: uuid('channel_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -147,6 +157,12 @@ export const collectionRules = pgTable(
       columns: [table.templateId],
       foreignColumns: [whatsappTemplates.id],
     }).onDelete('restrict'),
+
+    fkChannel: foreignKey({
+      name: 'fk_collection_rules_channel',
+      columns: [table.channelId],
+      foreignColumns: [channels.id],
+    }).onDelete('set null'),
 
     // -------------------------------------------------------------------------
     // Check Constraints

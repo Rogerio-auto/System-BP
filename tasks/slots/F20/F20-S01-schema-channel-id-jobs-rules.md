@@ -3,12 +3,12 @@ id: F20-S01
 title: Schema — channel_id em followup_rules, followup_jobs, collection_rules, collection_jobs, credit_simulations (migration 0067)
 phase: F20
 task_ref: docs/planejamento-2026-06-multi-canal.md
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-17T04:03:55Z
+completed_at: 2026-06-17T04:10:25Z
 pr_url: null
 depends_on: []
 blocks: [F20-S02, F20-S03, F20-S04, F20-S05, F20-S06, F20-S07]

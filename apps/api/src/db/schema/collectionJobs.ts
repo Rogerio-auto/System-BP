@@ -49,6 +49,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { channels } from './channels.js';
 import { collectionRules } from './collectionRules.js';
 import { organizations } from './organizations.js';
 import { paymentDues } from './paymentDues.js';
@@ -139,6 +140,15 @@ export const collectionJobs = pgTable(
      */
     idempotencyKey: text('idempotency_key').notNull(),
 
+    /**
+     * Canal WhatsApp pelo qual este job de cobrança deve ser enviado.
+     * Herdado de collection_rules.channel_id no momento da criação do job.
+     * null = sem canal fixo (usa canal default da org no momento do envio).
+     * ON DELETE SET NULL: canal excluído não cancela o job — worker usa canal default.
+     * Índice parcial idx_collection_jobs_channel_scheduled filtra jobs pendentes por canal.
+     */
+    channelId: uuid('channel_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -172,6 +182,12 @@ export const collectionJobs = pgTable(
       columns: [table.ruleId],
       foreignColumns: [collectionRules.id],
     }).onDelete('restrict'),
+
+    fkChannel: foreignKey({
+      name: 'fk_collection_jobs_channel',
+      columns: [table.channelId],
+      foreignColumns: [channels.id],
+    }).onDelete('set null'),
 
     // -------------------------------------------------------------------------
     // Check Constraints
@@ -215,6 +231,20 @@ export const collectionJobs = pgTable(
      * Suporta: ficha da parcela em F5-S08 e relatórios de inadimplência.
      */
     idxPaymentDue: index('idx_collection_jobs_payment_due').on(table.paymentDueId, table.createdAt),
+
+    /**
+     * Jobs de cobrança pendentes por canal (F20 — roteamento multi-canal).
+     * Query: "todos os jobs agendados para o canal X, ordered by scheduled_at".
+     * Índice parcial: exclui estados terminais (sent/failed/cancelled/paid_before_send)
+     * que crescem sem limite. Mantém índice enxuto conforme carteira de inadimplentes cresce.
+     *
+     * NOTA: cláusula WHERE parcial é adicionada manualmente na migration SQL 0067
+     * pois Drizzle não suporta índices parciais nativamente.
+     */
+    idxChannelScheduled: index('idx_collection_jobs_channel_scheduled').on(
+      table.channelId,
+      table.scheduledAt,
+    ),
   }),
 );
 

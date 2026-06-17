@@ -38,6 +38,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { channels } from './channels.js';
 import { creditProductRules } from './creditProductRules.js';
 import { creditProducts } from './creditProducts.js';
 import { customers } from './customers.js';
@@ -156,6 +157,14 @@ export const creditSimulations = pgTable(
      */
     sentAt: timestamp('sent_at', { withTimezone: true }),
 
+    /**
+     * Canal WhatsApp pelo qual a simulação foi (ou será) enviada ao lead.
+     * null = enviada por canal legado (antes de F20) ou ainda não enviada sem canal fixo.
+     * ON DELETE SET NULL: canal excluído não invalida o histórico de simulações.
+     * Permite rastrear por qual número/canal cada proposta foi enviada (auditoria).
+     */
+    channelId: uuid('channel_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     // Sem updatedAt — simulações são imutáveis após criação.
   },
@@ -198,6 +207,12 @@ export const creditSimulations = pgTable(
       name: 'fk_credit_simulations_created_by',
       columns: [table.createdByUserId],
       foreignColumns: [users.id],
+    }).onDelete('set null'),
+
+    fkChannel: foreignKey({
+      name: 'fk_credit_simulations_channel',
+      columns: [table.channelId],
+      foreignColumns: [channels.id],
     }).onDelete('set null'),
 
     // -------------------------------------------------------------------------
