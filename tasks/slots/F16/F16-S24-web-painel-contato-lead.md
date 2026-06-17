@@ -3,13 +3,13 @@ id: F16-S24
 title: Painel de contato — vínculo de lead e ação criar lead
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#1-fluxo-de-mensagem-inbound
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: frontend-engineer
 claimed_at: 2026-06-17T19:27:34Z
 completed_at: 2026-06-17T19:33:52Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/309
 depends_on: [F16-S23]
 blocks: []
 labels: []
