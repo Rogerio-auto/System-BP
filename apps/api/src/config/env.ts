@@ -187,6 +187,16 @@ const envSchema = z.object({
         : [],
     ),
 
+  // ---- Meta Embedded Signup (Canais) --------------------------------------
+  // App ID do Meta App registrado no Meta for Developers.
+  // Obrigatório para o fluxo de Embedded Signup (conexão via SDK).
+  // Opcional: sem ele, apenas a conexão manual de canais está disponível.
+  FACEBOOK_APP_ID: z.string().min(1).optional(),
+
+  // App Secret do mesmo Meta App (necessário para trocar o code por access_token).
+  // Manter em segredo — nunca exposto no frontend.
+  FACEBOOK_APP_SECRET: z.string().min(1).optional(),
+
   // ---- Redis (F16-S01 live chat) ------------------------------------------
   REDIS_URL: z.string().url().optional().default('redis://localhost:6379'),
 

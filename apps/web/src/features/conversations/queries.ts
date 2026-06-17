@@ -17,7 +17,7 @@
 //   - staleTime 30s herdado do QueryClient global.
 // =============================================================================
 
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '../../lib/api';
 
@@ -142,5 +142,101 @@ export function useMessages(conversationId: string, params: MessagesQueryParams 
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: conversationId.length > 0,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Tipos auxiliares para mutations
+// ---------------------------------------------------------------------------
+
+/** Resumo de usuário para o seletor de agente (subconjunto de UserResponse da API). */
+export interface AgentUser {
+  readonly id: string;
+  readonly fullName: string;
+  readonly email: string;
+  readonly status: 'active' | 'disabled' | 'pending';
+}
+
+interface AgentUsersApiResponse {
+  readonly data: AgentUser[];
+  readonly pagination: {
+    readonly page: number;
+    readonly limit: number;
+    readonly total: number;
+    readonly totalPages: number;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Fetchers de mutations
+// ---------------------------------------------------------------------------
+
+async function fetchAgentUsers(): Promise<AgentUsersApiResponse> {
+  return api.get<AgentUsersApiResponse>('/api/admin/users?limit=100');
+}
+
+// ---------------------------------------------------------------------------
+// Hooks de agentes (para seletor de atribuição)
+// ---------------------------------------------------------------------------
+
+/**
+ * useAgentUsers — lista usuários ativos da org para o seletor de atribuição.
+ *
+ * Requer `users:manage` — retorna vazio silenciosamente para agentes sem permissão.
+ * staleTime 5 min: a lista de agentes muda raramente.
+ */
+export function useAgentUsers() {
+  return useQuery({
+    queryKey: ['agent-users'],
+    queryFn: fetchAgentUsers,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Mutations de conversa
+// ---------------------------------------------------------------------------
+
+/**
+ * useAssignConversation — atribui (ou desatribui) um agente a uma conversa.
+ *
+ * PATCH /api/conversations/:id/assign
+ * Body: { agentId: string | null }
+ * Requer `livechat:conversation:manage`.
+ *
+ * Invalida o detalhe da conversa e a lista ao suceder.
+ */
+export function useAssignConversation(conversationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (agentId: string | null) =>
+      api.patch<unknown>(`/api/conversations/${encodeURIComponent(conversationId)}/assign`, {
+        agentId,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
+      void qc.invalidateQueries({ queryKey: conversationKeys.all });
+    },
+  });
+}
+
+/**
+ * useResolveConversation — marca a conversa como resolvida.
+ *
+ * PATCH /api/conversations/:id/resolve
+ * Requer `livechat:conversation:manage`.
+ *
+ * Invalida o detalhe e a lista (conversa sai do inbox 'open').
+ */
+export function useResolveConversation(conversationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.patch<unknown>(`/api/conversations/${encodeURIComponent(conversationId)}/resolve`, {}),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
+      void qc.invalidateQueries({ queryKey: conversationKeys.all });
+    },
   });
 }

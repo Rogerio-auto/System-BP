@@ -18,6 +18,7 @@
 import * as React from 'react';
 
 import { ChatList } from './ChatList';
+import { ContactPanel } from './ContactPanel';
 import { ConversationPanel } from './ConversationPanel';
 
 // ---------------------------------------------------------------------------
@@ -56,34 +57,6 @@ function ConversationPlaceholder(): React.JSX.Element {
       <p className="font-sans" style={{ fontSize: 'var(--text-sm)', color: 'var(--text-3)' }}>
         Selecione uma conversa
       </p>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Placeholder da coluna de contato (S17+ vai substituir)
-// ---------------------------------------------------------------------------
-
-function ContactPanelPlaceholder(): React.JSX.Element {
-  return (
-    <div className="h-full flex flex-col gap-4 p-4" style={{ background: 'var(--bg-elev-1)' }}>
-      <p
-        className="font-sans font-semibold"
-        style={{
-          fontSize: 'var(--text-xs)',
-          color: 'var(--text-3)',
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-        }}
-      >
-        Contato
-      </p>
-      {/* Skeletons de dados do contato */}
-      <div className="flex flex-col gap-3">
-        <div className="h-3 rounded" style={{ background: 'var(--surface-muted)', width: '60%' }} />
-        <div className="h-3 rounded" style={{ background: 'var(--surface-muted)', width: '80%' }} />
-        <div className="h-3 rounded" style={{ background: 'var(--surface-muted)', width: '50%' }} />
-      </div>
     </div>
   );
 }
@@ -194,7 +167,7 @@ export function ConversationsLayout(): React.JSX.Element {
           }}
           aria-label="Dados do contato"
         >
-          <ContactPanelPlaceholder />
+          <ContactPanel conversationId={selectedId} />
         </aside>
       )}
     </div>
