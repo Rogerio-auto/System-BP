@@ -1,9 +1,10 @@
 // =============================================================================
 // Bootstrap do servidor Fastify. Mantenha este arquivo enxuto:
-// configuração de plugins e startup. Lógica vai em src/app.ts e modules/*.
+// configuracao de plugins e startup. Logica vai em src/app.ts e modules/*.
 // =============================================================================
 import { buildApp } from './app.js';
 import { env } from './config/env.js';
+import { startSocketRelay } from './workers/livechat-socket-relay.js';
 
 const start = async (): Promise<void> => {
   const app = await buildApp();
@@ -15,8 +16,16 @@ const start = async (): Promise<void> => {
     process.exit(1);
   }
 
+  // Relay RabbitMQ -> Socket.io (F16-S25).
+  // Iniciado apos app.listen() para garantir que:
+  //   1. app.io esta decorado (socketPlugin ja registrado em buildApp).
+  //   2. Nao abre conexao RabbitMQ em testes que usam buildApp() sem listen().
+  const stopRelay = await startSocketRelay(app.io);
+
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info({ signal }, 'Recebido sinal, encerrando...');
+    // Parar o relay antes de fechar o app: drena acks pendentes e fecha o canal AMQP.
+    await stopRelay();
     await app.close();
     process.exit(0);
   };
