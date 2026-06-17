@@ -3,7 +3,7 @@ id: F16-S23
 title: API vincular/criar lead da conversa (1-clique manual)
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#1-fluxo-de-mensagem-inbound
-status: blocked
+status: available
 priority: high
 estimated_size: S
 agent_id: null

@@ -3,7 +3,7 @@ id: F16-S24
 title: Painel de contato — vínculo de lead e ação criar lead
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#1-fluxo-de-mensagem-inbound
-status: blocked
+status: available
 priority: high
 estimated_size: S
 agent_id: null
