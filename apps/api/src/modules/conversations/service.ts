@@ -470,7 +470,8 @@ export async function getWindowService(
  * Contexto de ator para operações de escrita no módulo de conversas (lead-link).
  */
 export interface LeadLinkActorContext {
-  readonly userId: string;
+  /** UUID do usuario autenticado. null para atores de sistema (alinhado a SendActorContext). */
+  readonly userId: string | null;
   readonly organizationId: string;
   readonly role: string;
   readonly cityScopeIds: string[] | null;

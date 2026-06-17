@@ -32,6 +32,7 @@ import { z } from 'zod';
 
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
+import { envelopeSchema } from '../lib/queue/envelope.js';
 import { QUEUES } from '../lib/queue/topology.js';
 
 // ---------------------------------------------------------------------------
@@ -175,8 +176,15 @@ function handleRelayMessage(io: SocketIOServer, channel: Channel, msg: Message):
     return;
   }
 
-  // 2. Validação Zod do payload
-  const parsed = SocketRelayJobSchema.safeParse(raw);
+  // 2. Desempacota o envelope padrão (makeEnvelope) antes de validar.
+  // Todo publish() usa makeEnvelope → o payload {room,event,data} fica em `.payload`.
+  // Validar `raw` direto rejeitaria TODA mensagem real (room/event/data undefined).
+  // Fallback para `raw` cru mantém compatibilidade com mensagens não-envelopadas.
+  const envelopeResult = envelopeSchema.safeParse(raw);
+  const candidate = envelopeResult.success ? envelopeResult.data.payload : raw;
+
+  // 3. Validação Zod do payload do relay
+  const parsed = SocketRelayJobSchema.safeParse(candidate);
   if (!parsed.success) {
     logger.error(
       {

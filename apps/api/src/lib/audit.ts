@@ -65,8 +65,8 @@ export interface AuditTx {
  * null para ações de sistema (worker, job, integração interna).
  */
 export type AuditActor = {
-  /** UUID do usuário autenticado. */
-  userId: string;
+  /** UUID do usuário autenticado. null para atores de sistema (worker/bot); grava actor_user_id NULL. */
+  userId: string | null;
   /** Role snapshot no momento da ação. */
   role: string;
   /** IP do cliente. null se não disponível. */
