@@ -16,6 +16,8 @@ labels: [frontend, multi-canal, whatsapp, configuracoes, followup, cobranca, sim
 source_docs:
   - docs/18-design-system.md
 docs_required: true
+docs_artifacts:
+  - docs/help/guias/admin/canal-padrao.mdx
 ---
 
 # F20-S07 — Frontend: canal padrão + seletor de canal em regras e simulações

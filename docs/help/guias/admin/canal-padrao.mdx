@@ -1,0 +1,75 @@
+---
+title: Como definir o canal padrão de WhatsApp
+description: Aprenda a marcar um canal como padrão para que réguas de follow-up, cobrança e simulações usem automaticamente o número correto.
+order: 20
+keywords: [canal, whatsapp, canal padrão, multi-canal, canais, configuracoes, channel, padrão]
+---
+
+# Como definir o canal padrão de WhatsApp
+
+Quando a organização possui mais de um número de WhatsApp conectado, é possível designar um deles como **canal padrão**. O canal padrão é usado automaticamente por todas as réguas de follow-up, réguas de cobrança e disparos de simulação que não especificam um canal explícito.
+
+## Quando usar
+
+- Você conectou um segundo número de WhatsApp (por exemplo, para uma nova unidade) e quer continuar usando o número original como padrão.
+- Você quer centralizar os envios automáticos em um número específico sem precisar editar cada régua individualmente.
+
+## Passo a passo
+
+<Step>
+
+### 1. Acesse Configurações > Canais de Mensagem
+
+No menu lateral, clique em **Configurações** e depois em **Canais de Mensagem**.
+
+</Step>
+
+<Step>
+
+### 2. Localize o canal desejado
+
+A lista exibe todos os canais conectados. Cada canal mostra:
+
+- Nome e número técnico (Phone Number ID)
+- Status ativo/inativo
+- Indicador de canal padrão (badge verde "Padrão") ou botão "Definir como padrão"
+
+</Step>
+
+<Step>
+
+### 3. Defina o canal como padrão
+
+Clique em **Definir como padrão** no canal que deve ser o padrão. O sistema irá:
+
+1. Remover o status de padrão do canal anterior (se houver).
+2. Marcar o canal selecionado como padrão.
+
+O badge "Padrão" aparecerá imediatamente no canal escolhido.
+
+<Callout type="info" title="Apenas um canal pode ser padrão">
+  A operação é atômica — o sistema garante que exatamente um canal fique marcado como padrão
+  por organização. Não é possível ter dois canais padrão simultaneamente.
+</Callout>
+
+</Step>
+
+## Estados do indicador de canal
+
+| Situação | Indicador exibido |
+|---|---|
+| Só há um canal conectado | Badge cinza "Único canal" |
+| Canal é o padrão atual | Badge verde "Padrão" com ícone de check |
+| Canal não é o padrão | Botão "Definir como padrão" |
+
+## Erros comuns
+
+**O botão "Definir como padrão" não aparece** — A organização tem apenas um canal conectado. Neste caso o badge "Único canal" é exibido e nenhuma ação é necessária.
+
+**Mensagem de erro ao clicar** — Verifique se você tem a permissão `channels:manage`. Fale com o administrador do sistema se necessário.
+
+## Veja também
+
+- [Como conectar um canal de WhatsApp](/guias/admin/conectar-canal)
+- [Seletor de canal em réguas de follow-up](/guias/follow-up/configurar-reguas)
+- [Seletor de canal em réguas de cobrança](/guias/cobranca/configurar-reguas)
