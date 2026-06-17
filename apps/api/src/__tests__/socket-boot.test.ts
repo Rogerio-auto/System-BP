@@ -85,6 +85,18 @@ describe('socket-boot: contratos de exportacao dos modulos de boot', () => {
     // Nao chamamos — apenas verificamos o tipo
   });
 
+  it('socketPlugin chamado DIRETO decora app.io na raiz (regressao: encapsulamento deixava io undefined)', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { socketPlugin } = await import('../plugins/socket.js');
+    const app = Fastify();
+    // Chamada direta (como em app.ts) — a decoracao deve aparecer na RAIZ.
+    // Com `app.register(socketPlugin)` (encapsulado), app.io seria undefined e o
+    // relay quebrava com "Cannot read properties of undefined (reading 'of')".
+    await socketPlugin(app, {});
+    expect(app.io).toBeDefined();
+    await app.close();
+  });
+
   it('startSocketRelay e uma funcao que aceita io como argumento (aridade 1)', async () => {
     const { startSocketRelay } = await import('../workers/livechat-socket-relay.js');
     expect(typeof startSocketRelay).toBe('function');

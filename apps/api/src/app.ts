@@ -233,11 +233,17 @@ export async function buildApp() {
   await app.register(sensible);
 
   // Socket.io — namespace /livechat (F16-S25).
-  // Deve ser registrado antes do listen() para que o SocketIOServer se anexe
+  // Deve ser inicializado antes do listen() para que o SocketIOServer se anexe
   // ao servidor HTTP antes que ele comece a aceitar conexões.
   // O relay (startSocketRelay) é iniciado em server.ts, após app.listen(),
   // para não abrir conexão RabbitMQ em testes (buildApp sem listen).
-  await app.register(socketPlugin);
+  //
+  // CHAMADA DIRETA (não `app.register`): `register` cria um escopo encapsulado,
+  // e o `fastify.decorate('io', ...)` do plugin ficaria nesse escopo-filho —
+  // `app.io` na raiz seria `undefined` (relay quebrava com "Cannot read 'of' of undefined").
+  // Invocar o plugin direto executa no escopo da raiz, decorando `app.io` de fato.
+  // (Sem `fastify-plugin`, que não é dependência do projeto.)
+  await socketPlugin(app, {});
 
   // OpenAPI 3.1 spec — exposta quando OPENAPI_PUBLIC_ENABLED=true ou fora de produção.
   // Em produção sem a flag: plugin NÃO é registrado → /openapi.json retorna 404 (sem fingerprinting).

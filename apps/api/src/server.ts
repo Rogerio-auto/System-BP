@@ -18,8 +18,14 @@ const start = async (): Promise<void> => {
 
   // Relay RabbitMQ -> Socket.io (F16-S25).
   // Iniciado apos app.listen() para garantir que:
-  //   1. app.io esta decorado (socketPlugin ja registrado em buildApp).
+  //   1. app.io esta decorado (socketPlugin inicializado em buildApp).
   //   2. Nao abre conexao RabbitMQ em testes que usam buildApp() sem listen().
+  // Guard fail-fast: se app.io for undefined, o relay emitiria para `undefined.of(...)`
+  // e todo evento de socket falharia silenciosamente. Melhor abortar com erro claro.
+  if (app.io === undefined) {
+    app.log.fatal('app.io indefinido apos buildApp — socket.io nao inicializou; abortando');
+    process.exit(1);
+  }
   const stopRelay = await startSocketRelay(app.io);
 
   const shutdown = async (signal: string): Promise<void> => {
