@@ -176,11 +176,13 @@ function makeJob(
     attemptCount: number;
     paymentDueId: string;
     scheduledAt: Date;
+    channelId: string | null;
   }> = {},
 ) {
   return {
     id: overrides.id ?? JOB_ID,
     organizationId: ORG_ID,
+    channelId: overrides.channelId !== undefined ? overrides.channelId : null,
     paymentDueId: overrides.paymentDueId ?? DUE_ID,
     ruleId: RULE_ID,
     scheduledAt: overrides.scheduledAt ?? new Date(Date.now() - 1000),
@@ -216,6 +218,7 @@ function makeCtx(
     rule: {
       id: RULE_ID,
       organizationId: ORG_ID,
+      channelId: null,
       key: 'd7',
       name: 'Cobrança D+7',
       triggerType: 'days_after_due',

@@ -482,7 +482,7 @@ describe('SPC service — transição de status (unit via mock)', () => {
       CUSTOMER_ID,
       null,
       'pending_inclusion',
-      { userId: USER_ID, ip: null },
+      { userId: USER_ID, ip: null, permissions: [] },
     );
 
     expect(result).toMatchObject({ current_status: 'pending_inclusion' });
@@ -504,7 +504,7 @@ describe('SPC service — transição de status (unit via mock)', () => {
         CUSTOMER_ID,
         null,
         'none',
-        { userId: USER_ID, ip: null },
+        { userId: USER_ID, ip: null, permissions: [] },
       ),
     ).rejects.toThrow('inválida');
   });

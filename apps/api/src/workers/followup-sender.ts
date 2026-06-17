@@ -3,15 +3,20 @@
 //
 // Processo Node.js SEPARADO. Iniciado via: pnpm --filter @elemento/api worker:followup:sender
 //
+// F20-S03: credenciais WhatsApp agora resolvidas da tabela `channels` via
+//   resolveChannelForSend(db, orgId, job.channelId). Credenciais de env não são
+//   mais usadas. Jobs com channel_id=NULL fazem fallback para canal default da org.
+//
 // Responsabilidade:
 //   Para cada tick, busca lote de followup_jobs com status='scheduled' e
 //   scheduled_at <= now(). Para cada job:
 //     1. Valida lead ativo (não deletado, não arquivado).
 //     2. Verifica consentimento: customer.consent_revoked_at IS NULL.
 //     3. Renderiza variáveis do template a partir dos dados do lead.
-//     4. Chama Meta WhatsApp Cloud API via MetaWhatsAppClient.
-//     5. Atualiza job: status='sent', sent_message_id=wamid, attempt_count++.
-//     6. Emite outbox 'followup.sent' + auditLog na mesma transação.
+//     4. Resolve canal WhatsApp via resolveChannelForSend.
+//     5. Chama Meta WhatsApp Cloud API via MetaWhatsAppClient.
+//     6. Atualiza job: status='sent', sent_message_id=wamid, attempt_count++.
+//     7. Emite outbox 'followup.sent' + auditLog na mesma transação.
 //
 // Em caso de erro:
 //     - attempt_count++ + last_error
@@ -55,6 +60,7 @@ import { MetaWhatsAppClient } from '../integrations/meta-whatsapp/client.js';
 import type { SendTemplateParams } from '../integrations/meta-whatsapp/types.js';
 import { auditLog } from '../lib/audit.js';
 import type { AuditTx } from '../lib/audit.js';
+import { resolveChannelForSend } from '../modules/channels/channel-selection.service.js';
 import { isFlagEnabled } from '../modules/featureFlags/service.js';
 import { ExternalServiceError } from '../shared/errors.js';
 
@@ -528,7 +534,7 @@ export async function processJob(
   // 7. Dry-run: logar mensagem composta sem chamar API
   // LGPD: não logar `to` — apenas template_name + component_count.
   // -------------------------------------------------------------------------
-  if (dryRun || metaClient === null) {
+  if (dryRun) {
     logger.info(
       {
         event: 'sender.dry_run',
@@ -566,11 +572,78 @@ export async function processJob(
   }
 
   // -------------------------------------------------------------------------
-  // 8. Envio real via Meta WhatsApp Cloud API
+  // 8. Resolver canal WhatsApp (quando nenhum cliente foi injetado externamente).
+  //
+  // `metaClient` é não-null apenas em testes que injetam o cliente diretamente.
+  // Em produção, sempre será null → resolvedClient é instanciado aqui.
+  //
+  // Prioridade: job.channelId (canal explícito da regra) → canal default da org.
+  // Jobs históricos com channel_id=NULL fazem fallback para canal default da org.
+  //
+  // LGPD §8.3: accessToken nunca logado — apenas channelId e channelName.
+  // -------------------------------------------------------------------------
+  let resolvedClient = metaClient;
+  if (resolvedClient === null) {
+    const resolved = await resolveChannelForSend(database, job.organizationId, job.channelId).catch(
+      (err: unknown) => {
+        logger.error(
+          {
+            event: 'sender.channel_not_found',
+            job_id: job.id,
+            channel_id: job.channelId,
+            err: { message: err instanceof Error ? err.message : String(err) },
+          },
+          `job ${job.id}: nenhum canal WhatsApp ativo encontrado`,
+        );
+        return null;
+      },
+    );
+
+    if (resolved === null) {
+      const reason = 'Nenhum canal WhatsApp ativo configurado para esta organização';
+      await database
+        .update(followupJobs)
+        .set({
+          status: 'failed',
+          attemptCount: newAttemptCount,
+          lastError: reason,
+          updatedAt: new Date(),
+        })
+        .where(eq(followupJobs.id, job.id));
+
+      return {
+        jobId: job.id,
+        leadId: job.leadId,
+        templateKey: ctx.template.name,
+        outcome: 'failed',
+        error: reason,
+        attemptCount: newAttemptCount,
+        terminal: true,
+      };
+    }
+
+    logger.info(
+      {
+        event: 'sender.channel_resolved',
+        job_id: job.id,
+        channel_id: resolved.channelId,
+        channel_name: resolved.channelName,
+      },
+      `job ${job.id}: canal resolvido — ${resolved.channelName}`,
+    );
+
+    resolvedClient = new MetaWhatsAppClient({
+      accessToken: resolved.accessToken,
+      phoneNumberId: resolved.phoneNumberId,
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // 9. Envio real via Meta WhatsApp Cloud API
   // -------------------------------------------------------------------------
   let wamid: string;
   try {
-    const result = await metaClient.sendTemplate(sendParams);
+    const result = await resolvedClient.sendTemplate(sendParams);
     wamid = result.wamid;
   } catch (err: unknown) {
     const errorMsg =
@@ -672,7 +745,7 @@ export async function processJob(
   }
 
   // -------------------------------------------------------------------------
-  // 9. Sucesso — atualizar job + outbox + auditLog em transação atômica
+  // 10. Sucesso — atualizar job + outbox + auditLog em transação atômica
   // -------------------------------------------------------------------------
   await database.transaction(async (tx) => {
     // Justificativa dos casts: ver comentário acima na transação de falha.
@@ -907,26 +980,15 @@ export { runtime as _workerRuntime };
 async function main(): Promise<void> {
   const tickMs = env.FOLLOWUP_SENDER_TICK_MS ?? DEFAULT_TICK_MS;
 
-  let metaClient: MetaWhatsAppClient | null = null;
-  try {
-    metaClient = new MetaWhatsAppClient();
-    runtime.logger.info(
-      { event: 'sender.meta_client_ready' },
-      'cliente Meta WhatsApp inicializado',
-    );
-  } catch (err: unknown) {
-    runtime.logger.warn(
-      {
-        event: 'sender.meta_client_unavailable',
-        err: {
-          message: err instanceof Error ? err.message : String(err),
-        },
-      },
-      'META_WHATSAPP_ACCESS_TOKEN ou META_WHATSAPP_PHONE_NUMBER_ID ausente — worker em modo degradado (dry-run forçado)',
-    );
-  }
+  // F20-S03: credenciais não mais resolvidas de env vars — cada job resolve o canal
+  // via resolveChannelForSend(db, orgId, job.channelId) dentro de processJob.
+  // Passamos null para que o worker use o mecanismo de resolução por job.
+  const metaClient: MetaWhatsAppClient | null = null;
 
-  runtime.logger.info({ tick_ms: tickMs }, 'followup-sender iniciado');
+  runtime.logger.info(
+    { event: 'sender.started', tick_ms: tickMs },
+    'followup-sender iniciado — canal resolvido da tabela channels por job',
+  );
 
   while (!runtime.isShuttingDown()) {
     try {

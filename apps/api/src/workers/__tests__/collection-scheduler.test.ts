@@ -122,6 +122,7 @@ function makeRule(
   overrides: Partial<{
     id: string;
     key: string;
+    channelId: string | null;
     triggerType: 'days_before_due' | 'days_after_due';
     waitHours: number;
     isActive: boolean;
@@ -131,6 +132,7 @@ function makeRule(
   return {
     id: overrides.id ?? RULE_ID,
     organizationId: ORG_ID,
+    channelId: overrides.channelId !== undefined ? overrides.channelId : null,
     key: overrides.key ?? 'd7',
     name: 'Cobrança D+7',
     triggerType: overrides.triggerType ?? 'days_after_due',
