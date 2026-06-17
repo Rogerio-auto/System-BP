@@ -31,7 +31,15 @@ export function ConversasPage(): React.JSX.Element {
         h-full: ocupa todo o espaço vertical que o AppLayout concede.
         O ConversationsLayout faz overflow:hidden internamente.
       */}
-      <div className="h-full flex flex-col overflow-hidden">
+      {/*
+        -m-6 cancela o p-6 do AppLayout main.
+        height calc fixa o container ao viewport abaixo da topbar (h-14 = 3.5rem),
+        eliminando o overflow que esticava a página.
+      */}
+      <div
+        className="-m-6 flex flex-col overflow-hidden"
+        style={{ height: 'calc(100vh - 3.5rem)' }}
+      >
         <ConversationsLayout />
       </div>
     </SocketProvider>

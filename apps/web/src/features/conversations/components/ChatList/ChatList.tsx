@@ -15,6 +15,7 @@
 import * as React from 'react';
 
 import { useSocket } from '../../../../lib/realtime/useSocket';
+import { useChannels } from '../../../configuracoes/canais/useChannels';
 import {
   useConversationSocket,
   type UseConversationSocketOptions,
@@ -197,6 +198,14 @@ export function ChatList({
 
   const { data, isLoading, isError, refetch } = useConversations(queryParams);
 
+  // Mapa channelId → nome do canal para exibir no item da lista
+  const { channels } = useChannels();
+  const channelNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const ch of channels) map.set(ch.id, ch.name);
+    return map;
+  }, [channels]);
+
   // Acumula resultados quando a query retorna dados novos
   React.useEffect(() => {
     if (!data) return;
@@ -302,6 +311,7 @@ export function ChatList({
                   conversation={conv}
                   selected={selectedConversationId === conv.id}
                   onSelect={onSelectConversation}
+                  channelName={channelNameMap.get(conv.channelId) ?? null}
                 />
               </div>
             ))}

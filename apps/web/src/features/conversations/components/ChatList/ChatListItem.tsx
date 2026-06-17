@@ -145,6 +145,8 @@ export interface ChatListItemProps {
   readonly conversation: Conversation;
   readonly selected: boolean;
   readonly onSelect: (id: string) => void;
+  /** Nome do canal (ex: "WhatsApp Banco do Povo"). Null enquanto canais carregam. */
+  readonly channelName: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +163,7 @@ export function ChatListItem({
   conversation,
   selected,
   onSelect,
+  channelName,
 }: ChatListItemProps): React.JSX.Element {
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -175,7 +178,6 @@ export function ChatListItem({
   const timestamp = formatTimestamp(conversation.lastMessageAt ?? conversation.createdAt);
 
   // Preview: placeholder enquanto S17 não adiciona lastMessagePreview ao DTO
-  const preview = ''; // campo não existe ainda no DTO — S17 vai adicionar
 
   return (
     <div
@@ -258,18 +260,22 @@ export function ChatListItem({
           </span>
         </div>
 
-        {/* Linha 2: preview da mensagem + badge */}
+        {/* Linha 2: nome do canal + badge */}
         <div className="flex items-center justify-between gap-2">
-          <span
-            className="font-sans truncate"
-            style={{
-              fontSize: 'var(--text-xs)',
-              color: 'var(--text-3)',
-              lineHeight: '1.4',
-            }}
-          >
-            {preview || ' '}
-          </span>
+          {channelName !== null ? (
+            <span
+              className="font-sans truncate"
+              style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-3)',
+                lineHeight: '1.4',
+              }}
+            >
+              {channelName}
+            </span>
+          ) : (
+            <span aria-hidden="true" className="flex-1" />
+          )}
           <UnreadBadge count={conversation.unreadCount} />
         </div>
       </div>
