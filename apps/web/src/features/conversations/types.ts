@@ -187,10 +187,15 @@ export interface MessageNewPayload {
 export interface ConversationUpdatedPayload {
   readonly messageId?: string;
   readonly conversationId: string;
-  readonly channelId: string;
-  readonly organizationId: string;
+  readonly channelId?: string;
+  readonly organizationId?: string;
   readonly viewStatus?: string;
   readonly status?: string;
+  /**
+   * Novo valor de nao-lidas apos leitura (F16-S26).
+   * Presente quando markConversationRead emite via room workspace:{orgId}.
+   */
+  readonly unreadCount?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +231,12 @@ export interface MessagesQueryParams {
 export interface LinkLeadBody {
   /** UUID do lead a vincular. Omitir para criar novo lead. */
   readonly leadId?: string;
+  /**
+   * UUID da cidade para criar o lead quando o canal nao tem cityId configurado.
+   * Espelha LinkLeadBodySchema.cityId de F16-S26. Ignorado se leadId fornecido.
+   * LGPD: UUID opaco, sem PII.
+   */
+  readonly cityId?: string;
 }
 
 /**

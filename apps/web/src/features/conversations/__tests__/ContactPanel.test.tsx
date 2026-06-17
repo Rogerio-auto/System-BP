@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { conversationKeys } from '../queries';
-import type { LinkLeadBody, LinkLeadResponse } from '../types';
+import type { ConversationUpdatedPayload, LinkLeadBody, LinkLeadResponse } from '../types';
 import type { Conversation } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -186,5 +186,61 @@ describe('query keys do useLinkLead', () => {
     const key1 = conversationKeys.detail('conv-a');
     const key2 = conversationKeys.detail('conv-b');
     expect(key1).not.toEqual(key2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. cityId em LinkLeadBody (F16-S26 / F16-S27)
+// ---------------------------------------------------------------------------
+
+describe('LinkLeadBody com cityId (F16-S26)', () => {
+  it('aceita body com cityId para canal sem cidade', () => {
+    const body: LinkLeadBody = { cityId: '550e8400-e29b-41d4-a716-446655440001' };
+    expect(body.cityId).toBeDefined();
+    expect(body.leadId).toBeUndefined();
+  });
+
+  it('aceita body com leadId e sem cityId (vinculo de lead existente)', () => {
+    const body: LinkLeadBody = { leadId: LEAD_ID };
+    expect(body.leadId).toBe(LEAD_ID);
+    expect(body.cityId).toBeUndefined();
+  });
+
+  it('cityId e leadId sao ambos opcionais (sem PII)', () => {
+    const body: LinkLeadBody = {};
+    expect(body.cityId).toBeUndefined();
+    expect(body.leadId).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. ConversationUpdatedPayload com unreadCount (F16-S26)
+// ---------------------------------------------------------------------------
+
+describe('ConversationUpdatedPayload.unreadCount (F16-S26)', () => {
+  it('payload com unreadCount=0 representa leitura de conversa', () => {
+    const payload: ConversationUpdatedPayload = {
+      conversationId: 'conv-001',
+      unreadCount: 0,
+    };
+    expect(payload.unreadCount).toBe(0);
+    expect(payload.conversationId).toBe('conv-001');
+  });
+
+  it('payload sem unreadCount e valido (view_status update)', () => {
+    const payload: ConversationUpdatedPayload = {
+      conversationId: 'conv-001',
+      channelId: 'ch-001',
+      organizationId: 'org-001',
+      viewStatus: 'read',
+    };
+    expect(payload.unreadCount).toBeUndefined();
+  });
+
+  it('canal sem cidade: needsCitySelect=true quando channelCityId=null', () => {
+    // Logica do LeadSection: needsCitySelect = channelCityId === null
+    const withCity = (channelCityId: string | null) => channelCityId === null;
+    expect(withCity(null)).toBe(true);
+    expect(withCity('city-uuid-001')).toBe(false);
   });
 });

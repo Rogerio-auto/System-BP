@@ -22,6 +22,7 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 
+import { CityCombobox } from '../../../components/comboboxes/CityCombobox';
 import { useAuth } from '../../../lib/auth-store';
 import {
   useAgentUsers,
@@ -367,15 +368,33 @@ function LeadSection({
   conversationId,
   leadId,
   canManage,
+  channelCityId,
 }: {
   conversationId: string;
   leadId: string | null;
   canManage: boolean;
+  /** cityId do canal. null indica canal sem cidade — seletor necessario. */
+  channelCityId: string | null;
 }): React.JSX.Element {
   const linkLead = useLinkLead(conversationId);
+  const [selectedCityId, setSelectedCityId] = React.useState('');
+  // Canal sem cidade: seletor obrigatorio antes de criar lead
+  const needsCitySelect = channelCityId === null;
 
   function handleCreateLead(): void {
-    linkLead.mutate({});
+    if (needsCitySelect && !selectedCityId) return; // guard UI
+    linkLead.mutate(needsCitySelect ? { cityId: selectedCityId } : {});
+  }
+
+  function extractErrorMessage(err: unknown): string {
+    if (err && typeof err === 'object' && 'message' in err) {
+      const msg = String((err as { message: string }).message);
+      if (msg.includes('422') || msg.toLowerCase().includes('cidade')) {
+        return 'Cidade nao encontrada ou invalida. Selecione uma cidade valida.';
+      }
+      if (msg.includes('422')) return 'Dados invalidos (422). Verifique as informacoes.';
+    }
+    return 'Falha ao criar lead. Tente novamente.';
   }
 
   return (
@@ -460,8 +479,8 @@ function LeadSection({
           </div>
         </div>
       ) : canManage ? (
-        /* Sem lead + tem permissão — botão Criar lead */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        /* Sem lead + tem permissao — botao Criar lead */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <p
             style={{
               fontFamily: 'var(--font-sans)',
@@ -473,15 +492,27 @@ function LeadSection({
           >
             Contato sem lead no CRM.
           </p>
+          {/* Seletor de cidade: obrigatorio quando canal nao tem cityId (F16-S26) */}
+          {needsCitySelect && (
+            <CityCombobox
+              value={selectedCityId}
+              onChange={(id) => setSelectedCityId(id)}
+              label="Cidade do lead"
+              required
+              placeholder="Buscar cidade..."
+              disabled={linkLead.isPending}
+            />
+          )}
           <ActionButton
             onClick={handleCreateLead}
             loading={linkLead.isPending}
-            disabled={linkLead.isPending}
+            disabled={linkLead.isPending || (needsCitySelect && !selectedCityId)}
           >
             Criar lead
           </ActionButton>
           {linkLead.isError && (
             <p
+              role="alert"
               style={{
                 fontFamily: 'var(--font-sans)',
                 fontSize: 10,
@@ -490,7 +521,7 @@ function LeadSection({
                 textAlign: 'center',
               }}
             >
-              Falha ao criar lead. Tente novamente.
+              {extractErrorMessage(linkLead.error)}
             </p>
           )}
           {linkLead.isSuccess && (
@@ -721,7 +752,12 @@ export function ContactPanel({ conversationId }: ContactPanelProps): React.JSX.E
       </div>
 
       {/* ── Lead no CRM ───────────────────────────────────────────────────────── */}
-      <LeadSection conversationId={conversationId} leadId={conv.leadId} canManage={canManage} />
+      <LeadSection
+        conversationId={conversationId}
+        leadId={conv.leadId}
+        canManage={canManage}
+        channelCityId={conv.cityId}
+      />
 
       {/* ── Atendente ──────────────────────────────────────────────────────── */}
       <div

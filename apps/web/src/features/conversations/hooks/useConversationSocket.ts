@@ -43,7 +43,12 @@ import * as React from 'react';
 
 import { useSocket } from '../../../lib/realtime/useSocket';
 import { conversationKeys } from '../queries';
-import type { ConversationUpdatedPayload, MessageNewPayload } from '../types';
+import type {
+  Conversation,
+  ConversationListResponse,
+  ConversationUpdatedPayload,
+  MessageNewPayload,
+} from '../types';
 
 // ---------------------------------------------------------------------------
 // Opções do hook
@@ -107,8 +112,27 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
     if (!socket) return;
 
     function handleConversationUpdated(payload: ConversationUpdatedPayload): void {
+      // Se o payload tem unreadCount (F16-S26: markConversationRead via workspace room),
+      // aplica atualizacao direta em TODOS os items da lista — nao invalida para evitar
+      // refetch desnecessario. Invalida apenas se nao for uma atualizacao de badge puro.
+      if (typeof payload.unreadCount === 'number') {
+        qc.setQueriesData<ConversationListResponse>(
+          { queryKey: conversationKeys.all, exact: false },
+          (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              data: old.data.map((c: Conversation) =>
+                c.id === payload.conversationId ? { ...c, unreadCount: payload.unreadCount! } : c,
+              ),
+            };
+          },
+        );
+        return;
+      }
+
       // Invalida detalhe + mensagens da conversa afetada.
-      // Se não há conversa aberta localmente, qualquer conversa pode ter mudado —
+      // Se nao ha conversa aberta localmente, qualquer conversa pode ter mudado —
       // invalidamos a lista para refletir status atualizado.
       void qc.invalidateQueries({ queryKey: conversationKeys.all });
 
@@ -128,6 +152,26 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
       socket.off('conversation:updated', handleConversationUpdated);
     };
   }, [socket, qc, conversationId]);
+
+  // ── badge zero ao abrir conversa ─────────────────────────────────────────
+  // Quando conversationId muda (conversa aberta), zeramos imediatamente o
+  // unreadCount no cache local. O backend já zerou via GET /messages (F16-S26).
+  // Nao esperamos o socket event — resposta imediata para o badge sumir.
+  React.useEffect(() => {
+    if (!conversationId) return;
+    qc.setQueriesData<ConversationListResponse>(
+      { queryKey: conversationKeys.all, exact: false },
+      (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          data: old.data.map((c: Conversation) =>
+            c.id === conversationId ? { ...c, unreadCount: 0 } : c,
+          ),
+        };
+      },
+    );
+  }, [conversationId, qc]);
 
   // ── conversation:join / leave ────────────────────────────────────────────
   // Quando uma conversa específica está aberta, entramos na sala para
