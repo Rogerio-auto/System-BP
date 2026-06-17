@@ -3,12 +3,12 @@ id: F16-S27
 title: Front livechat — badge em tempo real, marcar lida ao abrir e Criar lead com cidade
 phase: F16
 task_ref: docs/planejamento-live-chat-proprio.md#realtime
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: null
-completed_at: null
+completed_at: 2026-06-17T22:30:20Z
 pr_url: null
 depends_on: [F16-S25, F16-S26]
 blocks: []

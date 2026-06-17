@@ -374,9 +374,13 @@ export type MessageListResponse = z.infer<typeof MessageListResponseSchema>;
  * Body do PATCH /api/conversations/:id/lead.
  *
  * Se `leadId` presente: vincula lead existente.
- * Se `leadId` ausente: cria novo lead via getOrCreateLead usando dados do contato + cityId do canal.
+ * Se `leadId` ausente: cria novo lead via getOrCreateLead usando dados do contato + cityId resolvido.
  *
- * LGPD (doc 17 §8.1): body não contém PII direta — leadId é UUID opaco.
+ * F16-S26: `cityId` opcional no body — usado quando o canal não tem cidade configurada (permite
+ * o front oferecer um seletor de cidade sem depender da configuração do canal).
+ * Resolução: body.cityId ?? channel.cityId. 422 apenas se ambos ausentes.
+ *
+ * LGPD (doc 17 §8.1): body não contém PII direta — leadId e cityId são UUIDs opacos.
  */
 export const LinkLeadBodySchema = z
   .object({
@@ -386,6 +390,14 @@ export const LinkLeadBodySchema = z
       .optional()
       .describe(
         'UUID do lead existente a vincular. Omitir para criar novo lead via dados do contato.',
+      ),
+    cityId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe(
+        'UUID da cidade a usar na criação do lead, quando o canal não tem cidade configurada. ' +
+          'Sobrepõe channel.cityId. Ignorado quando leadId é fornecido.',
       ),
   })
   .openapi({
