@@ -3,12 +3,12 @@ id: F16-S45
 title: Testes conversacionais do agent_turn por cenário (validação pré go-live)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: in-progress
+status: review
 priority: critical
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-18T20:26:45Z
-completed_at: null
+completed_at: 2026-06-18T20:50:35Z
 pr_url: null
 depends_on: [F16-S40]
 blocks: []
