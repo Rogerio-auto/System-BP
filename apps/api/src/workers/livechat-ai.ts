@@ -24,6 +24,7 @@ import { QUEUES } from '../lib/queue/topology.js';
 import { sendMessage } from '../modules/conversations/send.service.js';
 import type { SendActorContext } from '../modules/conversations/send.service.js';
 import { getOrCreateConversationState } from '../modules/livechat/ai-conversation-state.js';
+import { triggerLivechatHandoff } from '../modules/livechat/ai-handoff.js';
 import { normalizePhone } from '../shared/phone.js';
 
 const log = logger.child({ worker: 'livechat-ai' });
@@ -282,21 +283,6 @@ export async function processJob(
   return 'ack';
 }
 
-interface HandoffOptions {
-  organizationId: string;
-  conversationId: string;
-  messageId: string;
-  reason: string;
-}
-
-async function triggerLivechatHandoff(_db: Database, opts: HandoffOptions): Promise<void> {
-  const { organizationId, conversationId, messageId, reason } = opts;
-  log.warn(
-    { organizationId, conversationId, messageId, reason },
-    'livechat-ai: handoff para atendente humano sinalizado',
-  );
-  // TODO (slot futuro): criar task de handoff, notificar supervisor via socket relay.
-}
 
 async function startConsumer(
   db: Database,
