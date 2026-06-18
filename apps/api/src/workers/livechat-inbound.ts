@@ -271,8 +271,11 @@ export async function processMessage(
       // 3e. Publica evento no socket relay (S14)
       // LGPD: payload sem content — apenas IDs + tipo + flag de mídia
       // ----------------------------------------------------------------
+      // Sala = workspace:{orgId} (o cliente sempre habita essa sala; o inbox/ChatList
+      // não entra na sala de cada conversa). O front filtra por data.conversationId.
+      // Emitir para o UUID cru não atualizava ninguém (cliente entra em `conversation:{id}`).
       const relayPayload: SocketRelayPayload = {
-        room: conversationId,
+        room: `workspace:${organizationId}`,
         event: 'message:new',
         data: {
           messageId: message.id,
@@ -368,7 +371,7 @@ export async function processMessage(
       // Publica conversation:updated no socket relay para atualizar o front
       // LGPD: sem externalId (wamid) no relay — apenas IDs internos opacos
       const relayPayload: SocketRelayPayload = {
-        room: msgRow.conversationId,
+        room: `workspace:${organizationId}`,
         event: 'conversation:updated',
         data: {
           messageId: msgRow.id,

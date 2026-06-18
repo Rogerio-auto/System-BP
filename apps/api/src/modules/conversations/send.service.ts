@@ -306,7 +306,7 @@ export async function sendMessage(
   await publish(
     QUEUES.socketRelay,
     makeEnvelope(QUEUES.socketRelay, actor.organizationId, {
-      room: conversationId,
+      room: `workspace:${actor.organizationId}`,
       event: 'conversation:updated',
       data: {
         conversationId,
@@ -449,7 +449,7 @@ export async function assignConversation(
   await publish(
     QUEUES.socketRelay,
     makeEnvelope(QUEUES.socketRelay, actor.organizationId, {
-      room: conversationId,
+      room: `workspace:${actor.organizationId}`,
       event: 'conversation:updated',
       data: {
         conversationId,
@@ -518,7 +518,7 @@ export async function resolveConversation(
   await publish(
     QUEUES.socketRelay,
     makeEnvelope(QUEUES.socketRelay, actor.organizationId, {
-      room: conversationId,
+      room: `workspace:${actor.organizationId}`,
       event: 'conversation:resolved',
       data: {
         conversationId,

@@ -469,7 +469,7 @@ export async function processMediaJob(
   //     LGPD: não incluir URL assinada no relay — apenas URL pública (opaca)
   // -----------------------------------------------------------------------
   const relayPayload: SocketRelayPayload = {
-    room: conversationId,
+    room: `workspace:${organizationId}`,
     event: 'message:media_ready',
     data: {
       messageId,

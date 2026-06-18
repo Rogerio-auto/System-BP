@@ -657,7 +657,7 @@ export async function linkOrCreateConversationLead(
   await publish(
     QUEUES.socketRelay,
     makeEnvelope(QUEUES.socketRelay, organizationId, {
-      room: conversationId,
+      room: `workspace:${organizationId}`,
       event: 'conversation:updated',
       data: {
         conversationId,
