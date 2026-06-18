@@ -3,12 +3,12 @@ id: F16-S40
 title: Nó agent_turn (LLM tool-calling) + route_conversation + flag novo×funil
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: in-progress
+status: review
 priority: critical
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-18T17:14:38Z
-completed_at: null
+completed_at: 2026-06-18T18:01:09Z
 pr_url: null
 depends_on: [F16-S39, F16-S42]
 blocks: [F16-S41, F16-S43]
