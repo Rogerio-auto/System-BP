@@ -71,25 +71,96 @@ function ConversationPlaceholder(): React.JSX.Element {
  * Gerencia o estado de qual conversa está selecionada (selectedId).
  * Em mobile exibe lista ou detalhe conforme selectedId.
  */
+// ---------------------------------------------------------------------------
+// Toggle button do ContactPanel
+// ---------------------------------------------------------------------------
+
+interface ContactToggleButtonProps {
+  isOpen: boolean;
+  onClick: () => void;
+}
+
+function ContactToggleButton({ isOpen, onClick }: ContactToggleButtonProps): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={isOpen ? 'Fechar painel de contato' : 'Abrir painel de contato'}
+      aria-expanded={isOpen}
+      style={{
+        position: 'absolute',
+        top: 'var(--space-3)',
+        right: 'var(--space-3)',
+        zIndex: 10,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 32,
+        height: 32,
+        borderRadius: 'var(--radius-sm)',
+        border: isOpen ? '1px solid var(--brand-azul)' : '1px solid var(--border-subtle)',
+        background: isOpen
+          ? 'color-mix(in srgb, var(--brand-azul) 10%, var(--bg-elev-1))'
+          : 'var(--bg-elev-1)',
+        color: isOpen ? 'var(--brand-azul)' : 'var(--text-3)',
+        boxShadow: 'var(--elev-1)',
+        cursor: 'pointer',
+        transition: 'background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease)',
+      }}
+    >
+      <svg
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ width: 14, height: 14 }}
+        aria-hidden="true"
+      >
+        <circle cx="8" cy="8" r="6.5" />
+        <path d="M8 7v4" />
+        <circle cx="8" cy="5" r=".5" fill="currentColor" stroke="none" />
+      </svg>
+    </button>
+  );
+}
+
 export function ConversationsLayout(): React.JSX.Element {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-
-  // Em mobile, se há conversa selecionada, mostra somente o detalhe
   const [isMobile, setIsMobile] = React.useState(false);
+  const [isLarge, setIsLarge] = React.useState(false);
+  const [contactOpen, setContactOpen] = React.useState(true);
 
   React.useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    setIsMobile(mq.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    const mqMobile = window.matchMedia('(max-width: 767px)');
+    const mqLarge = window.matchMedia('(min-width: 1024px)');
+    setIsMobile(mqMobile.matches);
+    setIsLarge(mqLarge.matches);
+    setContactOpen(mqLarge.matches);
+    const onMobile = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    const onLarge = (e: MediaQueryListEvent) => {
+      setIsLarge(e.matches);
+      setContactOpen(e.matches);
+    };
+    mqMobile.addEventListener('change', onMobile);
+    mqLarge.addEventListener('change', onLarge);
+    return () => {
+      mqMobile.removeEventListener('change', onMobile);
+      mqLarge.removeEventListener('change', onLarge);
+    };
   }, []);
 
   const showList = !isMobile || selectedId === null;
   const showDetail = !isMobile || selectedId !== null;
+  const showContactInline = !isMobile && selectedId !== null && contactOpen && isLarge;
+  const showContactOverlay = !isMobile && selectedId !== null && contactOpen && !isLarge;
 
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: 'var(--bg)' }}>
+    <div
+      className="flex h-full overflow-hidden"
+      style={{ background: 'var(--bg)', position: 'relative' }}
+    >
       {/* ── Coluna 1: ChatList ─────────────────────────────────────────── */}
       {showList && (
         <aside
@@ -112,7 +183,11 @@ export function ConversationsLayout(): React.JSX.Element {
 
       {/* ── Coluna 2: Conversa ────────────────────────────────────────── */}
       {showDetail && (
-        <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden" aria-label="Conversa">
+        <main
+          className="flex-1 flex flex-col h-full overflow-hidden"
+          style={{ position: 'relative', minWidth: isMobile ? undefined : 320 }}
+          aria-label="Conversa"
+        >
           {/* Botão voltar em mobile */}
           {isMobile && selectedId !== null && (
             <div
@@ -147,6 +222,13 @@ export function ConversationsLayout(): React.JSX.Element {
             </div>
           )}
 
+          {!isMobile && selectedId !== null && (
+            <ContactToggleButton
+              isOpen={contactOpen}
+              onClick={() => setContactOpen((prev) => !prev)}
+            />
+          )}
+
           {selectedId !== null ? (
             <ConversationPanel conversationId={selectedId} />
           ) : (
@@ -155,8 +237,8 @@ export function ConversationsLayout(): React.JSX.Element {
         </main>
       )}
 
-      {/* ── Coluna 3: Contato (collapsible, desktop-only) ─────────────── */}
-      {!isMobile && selectedId !== null && (
+      {/* Col 3: Contato inline (>= 1024px) */}
+      {showContactInline && (
         <aside
           className="flex-shrink-0 h-full overflow-y-auto"
           style={{
@@ -167,8 +249,36 @@ export function ConversationsLayout(): React.JSX.Element {
           }}
           aria-label="Dados do contato"
         >
-          <ContactPanel conversationId={selectedId} />
+          <ContactPanel conversationId={selectedId!} />
         </aside>
+      )}
+
+      {/* Col 3: Contato overlay (768-1023px) */}
+      {showContactOverlay && (
+        <>
+          <div
+            aria-hidden="true"
+            style={{ position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(0,0,0,0.18)' }}
+            onClick={() => setContactOpen(false)}
+          />
+          <aside
+            className="flex-shrink-0 h-full overflow-y-auto"
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 21,
+              width: '260px',
+              borderLeft: '1px solid var(--border-subtle)',
+              background: 'var(--bg-elev-1)',
+              boxShadow: 'var(--elev-4)',
+            }}
+            aria-label="Dados do contato"
+          >
+            <ContactPanel conversationId={selectedId!} />
+          </aside>
+        </>
       )}
     </div>
   );

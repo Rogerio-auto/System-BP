@@ -496,7 +496,7 @@ export function MessageComposer({
           onCancel={() => setIsRecording(false)}
         />
       ) : (
-        <div className="flex items-end gap-2 px-3 py-2">
+        <div className="flex items-end gap-2 px-3 py-2 min-w-0">
           {/* Botão de attach */}
           <button
             type="button"
@@ -540,7 +540,7 @@ export function MessageComposer({
           />
 
           {/* Textarea auto-resize */}
-          <div className="flex-1 relative">
+          <div className="flex-1 min-w-0 relative">
             <textarea
               ref={textareaRef}
               value={text}
