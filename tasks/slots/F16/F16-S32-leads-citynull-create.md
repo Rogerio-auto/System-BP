@@ -3,12 +3,12 @@ id: F16-S32
 title: Permitir criar lead sem city_id no canal IA (remover guard obsoleto)
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: in-progress
+status: review
 priority: critical
 estimated_size: XS
 agent_id: null
 claimed_at: 2026-06-18T02:35:22Z
-completed_at: null
+completed_at: 2026-06-18T02:49:20Z
 pr_url: null
 depends_on: []
 blocks: [F16-S30]
