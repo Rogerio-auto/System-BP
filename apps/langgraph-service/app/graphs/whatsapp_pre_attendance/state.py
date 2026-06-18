@@ -102,6 +102,36 @@ class ConversationState(TypedDict, total=False):
     # Ações emitidas (eventos de domínio a serem processados pelo backend)
     actions_emitted: list[dict[str, Any]]
 
+    # -------------------------------------------------------------------------
+    # Estado leve do agente (Bloco B — F16-S42)
+    # Campos coletados pelo agente LLM para dar contexto ao turno seguinte.
+    # NÃO são campos de roteamento — são memória conversacional.
+    # -------------------------------------------------------------------------
+
+    # Atividade/ocupação do cliente (ex: "produtor rural", "MEI", "comerciante")
+    activity: str | None
+
+    # Perfil classificado internamente (MICROEMPREENDEDOR ou ASSALARIADO)
+    # Nunca informado diretamente pelo cliente — inferido pela atividade
+    profile: Literal["MICROEMPREENDEDOR", "ASSALARIADO"] | None
+
+    # Objetivo declarado do uso do crédito (ex: "capital de giro", "equipamentos")
+    credit_objective: str | None
+
+    # Flag de autorização SCR (consulta de crédito)
+    # None = não perguntado ainda; True = autorizado; False = negado
+    scr_authorized: bool | None
+
+    # Status de cobrança do lead (informado pelo backend via /internal/*)
+    collection_status: Literal["none", "overdue", "negotiation", "legal"] | None
+
+    # Flag indicando que o handoff para atendente humano está ativo neste turno
+    handoff_active: bool
+
+    # Flag LGPD: indica que o CPF foi coletado e enviado para /internal/*
+    # NUNCA armazenar o CPF em si no estado — apenas este booleano
+    cpf_collected: bool
+
 
 # ---------------------------------------------------------------------------
 # Serialização

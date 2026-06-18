@@ -164,6 +164,11 @@ async def identify_or_create_lead(state: ConversationState) -> ConversationState
         latency_ms=latency_ms,
     )
 
+    # Propagar customer_name do estado (preenchido por receive_message a partir
+    # do metadata do payload ou de turnos anteriores). O backend /get-or-create
+    # não retorna nome por restrição LGPD §8.1 — o nome vem da coleta conversacional.
+    preserved_customer_name: str | None = state.get("customer_name")
+
     return {
         **state,
         "lead_id": success_result.lead_id,
@@ -171,4 +176,7 @@ async def identify_or_create_lead(state: ConversationState) -> ConversationState
         "current_stage": success_result.current_stage,
         "city_id": success_result.city_id,
         "actions_emitted": actions,
+        # customer_name: explicitamente propagado para garantir que coleta anterior
+        # não é perdida no merge (pegadinha F16-S36/S37).
+        "customer_name": preserved_customer_name,
     }

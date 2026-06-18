@@ -20,7 +20,7 @@ Payload inbound (doc 06 §4.1 — campos relevantes para este nó):
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, cast
 
 import structlog
 
@@ -74,6 +74,39 @@ def receive_message(state: ConversationState, *, payload: dict[str, Any]) -> Con
     city_name: str | None = metadata.get("city_name") or state.get("city_name")
     customer_name: str | None = metadata.get("customer_name") or state.get("customer_name")
 
+    # Estado leve do agente (F16-S42) — preservados do state; payload pode sobrescrever
+    # via metadata quando o backend enriquece o payload antes de enviar ao LangGraph.
+    # CPF NUNCA no estado — apenas o flag cpf_collected (LGPD doc 17).
+    activity: str | None = metadata.get("activity") or state.get("activity")
+    profile_raw: str | None = metadata.get("profile") or state.get("profile")
+    profile: str | None = (
+        profile_raw
+        if profile_raw in ("MICROEMPREENDEDOR", "ASSALARIADO")
+        else None
+    )
+    credit_objective: str | None = (
+        metadata.get("credit_objective") or state.get("credit_objective")
+    )
+    scr_authorized: bool | None = (
+        metadata.get("scr_authorized")
+        if metadata.get("scr_authorized") is not None
+        else state.get("scr_authorized")
+    )
+    collection_status_raw: str | None = (
+        metadata.get("collection_status") or state.get("collection_status")
+    )
+    collection_status: str | None = (
+        collection_status_raw
+        if collection_status_raw in ("none", "overdue", "negotiation", "legal")
+        else None
+    )
+    handoff_active: bool = bool(
+        metadata.get("handoff_active", state.get("handoff_active", False))
+    )
+    cpf_collected: bool = bool(
+        metadata.get("cpf_collected", state.get("cpf_collected", False))
+    )
+
     # ------------------------------------------------------------------
     # Normaliza mensagem para o histórico
     # ------------------------------------------------------------------
@@ -116,6 +149,22 @@ def receive_message(state: ConversationState, *, payload: dict[str, Any]) -> Con
         updates["city_id"] = city_id
     if city_name is not None:
         updates["city_name"] = city_name
+
+    # Estado leve do agente (F16-S42): preservar campos coletados
+    # Só sobrescreve se o valor não é None (evita apagar coleta anterior)
+    if activity is not None:
+        updates["activity"] = activity
+    if profile is not None:
+        updates["profile"] = profile  # type: ignore[typeddict-item]
+    if credit_objective is not None:
+        updates["credit_objective"] = credit_objective
+    if scr_authorized is not None:
+        updates["scr_authorized"] = scr_authorized
+    if collection_status is not None:
+        updates["collection_status"] = collection_status  # type: ignore[typeddict-item]
+    # handoff_active e cpf_collected: sempre propagar (booleanos com padrão False)
+    updates["handoff_active"] = handoff_active
+    updates["cpf_collected"] = cpf_collected
 
     latency_ms = (time.monotonic_ns() - start_ns) // 1_000_000
     log.info(

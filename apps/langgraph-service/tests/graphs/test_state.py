@@ -290,6 +290,14 @@ class TestKnownKeys:
             "tool_results",
             "errors",
             "actions_emitted",
+            # Estado leve do agente (F16-S42)
+            "activity",
+            "profile",
+            "credit_objective",
+            "scr_authorized",
+            "collection_status",
+            "handoff_active",
+            "cpf_collected",
         ]
     )
 
@@ -298,5 +306,5 @@ class TestKnownKeys:
         assert _KNOWN_KEYS == self.EXPECTED_KEYS
 
     def test_known_keys_count(self) -> None:
-        """22 campos conforme §5.1 + organization_id (F16-S35)."""
-        assert len(_KNOWN_KEYS) == 22
+        """29 campos: 22 originais + 7 do estado leve do agente (F16-S42)."""
+        assert len(_KNOWN_KEYS) == 29
