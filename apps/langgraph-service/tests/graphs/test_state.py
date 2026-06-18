@@ -268,6 +268,7 @@ class TestIntentLiteral:
 class TestKnownKeys:
     EXPECTED_KEYS = frozenset(
         [
+            "organization_id",
             "conversation_id",
             "chatwoot_conversation_id",
             "lead_id",
@@ -297,5 +298,5 @@ class TestKnownKeys:
         assert _KNOWN_KEYS == self.EXPECTED_KEYS
 
     def test_known_keys_count(self) -> None:
-        """21 campos conforme §5.1."""
-        assert len(_KNOWN_KEYS) == 21
+        """22 campos conforme §5.1 + organization_id (F16-S35)."""
+        assert len(_KNOWN_KEYS) == 22

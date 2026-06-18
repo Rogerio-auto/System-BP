@@ -43,6 +43,7 @@ _AUTH_HEADERS = {"X-Internal-Token": _INTERNAL_TOKEN}
 def _valid_payload(**overrides: Any) -> dict[str, Any]:
     """Payload mínimo válido conforme doc 06 §4.1."""
     base: dict[str, Any] = {
+        "organization_id": "00000000-0000-0000-0000-000000000001",
         "conversation_id": _CONVERSATION_ID,
         "lead_id": None,
         "customer_phone": _PHONE,

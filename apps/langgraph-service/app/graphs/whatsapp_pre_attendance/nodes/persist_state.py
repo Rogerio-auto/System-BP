@@ -63,6 +63,7 @@ async def persist_state(state: ConversationState) -> dict[str, Any]:
     start_ns = time.monotonic_ns()
     conversation_id: str = state.get("conversation_id", "")
     lead_id: str | None = state.get("lead_id")
+    organization_id: str | None = state.get("organization_id")
 
     if not conversation_id:
         log.error("persist_state_missing_conversation_id")
@@ -89,7 +90,10 @@ async def persist_state(state: ConversationState) -> dict[str, Any]:
     try:
         # InternalApiClient._request aceita qualquer método HTTP; PUT não tem
         # método público dedicado ainda, mas o mecanismo interno é idêntico.
-        await client._request("PUT", path, json={"state": snapshot})
+        body: dict[str, object] = {"state": snapshot}
+        if organization_id is not None:
+            body["organization_id"] = organization_id
+        await client._request("PUT", path, json=body)
         latency_ms = (time.monotonic_ns() - start_ns) // 1_000_000
 
         log.info(

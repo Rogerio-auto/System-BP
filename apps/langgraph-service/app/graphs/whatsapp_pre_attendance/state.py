@@ -54,6 +54,9 @@ class ConversationState(TypedDict, total=False):
     inicialização do grafo (receive_message / load_conversation_state).
     """
 
+    # Multi-tenant (F16-S35): obrigatorio para escritas /internal/* — nao e PII
+    organization_id: str
+
     # Identificadores de sessão
     conversation_id: str
     chatwoot_conversation_id: str

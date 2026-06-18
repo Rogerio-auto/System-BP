@@ -63,6 +63,10 @@ class GetOrCreateLeadInput(BaseModel):
         default="whatsapp",
         description="Canal de origem: whatsapp | webchat | api.",
     )
+    organization_id: str | None = Field(
+        default=None,
+        description="UUID da organização (multi-tenant). Repassado ao backend.",
+    )
     chatwoot_conversation_id: str | None = Field(
         default=None,
         description="ID da conversa Chatwoot associada, se houver.",
@@ -111,6 +115,7 @@ async def get_or_create_lead(
     phone: str,
     name: str | None = None,
     source: str = "whatsapp",
+    organization_id: str | None = None,
     chatwoot_conversation_id: str | None = None,
     correlation_id: str | None = None,
 ) -> GetOrCreateLeadResult:
@@ -135,6 +140,8 @@ async def get_or_create_lead(
     payload: dict[str, object] = {"phone": phone, "source": source}
     if name is not None:
         payload["name"] = name
+    if organization_id is not None:
+        payload["organization_id"] = organization_id
     if chatwoot_conversation_id is not None:
         payload["chatwoot_conversation_id"] = chatwoot_conversation_id
     if correlation_id is not None:
