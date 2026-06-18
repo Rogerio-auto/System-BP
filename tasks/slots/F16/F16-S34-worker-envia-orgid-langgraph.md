@@ -3,11 +3,11 @@ id: F16-S34
 title: Worker livechat-ai envia organization_id no request ao LangGraph
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: available
+status: in-progress
 priority: critical
 estimated_size: XS
-agent_id: null
-claimed_at: null
+agent_id: backend-engineer
+claimed_at: '2026-06-18T03:37:59Z'
 completed_at: null
 pr_url: null
 depends_on: []
