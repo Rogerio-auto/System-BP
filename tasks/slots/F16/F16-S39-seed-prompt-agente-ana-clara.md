@@ -3,13 +3,13 @@ id: F16-S39
 title: Seed do prompt do agente Ana Clara em prompt_versions (key pre_attendance_agent)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: review
+status: done
 priority: critical
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-18T16:31:14Z
 completed_at: 2026-06-18T16:35:42Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/330
 depends_on: []
 blocks: [F16-S40]
 labels:
@@ -22,6 +22,7 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
+
 # F16-S39 — Seed do prompt do agente Ana Clara (B1)
 
 ## Objetivo
