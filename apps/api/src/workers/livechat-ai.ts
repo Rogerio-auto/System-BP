@@ -213,37 +213,71 @@ export async function processJob(
     'livechat-ai: LangGraph respondeu',
   );
 
-  // Envia reply pelo livechat via sendMessage (LGPD: nao logar reply.content)
-  const canSendReply =
-    aiResponse.reply.type !== 'none' && aiResponse.reply.content.trim().length > 0;
+  // Envia reply(s) pelo livechat via sendMessage.
+  // F16-S44: pipeline agentica retorna messages[] — iterar e enviar cada mensagem na ordem,
+  // com idempotency key unica por indice para garantir deduplicacao individual.
+  // Retrocompat: quando messages vazio, usa reply.content (funil antigo / flag OFF).
+  // LGPD: nao logar conteudo de mensagens — apenas IDs e contadores.
+  const botActor: SendActorContext = makeBotActor(organizationId);
 
-  if (canSendReply) {
-    try {
-      const botActor: SendActorContext = makeBotActor(organizationId);
+  if (aiResponse.messages.length > 0) {
+    // Pipeline agentica: N mensagens curtas em sequencia
+    for (let i = 0; i < aiResponse.messages.length; i++) {
+      const msgContent = aiResponse.messages[i];
+      // Idempotency key unica por indice: evita deduplicacao entre mensagens distintas
+      const idempKey = `ai_reply_${messageId}_${i}`;
+      try {
+        await sendMessage(
+          db,
+          botActor,
+          conversationId,
+          { type: 'text', content: msgContent },
+          idempKey,
+        );
+      } catch (sendErr) {
+        log.error(
+          { organizationId, conversationId, messageId, msgIndex: i, err: sendErr },
+          'livechat-ai: falha ao enviar mensagem agentica — nack para DLX',
+        );
+        throw sendErr;
+      }
+    }
+    log.info(
+      { organizationId, conversationId, messageId, msgCount: aiResponse.messages.length },
+      'livechat-ai: messages[] enviadas via sendMessage (pipeline agentica)',
+    );
+  } else {
+    // Funil antigo / flag OFF: usa reply.content como unica mensagem
+    const canSendReply =
+      aiResponse.reply.type !== 'none' && aiResponse.reply.content.trim().length > 0;
+
+    if (canSendReply) {
       const idempKey = `ai_reply_${messageId}`;
-      await sendMessage(
-        db,
-        botActor,
-        conversationId,
-        { type: 'text', content: aiResponse.reply.content },
-        idempKey,
-      );
+      try {
+        await sendMessage(
+          db,
+          botActor,
+          conversationId,
+          { type: 'text', content: aiResponse.reply.content },
+          idempKey,
+        );
+        log.info(
+          { organizationId, conversationId, messageId, replyType: aiResponse.reply.type },
+          'livechat-ai: reply enviada via sendMessage (funil legado)',
+        );
+      } catch (sendErr) {
+        log.error(
+          { organizationId, conversationId, messageId, err: sendErr },
+          'livechat-ai: falha ao enviar reply — nack para DLX',
+        );
+        throw sendErr;
+      }
+    } else {
       log.info(
         { organizationId, conversationId, messageId, replyType: aiResponse.reply.type },
-        'livechat-ai: reply enviada via sendMessage',
+        'livechat-ai: reply nao enviada (type=none ou conteudo vazio)',
       );
-    } catch (sendErr) {
-      log.error(
-        { organizationId, conversationId, messageId, err: sendErr },
-        'livechat-ai: falha ao enviar reply — nack para DLX',
-      );
-      throw sendErr;
     }
-  } else {
-    log.info(
-      { organizationId, conversationId, messageId, replyType: aiResponse.reply.type },
-      'livechat-ai: reply nao enviada (type=none ou conteudo vazio)',
-    );
   }
 
   if (aiResponse.handoff.required) {
