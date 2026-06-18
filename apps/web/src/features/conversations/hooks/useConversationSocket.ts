@@ -86,14 +86,44 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
     if (!socket) return;
 
     function handleMessageNew(payload: MessageNewPayload): void {
-      // 1. Invalida todas as listas de conversas (unreadCount mudou)
-      void qc.invalidateQueries({ queryKey: conversationKeys.all });
+      const isOpen = conversationId !== undefined && payload.conversationId === conversationId;
 
-      // 2. Se temos uma conversa aberta, invalida detalhe + mensagens
-      if (conversationId && payload.conversationId === conversationId) {
-        void qc.invalidateQueries({
-          queryKey: conversationKeys.detail(conversationId),
-        });
+      // 1. Atualização CIRÚRGICA da lista (sem refetch). A lista é ordenada por
+      //    lastMessageAt desc no servidor → movemos a conversa para o topo,
+      //    atualizamos o timestamp e incrementamos unreadCount (apenas inbound
+      //    em conversa NÃO aberta). O item da lista não tem preview de texto e o
+      //    payload não carrega content (LGPD) → nada fica stale; zero request.
+      let foundInList = false;
+      qc.setQueriesData<ConversationListResponse>(
+        { queryKey: ['conversations', 'list'], exact: false },
+        (old) => {
+          if (!old || !Array.isArray(old.data)) return old;
+          const idx = old.data.findIndex((c) => c.id === payload.conversationId);
+          if (idx === -1) return old;
+          const conv = old.data[idx];
+          if (!conv) return old;
+          foundInList = true;
+          const updated: Conversation = {
+            ...conv,
+            lastMessageAt: payload.createdAt,
+            lastInboundAt: payload.direction === 'inbound' ? payload.createdAt : conv.lastInboundAt,
+            unreadCount:
+              payload.direction === 'inbound' && !isOpen ? conv.unreadCount + 1 : conv.unreadCount,
+          };
+          const rest = [...old.data.slice(0, idx), ...old.data.slice(idx + 1)];
+          return { ...old, data: [updated, ...rest] };
+        },
+      );
+
+      // 2. Conversa nova (ainda não está em nenhuma lista carregada) → invalida
+      //    a lista só para ela aparecer. Acontece apenas no PRIMEIRO contato.
+      if (!foundInList) {
+        void qc.invalidateQueries({ queryKey: ['conversations', 'list'] });
+      }
+
+      // 3. Conversa aberta → buscar a nova mensagem (com content). Apenas messages,
+      //    não detalhe/window/templates (não mudaram com uma nova mensagem).
+      if (isOpen) {
         void qc.invalidateQueries({
           queryKey: conversationKeys.messages(conversationId),
         });
@@ -134,10 +164,11 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
         return;
       }
 
-      // Invalida detalhe + mensagens da conversa afetada.
-      // Se nao ha conversa aberta localmente, qualquer conversa pode ter mudado —
-      // invalidamos a lista para refletir status atualizado.
-      void qc.invalidateQueries({ queryKey: conversationKeys.all });
+      // Status/atribuição/resolução mudaram. Invalida só a LISTA (reflete
+      // status/ordem) — não conversationKeys.all (que atingiria window/templates
+      // à toa). Para a conversa aberta, atualiza detalhe (status/agente) e
+      // mensagens (checkmarks de view status mudam via callbacks do provider).
+      void qc.invalidateQueries({ queryKey: ['conversations', 'list'] });
 
       if (conversationId && payload.conversationId === conversationId) {
         void qc.invalidateQueries({
