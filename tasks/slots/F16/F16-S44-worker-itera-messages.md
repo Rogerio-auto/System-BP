@@ -3,11 +3,11 @@ id: F16-S44
 title: Worker livechat-ai itera messages[] do agente (envio multi-mensagem ao WhatsApp)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: available
+status: in-progress
 priority: critical
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-18T20:26:44Z
 completed_at: null
 pr_url: null
 depends_on: [F16-S41]
@@ -20,7 +20,6 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
-
 # F16-S44 — Worker consome `messages[]` (sibling backend do B3)
 
 ## Objetivo
