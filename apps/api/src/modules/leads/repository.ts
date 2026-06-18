@@ -135,7 +135,7 @@ export interface PaginatedLeads {
 
 export interface CreateLeadInput {
   organizationId: string;
-  cityId: string;
+  cityId: string | null;
   agentId?: string | null;
   name: string;
   phoneE164: string;

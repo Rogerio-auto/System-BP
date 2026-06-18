@@ -756,14 +756,10 @@ export interface GetOrCreateLeadInput {
   /**
    * UUID da cidade do lead (opcional no primeiro contato).
    *
-   * Tech debt F3-S04: a coluna leads.city_id é NOT NULL no schema atual (F1-S11).
-   * No canal IA (F3), a cidade é desconhecida no primeiro contato e resolvida
-   * pela tool identify_city (F3-S06) logo após.
-   *
-   * Resolução pendente: migration para tornar city_id nullable (migration 23+).
-   * Enquanto isso, o caller deve fornecer city_id quando disponível.
-   * Quando ausente, o lead não pode ser criado sem violar a constraint NOT NULL —
-   * o serviço lançará AppError 422 com detalhe claro.
+   * Nullable: leads.city_id é nullable desde migration 23 (F16-S32).
+   * No canal IA, a cidade é desconhecida no primeiro contato e preenchida
+   * depois via identify_city (F3-S06) / PATCH /internal/leads/:id.
+   * undefined → null no insertLead.
    */
   cityId: string | undefined;
 }
@@ -880,35 +876,16 @@ async function createNewLead(
 ): Promise<GetOrCreateLeadResult> {
   const phoneNormalized = normalizePhone(input.phone);
 
-  // Tech debt F3-S04: leads.city_id é NOT NULL no schema atual.
-  // No canal IA, cidade é desconhecida no primeiro contato (resolvida por identify_city F3-S06).
-  // Quando city_id não fornecido pelo caller, lançamos INVALID_PHONE-equivalente para
-  // que o LangGraph passe city_id na segunda tentativa (após identify_city resolver).
-  // Migration para tornar city_id nullable está pendente (migration 23+).
-  //
-  // Na prática: o nó identify_or_create_lead do grafo (F3-S13) receberá city_id do
-  // estado da conversa quando disponível, ou passará undefined no primeiro contato.
-  // A service layer trata isso como limitação conhecida e documentada.
-  if (input.cityId === undefined) {
-    throw new AppError(
-      422,
-      'VALIDATION_ERROR',
-      'city_id é obrigatório para criar novo lead (tech debt: migration 23 tornará nullable)',
-      {
-        code: 'INVALID_PHONE',
-        detail: 'Forneça city_id ou chame identify_city antes de criar o lead',
-      },
-    );
-  }
+  // city_id é nullable (migration 23 já aplicada — schema Drizzle leads.ts:104 sem .notNull()).
+  // No canal IA, a cidade é desconhecida no primeiro contato e preenchida depois por
+  // identify_city / PATCH /internal/leads/:id. O lead entra no kanban pelo estágio inicial da org.
 
   const lead = await db.transaction(async (tx) => {
     let created: Lead;
     try {
       created = await insertLead(tx as unknown as Database, {
         organizationId,
-        // input.cityId foi validado como não-undefined acima (guarda AppError 422).
-        // `as string` justificado: o guard acima garante que cityId é string neste ponto.
-        cityId: input.cityId as string,
+        cityId: input.cityId ?? null,
         agentId: null,
         // Se name não fornecido, usa placeholder. O nó collect_missing_profile_data
         // do grafo coleta o nome real antes de follow-up.
