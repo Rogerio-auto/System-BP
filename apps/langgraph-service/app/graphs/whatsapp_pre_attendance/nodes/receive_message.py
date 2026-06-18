@@ -20,7 +20,7 @@ Payload inbound (doc 06 §4.1 — campos relevantes para este nó):
 from __future__ import annotations
 
 import time
-from typing import Any, cast
+from typing import Any
 
 import structlog
 

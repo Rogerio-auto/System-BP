@@ -1,0 +1,601 @@
+"""No agent_turn -- loop ReAct de tool-calling com o LLM agentico.
+
+Coracao do Bloco B (F16-S40). Substitui o funil deterministico quando
+PRE_ATTENDANCE_AGENTIC_ENABLED=true. O funil antigo permanece intacto.
+
+LGPD (doc 17 par.8.4):
+    DLP e aplicado pelo gateway em TODA chamada (dlp=True e o padrao).
+    Nenhuma PII bruta sai para o suboperador internacional.
+    Logs usam apenas IDs e contadores.
+"""
+from __future__ import annotations
+
+import json
+import time
+from typing import Any
+
+import structlog
+
+from app.graphs.whatsapp_pre_attendance.state import (
+    MAX_MESSAGES,
+    ConversationState,
+)
+from app.llm.factory import for_role, get_gateway
+from app.prompts.loader import PromptNotFoundError, load_active_prompt
+
+log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
+
+_PROMPT_KEY = "pre_attendance_agent"
+
+#: Cap de tool-calls por turno -- evita loop custoso.
+MAX_TOOL_CALLS_PER_TURN: int = 4
+
+_DEFAULT_TEMPERATURE = 0.3
+_DEFAULT_MAX_TOKENS = 1024
+
+# ---------------------------------------------------------------------------
+# Helpers de tool schema
+# ---------------------------------------------------------------------------
+
+
+def _prop(typ: str, desc: str, **extra: Any) -> dict[str, Any]:
+    d: dict[str, Any] = {"type": typ, "description": desc}
+    d.update(extra)
+    return d
+
+
+def _tool(
+    name: str,
+    desc: str,
+    props: dict[str, Any],
+    required: list[str],
+) -> dict[str, Any]:
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": desc,
+            "parameters": {
+                "type": "object",
+                "properties": props,
+                "required": required,
+            },
+        },
+    }
+
+
+def _build_tool_schemas() -> list[dict[str, Any]]:
+    """Retorna definicoes de tools no formato OpenAI tool-calling."""
+    return [
+        _tool(
+            "get_or_create_lead",
+            "Garante que existe um lead para o telefone informado.",
+            {
+                "phone": _prop("string", "Telefone E.164"),
+                "name": _prop("string", "Nome do lead"),
+                "organization_id": _prop("string", "UUID da org"),
+            },
+            required=["phone", "organization_id"],
+        ),
+        _tool(
+            "get_customer_context",
+            "Retorna ficha resumida de lead sem PII sensivel.",
+            {"lead_id": _prop("string", "UUID do lead")},
+            required=["lead_id"],
+        ),
+        _tool(
+            "update_lead_profile",
+            "Atualiza perfil do lead com dados coletados.",
+            {
+                "lead_id": _prop("string", "UUID do lead"),
+                "name": _prop("string", "Nome"),
+                "city_id": _prop("string", "UUID cidade"),
+                "requested_amount": _prop("string", "Valor"),
+                "requested_term_months": _prop("integer", "Prazo"),
+            },
+            required=["lead_id"],
+        ),
+        _tool(
+            "identify_city",
+            "Identifica a cidade de Rondonia a partir de texto livre.",
+            {
+                "city_text": _prop("string", "Texto do cliente"),
+                "organization_id": _prop("string", "UUID da org"),
+                "lead_id": _prop("string", "UUID lead"),
+            },
+            required=["city_text", "organization_id"],
+        ),
+        _tool(
+            "list_credit_products",
+            "Lista produtos de credito ativos.",
+            {
+                "organization_id": _prop("string", "UUID da org"),
+                "city_id": _prop("string", "UUID cidade"),
+            },
+            required=["organization_id"],
+        ),
+        _tool(
+            "generate_credit_simulation",
+            "Gera simulacao de credito.",
+            {
+                "lead_id": _prop("string", "UUID lead"),
+                "amount": _prop("number", "Valor reais"),
+                "term_months": _prop("integer", "Prazo meses"),
+                "product_id": _prop("string", "UUID produto"),
+            },
+            required=["lead_id", "amount", "term_months"],
+        ),
+        _tool(
+            "request_handoff",
+            "Solicita transferencia para atendente humano.",
+            {
+                "reason": _prop("string", "Motivo"),
+                "lead_id": _prop("string", "UUID lead"),
+                "chatwoot_conversation_id": _prop("string", "ID Chatwoot"),
+                "organization_id": _prop("string", "UUID org"),
+                "summary": _prop("string", "Resumo sem PII"),
+            },
+            required=[
+                "reason",
+                "chatwoot_conversation_id",
+                "organization_id",
+                "lead_id",
+                "summary",
+            ],
+        ),
+        _tool(
+            "log_ai_decision",
+            "Registra decisao de IA.",
+            {
+                "organization_id": _prop("string", "UUID org"),
+                "conversation_id": _prop("string", "UUID conversa"),
+                "lead_id": _prop("string", "UUID lead"),
+                "node_name": _prop("string", "Nome no"),
+                "decision": _prop("object", "Output"),
+                "correlation_id": _prop("string", "UUID correlacao"),
+            },
+            required=[
+                "organization_id",
+                "conversation_id",
+                "node_name",
+                "decision",
+                "correlation_id",
+            ],
+        ),
+    ]
+
+
+async def _dispatch_tool(
+    tool_name: str,
+    tool_args: dict[str, Any],
+    state: ConversationState,
+) -> str:
+    """Executa uma tool por nome e retorna o resultado como string JSON.
+
+    Importa as tools em runtime. Injeta organization_id do estado quando ausente.
+    """
+    org_id: str = state.get("organization_id", "")
+    lead_id: str | None = state.get("lead_id")
+    conversation_id: str = state.get("conversation_id", "")
+    chatwoot_conv_id: str = state.get("chatwoot_conversation_id", "")
+
+    if not tool_args.get("organization_id"):
+        tool_args = {**tool_args, "organization_id": org_id}
+
+    def _dump(res: Any) -> str:
+        return json.dumps(
+            res.model_dump() if hasattr(res, "model_dump") else dict(res)
+        )
+
+    try:
+        if tool_name == "get_or_create_lead":
+            from app.tools.leads_tools import (
+                GetOrCreateLeadInput,
+                get_or_create_lead,
+            )
+            inp = GetOrCreateLeadInput(**tool_args)
+            result = await get_or_create_lead.ainvoke(inp.model_dump())
+            return _dump(result)
+
+        elif tool_name == "get_customer_context":
+            from app.tools.leads_tools import get_customer_context
+            result = await get_customer_context.ainvoke(tool_args)
+            return _dump(result)
+
+        elif tool_name == "update_lead_profile":
+            from app.tools.leads_tools import (
+                UpdateLeadProfileInput,
+                update_lead_profile,
+            )
+            inp_upd: UpdateLeadProfileInput = UpdateLeadProfileInput(**tool_args)
+            result = await update_lead_profile.ainvoke(inp_upd.model_dump())
+            return _dump(result)
+
+        elif tool_name == "identify_city":
+            from app.tools.city_tools import (
+                IdentifyCityInput,
+                identify_city,
+            )
+            if not tool_args.get("lead_id") and lead_id:
+                tool_args = {**tool_args, "lead_id": lead_id}
+            inp_city: IdentifyCityInput = IdentifyCityInput(**tool_args)
+            result = await identify_city(
+                city_text=inp_city.city_text,
+                organization_id=inp_city.organization_id,
+                lead_id=inp_city.lead_id,
+            )
+            return _dump(result)
+
+        elif tool_name == "list_credit_products":
+            from app.tools.simulation_tools import (
+                ListCreditProductsInput,
+                list_credit_products,
+            )
+            inp_lcp: ListCreditProductsInput = ListCreditProductsInput(**tool_args)
+            result = await list_credit_products(inp_lcp)
+            return _dump(result)
+
+        elif tool_name == "generate_credit_simulation":
+            from app.tools.simulation_tools import (
+                GenerateCreditSimulationInput,
+                generate_credit_simulation,
+            )
+            inp_sim: GenerateCreditSimulationInput = GenerateCreditSimulationInput(**tool_args)
+            result = await generate_credit_simulation(inp_sim)
+            return _dump(result)
+
+        elif tool_name == "request_handoff":
+            from app.tools.chatwoot_tools import (
+                HandoffInput,
+                request_handoff,
+            )
+            if not tool_args.get("chatwoot_conversation_id"):
+                tool_args = {
+                    **tool_args,
+                    "chatwoot_conversation_id": chatwoot_conv_id,
+                }
+            if not tool_args.get("lead_id") and lead_id:
+                tool_args = {**tool_args, "lead_id": lead_id}
+            inp_hf: HandoffInput = HandoffInput(**tool_args)
+            result = await request_handoff(inp_hf)
+            return json.dumps(
+                result.model_dump() if hasattr(result, "model_dump") else {"ok": True}
+            )
+
+        elif tool_name == "log_ai_decision":
+            from app.tools.audit_tools import (
+                LogAiDecisionInput,
+                log_ai_decision,
+            )
+            if not tool_args.get("conversation_id"):
+                tool_args = {**tool_args, "conversation_id": conversation_id}
+            if not tool_args.get("correlation_id"):
+                tool_args = {**tool_args, "correlation_id": conversation_id}
+            inp_log: LogAiDecisionInput = LogAiDecisionInput(**tool_args)
+            result = await log_ai_decision(inp_log)
+            return json.dumps(
+                result.model_dump() if hasattr(result, "model_dump") else {"ok": True}
+            )
+
+        else:
+            log.warning("agent_turn_unknown_tool", tool_name=tool_name)
+            return json.dumps({"error": f"Tool not found: {tool_name}"})
+
+    except Exception as exc:
+        log.warning(
+            "agent_turn_tool_error",
+            tool_name=tool_name,
+            error_type=type(exc).__name__,
+        )
+        log.debug(
+            "agent_turn_tool_error_detail",
+            tool_name=tool_name,
+            error=str(exc),
+        )
+        return json.dumps({"error": type(exc).__name__, "message": "tool execution failed"})
+
+
+def _extract_state_updates(
+    tool_results_this_turn: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Extrai atualizacoes de estado leve dos resultados de tools deste turno."""
+    updates: dict[str, Any] = {}
+    for entry in tool_results_this_turn:
+        tool = entry.get("tool", "")
+        data = entry.get("result_data", {})
+        if tool == "identify_city":
+            if data.get("matched") and data.get("city_id"):
+                updates["city_id"] = data["city_id"]
+                if data.get("city_name"):
+                    updates["city_name"] = data["city_name"]
+        elif tool == "update_lead_profile":
+            if data.get("ok"):
+                if data.get("city_id"):
+                    updates["city_id"] = data["city_id"]
+                if data.get("name"):
+                    updates["customer_name"] = data["name"]
+        elif tool == "generate_credit_simulation":
+            if data.get("ok") and data.get("simulation_id"):
+                updates["last_simulation_id"] = data["simulation_id"]
+        elif tool == "get_or_create_lead":
+            if data.get("lead_id"):
+                updates["lead_id"] = data["lead_id"]
+            if data.get("customer_id"):
+                updates["customer_id"] = data["customer_id"]
+        elif tool == "request_handoff":
+            updates["handoff_required"] = True
+            updates["handoff_reason"] = "handoff solicitado pelo agente via tool"
+    return updates
+
+
+def _build_state_context(state: ConversationState) -> str:
+    """Constroi contexto estruturado do estado leve sem PII."""
+    parts: list[str] = []
+    if state.get("customer_name"):
+        parts.append(f"- Nome do cliente: {state['customer_name']}")
+    if state.get("city_name"):
+        parts.append(f"- Cidade: {state['city_name']}")
+    elif state.get("city_id"):
+        parts.append(f"- Cidade identificada (city_id={state['city_id']})")
+    if state.get("lead_id"):
+        parts.append(f"- Lead registrado (id={state['lead_id']})")
+    if state.get("activity"):
+        parts.append(f"- Atividade/ocupacao: {state['activity']}")
+    if state.get("profile"):
+        parts.append(f"- Perfil: {state['profile']}")
+    if state.get("credit_objective"):
+        parts.append(f"- Objetivo do credito: {state['credit_objective']}")
+    if state.get("requested_amount") is not None:
+        parts.append(f"- Valor solicitado: R$ {state['requested_amount']:,.2f}")
+    if state.get("requested_term_months") is not None:
+        parts.append(f"- Prazo solicitado: {state['requested_term_months']} meses")
+    if state.get("scr_authorized") is not None:
+        val = "sim" if state["scr_authorized"] else "nao"
+        parts.append(f"- Autorizacao SCR: {val}")
+    if state.get("last_simulation_id"):
+        parts.append(f"- Simulacao gerada (id={state['last_simulation_id']})")
+    if state.get("collection_status") and state["collection_status"] != "none":
+        parts.append(f"- Status de cobranca: {state['collection_status']}")
+    if state.get("cpf_collected"):
+        parts.append("- CPF coletado: sim (enviado ao backend)")
+    return chr(10).join(parts) if parts else "Nenhum dado coletado ainda nesta sessao."
+
+
+async def agent_turn(state: ConversationState) -> dict[str, Any]:
+    start = time.monotonic()
+    conversation_id: str = state.get("conversation_id", "")
+    lead_id: str | None = state.get("lead_id")
+    errors: list[dict[str, Any]] = list(state.get("errors", []))
+    tool_results: list[dict[str, Any]] = list(state.get("tool_results", []))
+    actions_emitted: list[dict[str, Any]] = list(state.get("actions_emitted", []))
+    tool_results_this_turn: list[dict[str, Any]] = []
+    try:
+        active_prompt = await load_active_prompt(_PROMPT_KEY)
+        prompt_key = active_prompt.key
+        prompt_version = active_prompt.prompt_version
+        prompt_body = active_prompt.body
+        eff_t = (
+            active_prompt.temperature
+            if active_prompt.temperature is not None
+            else _DEFAULT_TEMPERATURE
+        )
+        eff_m = (
+            active_prompt.max_tokens
+            if active_prompt.max_tokens is not None
+            else _DEFAULT_MAX_TOKENS
+        )
+
+        state_ctx = _build_state_context(state)
+        sep = chr(10)
+        sys_content = (
+            prompt_body.strip()
+            + sep + sep
+            + "## Estado atual da conversa"
+            + sep + state_ctx
+        )
+        sys_msg: dict[str, Any] = {"role": "system", "content": sys_content}
+        hist: list[dict[str, Any]] = list(state.get("messages", []))
+        if len(hist) > MAX_MESSAGES:
+            hist = hist[-MAX_MESSAGES:]
+        msgs: list[dict[str, Any]] = [sys_msg, *hist]
+
+        gw = get_gateway()
+        schemas = _build_tool_schemas()
+        tc_n = 0
+        fin: str = ""
+        hf_tool: bool = False
+        fr: str = "stop"
+
+        while True:
+            mdl = (
+                active_prompt.model_recommended
+                if active_prompt.model_recommended
+                else for_role("reasoner")
+            )
+            resp = await gw.complete(
+                model=mdl,
+                messages=msgs,
+                tools=schemas,
+                temperature=eff_t,
+                max_tokens=eff_m,
+                metadata={
+                    "node": "agent_turn",
+                    "lead_id": lead_id,
+                    "prompt_key": prompt_key,
+                    "tc_n": tc_n,
+                },
+                conversation_id=conversation_id,
+            )
+            fr = resp.finish_reason or "stop"
+            raw_ch = resp.raw.get("choices", [])
+            raw_msg = raw_ch[0].get("message", {}) if raw_ch else {}
+            rtcs = raw_msg.get("tool_calls") or []
+            wt = fr == "tool_calls" or bool(rtcs)
+
+            if wt and tc_n < MAX_TOOL_CALLS_PER_TURN:
+                msgs.append({
+                    "role": "assistant",
+                    "content": resp.content or None,
+                    "tool_calls": rtcs,
+                })
+                for tc in rtcs:
+                    tc_n += 1
+                    tid = tc.get("id", "call_" + str(tc_n))
+                    tfn = tc.get("function", {})
+                    tnm = tfn.get("name", "")
+                    tar = tfn.get("arguments", "{}")
+                    try:
+                        ta = json.loads(tar)
+                    except json.JSONDecodeError:
+                        ta = {}
+                    log.info(
+                        "agent_turn_tool_call",
+                        conversation_id=conversation_id,
+                        lead_id=lead_id,
+                        tool_name=tnm,
+                        call_number=tc_n,
+                    )
+                    ts = await _dispatch_tool(tnm, ta, state)
+                    try:
+                        td = json.loads(ts)
+                    except json.JSONDecodeError:
+                        td = {}
+                    tool_results_this_turn.append({
+                        "node": "agent_turn",
+                        "tool": tnm,
+                        "tool_call_id": tid,
+                        "result_data": td,
+                        "call_number": tc_n,
+                    })
+                    msgs.append({
+                        "role": "tool",
+                        "tool_call_id": tid,
+                        "content": ts,
+                    })
+                    if tnm == "request_handoff":
+                        hf_tool = True
+
+                if tc_n >= MAX_TOOL_CALLS_PER_TURN:
+                    log.warning(
+                        "agent_turn_tool_cap_reached",
+                        conversation_id=conversation_id,
+                        lead_id=lead_id,
+                        cap=MAX_TOOL_CALLS_PER_TURN,
+                    )
+                    cap_resp = await gw.complete(
+                        model=mdl,
+                        messages=msgs,
+                        tools=None,
+                        temperature=eff_t,
+                        max_tokens=eff_m,
+                        metadata={"node": "agent_turn", "phase": "cap"},
+                        conversation_id=conversation_id,
+                    )
+                    fin = cap_resp.content or ""
+                    msgs.append({"role": "assistant", "content": fin})
+                    break
+                continue
+
+            else:
+                fin = resp.content or ""
+                msgs.append({"role": "assistant", "content": fin})
+                break
+
+        su = _extract_state_updates(tool_results_this_turn)
+        lat = (time.monotonic() - start) * 1000
+        log.info(
+            "agent_turn_done",
+            conversation_id=conversation_id,
+            lead_id=lead_id,
+            prompt_key=prompt_key,
+            prompt_version=prompt_version,
+            tool_calls=tc_n,
+            latency_ms=round(lat, 1),
+            handoff_from_tool=hf_tool,
+        )
+        nm = msgs[1:]
+        res: dict[str, Any] = {
+            "messages": nm,
+            "tool_results": [
+                *tool_results,
+                *tool_results_this_turn,
+                {
+                    "node": "agent_turn",
+                    "prompt_key": prompt_key,
+                    "prompt_version": prompt_version,
+                    "tool_calls": tc_n,
+                    "latency_ms": round(lat, 1),
+                    "finish_reason": fr,
+                },
+            ],
+            "actions_emitted": actions_emitted,
+            "errors": errors,
+            "handoff_required": hf_tool,
+            "handoff_reason": (
+                "handoff solicitado pelo agente"
+                if hf_tool
+                else state.get("handoff_reason")
+            ),
+            "reply": {
+                "type": "text" if fin else "none",
+                "content": fin,
+                "template_name": None,
+                "template_variables": None,
+            },
+        }
+        res.update(su)
+        return res
+
+    except PromptNotFoundError as exc:
+        lat = (time.monotonic() - start) * 1000
+        log.error(
+            "agent_turn_prompt_not_found",
+            conversation_id=conversation_id,
+            lead_id=lead_id,
+            key=exc.key,
+            latency_ms=round(lat, 1),
+        )
+        errors.append({
+            "node": "agent_turn",
+            "error": "PROMPT_NOT_FOUND",
+            "latency_ms": round(lat, 1),
+        })
+        return {
+            "handoff_required": True,
+            "handoff_reason": "Prompt de agente nao encontrado -- handoff automatico.",
+            "errors": errors,
+            "tool_results": [
+                *tool_results,
+                *tool_results_this_turn,
+                {"node": "agent_turn", "error": "PROMPT_NOT_FOUND"},
+            ],
+        }
+
+    except Exception as exc:
+        lat = (time.monotonic() - start) * 1000
+        log.error(
+            "agent_turn_error",
+            conversation_id=conversation_id,
+            lead_id=lead_id,
+            error_type=type(exc).__name__,
+            latency_ms=round(lat, 1),
+        )
+        log.debug("agent_turn_error_detail", error=str(exc))
+        errors.append({
+            "node": "agent_turn",
+            "error": type(exc).__name__,
+            "latency_ms": round(lat, 1),
+        })
+        return {
+            "handoff_required": True,
+            "handoff_reason": "agent_turn falhou: " + type(exc).__name__,
+            "errors": errors,
+            "tool_results": [
+                *tool_results,
+                *tool_results_this_turn,
+                {"node": "agent_turn", "error": type(exc).__name__},
+            ],
+        }
+
+
+__all__ = ["MAX_TOOL_CALLS_PER_TURN", "agent_turn"]

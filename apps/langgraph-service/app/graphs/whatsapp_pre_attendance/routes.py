@@ -246,9 +246,48 @@ def route_decide_next_step(state: ConversationState) -> str:
     return destination
 
 
+
+
+# ---------------------------------------------------------------------------
+# route_conversation -- pipeline agentica (F16-S40)
+# ---------------------------------------------------------------------------
+
+_NODE_AGENT_TURN = "agent_turn"
+
+
+def route_conversation(state: ConversationState) -> str:
+    """Roteamento antes do no agent_turn na pipeline agentica.
+
+    Regras (doc 06 + plano pre-atendimento):
+    - handoff_active == True: IA silencia (atendente humano esta ativo).
+    - collection_status == legal: placeholder judicial (END + handoff).
+    - default: agent_turn.
+
+    Args:
+        state: Estado atual do grafo.
+
+    Returns:
+        Nome do no destino.
+    """
+    if state.get("handoff_active"):
+        log.info("route_conversation", decision=_NODE_SEND_RESPONSE, reason="handoff_active")
+        return _NODE_SEND_RESPONSE
+
+    if state.get("collection_status") == "legal":
+        log.info(
+            "route_conversation",
+            decision=_NODE_SEND_RESPONSE,
+            reason="collection_status_legal",
+        )
+        return _NODE_SEND_RESPONSE
+
+    log.info("route_conversation", decision=_NODE_AGENT_TURN)
+    return _NODE_AGENT_TURN
+
 __all__ = [
     "route_after_city",
     "route_after_lead",
     "route_by_intent",
+    "route_conversation",
     "route_decide_next_step",
 ]
