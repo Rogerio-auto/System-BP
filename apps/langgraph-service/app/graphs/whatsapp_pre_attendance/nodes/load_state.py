@@ -121,6 +121,8 @@ async def load_state(state: ConversationState) -> ConversationState:
 
         merged: ConversationState = {**_initial_state(loaded), **{
             # Campos de sessão do request atual sempre prevalecem
+            # organization_id: request é autoritativo; fallback para o persistido
+            "organization_id": state.get("organization_id") or loaded.get("organization_id", ""),
             "conversation_id": state.get("conversation_id", loaded.get("conversation_id", "")),
             "chatwoot_conversation_id": (
                 state.get("chatwoot_conversation_id")
@@ -138,6 +140,7 @@ async def load_state(state: ConversationState) -> ConversationState:
         log.info(
             "load_state_ok",
             conversation_id=conversation_id,
+            organization_id=merged.get("organization_id") or "<missing>",
             messages_count=len(merged_messages),
             current_stage=merged.get("current_stage"),
             latency_ms=latency_ms,
