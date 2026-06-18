@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 31    | 1   | 0   | 0   | 0   | 0   | 30  |
+| F16  | 33    | 3   | 0   | 0   | 0   | 0   | 30  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -202,6 +202,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S29 | Worker livechat-ai — LangGraph responde no livechat via send service                                | ✅ done      | high       | F16-S28                            |
 | F16-S30 | Handoff real + mensagem de fallback ao cidadão quando a IA falha                                    | 🟢 available | high       | F16-S29                            |
 | F16-S31 | UI livechat — bubble/composer responsivos sem espremer + scrollbar custom                           | ✅ done      | medium     | —                                  |
+| F16-S32 | Permitir criar lead sem city_id no canal IA (remover guard obsoleto)                                | 🟢 available | critical   | —                                  |
+| F16-S33 | Timeout do grafo configurável por env (GRAPH_TIMEOUT_SEC)                                           | 🟢 available | medium     | —                                  |
 
 ## Fase 17 —
 
