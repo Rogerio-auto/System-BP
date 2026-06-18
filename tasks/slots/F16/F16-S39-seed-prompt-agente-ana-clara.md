@@ -3,11 +3,11 @@ id: F16-S39
 title: Seed do prompt do agente Ana Clara em prompt_versions (key pre_attendance_agent)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: available
+status: in-progress
 priority: critical
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-18T16:31:14Z
 completed_at: null
 pr_url: null
 depends_on: []
