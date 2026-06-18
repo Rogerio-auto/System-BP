@@ -3,13 +3,13 @@ id: F16-S35
 title: LangGraph propaga organization_id em todas as chamadas /internal de escrita
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: python-engineer
-claimed_at: "2026-06-18T03:38:23Z"
+claimed_at: '2026-06-18T03:38:23Z'
 completed_at: 2026-06-18T03:59:08Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/326
 depends_on: [F16-S34]
 blocks: []
 labels: []
@@ -19,6 +19,7 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
+
 # F16-S35 — LangGraph propaga organization_id nas escritas /internal
 
 ## Objetivo
