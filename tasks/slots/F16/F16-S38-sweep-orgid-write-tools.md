@@ -3,11 +3,11 @@ id: F16-S38
 title: Sweep org_id — todas as escritas /internal do LangGraph (cities, handoffs, persist, decisions)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: available
+status: in-progress
 priority: critical
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-18T14:58:00Z
 completed_at: null
 pr_url: null
 depends_on: []
