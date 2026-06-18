@@ -14,7 +14,7 @@ Contrato:
 Payload inbound (doc 06 §4.1 — campos relevantes para este nó):
     conversation_id, lead_id, customer_phone, message_text,
     message_attachments, message_timestamp, chatwoot_conversation_id,
-    chatwoot_account_id, metadata (city_id, city_name, customer_name)
+    chatwoot_account_id, organization_id, metadata (city_id, city_name, customer_name)
 """
 
 from __future__ import annotations
@@ -36,7 +36,8 @@ def receive_message(state: ConversationState, *, payload: dict[str, Any]) -> Con
     HTTP recebido do backend (doc 06 §4.1). Ele:
 
     1. Inicializa os campos de sessão (``conversation_id``, ``phone``,
-       ``chatwoot_conversation_id``) a partir do payload, caso ausentes.
+       ``chatwoot_conversation_id``, ``organization_id``) a partir do payload,
+       caso ausentes.
     2. Propaga os campos de perfil vindos em ``metadata`` (``city_id``,
        ``city_name``, ``customer_name``) quando presentes.
     3. Faz append da mensagem normalizada em ``state.messages``.
@@ -63,6 +64,9 @@ def receive_message(state: ConversationState, *, payload: dict[str, Any]) -> Con
     message_timestamp: str = payload.get("message_timestamp", "")
     channel: str = payload.get("channel", "whatsapp")
     correlation_id: str | None = payload.get("correlation_id")
+    # organization_id: campo de sessão obrigatório — fonte autoritativa é o payload.
+    # Não é PII (doc 17) — pode ser logado diretamente.
+    organization_id: str = payload.get("organization_id", state.get("organization_id", ""))
 
     # Metadata opcional (pode inicializar perfil parcial)
     metadata: dict[str, Any] = payload.get("metadata") or {}
@@ -93,6 +97,7 @@ def receive_message(state: ConversationState, *, payload: dict[str, Any]) -> Con
         "conversation_id": conversation_id,
         "chatwoot_conversation_id": chatwoot_conversation_id,
         "phone": phone,
+        "organization_id": organization_id,
         "messages": updated_messages,
         # Listas de controle — garante inicialização em estado novo
         "tool_results": list(state.get("tool_results") or []),
@@ -116,6 +121,7 @@ def receive_message(state: ConversationState, *, payload: dict[str, Any]) -> Con
     log.info(
         "receive_message_done",
         conversation_id=conversation_id,
+        organization_id=organization_id,
         # LGPD doc 17 §8.3: telefone é PII — logar só o sufixo, nunca o número bruto.
         phone_suffix=phone[-4:] if phone else "",
         message_length=len(message_text),

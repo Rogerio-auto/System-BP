@@ -280,6 +280,69 @@ class TestReceiveMessage:
         result = receive_message(_empty_state(), payload=_base_payload())
         assert result["handoff_required"] is False
 
+    # -----------------------------------------------------------------------
+    # F16-S37: organization_id
+    # -----------------------------------------------------------------------
+
+    def test_organization_id_from_payload_in_state(self) -> None:
+        """Payload com organization_id deve resultar em state com o mesmo valor.
+
+        Regressão F16-S37: receive_message nao extraia organization_id do
+        payload, resultando em estado inicial sem org_id. load_state entao
+        nao tinha o que preservar e logava organization_id: "<missing>", e
+        todas as escritas /internal falhavam com 400.
+        """
+        _ORG_ID = "org-uuid-1111-0000-0000-000000000001"
+        payload = _base_payload()
+        payload["organization_id"] = _ORG_ID
+        result = receive_message(_empty_state(), payload=payload)
+
+        assert result.get("organization_id") == _ORG_ID, (
+            f"organization_id perdido em receive_message: got {result.get('organization_id')!r}"
+        )
+
+    def test_organization_id_missing_from_payload_uses_state_fallback(self) -> None:
+        """Payload sem organization_id deve usar o valor do state como fallback."""
+        _ORG_ID = "org-fallback-2222-0000-0000-000000000002"
+        existing: ConversationState = {
+            "conversation_id": _CONVERSATION_ID,
+            "phone": _PHONE,
+            "chatwoot_conversation_id": _CW_CONV_ID,
+            "organization_id": _ORG_ID,
+            "handoff_required": False,
+            "missing_fields": [],
+            "messages": [],
+            "tool_results": [],
+            "errors": [],
+            "actions_emitted": [],
+        }
+        payload = _base_payload()  # sem organization_id
+        result = receive_message(existing, payload=payload)
+
+        assert result.get("organization_id") == _ORG_ID
+
+    def test_organization_id_payload_takes_precedence_over_state(self) -> None:
+        """Quando payload e state tem org_id, o payload e autoritativo."""
+        _ORG_PAYLOAD = "org-payload-aaaa-0000-0000-000000000001"
+        _ORG_STATE = "org-state-bbbb-0000-0000-000000000002"
+        existing: ConversationState = {
+            "conversation_id": _CONVERSATION_ID,
+            "phone": _PHONE,
+            "chatwoot_conversation_id": _CW_CONV_ID,
+            "organization_id": _ORG_STATE,
+            "handoff_required": False,
+            "missing_fields": [],
+            "messages": [],
+            "tool_results": [],
+            "errors": [],
+            "actions_emitted": [],
+        }
+        payload = _base_payload()
+        payload["organization_id"] = _ORG_PAYLOAD
+        result = receive_message(existing, payload=payload)
+
+        assert result.get("organization_id") == _ORG_PAYLOAD
+
 
 # ===========================================================================
 # Tests: load_state
@@ -609,3 +672,70 @@ class TestLoadState:
             result = await load_state(current_state)
 
         assert result.get("organization_id") == _ORG_ID
+
+
+    # -----------------------------------------------------------------------
+    # F16-S37: propagacao ponta-a-ponta (receive_message → load_state)
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio()
+    async def test_org_id_survives_receive_message_then_load_state_merge(self) -> None:
+        """Anti-regressao F16-S37: org_id do payload sobrevive receive_message e load_state.
+
+        Cadeia completa:
+          1. receive_message({}, payload com org_id) → state com org_id.
+          2. load_state(state_com_org_id) onde estado persistido NAO tem org_id.
+          3. Resultado final deve ter org_id igual ao do payload original.
+
+        Historico de elos perdidos:
+          - S35: payload->process.py nao incluia org_id (corrigido).
+          - S36: load_state descartava org_id do state de entrada ao mesclar com persistido (corrigido).
+          - S37: receive_message nao extraia org_id do payload (este fix).
+        """
+        _ORG_ID = "org-uuid-propagation-0000-000000000037"
+        payload = _base_payload()
+        payload["organization_id"] = _ORG_ID
+
+        # Passo 1: receive_message({}, payload) — estado inicial
+        state_after_receive = receive_message(_empty_state(), payload=payload)
+        assert state_after_receive.get("organization_id") == _ORG_ID, (
+            "PASSO 1 FALHOU: receive_message nao copiou org_id do payload"
+        )
+
+        # Passo 2: load_state(state_com_org_id) — estado persistido sem org_id
+        persisted_without_org = _persisted_state_body()
+        persisted_without_org["state"].pop("organization_id", None)
+
+        with respx.mock:
+            respx.get(_state_url()).mock(
+                return_value=httpx.Response(200, json=persisted_without_org)
+            )
+            final_state = await load_state(state_after_receive)
+
+        assert final_state.get("organization_id") == _ORG_ID, (
+            f"PASSO 2 FALHOU: load_state descartou org_id. got {final_state.get('organization_id')!r}"
+        )
+
+    @pytest.mark.asyncio()
+    async def test_org_id_survives_receive_message_then_load_state_404(self) -> None:
+        """Anti-regressao F16-S37: org_id do payload sobrevive caminho 404 (primeira interacao).
+
+        Verifica que receive_message → load_state (404, conversa nova) preserva
+        organization_id do payload em toda a cadeia.
+        """
+        _ORG_ID = "org-uuid-propagation-404-00000000037"
+        payload = _base_payload()
+        payload["organization_id"] = _ORG_ID
+
+        state_after_receive = receive_message(_empty_state(), payload=payload)
+        assert state_after_receive.get("organization_id") == _ORG_ID
+
+        with respx.mock:
+            respx.get(_state_url()).mock(
+                return_value=httpx.Response(404, json={"message": "not found"})
+            )
+            final_state = await load_state(state_after_receive)
+
+        assert final_state.get("organization_id") == _ORG_ID, (
+            f"PASSO 404 FALHOU: org_id perdido apos load_state 404. got {final_state.get('organization_id')!r}"
+        )
