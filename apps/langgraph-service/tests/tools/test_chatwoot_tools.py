@@ -60,7 +60,9 @@ _MOCK_RESPONSE: dict[str, object] = {
 }
 
 _LEAD_ID = "ld-0001-0001-0001-000000000001"
-_CONV_ID = "cv-0001-0001-0001-000000000001"
+_CONV_ID = "cv-0001-0001-0001-000000000001"  # UUID interno (nao mais usado no HandoffInput)
+_CW_CONV_ID = "42"  # ID numerico do Chatwoot
+_ORG_ID = "576a8121-838a-4904-b6bb-574648d9c32b"
 _SIM_ID = "sim-0001-0001-0001-00000000001"
 
 
@@ -72,7 +74,8 @@ def _make_input(
 ) -> HandoffInput:
     return HandoffInput(
         lead_id=_LEAD_ID,
-        conversation_id=_CONV_ID,
+        chatwoot_conversation_id=_CW_CONV_ID,
+        organization_id=_ORG_ID,
         reason=reason,
         summary=summary,
         simulation_id=simulation_id,
@@ -127,8 +130,9 @@ async def test_request_handoff_payload_contains_required_fields() -> None:
     import json
 
     sent_body: dict[str, object] = json.loads(route.calls.last.request.content)
-    assert sent_body["lead_id"] == _LEAD_ID
-    assert sent_body["conversation_id"] == _CONV_ID
+    assert sent_body["leadId"] == _LEAD_ID
+    assert sent_body["conversationId"] == int(_CW_CONV_ID)  # int (z.coerce.number())
+    assert sent_body["organizationId"] == _ORG_ID
     assert sent_body["reason"] == "cobranca"
     assert sent_body["summary"] == "Cobrança pendente."
 
@@ -150,7 +154,7 @@ async def test_request_handoff_includes_simulation_id_when_provided() -> None:
     import json
 
     sent_body: dict[str, object] = json.loads(route.calls.last.request.content)
-    assert sent_body.get("simulation_id") == _SIM_ID
+    assert sent_body.get("simulationId") == _SIM_ID
 
 
 @pytest.mark.asyncio()
@@ -165,7 +169,7 @@ async def test_request_handoff_omits_simulation_id_when_absent() -> None:
     import json
 
     sent_body: dict[str, object] = json.loads(route.calls.last.request.content)
-    assert "simulation_id" not in sent_body
+    assert "simulationId" not in sent_body
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +254,7 @@ async def test_request_handoff_idempotent_resend_returns_existing() -> None:
     """
     url = _handoff_url()
     existing_response = dict(_MOCK_RESPONSE)
-    existing_response["status"] = "assigned"
+    existing_response["status"] = "requested"  # HandoffOutput.status is Literal["requested"]
 
     explicit_key = "idempotent-resend-key-xyz"
 
@@ -273,7 +277,7 @@ async def test_request_handoff_idempotent_resend_returns_existing() -> None:
 
     assert route.call_count == 2
     assert result_first.handoff_id == result_second.handoff_id
-    assert result_second.status == "assigned"
+    assert result_second.status == "requested"
 
 
 # ---------------------------------------------------------------------------

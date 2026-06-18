@@ -16,6 +16,9 @@ import respx
 from app.config import settings
 from app.tools.city_tools import CityAlternative, IdentifyCityResult, identify_city
 
+# F16-S38: organization_id obrigatorio pelo InternalIdentifyCityBodySchema
+_ORG_ID = "576a8121-838a-4904-b6bb-574648d9c32b"
+
 
 def _url() -> str:
     """Monta a URL completa do endpoint de identificação de cidade."""
@@ -44,7 +47,7 @@ async def test_identify_city_high_confidence_match() -> None:
 
     with respx.mock:
         route = respx.post(url).mock(return_value=httpx.Response(200, json=backend_response))
-        result = await identify_city("porto velho", lead_id="lead-uuid-1")
+        result = await identify_city("porto velho", organization_id=_ORG_ID, lead_id="lead-uuid-1")
 
     assert route.called
     assert isinstance(result, IdentifyCityResult)
@@ -71,7 +74,7 @@ async def test_identify_city_sends_internal_token() -> None:
 
     with respx.mock:
         route = respx.post(url).mock(return_value=httpx.Response(200, json=backend_response))
-        await identify_city("ariquemes")
+        await identify_city("ariquemes", organization_id=_ORG_ID)
 
     token = route.calls.last.request.headers.get("x-internal-token")
     assert token == settings.internal_token.get_secret_value()
@@ -92,13 +95,14 @@ async def test_identify_city_without_lead_id_excludes_field() -> None:
 
     with respx.mock:
         route = respx.post(url).mock(return_value=httpx.Response(200, json=backend_response))
-        result = await identify_city("jaru")
+        result = await identify_city("jaru", organization_id=_ORG_ID)
 
     import json
 
     sent_body = json.loads(route.calls.last.request.content)
     assert "lead_id" not in sent_body
     assert sent_body["city_text"] == "jaru"
+    assert sent_body["organization_id"] == _ORG_ID
     assert result.matched is True
 
 
@@ -126,7 +130,7 @@ async def test_identify_city_low_confidence_returns_alternatives() -> None:
 
     with respx.mock:
         respx.post(url).mock(return_value=httpx.Response(200, json=backend_response))
-        result = await identify_city("cacol", lead_id="lead-uuid-2")
+        result = await identify_city("cacol", organization_id=_ORG_ID, lead_id="lead-uuid-2")
 
     assert result.matched is False
     assert result.city_id is None
@@ -154,7 +158,7 @@ async def test_identify_city_low_confidence_empty_alternatives() -> None:
 
     with respx.mock:
         respx.post(url).mock(return_value=httpx.Response(200, json=backend_response))
-        result = await identify_city("xyzabc")
+        result = await identify_city("xyzabc", organization_id=_ORG_ID)
 
     assert result.matched is False
     assert result.alternatives == []
@@ -180,7 +184,7 @@ async def test_identify_city_out_of_service() -> None:
 
     with respx.mock:
         respx.post(url).mock(return_value=httpx.Response(200, json=backend_response))
-        result = await identify_city("são paulo", lead_id="lead-uuid-3")
+        result = await identify_city("são paulo", organization_id=_ORG_ID, lead_id="lead-uuid-3")
 
     assert result.matched is False
     assert result.out_of_service is True
@@ -208,7 +212,7 @@ async def test_identify_city_raises_on_backend_error() -> None:
             ]
         )
         with pytest.raises(httpx.HTTPStatusError) as exc_info:
-            await identify_city("porto velho")
+            await identify_city("porto velho", organization_id=_ORG_ID)
 
     assert exc_info.value.response.status_code == 500
 
@@ -221,4 +225,4 @@ async def test_identify_city_raises_on_timeout() -> None:
     with respx.mock:
         respx.post(url).mock(side_effect=httpx.ReadTimeout("timed out", request=None))  # type: ignore[arg-type]
         with pytest.raises(httpx.TimeoutException):
-            await identify_city("porto velho")
+            await identify_city("porto velho", organization_id=_ORG_ID)

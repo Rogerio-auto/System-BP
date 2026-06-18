@@ -36,21 +36,36 @@ _CHATWOOT_NOTES_PATH = "/internal/chatwoot/notes"
 class HandoffInput(BaseModel):
     """Payload de entrada para solicitar transferência a atendente humano.
 
-    Campos alinhados com doc 06 §7.4 e schema do endpoint F3-S07.
+    Campos alinhados com InternalHandoffBodySchema (F3-S07/handoffs/schemas.ts).
+
+    F16-S38: campos corrigidos para corresponder ao contrato do backend (camelCase):
+    - chatwoot_conversation_id (str contendo int numérico do Chatwoot)
+      em vez de conversation_id (UUID interno).
+    - organization_id obrigatório (sem JWT no canal M2M).
     """
 
     lead_id: str = Field(description="UUID do lead no banco.")
-    conversation_id: str = Field(description="UUID interno da conversa LangGraph.")
+    chatwoot_conversation_id: str = Field(
+        description=(
+            "ID numérico da conversa no Chatwoot (como string). "
+            "O backend converte para int via z.coerce.number(). "
+            "NÃO é o UUID interno da conversa LangGraph."
+        )
+    )
+    organization_id: str = Field(
+        description="UUID da organização -- obrigatório; token M2M não carrega contexto de org.",
+    )
     reason: str = Field(
         description=(
-            "Motivo da transferência. Exemplos: 'cliente_solicitou_atendente', "
-            "'cobranca', 'ai_unavailable', 'reclamacao'."
+            "Motivo da transferência. Catálogo fechado: 'cliente_solicitou_atendente', "
+            "'consultar_andamento', 'cobranca', 'reclamacao', 'nao_entendeu', "
+            "'fora_de_escopo', 'ai_unavailable', 'loop_detected', 'tool_error'."
         )
     )
     summary: str = Field(
         description=(
             "Resumo do contexto da conversa para o atendente. "
-            "Nunca incluir CPF ou dados sensíveis em texto plano — "
+            "Nunca incluir CPF ou dados sensíveis em texto plano -- "
             "omitir ou mascarar conforme LGPD (doc 17)."
         )
     )
@@ -74,8 +89,8 @@ class HandoffOutput(BaseModel):
         default=None,
         description="UUID do agente humano designado (pode ser None se fila).",
     )
-    status: Literal["requested", "assigned", "queued"] = Field(
-        description="Estado inicial do handoff."
+    status: Literal["requested"] = Field(
+        description="Status do handoff após criação. Sempre 'requested' na resposta imediata."
     )
 
 
@@ -121,23 +136,27 @@ async def request_handoff(
         idempotency_key = str(
             uuid.uuid5(
                 uuid.NAMESPACE_URL,
-                f"{handoff_input.conversation_id}:{handoff_input.reason}",
+                f"{handoff_input.chatwoot_conversation_id}:{handoff_input.reason}",
             )
         )
 
+    # Payload em camelCase conforme InternalHandoffBodySchema.
+    # conversationId: backend usa z.coerce.number() -- enviamos como int.
     payload: dict[str, object] = {
-        "lead_id": handoff_input.lead_id,
-        "conversation_id": handoff_input.conversation_id,
+        "leadId": handoff_input.lead_id,
+        "conversationId": int(handoff_input.chatwoot_conversation_id),
+        "organizationId": handoff_input.organization_id,
         "reason": handoff_input.reason,
         "summary": handoff_input.summary,
     }
     if handoff_input.simulation_id is not None:
-        payload["simulation_id"] = handoff_input.simulation_id
+        payload["simulationId"] = handoff_input.simulation_id
 
     log.info(
         "handoff_requested",
         lead_id=handoff_input.lead_id,
-        conversation_id=handoff_input.conversation_id,
+        chatwoot_conversation_id=handoff_input.chatwoot_conversation_id,
+        organization_id=handoff_input.organization_id,
         reason=handoff_input.reason,
         idempotency_key=idempotency_key,
     )

@@ -3,7 +3,7 @@
 Wrapper fino sobre ``POST /internal/cities/identify`` (F3-S05).
 
 Contrato (doc 06 §7.2):
-    Input:  IdentifyCityInput  { lead_id?, city_text }
+    Input:  IdentifyCityInput  { organization_id, city_text, lead_id? }
     Output: IdentifyCityResult { city_id, city_name, matched, confidence,
                                   out_of_service, alternatives }
 
@@ -30,8 +30,16 @@ _ENDPOINT = "/internal/cities/identify"
 
 
 class IdentifyCityInput(BaseModel):
-    """Payload enviado ao endpoint de identificação de cidade."""
+    """Payload enviado ao endpoint de identificação de cidade.
 
+    F16-S38: ``organization_id`` é obrigatório — o backend não tem JWT para
+    derivar o tenant; filtra o fuzzy match apenas para cidades da org.
+    """
+
+    organization_id: str = Field(
+        ...,
+        description="UUID da organização (obrigatório — sem JWT no canal M2M).",
+    )
     city_text: str = Field(
         ...,
         min_length=1,
@@ -77,6 +85,7 @@ class IdentifyCityResult(BaseModel):
 
 async def identify_city(
     city_text: str,
+    organization_id: str,
     lead_id: str | None = None,
     *,
     client: InternalApiClient | None = None,
@@ -89,10 +98,11 @@ async def identify_city(
     alternativo, etc.).
 
     Args:
-        city_text: Texto digitado pelo cliente (ex.: "porto velho", "pv").
-        lead_id:   UUID do lead, repassado ao backend para logging/auditoria.
-        client:    Instância de ``InternalApiClient`` (injetada em testes).
-                   Quando ``None``, cria uma instância padrão.
+        city_text:       Texto digitado pelo cliente (ex.: "porto velho", "pv").
+        organization_id: UUID da organização — obrigatório pelo schema do backend.
+        lead_id:         UUID do lead, repassado ao backend para logging/auditoria.
+        client:          Instância de ``InternalApiClient`` (injetada em testes).
+                         Quando ``None``, cria uma instância padrão.
 
     Returns:
         ``IdentifyCityResult`` com o resultado da identificação.
@@ -101,12 +111,17 @@ async def identify_city(
         httpx.HTTPStatusError: Em erro HTTP não recuperável do backend.
         httpx.TimeoutException: Se o backend não responder em 8 s.
     """
-    payload = IdentifyCityInput(city_text=city_text, lead_id=lead_id)
+    payload = IdentifyCityInput(
+        organization_id=organization_id,
+        city_text=city_text,
+        lead_id=lead_id,
+    )
     http_client = client or InternalApiClient()
 
     log.info(
         "identify_city_start",
         city_text=city_text,
+        organization_id=organization_id,
         lead_id=lead_id,
     )
 
@@ -125,6 +140,7 @@ async def identify_city(
         confidence=result.confidence,
         out_of_service=result.out_of_service,
         alternatives_count=len(result.alternatives),
+        organization_id=organization_id,
         lead_id=lead_id,
     )
 

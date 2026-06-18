@@ -101,7 +101,7 @@ def _stub_handoffs(body: dict[str, Any]) -> dict[str, Any]:
         "handoff_id": str(uuid.uuid4()),
         "chatwoot_conversation_id": str(uuid.uuid4()),
         "assigned_agent_id": None,
-        "status": "queued",
+        "status": "requested",  # HandoffOutput.status is Literal["requested"]
         "dry_run": True,
     }
 

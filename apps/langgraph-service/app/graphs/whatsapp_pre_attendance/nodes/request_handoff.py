@@ -144,6 +144,7 @@ async def request_handoff(
     conversation_id: str = state.get("conversation_id", "")
     chatwoot_conversation_id: str = state.get("chatwoot_conversation_id", "")
     lead_id: str | None = state.get("lead_id")
+    organization_id: str = state.get("organization_id", "")
     intent: str | None = state.get("current_intent")
     sim_id: str | None = state.get("last_simulation_id")
 
@@ -181,7 +182,8 @@ async def request_handoff(
 
         handoff_input = HandoffInput(
             lead_id=lead_id,
-            conversation_id=conversation_id,
+            chatwoot_conversation_id=chatwoot_conversation_id,
+            organization_id=organization_id,
             reason=reason,
             summary=summary,
             simulation_id=sim_id,

@@ -644,7 +644,7 @@ class TestDryRunStubFactory:
         )
         output = HandoffOutput.model_validate(result)
         assert output.handoff_id
-        assert output.status in ("requested", "assigned", "queued")
+        assert output.status == "requested"  # HandoffOutput.status is Literal["requested"]
         assert result.get("dry_run") is True
 
     @pytest.mark.asyncio
