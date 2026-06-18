@@ -38,11 +38,21 @@ import { useAuthStore } from '../auth-store';
 /**
  * Resolve a URL base do servidor Socket.io.
  *
- * Dev: VITE_SOCKET_URL=http://localhost:3333 (mesma porta do Fastify).
- * Prod: mesmo origin da SPA (Nginx faz proxy /socket.io/ → API).
+ * O Socket.io vive no MESMO servidor Fastify da API — então a URL do socket
+ * deve seguir a da API. Ordem:
+ *   1. VITE_SOCKET_URL (override explícito, ex: host de socket separado).
+ *   2. VITE_API_URL (mesmo servidor da API — caso comum dev e prod).
+ *   3. http://localhost:3333 (fallback dev, igual ao api.ts).
+ *
+ * Bug histórico: o fallback era `window.location.origin` (5173 em dev) — o cliente
+ * tentava conectar no dev server do Vite, que não tem socket.io → conexão falhava.
  */
 function resolveSocketUrl(): string {
-  return (import.meta.env['VITE_SOCKET_URL'] as string | undefined) ?? window.location.origin;
+  return (
+    (import.meta.env['VITE_SOCKET_URL'] as string | undefined) ??
+    (import.meta.env['VITE_API_URL'] as string | undefined) ??
+    'http://localhost:3333'
+  );
 }
 
 // ---------------------------------------------------------------------------

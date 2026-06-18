@@ -465,7 +465,7 @@ async function sendWithinLock(
   // LGPD: payload sem content — apenas IDs + tipo + timestamp
   // ------------------------------------------------------------------
   const relayPayload: SocketRelayPayload = {
-    room: conversationId,
+    room: `workspace:${organizationId}`,
     event: 'message:new',
     data: {
       messageId,
@@ -501,7 +501,7 @@ async function publishSocketStatusChanged(
   viewStatus: 'failed' | 'sent' | 'delivered' | 'read',
 ): Promise<void> {
   const relayPayload: SocketRelayPayload = {
-    room: conversationId,
+    room: `workspace:${organizationId}`,
     event: 'message:status_changed',
     data: {
       messageId,
