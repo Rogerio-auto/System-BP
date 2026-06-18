@@ -28,7 +28,8 @@ def _make_state(**overrides: Any) -> dict[str, Any]:
     """Estado mínimo para invocar request_handoff."""
     base: dict[str, Any] = {
         "conversation_id": "conv-handoff-test-001",
-        "chatwoot_conversation_id": "cw-handoff-42",
+        "chatwoot_conversation_id": "42",
+        "organization_id": "576a8121-838a-4904-b6bb-574648d9c32b",
         "phone": "+5569988880001",
         "handoff_required": False,
         "handoff_reason": "falar_atendente",
@@ -64,7 +65,7 @@ def _make_mock_client(
             "handoff_id": handoff_id,
             "chatwoot_conversation_id": "cw-handoff-42",
             "assigned_agent_id": None,
-            "status": "queued",
+            "status": "requested",
             "dry_run": False,
         },
         # Segunda chamada: POST /internal/chatwoot/notes
@@ -201,7 +202,7 @@ class TestRequestHandoffNode:
                 "handoff_id": "handoff-uuid-ok",
                 "chatwoot_conversation_id": "cw-handoff-42",
                 "assigned_agent_id": None,
-                "status": "queued",
+                "status": "requested",
             },
             # Segunda chamada: POST /internal/chatwoot/notes — falha
             Exception("backend indisponível"),

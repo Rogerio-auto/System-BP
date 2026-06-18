@@ -64,6 +64,7 @@ async def persist_state(state: ConversationState) -> dict[str, Any]:
     conversation_id: str = state.get("conversation_id", "")
     lead_id: str | None = state.get("lead_id")
     organization_id: str | None = state.get("organization_id")
+    phone: str = state.get("phone", "")
 
     if not conversation_id:
         log.error("persist_state_missing_conversation_id")
@@ -90,7 +91,12 @@ async def persist_state(state: ConversationState) -> dict[str, Any]:
     try:
         # InternalApiClient._request aceita qualquer método HTTP; PUT não tem
         # método público dedicado ainda, mas o mecanismo interno é idêntico.
-        body: dict[str, object] = {"state": snapshot}
+        # phone é obrigatório pelo UpsertConversationStateBodySchema (NOT NULL no DB).
+        # organization_id é obrigatório (sem JWT no canal M2M).
+        body: dict[str, object] = {
+            "state": snapshot,
+            "phone": phone,
+        }
         if organization_id is not None:
             body["organization_id"] = organization_id
         await client._request("PUT", path, json=body)

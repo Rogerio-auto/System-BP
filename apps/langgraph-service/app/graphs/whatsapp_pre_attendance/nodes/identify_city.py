@@ -92,6 +92,7 @@ async def node_identify_city(state: ConversationState) -> ConversationState:
         ``handoff_required=True`` (erro de infra).
     """
     lead_id: str | None = state.get("lead_id")
+    organization_id: str = state.get("organization_id", "")
     messages: list[dict[str, Any]] = list(state.get("messages") or [])
     tool_results: list[dict[str, Any]] = list(state.get("tool_results") or [])
     errors: list[dict[str, Any]] = list(state.get("errors") or [])
@@ -113,6 +114,7 @@ async def node_identify_city(state: ConversationState) -> ConversationState:
     try:
         result: IdentifyCityResult = await tool_identify_city(
             city_text=city_text,
+            organization_id=organization_id,
             lead_id=lead_id,
         )
     except (httpx.HTTPStatusError, httpx.TimeoutException) as exc:
