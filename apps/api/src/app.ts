@@ -226,8 +226,12 @@ export async function buildApp() {
     origin: env.CORS_ALLOWED_ORIGINS,
     credentials: true,
   });
+  // Rate limit global por IP. 100/min era baixo demais para uma SPA real (cada
+  // página dispara várias requests; em dev o React StrictMode ainda dobra os
+  // fetches) — causava 429 em navegação legítima. Prod recebe um teto realista
+  // mas ainda protetor; dev fica folgado para não atrapalhar o desenvolvimento.
   await app.register(rateLimit, {
-    max: 100,
+    max: env.NODE_ENV === 'production' ? 300 : 5000,
     timeWindow: '1 minute',
   });
   await app.register(sensible);
