@@ -3,13 +3,13 @@ id: F16-S41
 title: Saída estruturada {messages:[...]} (≤300) + envio multi-mensagem
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: python-engineer
 claimed_at: 2026-06-18T18:53:16Z
 completed_at: 2026-06-18T19:37:09Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/333
 depends_on: [F16-S40]
 blocks: []
 labels: []
@@ -20,6 +20,7 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
+
 # F16-S41 — Saída estruturada multi-mensagem (B3)
 
 ## Objetivo
