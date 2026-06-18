@@ -16,6 +16,7 @@ Cobre collect_missing_profile_data:
 """
 from __future__ import annotations
 
+import uuid
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -360,3 +361,41 @@ def test_collect_is_pure_function_no_mutation() -> None:
     collect_missing_profile_data(state)
     # Estado original não deve ter sido alterado
     assert list(state.get("missing_fields", [])) == original_missing
+
+
+# ---------------------------------------------------------------------------
+# F16-S35: organization_id propagado para a tool
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_identify_lead_passes_organization_id_to_tool() -> None:
+    """organization_id do state deve ser repassado ao wrapper _call_get_or_create_lead (F16-S35)."""
+    org_id = str(uuid.uuid4())
+    success = _make_success(created=True)
+    state = _base_state(organization_id=org_id)
+
+    captured_calls: list[dict[str, object]] = []
+
+    async def _capture_call(
+        phone: str,
+        name: object,
+        organization_id: object,
+        chatwoot_conversation_id: object,
+        correlation_id: object,
+    ) -> GetOrCreateLeadSuccess:
+        captured_calls.append({
+            "phone": phone,
+            "organization_id": organization_id,
+        })
+        return success
+
+    with patch(
+        "app.graphs.whatsapp_pre_attendance.nodes.identify_or_create_lead"
+        "._call_get_or_create_lead",
+        new=_capture_call,
+    ):
+        await identify_or_create_lead(state)
+
+    assert len(captured_calls) == 1
+    assert captured_calls[0]["organization_id"] == org_id

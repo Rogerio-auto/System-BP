@@ -11,6 +11,7 @@ LGPD (doc 17 §8.3 / §8.4):
 - ``customer_phone`` nunca deve aparecer em logs. O endpoint só loga o sufixo.
 - ``message_text`` pode conter PII bruta — DLP aplicado antes de qualquer
   chamada ao gateway LLM (responsabilidade dos nós, não do schema).
+- ``organization_id`` NÃO é PII — pode aparecer em logs.
 """
 from __future__ import annotations
 
@@ -50,9 +51,18 @@ class WhatsAppMessageRequest(BaseModel):
     """Payload de entrada para POST /process/whatsapp/message (doc 06 §4.1).
 
     Validação estrita: extra="forbid" rejeita qualquer campo não documentado.
+
+    Multi-tenant: ``organization_id`` é obrigatório e deve ser repassado
+    a todas as chamadas /internal/* de escrita (F16-S34/S35).
     """
 
     model_config = ConfigDict(extra="forbid")
+
+    # Multi-tenant: obrigatório para escritas /internal/* — não é PII, pode logar
+    organization_id: str = Field(
+        description="UUID da organização. Repassado a todas as escritas /internal/*.",
+        min_length=36,
+    )
 
     # Identificadores de sessão
     conversation_id: str = Field(
@@ -119,13 +129,28 @@ class WhatsAppMessageRequest(BaseModel):
             raise ValueError("customer_phone deve conter apenas dígitos após o '+'")
         return v
 
+    @field_validator("organization_id")
+    @classmethod
+    def validate_organization_id(cls, v: str) -> str:
+        """Valida formato UUID (RFC 4122)."""
+        import uuid
+        try:
+            uuid.UUID(v)
+        except ValueError as exc:
+            raise ValueError(
+                "organization_id deve ser um UUID válido (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)"
+            ) from exc
+        return v
+
     def to_payload_dict(self) -> dict[str, Any]:
         """Converte para dict compatível com o nó receive_message.
 
         O nó receive_message espera um dict com snake_case matching os campos
-        do payload inbound (doc 06 §4.1).
+        do payload inbound (doc 06 §4.1). organization_id é incluído para
+        propagação ao ConversationState e às escritas /internal/*.
         """
         return {
+            "organization_id": self.organization_id,
             "conversation_id": self.conversation_id,
             "lead_id": self.lead_id,
             "customer_phone": self.customer_phone,

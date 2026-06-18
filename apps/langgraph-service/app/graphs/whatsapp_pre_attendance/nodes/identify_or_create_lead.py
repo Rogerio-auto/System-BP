@@ -34,6 +34,7 @@ log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 async def _call_get_or_create_lead(
     phone: str,
     name: str | None,
+    organization_id: str | None,
     chatwoot_conversation_id: str | None,
     correlation_id: str | None,
 ) -> GetOrCreateLeadResult:
@@ -43,6 +44,7 @@ async def _call_get_or_create_lead(
             "phone": phone,
             "name": name,
             "source": "whatsapp",
+            "organization_id": organization_id,
             "chatwoot_conversation_id": chatwoot_conversation_id,
             "correlation_id": correlation_id,
         }
@@ -73,6 +75,7 @@ async def identify_or_create_lead(state: ConversationState) -> ConversationState
 
     phone: str = state["phone"]
     conversation_id: str = state.get("conversation_id", "")
+    organization_id: str | None = state.get("organization_id")
     chatwoot_conversation_id: str | None = state.get("chatwoot_conversation_id")
     customer_name: str | None = state.get("customer_name")
 
@@ -85,6 +88,7 @@ async def identify_or_create_lead(state: ConversationState) -> ConversationState
         result = await _call_get_or_create_lead(
             phone=phone,
             name=customer_name,
+            organization_id=organization_id,
             chatwoot_conversation_id=chatwoot_conversation_id,
             correlation_id=conversation_id or None,
         )

@@ -157,8 +157,12 @@ async def log_decision(state: ConversationState) -> dict[str, Any]:
     conversation_id: str = state.get("conversation_id", "")
     lead_id: str | None = state.get("lead_id")
 
-    # Obtém organization_id e correlation_id do contexto structlog
-    organization_id = _get_context_str("organization_id", _UNKNOWN_ORG)
+    # F16-S35: prefere organization_id do state (fonte confiável do request);
+    # cai no contexto structlog apenas como fallback (compatibilidade com grafo legado).
+    organization_id = (
+        state.get("organization_id")
+        or _get_context_str("organization_id", _UNKNOWN_ORG)
+    )
     correlation_id = _get_context_str("correlation_id", conversation_id or _UNKNOWN_CORR)
 
     tool_results: list[dict[str, Any]] = list(state.get("tool_results") or [])

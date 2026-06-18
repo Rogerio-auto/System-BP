@@ -236,6 +236,25 @@ class TestPersistStateHappyPath:
         assert tool_results[-1]["status"] == "ok"
 
 
+    @pytest.mark.asyncio
+    async def test_sends_organization_id_in_body_when_present(self) -> None:
+        """F16-S35: organization_id deve estar no body do PUT quando presente no state."""
+        conv_id = str(uuid.uuid4())
+        org_id = str(uuid.uuid4())
+        state = _make_state(conversation_id=conv_id, organization_id=org_id)
+        put_url = _base_url(f"/internal/conversations/{conv_id}/state")
+
+        with respx.mock:
+            route = respx.put(put_url).mock(
+                return_value=httpx.Response(200, json={"ok": True})
+            )
+            await persist_state(state)
+
+        body: dict[str, Any] = json.loads(route.calls.last.request.content)
+        assert "organization_id" in body, "organization_id deve estar presente no body do PUT"
+        assert body["organization_id"] == org_id
+
+
 class TestPersistStateErrors:
     @pytest.mark.asyncio
     async def test_missing_conversation_id_triggers_handoff(self) -> None:
@@ -460,6 +479,35 @@ class TestLogDecisionHappyPath:
 
         assert captured_inputs[0].correlation_id == corr_id
         assert captured_inputs[0].organization_id == org_id
+
+    @pytest.mark.asyncio
+    async def test_organization_id_from_state_takes_priority(self) -> None:
+        """F16-S35: organization_id do state deve ter prioridade sobre contextvars."""
+        conv_id = str(uuid.uuid4())
+        org_id_state = str(uuid.uuid4())
+        org_id_ctx = str(uuid.uuid4())
+        state = _make_state(conversation_id=conv_id, organization_id=org_id_state)
+
+        # Contextvars tem um org_id diferente — deve ser sobrescrito pelo state
+        structlog.contextvars.bind_contextvars(organization_id=org_id_ctx)
+
+        captured_inputs: list[Any] = []
+        mock_output = LogAiDecisionOutput(decision_log_id=str(uuid.uuid4()))
+
+        async def _capture(inp: Any) -> LogAiDecisionOutput:
+            captured_inputs.append(inp)
+            return mock_output
+
+        with patch(
+            "app.graphs.whatsapp_pre_attendance.nodes.log_decision.log_ai_decision",
+            new=_capture,
+        ):
+            await log_decision(state)
+
+        structlog.contextvars.clear_contextvars()
+        assert len(captured_inputs) == 1
+        # State org_id deve prevalecer sobre contextvars
+        assert captured_inputs[0].organization_id == org_id_state
 
     @pytest.mark.asyncio
     async def test_decision_payload_has_no_pii(self) -> None:
