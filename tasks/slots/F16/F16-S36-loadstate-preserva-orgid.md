@@ -3,11 +3,11 @@ id: F16-S36
 title: load_state preserva organization_id (não descartar no merge)
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: available
+status: in-progress
 priority: critical
 estimated_size: XS
-agent_id: null
-claimed_at: null
+agent_id: python-engineer
+claimed_at: "2026-06-18T12:54:56+00:00"
 completed_at: null
 pr_url: null
 depends_on: []
