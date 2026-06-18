@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 35    | 2   | 0   | 0   | 0   | 0   | 33  |
+| F16  | 35    | 1   | 0   | 0   | 0   | 1   | 33  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -204,7 +204,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S31 | UI livechat — bubble/composer responsivos sem espremer + scrollbar custom                           | ✅ done      | medium     | —                                  |
 | F16-S32 | Permitir criar lead sem city_id no canal IA (remover guard obsoleto)                                | ✅ done      | critical   | —                                  |
 | F16-S33 | Timeout do grafo configurável por env (GRAPH_TIMEOUT_SEC)                                           | ✅ done      | medium     | —                                  |
-| F16-S34 | Worker livechat-ai envia organization_id no request ao LangGraph                                    | 🟢 available | critical   | —                                  |
+| F16-S34 | Worker livechat-ai envia organization_id no request ao LangGraph                                    | 🟣 review    | critical   | —                                  |
 | F16-S35 | LangGraph propaga organization_id em todas as chamadas /internal de escrita                         | 🟢 available | critical   | F16-S34                            |
 
 ## Fase 17 —

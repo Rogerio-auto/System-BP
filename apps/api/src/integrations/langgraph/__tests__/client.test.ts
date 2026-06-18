@@ -61,6 +61,7 @@ const CONVERSATION_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 /** Request mínimo válido para POST /process/whatsapp/message (doc 06 §4.1). */
 function makeRequest(overrides: Partial<LangGraphWhatsAppRequest> = {}): LangGraphWhatsAppRequest {
   return {
+    organization_id: '00000000-0000-0000-0000-000000000001',
     conversation_id: CONVERSATION_ID,
     lead_id: null,
     customer_phone: '+5569999999999',

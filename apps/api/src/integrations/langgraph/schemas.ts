@@ -44,8 +44,11 @@ export type LangGraphMessageAttachment = z.infer<typeof LangGraphMessageAttachme
  *
  * Replica fielmente WhatsAppMessageRequest do langgraph-service (inbound.py).
  * LGPD: `customer_phone` e `message_text` são PII — não logar.
+ * Multi-tenant: `organization_id` obrigatório — repassado a todas as escritas /internal/*.
  */
 export const LangGraphWhatsAppRequestSchema = z.object({
+  /** UUID da organização — obrigatório para todas as escritas /internal/* (multi-tenant). Não é PII. */
+  organization_id: z.string().uuid(),
   conversation_id: z.string().min(1),
   lead_id: z.string().nullable().default(null),
   // PII — NUNCA logar diretamente

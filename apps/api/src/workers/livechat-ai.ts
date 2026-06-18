@@ -142,6 +142,7 @@ export async function processJob(
   const idempotencyKey = `livechat_msg_${messageId}`;
 
   const langGraphRequest: LangGraphWhatsAppRequest = {
+    organization_id: organizationId,
     conversation_id: convState.conversationId,
     lead_id: convRow.leadId ?? convState.leadId ?? null,
     customer_phone: customerPhoneE164,
@@ -282,7 +283,6 @@ export async function processJob(
   log.info({ organizationId, conversationId, messageId }, 'livechat-ai: processamento concluido');
   return 'ack';
 }
-
 
 async function startConsumer(
   db: Database,

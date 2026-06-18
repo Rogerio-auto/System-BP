@@ -379,6 +379,7 @@ export async function handleProcessWithAi(
   }
 
   const langGraphRequest: LangGraphWhatsAppRequest = {
+    organization_id: organizationId,
     conversation_id: conversationId,
     lead_id: leadId,
     // PII: customer_phone é necessário pelo contrato — não é logado pelo handler.
