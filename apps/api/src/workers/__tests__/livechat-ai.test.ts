@@ -207,7 +207,7 @@ function makeDb(rows: unknown[][]) {
   };
 }
 
-describe('processJob (F16-S29)', () => {
+describe('processJob (F16-S34)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetOrCreate.mockResolvedValue(convState);
@@ -220,10 +220,15 @@ describe('processJob (F16-S29)', () => {
     } as ReturnType<typeof envelopeSchema.safeParse>);
   });
 
-  it('1: reply text => sendMessage chamado, ack', async () => {
+  it('1: reply text => sendMessage chamado, ack; org_id no request LangGraph (F16-S34)', async () => {
     const db = makeDb([[convRow], [msgRow]]) as never;
     expect(await processJob(toBuf(validEnv), db)).toBe('ack');
     expect(mockGetOrCreate).toHaveBeenCalledWith(db, expect.any(String), ORG);
+    // F16-S34: organization_id deve estar presente no request enviado ao LangGraph
+    expect(mockProcessWhatsAppMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ organization_id: ORG }),
+      expect.any(String),
+    );
     expect(mockSendMessage).toHaveBeenCalledWith(
       db,
       expect.objectContaining({
