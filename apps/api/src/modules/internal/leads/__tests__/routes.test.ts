@@ -656,6 +656,36 @@ describe('POST /internal/leads/get-or-create', () => {
       expect.any(String), // requestIp
     );
   });
+
+  // -------------------------------------------------------------------------
+  // 15. 200 — canal IA: sem city_id → lead criado com city_id null (F16-S32)
+  // -------------------------------------------------------------------------
+  it('aceita body sem city_id (canal IA) e retorna 200 com city_id null', async () => {
+    // Guard obsoleto foi removido em F16-S32 — city_id é nullable no banco.
+    const serviceResult = makeLeadResult({ created: true, city_id: null });
+    mockGetOrCreateLead.mockResolvedValueOnce(serviceResult);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/internal/leads/get-or-create',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: { ...VALID_BODY }, // sem city_id — primeiro contato via agente IA
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.created).toBe(true);
+    expect(body.city_id).toBeNull();
+    expect(mockGetOrCreateLead).toHaveBeenCalledWith(
+      expect.anything(), // db
+      FIXTURE_ORG_ID,
+      expect.objectContaining({
+        phone: VALID_BODY.phone,
+        cityId: undefined, // não fornecido — service recebe undefined e passa null ao DB
+      }),
+      expect.any(String), // requestIp
+    );
+  });
 });
 
 // =============================================================================
