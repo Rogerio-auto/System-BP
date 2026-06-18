@@ -125,6 +125,11 @@ vi.mock('../../modules/livechat/ai-conversation-state.js', () => ({
   getOrCreateConversationState: (...args: unknown[]) => mockGetOrCreate(...args),
 }));
 
+const mockTriggerHandoff = vi.fn();
+vi.mock('../../modules/livechat/ai-handoff.js', () => ({
+  triggerLivechatHandoff: (...args: unknown[]) => mockTriggerHandoff(...args),
+}));
+
 import { envelopeSchema } from '../../lib/queue/envelope.js';
 import { processJob } from '../livechat-ai.js';
 
@@ -208,6 +213,7 @@ describe('processJob (F16-S29)', () => {
     mockGetOrCreate.mockResolvedValue(convState);
     mockSendMessage.mockResolvedValue({ id: 'r001' });
     mockProcessWhatsAppMessage.mockResolvedValue(aiText);
+    mockTriggerHandoff.mockResolvedValue(undefined);
     vi.mocked(envelopeSchema.safeParse).mockReturnValue({
       success: true,
       data: validEnv,
@@ -238,14 +244,23 @@ describe('processJob (F16-S29)', () => {
     expect(mockSendMessage).not.toHaveBeenCalled();
   });
 
-  it('3: LangGraph falha => handoff + ack', async () => {
+  it('3: LangGraph falha => triggerLivechatHandoff chamado com reason=ai_unavailable + ack', async () => {
+    // F16-S30: handoff real via triggerLivechatHandoff (substitui stub)
     mockProcessWhatsAppMessage.mockRejectedValue(new Error('LangGraph timeout'));
     const db = makeDb([[convRow], [msgRow]]) as never;
     expect(await processJob(toBuf(validEnv), db)).toBe('ack');
-    expect(mockSendMessage).not.toHaveBeenCalled();
     expect(logError).toHaveBeenCalledWith(
       expect.objectContaining({ conversationId: CV }),
       expect.stringContaining('LangGraph'),
+    );
+    expect(mockTriggerHandoff).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        organizationId: ORG,
+        conversationId: CV,
+        messageId: MG,
+        reason: 'ai_unavailable',
+      }),
     );
   });
 
@@ -295,14 +310,25 @@ describe('processJob (F16-S29)', () => {
     }
   });
 
-  it('10: handoff required => warn emitido', async () => {
+  it('10: handoff.required => triggerLivechatHandoff chamado com reason do grafo + ack (F16-S30)', async () => {
+    // F16-S30: handoff real via triggerLivechatHandoff quando grafo sinaliza handoff.required
     mockProcessWhatsAppMessage.mockResolvedValue({
       ...aiText,
       handoff: { required: true, reason: 'human_requested' },
     });
     const db = makeDb([[convRow], [msgRow]]) as never;
     expect(await processJob(toBuf(validEnv), db)).toBe('ack');
-    expect(logWarn).toHaveBeenCalledWith(
+    expect(mockTriggerHandoff).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        organizationId: ORG,
+        conversationId: CV,
+        messageId: MG,
+        reason: 'human_requested',
+      }),
+    );
+    // Log info do handoff sinalizado pelo LangGraph (mantido)
+    expect(logInfo).toHaveBeenCalledWith(
       expect.objectContaining({ reason: 'human_requested', conversationId: CV }),
       expect.stringContaining('handoff'),
     );
