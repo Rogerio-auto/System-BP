@@ -212,3 +212,119 @@ def test_graph_build_flag_on():
     assert "agent_turn" in nodes, "Pipeline agentica deve ter agent_turn"
     assert "load_conversation_state" in nodes
 
+
+# ---------------------------------------------------------------------------
+# Tests: hardening de seguranca (F16-S40 security review)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_agent_turn_tool_cap_batch_5_dispatches_at_most_4():
+    """FIX 1: modelo retorna 5 tool_calls num unico response -> no maximo 4
+    despachadas; o cap nao e burlavel por batch grande."""
+    from app.llm.gateway import LLMResponse, TokenUsage
+
+    state = _make_state()
+    prompt = _make_prompt()
+
+    def _make_tc(i: int) -> dict[str, Any]:
+        return {
+            "id": f"call_{i}",
+            "type": "function",
+            "function": {"name": "get_customer_context", "arguments": '{"lead_id": "x"}'},
+        }
+
+    # Primeira resposta: 5 tool_calls num batch so
+    batch_response = LLMResponse(
+        content="",
+        model="moonshot/kimi-k2",
+        usage=TokenUsage(),
+        finish_reason="tool_calls",
+        raw={
+            "choices": [{
+                "message": {
+                    "content": "",
+                    "tool_calls": [_make_tc(i) for i in range(1, 6)],
+                },
+                "finish_reason": "tool_calls",
+            }]
+        },
+    )
+    cap_response = LLMResponse(
+        content="Atingi o limite de acoes por turno.",
+        model="moonshot/kimi-k2",
+        usage=TokenUsage(),
+        finish_reason="stop",
+        raw={"choices": [{"message": {"content": "Atingi o limite de acoes por turno.", "tool_calls": None}, "finish_reason": "stop"}]},
+    )
+    gw = MagicMock()
+    gw.complete = AsyncMock(side_effect=[batch_response, cap_response])
+
+    dispatched: list[str] = []
+
+    async def _mock_dispatch(tool_name: str, tool_args: dict[str, Any], s: Any) -> str:
+        dispatched.append(tool_name)
+        return '{"ok": true}'
+
+    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
+        with patch(_GET_GATEWAY_PATCH, return_value=gw):
+            with patch(_DISPATCH_TOOL_PATCH, side_effect=_mock_dispatch):
+                result = await agent_turn(state)
+
+    # Apenas 4 tools devem ter sido despachadas (cap = MAX_TOOL_CALLS_PER_TURN)
+    real_dispatches = [t for t in dispatched if t != "log_ai_decision"]
+    assert len(real_dispatches) <= MAX_TOOL_CALLS_PER_TURN, (
+        f"Cap burlado: {len(real_dispatches)} tool_calls despachadas, max={MAX_TOOL_CALLS_PER_TURN}"
+    )
+    # A resposta final deve vir do cap_response
+    assert "limite" in result.get("reply", {}).get("content", "")
+
+
+@pytest.mark.asyncio
+async def test_agent_turn_audit_called_even_without_llm_log_tool():
+    """FIX 2: log_ai_decision e chamada ao fim do turno mesmo que o LLM
+    nao tenha invocado a tool de auditoria."""
+    state = _make_state()
+    prompt = _make_prompt()
+    gw = _make_gateway("Ola! Sou a Ana Clara.")
+
+    audit_calls: list[str] = []
+
+    async def _mock_dispatch(tool_name: str, tool_args: dict[str, Any], s: Any) -> str:
+        if tool_name == "log_ai_decision":
+            audit_calls.append(tool_name)
+            # Verifica que nao ha PII — apenas IDs e contadores
+            assert "organization_id" in tool_args
+            assert "conversation_id" in tool_args
+            assert "node_name" in tool_args
+            assert "decision" in tool_args
+        return '{"ok": true}'
+
+    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
+        with patch(_GET_GATEWAY_PATCH, return_value=gw):
+            with patch(_DISPATCH_TOOL_PATCH, side_effect=_mock_dispatch):
+                result = await agent_turn(state)
+
+    assert len(audit_calls) >= 1, "log_ai_decision deve ser chamada incondicionalmente ao fim do turno"
+    assert result.get("handoff_required") is False
+
+
+@pytest.mark.asyncio
+async def test_agent_turn_empty_org_id_triggers_handoff_without_gateway():
+    """FIX 3: org_id vazio -> handoff imediato sem chamar o gateway."""
+    state = _make_state(organization_id="")
+    prompt = _make_prompt()
+    gw = MagicMock()
+    gw.complete = AsyncMock()
+
+    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
+        with patch(_GET_GATEWAY_PATCH, return_value=gw):
+            result = await agent_turn(state)
+
+    assert result.get("handoff_required") is True
+    assert "organization_id ausente" in result.get("handoff_reason", "")
+    # Gateway nunca deve ser chamado
+    gw.complete.assert_not_called()
+    errors = result.get("errors", [])
+    assert any(e.get("error") == "MISSING_ORG_ID" for e in errors)
+

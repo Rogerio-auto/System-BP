@@ -369,6 +369,33 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
     tool_results: list[dict[str, Any]] = list(state.get("tool_results", []))
     actions_emitted: list[dict[str, Any]] = list(state.get("actions_emitted", []))
     tool_results_this_turn: list[dict[str, Any]] = []
+
+    # FIX 3: valida organization_id antes de qualquer chamada externa.
+    # org_id vazio geraria requisicoes /internal com 400 em cascata.
+    org_id_early: str = state.get("organization_id", "") or ""
+    if not org_id_early:
+        lat_early = (time.monotonic() - start) * 1000
+        log.warning(
+            "agent_turn_missing_org_id",
+            conversation_id=conversation_id,
+            lead_id=lead_id,
+            latency_ms=round(lat_early, 1),
+        )
+        errors.append({
+            "node": "agent_turn",
+            "error": "MISSING_ORG_ID",
+            "latency_ms": round(lat_early, 1),
+        })
+        return {
+            "handoff_required": True,
+            "handoff_reason": "organization_id ausente -- handoff automatico.",
+            "errors": errors,
+            "tool_results": [
+                *tool_results,
+                {"node": "agent_turn", "error": "MISSING_ORG_ID"},
+            ],
+        }
+
     try:
         active_prompt = await load_active_prompt(_PROMPT_KEY)
         prompt_key = active_prompt.key
@@ -438,7 +465,22 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
                     "content": resp.content or None,
                     "tool_calls": rtcs,
                 })
+                cap_hit = False
                 for tc in rtcs:
+                    # FIX 1: verificar o cap POR tool-call antes de despachar.
+                    # Sem isso, um batch de N>cap tool_calls burla o limite
+                    # porque tc_n so era checado na entrada do while.
+                    if tc_n >= MAX_TOOL_CALLS_PER_TURN:
+                        log.warning(
+                            "agent_turn_tool_cap_reached",
+                            conversation_id=conversation_id,
+                            lead_id=lead_id,
+                            cap=MAX_TOOL_CALLS_PER_TURN,
+                            batch_remaining=len(rtcs),
+                        )
+                        cap_hit = True
+                        break
+
                     tc_n += 1
                     tid = tc.get("id", "call_" + str(tc_n))
                     tfn = tc.get("function", {})
@@ -475,13 +517,15 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
                     if tnm == "request_handoff":
                         hf_tool = True
 
-                if tc_n >= MAX_TOOL_CALLS_PER_TURN:
-                    log.warning(
-                        "agent_turn_tool_cap_reached",
-                        conversation_id=conversation_id,
-                        lead_id=lead_id,
-                        cap=MAX_TOOL_CALLS_PER_TURN,
-                    )
+                if cap_hit or tc_n >= MAX_TOOL_CALLS_PER_TURN:
+                    if not cap_hit:
+                        # atingiu o cap exatamente no ultimo item do batch
+                        log.warning(
+                            "agent_turn_tool_cap_reached",
+                            conversation_id=conversation_id,
+                            lead_id=lead_id,
+                            cap=MAX_TOOL_CALLS_PER_TURN,
+                        )
                     cap_resp = await gw.complete(
                         model=mdl,
                         messages=msgs,
@@ -503,6 +547,37 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
 
         su = _extract_state_updates(tool_results_this_turn)
         lat = (time.monotonic() - start) * 1000
+
+        # FIX 2: auditoria incondicional ao fim do turno.
+        # Antes, log_ai_decision so era chamada se o LLM decidisse invocar a
+        # tool -- o que tornava a trilha de auditoria opcional e incompleta.
+        # Agora garantimos um registro por turno com apenas IDs + contadores
+        # (sem PII), espelhando o comportamento do funil deterministico.
+        try:
+            await _dispatch_tool(
+                "log_ai_decision",
+                {
+                    "organization_id": org_id_early,
+                    "conversation_id": conversation_id,
+                    "lead_id": lead_id or "",
+                    "node_name": "agent_turn",
+                    "decision": {
+                        "tool_calls": tc_n,
+                        "finish_reason": fr,
+                        "prompt_version": prompt_version,
+                        "handoff_from_tool": hf_tool,
+                    },
+                    "correlation_id": conversation_id,
+                },
+                state,
+            )
+        except Exception as _audit_exc:
+            log.warning(
+                "agent_turn_audit_error",
+                conversation_id=conversation_id,
+                error_type=type(_audit_exc).__name__,
+            )
+
         log.info(
             "agent_turn_done",
             conversation_id=conversation_id,
