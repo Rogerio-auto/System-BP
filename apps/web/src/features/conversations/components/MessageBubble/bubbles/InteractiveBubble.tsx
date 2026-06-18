@@ -54,7 +54,7 @@ export function InteractiveBubble({
   return (
     <div
       className={cn(
-        'relative max-w-[75%] rounded-md overflow-hidden',
+        'relative max-w-[min(75%,40rem)] rounded-md overflow-hidden',
         'font-sans text-sm [box-shadow:var(--elev-1)]',
         isOutbound
           ? [

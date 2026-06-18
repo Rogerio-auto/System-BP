@@ -396,3 +396,65 @@ html.dark body::after {
   outline: none;
   box-shadow: 0 0 0 3px rgba(27, 58, 140, 0.15);
 }
+/* --------------------------------------------------------------------- */
+/* SCROLLBAR CUSTOM GLOBAL                                                 */
+/* Webkit (Chrome/Edge/Safari) + Firefox.                                  */
+/* Discreta, fina, alinhada ao DS (doc 18). Light/dark.                    */
+/* --------------------------------------------------------------------- */
+
+/* Width token: use 6px para a barra principal, 0 para auto-hide visual    */
+:root {
+  --scrollbar-size: 6px;
+  --scrollbar-radius: var(--radius-pill);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* Webkit -- light (default) */
+:root,
+:root[data-theme="light"],
+html.light {
+  --scrollbar-thumb:       var(--border);
+  --scrollbar-thumb-hover: var(--border-strong);
+  --scrollbar-track:       transparent;
+}
+
+/* Webkit -- dark */
+:root[data-theme="dark"],
+html.dark {
+  --scrollbar-thumb:       var(--border);
+  --scrollbar-thumb-hover: var(--border-strong);
+  --scrollbar-track:       transparent;
+}
+
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: var(--scrollbar-radius);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--scrollbar-radius);
+  /* Borda invisivel cria um efeito de padding sem usar padding real */
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background var(--dur-fast) var(--ease);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
