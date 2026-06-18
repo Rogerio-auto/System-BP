@@ -3,13 +3,13 @@ id: F16-S37
 title: receive_message extrai organization_id do payload (estado inicial)
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: review
+status: done
 priority: critical
 estimated_size: XS
 agent_id: null
 claimed_at: 2026-06-18T13:20:44Z
 completed_at: 2026-06-18T13:33:33Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/328
 depends_on: []
 blocks: []
 labels: []
@@ -19,6 +19,7 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
+
 # F16-S37 — receive_message extrai organization_id do payload
 
 ## Objetivo
