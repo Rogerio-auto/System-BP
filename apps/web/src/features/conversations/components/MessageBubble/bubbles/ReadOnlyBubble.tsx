@@ -106,7 +106,7 @@ export function ReadOnlyBubble({ message, isOutbound }: ReadOnlyBubbleProps): Re
   return (
     <div
       className={cn(
-        'relative max-w-[min(75%,40rem)] rounded-md px-3 py-2',
+        'relative max-w-full rounded-md px-3 py-2',
         'font-sans text-sm [box-shadow:var(--elev-1)]',
         isOutbound
           ? [

@@ -32,7 +32,7 @@ export function TemplateBubble({ message, isOutbound }: TemplateBubbleProps): Re
   return (
     <div
       className={cn(
-        'relative max-w-[min(75%,40rem)] rounded-md overflow-hidden',
+        'relative max-w-full rounded-md overflow-hidden',
         'font-sans text-sm [box-shadow:var(--elev-1)]',
         isOutbound
           ? [

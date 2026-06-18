@@ -100,8 +100,17 @@ export function MessageBubble({
         </div>
       )}
 
-      {/* Bolha */}
-      <div className={cn('flex flex-col', isOutbound ? 'items-end' : 'items-start')}>
+      {/* Bolha — o max-width vive AQUI (no wrapper), não no bubble.
+          O wrapper é flex item da linha (w-full, largura definida), então `75%`
+          resolve contra a linha. Se o max-w ficasse no bubble, o pai shrink-to-fit
+          criava restrição circular (largura = 75%×largura) → colapso → frases
+          curtas quebravam palavra-a-palavra. */}
+      <div
+        className={cn(
+          'flex flex-col min-w-0 max-w-[min(75%,40rem)]',
+          isOutbound ? 'items-end' : 'items-start',
+        )}
+      >
         {renderBubble(message, isOutbound)}
       </div>
     </div>

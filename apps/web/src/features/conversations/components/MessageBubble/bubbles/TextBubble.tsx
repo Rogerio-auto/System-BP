@@ -18,7 +18,7 @@ export function TextBubble({ message, isOutbound }: TextBubbleProps): React.JSX.
   return (
     <div
       className={cn(
-        'relative rounded-md px-3 py-2 max-w-[min(75%,40rem)]',
+        'relative rounded-md px-3 py-2 max-w-full',
         'font-sans text-sm leading-relaxed',
         isOutbound
           ? [
