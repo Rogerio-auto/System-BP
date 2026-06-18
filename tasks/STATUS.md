@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 43    | 2   | 0   | 0   | 0   | 1   | 40  |
+| F16  | 43    | 2   | 0   | 0   | 0   | 0   | 41  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -210,7 +210,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S37 | receive_message extrai organization_id do payload (estado inicial)                                  | ✅ done      | critical   | —                                  |
 | F16-S38 | Sweep org_id — todas as escritas /internal do LangGraph (cities, handoffs, persist, decisions)      | ✅ done      | critical   | —                                  |
 | F16-S39 | Seed do prompt do agente Ana Clara em prompt_versions (key pre_attendance_agent)                    | ✅ done      | critical   | —                                  |
-| F16-S40 | Nó agent_turn (LLM tool-calling) + route_conversation + flag novo×funil                             | 🟣 review    | critical   | F16-S39, F16-S42                   |
+| F16-S40 | Nó agent_turn (LLM tool-calling) + route_conversation + flag novo×funil                             | ✅ done      | critical   | F16-S39, F16-S42                   |
 | F16-S41 | Saída estruturada {messages:[...]} (≤300) + envio multi-mensagem                                    | 🟢 available | critical   | F16-S40                            |
 | F16-S42 | Estado leve do agente (campos coletados) + popular customer_name do lead                            | ✅ done      | high       | —                                  |
 | F16-S43 | Aposentar o funil determinístico antigo atrás da flag agêntica                                      | 🟢 available | medium     | F16-S40, F16-S41                   |
