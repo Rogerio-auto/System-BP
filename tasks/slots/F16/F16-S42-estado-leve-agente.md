@@ -3,11 +3,11 @@ id: F16-S42
 title: Estado leve do agente (campos coletados) + popular customer_name do lead
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-18T16:31:47Z
 completed_at: null
 pr_url: null
 depends_on: []
