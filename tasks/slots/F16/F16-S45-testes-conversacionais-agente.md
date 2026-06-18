@@ -3,13 +3,13 @@ id: F16-S45
 title: Testes conversacionais do agent_turn por cenário (validação pré go-live)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-18T20:26:45Z
 completed_at: 2026-06-18T20:50:35Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/335
 depends_on: [F16-S40]
 blocks: []
 labels: []
@@ -21,6 +21,7 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
+
 # F16-S45 — Testes conversacionais do agente (Bloco D — validação)
 
 ## Objetivo

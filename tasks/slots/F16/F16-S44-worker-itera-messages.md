@@ -3,13 +3,13 @@ id: F16-S44
 title: Worker livechat-ai itera messages[] do agente (envio multi-mensagem ao WhatsApp)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: review
+status: done
 priority: critical
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-18T20:26:44Z
 completed_at: 2026-06-18T20:50:13Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/334
 depends_on: [F16-S41]
 blocks: []
 labels: []
