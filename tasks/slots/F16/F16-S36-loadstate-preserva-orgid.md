@@ -3,13 +3,13 @@ id: F16-S36
 title: load_state preserva organization_id (não descartar no merge)
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: review
+status: done
 priority: critical
 estimated_size: XS
 agent_id: python-engineer
-claimed_at: "2026-06-18T12:54:56+00:00"
+claimed_at: '2026-06-18T12:54:56+00:00'
 completed_at: 2026-06-18T13:01:56Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/327
 depends_on: []
 blocks: []
 labels: []
@@ -19,6 +19,7 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
+
 # F16-S36 — load_state preserva organization_id
 
 ## Objetivo
