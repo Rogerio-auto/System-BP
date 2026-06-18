@@ -3,12 +3,12 @@ id: F16-S42
 title: Estado leve do agente (campos coletados) + popular customer_name do lead
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-18T16:31:47Z
+completed_at: 2026-06-18T16:52:15Z
 pr_url: null
 depends_on: []
 blocks: [F16-S40]
@@ -20,7 +20,6 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
-
 # F16-S42 — Estado leve do agente (B4)
 
 ## Objetivo

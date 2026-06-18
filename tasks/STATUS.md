@@ -212,7 +212,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S39 | Seed do prompt do agente Ana Clara em prompt_versions (key pre_attendance_agent)                    | 🟣 review    | critical   | —                                  |
 | F16-S40 | Nó agent_turn (LLM tool-calling) + route_conversation + flag novo×funil                             | 🟢 available | critical   | F16-S39, F16-S42                   |
 | F16-S41 | Saída estruturada {messages:[...]} (≤300) + envio multi-mensagem                                    | 🟢 available | critical   | F16-S40                            |
-| F16-S42 | Estado leve do agente (campos coletados) + popular customer_name do lead                            | 🟢 available | high       | —                                  |
+| F16-S42 | Estado leve do agente (campos coletados) + popular customer_name do lead                            | 🟣 review    | high       | —                                  |
 | F16-S43 | Aposentar o funil determinístico antigo atrás da flag agêntica                                      | 🟢 available | medium     | F16-S40, F16-S41                   |
 
 ## Fase 17 —

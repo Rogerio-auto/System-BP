@@ -67,6 +67,14 @@ def _initial_state(base: ConversationState) -> ConversationState:
         "selected_product_id": None,
         "last_simulation_id": None,
         "current_stage": None,
+        # Estado leve do agente (F16-S42) — defaults para primeira interação
+        "activity": None,
+        "profile": None,
+        "credit_objective": None,
+        "scr_authorized": None,
+        "collection_status": None,
+        "handoff_active": False,
+        "cpf_collected": False,
     }
     # base sobrescreve defaults — preserve tudo que receive_message já preencheu
     merged: ConversationState = {**defaults, **base}
