@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 43    | 1   | 0   | 0   | 0   | 0   | 42  |
+| F16  | 45    | 3   | 0   | 0   | 0   | 0   | 42  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -214,6 +214,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S41 | Saída estruturada {messages:[...]} (≤300) + envio multi-mensagem                                    | ✅ done      | critical   | F16-S40                            |
 | F16-S42 | Estado leve do agente (campos coletados) + popular customer_name do lead                            | ✅ done      | high       | —                                  |
 | F16-S43 | Aposentar o funil determinístico antigo atrás da flag agêntica                                      | 🟢 available | medium     | F16-S40, F16-S41                   |
+| F16-S44 | Worker livechat-ai itera messages[] do agente (envio multi-mensagem ao WhatsApp)                    | 🟢 available | critical   | F16-S41                            |
+| F16-S45 | Testes conversacionais do agent_turn por cenário (validação pré go-live)                            | 🟢 available | critical   | F16-S40                            |
 
 ## Fase 17 —
 
