@@ -3,12 +3,12 @@ id: F16-S31
 title: UI livechat — bubble/composer responsivos sem espremer + scrollbar custom
 phase: F16
 task_ref: docs/18-design-system.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-18T00:17:00Z
-completed_at: null
+completed_at: 2026-06-18T00:32:00Z
 pr_url: null
 depends_on: []
 blocks: []
