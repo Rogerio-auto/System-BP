@@ -65,4 +65,11 @@ class Settings(BaseSettings):
     graph_timeout_sec: float = Field(default=8.0, validation_alias="GRAPH_TIMEOUT_SEC")
 
 
+    # Feature flag: pipeline agentica (F16-S40)
+    # DEFAULT OFF: funil antigo continua live ate validacao do Bloco D.
+    # Ligar apos B3+testes validados.
+    pre_attendance_agentic_enabled: bool = Field(
+        default=False, validation_alias="PRE_ATTENDANCE_AGENTIC_ENABLED"
+    )
+
 settings = Settings()  # type: ignore[call-arg]

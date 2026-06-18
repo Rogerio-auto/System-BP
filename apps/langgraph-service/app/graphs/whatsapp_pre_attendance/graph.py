@@ -19,6 +19,10 @@ from __future__ import annotations
 
 from langgraph.graph import END, StateGraph
 
+from app.config import settings
+from app.graphs.whatsapp_pre_attendance.nodes.agent_turn import (
+    agent_turn,
+)
 from app.graphs.whatsapp_pre_attendance.nodes.classify_intent import (
     classify_intent,
 )
@@ -62,6 +66,7 @@ from app.graphs.whatsapp_pre_attendance.routes import (
     route_after_city,
     route_after_lead,
     route_by_intent,
+    route_conversation,
     route_decide_next_step,
 )
 from app.graphs.whatsapp_pre_attendance.state import ConversationState
@@ -89,6 +94,8 @@ _N_REQUEST_HANDOFF = "request_handoff"
 _N_SEND_RESPONSE = "send_response"
 _N_PERSIST = "persist_state"
 _N_LOG = "log_decision"
+_N_AGENT_TURN = "agent_turn"
+_N_ROUTE_CONV = "route_conversation_node"
 
 
 def build_graph() -> StateGraph[ConversationState]:
@@ -220,6 +227,53 @@ def build_graph() -> StateGraph[ConversationState]:
         },
     )
 
+    # ------------------------------------------------------------------
+    # Pipeline agentica (F16-S40): PRE_ATTENDANCE_AGENTIC_ENABLED
+    # DEFAULT OFF -- funil antigo e o caminho live.
+    # Ligar apos Bloco B+D validados.
+    # ------------------------------------------------------------------
+    if settings.pre_attendance_agentic_enabled:
+        # Pipeline agentica: load -> route_conversation -> agent_turn -> send_response -> persist
+        graph.add_node(_N_AGENT_TURN, agent_turn)
+
+        # Remover a edge _N_LOAD -> _N_CLASSIFY do funil (sobrescreve)
+        # LangGraph nao suporta remover edges; usamos grafo separado
+        # Construir grafo agentico do zero (sem os nos do funil nao usados neste path)
+        agentic_graph: StateGraph[ConversationState] = StateGraph(ConversationState)
+
+        # Nos da pipeline agentica
+        agentic_graph.add_node(_N_LOAD, load_state)
+        agentic_graph.add_node(_N_AGENT_TURN, agent_turn)
+        agentic_graph.add_node(_N_SEND_RESPONSE, send_response)
+        agentic_graph.add_node(_N_PERSIST, persist_state)
+        agentic_graph.add_node(_N_LOG, log_decision)
+        agentic_graph.add_node(_N_REQUEST_HANDOFF, request_handoff)
+
+        # Entry point
+        agentic_graph.set_entry_point(_N_LOAD)
+
+        # Edges fixas
+        agentic_graph.add_edge(_N_SEND_RESPONSE, _N_PERSIST)
+        agentic_graph.add_edge(_N_PERSIST, _N_LOG)
+        agentic_graph.add_edge(_N_LOG, END)
+        agentic_graph.add_edge(_N_REQUEST_HANDOFF, _N_SEND_RESPONSE)
+
+        # load_state -> route_conversation (condicional)
+        agentic_graph.add_conditional_edges(
+            _N_LOAD,
+            route_conversation,
+            {
+                _N_AGENT_TURN: _N_AGENT_TURN,
+                _N_SEND_RESPONSE: _N_SEND_RESPONSE,
+            },
+        )
+
+        # agent_turn -> send_response (direto -- handoff_required e tratado por send_response)
+        agentic_graph.add_edge(_N_AGENT_TURN, _N_SEND_RESPONSE)
+
+        return agentic_graph
+
+    # Default: pipeline funil deterministica (intacta -- flag off)
     return graph
 
 
