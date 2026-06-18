@@ -3,13 +3,13 @@ id: F16-S31
 title: UI livechat — bubble/composer responsivos sem espremer + scrollbar custom
 phase: F16
 task_ref: docs/18-design-system.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-18T00:17:00Z
 completed_at: 2026-06-18T00:32:00Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/318
 depends_on: []
 blocks: []
 labels: []

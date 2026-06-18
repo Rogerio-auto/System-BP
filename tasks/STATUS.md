@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 31    | 1   | 0   | 0   | 0   | 1   | 29  |
+| F16  | 31    | 1   | 0   | 0   | 0   | 0   | 30  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -201,7 +201,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S28 | IA no livechat — gate (flag + allowlist de teste) e trigger no inbound                              | ✅ done      | high       | —                                  |
 | F16-S29 | Worker livechat-ai — LangGraph responde no livechat via send service                                | ✅ done      | high       | F16-S28                            |
 | F16-S30 | Handoff real + mensagem de fallback ao cidadão quando a IA falha                                    | 🟢 available | high       | F16-S29                            |
-| F16-S31 | UI livechat — bubble/composer responsivos sem espremer + scrollbar custom                           | 🟣 review    | medium     | —                                  |
+| F16-S31 | UI livechat — bubble/composer responsivos sem espremer + scrollbar custom                           | ✅ done      | medium     | —                                  |
 
 ## Fase 17 —
 
