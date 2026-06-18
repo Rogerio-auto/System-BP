@@ -12,6 +12,7 @@
 //   - `reply.content` pode conter dados de contexto do cidadão após DLP no grafo.
 //     Não logar em nível info — apenas debug com redact habilitado.
 //   - `handoff.summary` pode conter resumo de atendimento; tratar como PII.
+//   - `messages[]` contém texto da resposta — não logar conteúdo (LGPD).
 // =============================================================================
 import { z } from 'zod';
 
@@ -122,11 +123,22 @@ export type LangGraphStateSnapshot = z.infer<typeof LangGraphStateSnapshotSchema
  *
  * Replica fielmente WhatsAppMessageResponse do langgraph-service (outbound.py).
  * Validado com .parse() antes de qualquer uso — lança ZodError se contrato quebrar.
+ *
+ * F16-S44: `messages` array de strings para envio multi-mensagem (pipeline agêntica Ana Clara).
+ * LGPD: não logar conteúdo de `messages[]` — apenas IDs/contadores.
+ * Retrocompat: quando `messages` vazio, worker usa `reply.content` (funil antigo/flag OFF).
  */
 export const LangGraphWhatsAppResponseSchema = z.object({
   conversation_id: z.string(),
   lead_id: z.string().nullable().default(null),
   reply: LangGraphReplyPayloadSchema,
+  /**
+   * Array de mensagens a enviar ao cliente, na ordem.
+   * Pipeline agêntica (Ana Clara): o grafo retorna N mensagens curtas.
+   * Default `[]` para retrocompat com funil antigo (flag OFF).
+   * LGPD: não logar conteúdo — apenas length.
+   */
+  messages: z.array(z.string()).default([]),
   actions: z.array(LangGraphActionItemSchema).default([]),
   handoff: LangGraphHandoffInfoSchema,
   state: LangGraphStateSnapshotSchema,
