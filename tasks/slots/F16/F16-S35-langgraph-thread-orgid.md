@@ -3,11 +3,11 @@ id: F16-S35
 title: LangGraph propaga organization_id em todas as chamadas /internal de escrita
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
-agent_id: null
-claimed_at: null
+agent_id: python-engineer
+claimed_at: "2026-06-18T03:38:23Z"
 completed_at: null
 pr_url: null
 depends_on: [F16-S34]
