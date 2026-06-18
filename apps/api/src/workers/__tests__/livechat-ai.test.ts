@@ -175,6 +175,7 @@ const convState = {
 };
 const aiText = {
   reply: { type: 'text', content: 'Ola! Como posso ajudar?' },
+  messages: [] as string[], // F16-S44: campo novo -- default vazio (funil legado)
   handoff: { required: false, reason: null },
   state: { current_stage: 'greeting' },
   graph_version: 'v1.2',
@@ -183,6 +184,7 @@ const aiText = {
 };
 const aiNone = {
   reply: { type: 'none', content: '' },
+  messages: [] as string[], // F16-S44: campo novo -- default vazio
   handoff: { required: false, reason: null },
   state: { current_stage: 'wait' },
   graph_version: 'v1.2',
@@ -337,5 +339,129 @@ describe('processJob (F16-S34)', () => {
       expect.objectContaining({ reason: 'human_requested', conversationId: CV }),
       expect.stringContaining('handoff'),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F16-S44: Testes de multi-mensagem, legado e idempotencia
+// ---------------------------------------------------------------------------
+describe('processJob — messages[] multi-mensagem (F16-S44)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetOrCreate.mockResolvedValue(convState);
+    mockSendMessage.mockResolvedValue({ id: 'r001' });
+    mockTriggerHandoff.mockResolvedValue(undefined);
+    vi.mocked(envelopeSchema.safeParse).mockReturnValue({
+      success: true,
+      data: validEnv,
+    } as ReturnType<typeof envelopeSchema.safeParse>);
+  });
+
+  it('S44-1: messages[] com 3 itens => sendMessage chamado 3x na ordem com keys unicas', async () => {
+    const aiMulti = {
+      ...aiText,
+      messages: ['Ola! Sou a Ana Clara.', 'Como posso te ajudar hoje?', 'Me diz o seu nome.'],
+    };
+    mockProcessWhatsAppMessage.mockResolvedValue(aiMulti);
+    const db = makeDb([[convRow], [msgRow]]) as never;
+    expect(await processJob(toBuf(validEnv), db)).toBe('ack');
+
+    // Deve ter sido chamado 3 vezes
+    expect(mockSendMessage).toHaveBeenCalledTimes(3);
+
+    // Verifica ordem e idempotency keys unicas por indice
+    const calls = mockSendMessage.mock.calls as unknown[][];
+    expect(calls[0]?.[3]).toEqual({ type: 'text', content: 'Ola! Sou a Ana Clara.' });
+    expect(calls[0]?.[4]).toBe(`ai_reply_${MG}_0`);
+    expect(calls[1]?.[3]).toEqual({ type: 'text', content: 'Como posso te ajudar hoje?' });
+    expect(calls[1]?.[4]).toBe(`ai_reply_${MG}_1`);
+    expect(calls[2]?.[3]).toEqual({ type: 'text', content: 'Me diz o seu nome.' });
+    expect(calls[2]?.[4]).toBe(`ai_reply_${MG}_2`);
+  });
+
+  it('S44-2: messages[] vazio => fallback legado reply.content com key sem indice', async () => {
+    // Funil antigo / flag OFF: messages vazio, usa reply.content
+    const aiLegado = {
+      ...aiText,
+      messages: [], // default — funil antigo
+    };
+    mockProcessWhatsAppMessage.mockResolvedValue(aiLegado);
+    const db = makeDb([[convRow], [msgRow]]) as never;
+    expect(await processJob(toBuf(validEnv), db)).toBe('ack');
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    const callArgs = mockSendMessage.mock.calls[0] as unknown[];
+    const payload = callArgs[3];
+    const key = callArgs[4];
+    expect(payload).toEqual({ type: 'text', content: 'Ola! Como posso ajudar?' });
+    // Chave legada sem sufixo de indice
+    expect(key).toBe(`ai_reply_${MG}`);
+  });
+
+  it('S44-3: idempotency keys distintas para cada mensagem — nao colidem', async () => {
+    const msgs = ['Msg 1', 'Msg 2', 'Msg 3', 'Msg 4'];
+    mockProcessWhatsAppMessage.mockResolvedValue({ ...aiText, messages: msgs });
+    await processJob(toBuf(validEnv), makeDb([[convRow], [msgRow]]) as never);
+
+    const keys = (mockSendMessage.mock.calls as unknown[][]).map((c) => c[4]);
+    const uniqueKeys = new Set(keys);
+    expect(uniqueKeys.size).toBe(msgs.length); // todas distintas
+    keys.forEach((k, i) => {
+      expect(k).toBe(`ai_reply_${MG}_${i}`);
+    });
+  });
+
+  it('S44-4: mensagem no meio da lista falha => throw (DLX), nao envia as restantes', async () => {
+    const aiMulti = { ...aiText, messages: ['Msg A', 'Msg B', 'Msg C'] };
+    mockProcessWhatsAppMessage.mockResolvedValue(aiMulti);
+    // Segunda mensagem falha
+    mockSendMessage
+      .mockResolvedValueOnce({ id: 'ok1' })
+      .mockRejectedValueOnce(new Error('SendFailed'))
+      .mockResolvedValueOnce({ id: 'ok3' });
+
+    await expect(
+      processJob(toBuf(validEnv), makeDb([[convRow], [msgRow]]) as never),
+    ).rejects.toThrow('SendFailed');
+
+    // Apenas 2 chamadas — a terceira nao deve acontecer
+    expect(mockSendMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it('S44-5: LGPD — conteudo de messages[] nao aparece em log info', async () => {
+    const piiContent = 'Ola Joao Silva CPF 999.888.777-66';
+    mockProcessWhatsAppMessage.mockResolvedValue({
+      ...aiText,
+      messages: [piiContent, 'Outra mensagem'],
+    });
+    await processJob(toBuf(validEnv), makeDb([[convRow], [msgRow]]) as never);
+
+    for (const call of logInfo.mock.calls) {
+      const s = JSON.stringify(call);
+      expect(s).not.toContain(piiContent);
+      expect(s).not.toContain('Joao Silva');
+    }
+    // Apenas contador presente nos logs
+    expect(logInfo).toHaveBeenCalledWith(
+      expect.objectContaining({ msgCount: 2 }),
+      expect.stringContaining('agentica'),
+    );
+  });
+
+  it('S44-6: messages[] com 1 item — usa path agentico (nao legado), key tem indice 0', async () => {
+    mockProcessWhatsAppMessage.mockResolvedValue({
+      ...aiText,
+      messages: ['Mensagem unica agentica'],
+    });
+    await processJob(toBuf(validEnv), makeDb([[convRow], [msgRow]]) as never);
+
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    const callArgs = mockSendMessage.mock.calls[0] as unknown[];
+    const payload = callArgs[3];
+    const key = callArgs[4];
+    expect(payload).toEqual({ type: 'text', content: 'Mensagem unica agentica' });
+    // Deve usar sufixo _0 (path agentico), nao a key legada
+    expect(key).toBe(`ai_reply_${MG}_0`);
+    expect(key).not.toBe(`ai_reply_${MG}`);
   });
 });
