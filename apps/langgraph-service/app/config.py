@@ -60,5 +60,9 @@ class Settings(BaseSettings):
         default=8000, validation_alias="LLM_MAX_TOKENS_PER_CONVERSATION"
     )
 
+    # Timeout do grafo (doc 06 §4.4): 8.0s é o SLA de produção — NÃO reduzir o default.
+    # Para homologação/desenvolvimento local (LLM frio), setar GRAPH_TIMEOUT_SEC=30 no .env.
+    graph_timeout_sec: float = Field(default=8.0, validation_alias="GRAPH_TIMEOUT_SEC")
+
 
 settings = Settings()  # type: ignore[call-arg]

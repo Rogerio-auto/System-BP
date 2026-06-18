@@ -266,8 +266,9 @@ def _extract_llm_metadata(state: ConversationState) -> tuple[str | None, str | N
 # Endpoint principal
 # ---------------------------------------------------------------------------
 
-# Timeout de 8 s para o grafo inteiro (doc 06 §4.4)
-_GRAPH_TIMEOUT_SEC: float = 8.0
+# Timeout do grafo — doc 06 §4.4. Lido de settings.graph_timeout_sec
+# (env GRAPH_TIMEOUT_SEC, default 8.0s). Alias para backward compat.
+_GRAPH_TIMEOUT_SEC: float = settings.graph_timeout_sec
 
 
 @router.post(
