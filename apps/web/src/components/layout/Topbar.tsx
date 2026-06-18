@@ -12,7 +12,9 @@
 
 import * as React from 'react';
 
+import { InternalAssistantButton } from '../../features/assistant/InternalAssistantButton';
 import { HelpButton } from '../../features/help/HelpButton';
+import { NotificationDropdown } from '../../features/notifications';
 import { ThemeToggle } from '../ui/ThemeToggle';
 
 import { UserMenu } from './UserMenu';
@@ -59,6 +61,11 @@ export function Topbar({ fullName, email, onLogout }: TopbarProps): React.JSX.El
 
       {/* Ações à direita */}
       <div className="flex items-center gap-2">
+        {/* Assistente IA interno — visível-mas-desabilitado no MVP (doc 05 §7) */}
+        <InternalAssistantButton />
+        {/* Notificações — agora MEMBRO da topbar (antes flutuava por cima via
+            position:fixed no App.tsx, embaralhando com os dados do usuário) */}
+        <NotificationDropdown />
         <HelpButton />
         <ThemeToggle />
         <div

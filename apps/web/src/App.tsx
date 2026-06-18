@@ -42,7 +42,6 @@ import { DocPage } from './features/help/DocPage';
 import { HelpHomePage } from './features/help/HelpHomePage';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
 import { LawFirmsPage } from './features/law-firms/LawFirmsPage';
-import { NotificationDropdown } from './features/notifications';
 import { TasksPage } from './features/tasks';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from './features/templates';
 import { AgentsPage } from './pages/admin/Agents';
@@ -127,30 +126,6 @@ function PersonalEmailGuard(): React.JSX.Element | null {
   );
 }
 
-// Offset direito da topbar: HelpButton (~2.5rem) + ThemeToggle (~2.5rem) + UserMenu (~5.5rem) = ~10.5rem
-const HEADER_RIGHT_OFFSET = '10.5rem';
-
-/**
- * Badge de notificações no header (F15-S10).
- *
- * Renderizado via position:fixed alinhado à topbar (h-14 = 3.5rem).
- * Fica entre o HelpButton e ThemeToggle existentes, à esquerda do UserMenu.
- * Só exibido em rotas protegidas (dentro do AuthGuard).
- */
-function HeaderNotificationsOverlay(): React.JSX.Element {
-  return (
-    <div
-      className="fixed z-[45] flex items-center pointer-events-none"
-      style={{ top: 0, right: HEADER_RIGHT_OFFSET, height: '3.5rem' }}
-    >
-      {/* pointer-events-auto restaura interatividade apenas no dropdown */}
-      <div className="pointer-events-auto">
-        <NotificationDropdown />
-      </div>
-    </div>
-  );
-}
-
 function AppRoutes(): React.JSX.Element {
   return (
     <>
@@ -164,8 +139,6 @@ function AppRoutes(): React.JSX.Element {
         <Route
           element={
             <AuthGuard>
-              {/* Badge de notificações no header — F15-S10 */}
-              <HeaderNotificationsOverlay />
               <AppLayout />
             </AuthGuard>
           }
