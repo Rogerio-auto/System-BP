@@ -3,12 +3,12 @@ id: F16-S37
 title: receive_message extrai organization_id do payload (estado inicial)
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: in-progress
+status: review
 priority: critical
 estimated_size: XS
 agent_id: null
 claimed_at: 2026-06-18T13:20:44Z
-completed_at: null
+completed_at: 2026-06-18T13:33:33Z
 pr_url: null
 depends_on: []
 blocks: []
@@ -19,7 +19,6 @@ docs_required: false
 docs_audience: []
 docs_artifacts: []
 ---
-
 # F16-S37 — receive_message extrai organization_id do payload
 
 ## Objetivo
