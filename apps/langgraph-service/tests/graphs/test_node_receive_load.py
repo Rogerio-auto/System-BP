@@ -513,3 +513,99 @@ class TestLoadState:
         # Nova mensagem deve estar presente na lista final
         contents = [m["content"] for m in result["messages"]]
         assert "nova mensagem atual" in contents
+
+    @pytest.mark.asyncio()
+    async def test_200_preserves_org_id_from_request_over_missing_persisted(self) -> None:
+        """Caminho merge (200): organization_id do request sobrevive ao nó load_state.
+
+        Regressão F16-S36: load_state reconstruía o estado via _initial_state(loaded)
+        sem incluir organization_id nos overrides de sessão, descartando o org_id
+        que veio no state de entrada (request). Isso causava 400 em todas as escritas
+        /internal a jusante (identify_or_create_lead, persist_state, log_decision).
+        """
+        _ORG_ID = "org-uuid-1111-0000-0000-000000000001"
+
+        current_state: ConversationState = {
+            "conversation_id": _CONVERSATION_ID,
+            "phone": _PHONE,
+            "chatwoot_conversation_id": _CW_CONV_ID,
+            "organization_id": _ORG_ID,
+            "handoff_required": False,
+            "missing_fields": [],
+            "messages": [
+                {"role": "user", "content": "Oi", "channel": "whatsapp", "timestamp": "t1"}
+            ],
+            "tool_results": [],
+            "errors": [],
+            "actions_emitted": [],
+        }
+        # Estado persistido NAO tem organization_id (gravado por codigo pre-F16-S36)
+        persisted_without_org = _persisted_state_body()
+        persisted_without_org["state"].pop("organization_id", None)
+
+        with respx.mock:
+            respx.get(_state_url()).mock(
+                return_value=httpx.Response(200, json=persisted_without_org)
+            )
+            result = await load_state(current_state)
+
+        assert result.get("organization_id") == _ORG_ID, (
+            f"organization_id perdido no caminho merge: got {result.get('organization_id')!r}"
+        )
+
+    @pytest.mark.asyncio()
+    async def test_200_org_id_request_takes_precedence_over_persisted(self) -> None:
+        """Caminho merge (200): request e autoritativo — sobrescreve org_id persistido."""
+        _ORG_ID_REQUEST = "org-request-1111-0000-0000-000000000001"
+        _ORG_ID_PERSISTED = "org-persisted-2222-0000-0000-000000000002"
+
+        current_state: ConversationState = {
+            "conversation_id": _CONVERSATION_ID,
+            "phone": _PHONE,
+            "chatwoot_conversation_id": _CW_CONV_ID,
+            "organization_id": _ORG_ID_REQUEST,
+            "handoff_required": False,
+            "missing_fields": [],
+            "messages": [],
+            "tool_results": [],
+            "errors": [],
+            "actions_emitted": [],
+        }
+        persisted_with_diff_org = _persisted_state_body(
+            extra={"organization_id": _ORG_ID_PERSISTED}
+        )
+
+        with respx.mock:
+            respx.get(_state_url()).mock(
+                return_value=httpx.Response(200, json=persisted_with_diff_org)
+            )
+            result = await load_state(current_state)
+
+        assert result.get("organization_id") == _ORG_ID_REQUEST
+
+    @pytest.mark.asyncio()
+    async def test_404_preserves_org_id_from_request(self) -> None:
+        """Caminho 404 (primeira interacao): organization_id do request nao regride."""
+        _ORG_ID = "org-uuid-1111-0000-0000-000000000001"
+
+        current_state: ConversationState = {
+            "conversation_id": _CONVERSATION_ID,
+            "phone": _PHONE,
+            "chatwoot_conversation_id": _CW_CONV_ID,
+            "organization_id": _ORG_ID,
+            "handoff_required": False,
+            "missing_fields": [],
+            "messages": [
+                {"role": "user", "content": "Ola", "channel": "whatsapp", "timestamp": "t0"}
+            ],
+            "tool_results": [],
+            "errors": [],
+            "actions_emitted": [],
+        }
+        with respx.mock:
+            respx.get(_state_url()).mock(
+                return_value=httpx.Response(404, json={"message": "not found"})
+            )
+            result = await load_state(current_state)
+
+        assert result.get("organization_id") == _ORG_ID
