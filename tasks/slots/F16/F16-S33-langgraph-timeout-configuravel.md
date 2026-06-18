@@ -3,13 +3,13 @@ id: F16-S33
 title: Timeout do grafo configurável por env (GRAPH_TIMEOUT_SEC)
 phase: F16
 task_ref: docs/06-langgraph-agentes.md
-status: review
+status: done
 priority: medium
 estimated_size: XS
 agent_id: null
 claimed_at: 2026-06-18T02:36:41Z
 completed_at: 2026-06-18T02:53:03Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/323
 depends_on: []
 blocks: []
 labels: []
