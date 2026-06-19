@@ -60,9 +60,11 @@ class Settings(BaseSettings):
         default=8000, validation_alias="LLM_MAX_TOKENS_PER_CONVERSATION"
     )
 
-    # Timeout do grafo (doc 06 §4.4): 8.0s é o SLA de produção — NÃO reduzir o default.
-    # Para homologação/desenvolvimento local (LLM frio), setar GRAPH_TIMEOUT_SEC=30 no .env.
-    graph_timeout_sec: float = Field(default=8.0, validation_alias="GRAPH_TIMEOUT_SEC")
+    # Timeout do grafo (doc 06 §4.4). F16-S49: 8.0s era curto p/ o pré-atendimento
+    # agêntico (LLM raciocinando + tool-calling + idas/voltas no /internal); turnos
+    # reais levam ~8-12s. Default 20.0s. O worker Node usa LANGGRAPH_AI_TIMEOUT_MS=25s
+    # (> este) p/ não abortar antes e cair em fallback de handoff indevido.
+    graph_timeout_sec: float = Field(default=20.0, validation_alias="GRAPH_TIMEOUT_SEC")
 
 
     # Feature flag: pipeline agentica (F16-S40)

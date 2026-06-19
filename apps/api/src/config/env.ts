@@ -60,6 +60,11 @@ const envSchema = z.object({
 
   LANGGRAPH_INTERNAL_TOKEN: z.string().min(32),
   LANGGRAPH_SERVICE_URL: z.string().url(),
+  // Timeout (ms) do worker livechat-ai ao chamar o LangGraph. O pré-atendimento
+  // agêntico (LLM raciocinando + idas/voltas no /internal) leva ~8-12s — bem mais
+  // que o funil determinístico. 8s era curto e causava fallback de handoff indevido
+  // (F16-S49). Deve ser > graph_timeout_sec do langgraph (20s) + overhead.
+  LANGGRAPH_AI_TIMEOUT_MS: z.coerce.number().int().positive().default(25_000),
 
   // ---- WhatsApp Cloud API --------------------------------------------------
   // Shared secret usado para validar HMAC SHA-256 dos webhooks (X-Hub-Signature-256).
