@@ -26,6 +26,7 @@ LGPD (doc 17 §3.4 / §8.4):
 from __future__ import annotations
 
 import time
+import uuid
 from typing import Any
 
 import structlog
@@ -35,9 +36,11 @@ from app.tools.audit_tools import LogAiDecisionInput, log_ai_decision
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
-# Fallback quando organization_id não está no contexto structlog
+# Fallback quando organization_id nao esta no contexto structlog
+# F16-S46 BUG-B: organization_id "unknown" nao e UUID -- gera 400 no backend.
+# Fallback e apenas para compatibilidade com grafo legado (flag OFF).
+# No path agentico, organization_id sempre vem do state (F16-S35).
 _UNKNOWN_ORG = "unknown"
-_UNKNOWN_CORR = "unknown"
 
 
 def _get_context_str(key: str, fallback: str) -> str:
@@ -157,13 +160,28 @@ async def log_decision(state: ConversationState) -> dict[str, Any]:
     conversation_id: str = state.get("conversation_id", "")
     lead_id: str | None = state.get("lead_id")
 
-    # F16-S35: prefere organization_id do state (fonte confiável do request);
+    # F16-S35: prefere organization_id do state (fonte confiavel do request);
     # cai no contexto structlog apenas como fallback (compatibilidade com grafo legado).
     organization_id = (
         state.get("organization_id")
         or _get_context_str("organization_id", _UNKNOWN_ORG)
     )
-    correlation_id = _get_context_str("correlation_id", conversation_id or _UNKNOWN_CORR)
+    # F16-S46 BUG-B: correlation_id DEVE ser UUID valido (Zod .uuid() no backend).
+    # Precedencia: (1) structlog context, (2) conversation_id do state (ja e UUID),
+    # (3) uuid novo gerado (ultimo recurso -- garante nunca enviar "unknown").
+    correlation_id_raw = _get_context_str("correlation_id", "")
+    if not correlation_id_raw:
+        # Fallback para conversation_id (UUID garantido pelo inbound schema)
+        correlation_id_raw = conversation_id
+    if not correlation_id_raw:
+        # Ultimo recurso: gera UUID novo para garantir registro do turno
+        correlation_id_raw = str(uuid.uuid4())
+        log.warning(
+            "log_decision_generated_correlation_id",
+            conversation_id=conversation_id,
+            note="correlation_id ausente no contexto structlog e no state; gerado novo UUID",
+        )
+    correlation_id = correlation_id_raw
 
     tool_results: list[dict[str, Any]] = list(state.get("tool_results") or [])
 
@@ -180,24 +198,26 @@ async def log_decision(state: ConversationState) -> dict[str, Any]:
         last_error = errors[-1]
         error_summary = f"{last_error.get('node', 'unknown')}: {last_error.get('error', 'error')}"
 
-    inp = LogAiDecisionInput(
-        organization_id=organization_id,
-        conversation_id=conversation_id,
-        lead_id=lead_id,
-        node_name=llm_meta["node_name"],
-        intent=llm_meta["intent"],
-        prompt_key=llm_meta["prompt_key"],
-        prompt_version=llm_meta["prompt_version"],
-        model=llm_meta["model"],
-        tokens_in=llm_meta["tokens_in"],
-        tokens_out=llm_meta["tokens_out"],
-        latency_ms=llm_meta["latency_ms"],
-        decision=decision_payload,
-        error=error_summary,
-        correlation_id=correlation_id,
-    )
-
     try:
+        # F16-S46 BUG-B: construcao do input dentro do try para capturar
+        # ValidationError (ex: conversation_id vazio) sem propagar handoff.
+        # Log_decision failure nunca deve interromper o fluxo do cliente.
+        inp = LogAiDecisionInput(
+            organization_id=organization_id,
+            conversation_id=conversation_id,
+            lead_id=lead_id,
+            node_name=llm_meta["node_name"],
+            intent=llm_meta["intent"],
+            prompt_key=llm_meta["prompt_key"],
+            prompt_version=llm_meta["prompt_version"],
+            model=llm_meta["model"],
+            tokens_in=llm_meta["tokens_in"],
+            tokens_out=llm_meta["tokens_out"],
+            latency_ms=llm_meta["latency_ms"],
+            decision=decision_payload,
+            error=error_summary,
+            correlation_id=correlation_id,
+        )
         output = await log_ai_decision(inp)
         latency_ms = (time.monotonic_ns() - start_ns) // 1_000_000
 

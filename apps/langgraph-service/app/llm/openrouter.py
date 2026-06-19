@@ -262,6 +262,19 @@ class OpenRouterGateway:
         message: dict[str, Any] = first_choice.get("message", {})
         content: str = message.get("content") or ""
         finish_reason: str = first_choice.get("finish_reason", "stop") or "stop"
+        # F16-S46 BUG-A: extrair tool_calls da resposta do OpenRouter.
+        # Sem isso, qualquer tool-call do modelo vem em raw["choices"][0]["message"]["tool_calls"]
+        # mas nao e exposta pelo LLMResponse — e o agent_turn.py extrai de resp.raw["choices"].
+        # Garantir que raw sempre inclui o message completo para agent_turn extrair tool_calls.
+        # (Nenhum campo novo em LLMResponse — agent_turn ja le de resp.raw.)
+        tool_calls: list[dict[str, Any]] = message.get("tool_calls") or []
+        if tool_calls:
+            log.debug(
+                "openrouter_tool_calls_detected",
+                model=model,
+                tool_calls_count=len(tool_calls),
+                finish_reason=finish_reason,
+            )
 
         raw_usage: dict[str, Any] = data.get("usage", {})
         usage = TokenUsage(
