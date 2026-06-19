@@ -3,11 +3,11 @@ id: F16-S47
 title: Fix entrega do reply agêntico (reply channel + messages no response + persist/audit)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-19T13:23:46Z
 completed_at: null
 pr_url: null
 depends_on: []
