@@ -219,11 +219,11 @@ def _merge_messages(
     Returns:
         Lista mesclada de mensagens.
     """
-    if len(current) >= len(persisted):
-        # receive_message já inclui tudo — retorna diretamente
-        return current
-
-    # Estado do backend tem mais mensagens que o estado atual (improvável,
-    # mas defensivo): concatena e remove duplicatas por posição
-    combined = persisted + current[len(persisted):]
-    return combined
+    # F16-S50: `process.py` chama `receive_message({}, payload)` partindo de estado
+    # VAZIO, então `current` contém APENAS a(s) mensagem(ns) nova(s) deste turno —
+    # nunca o histórico. A heurística antiga (len(current) >= len(persisted) ?
+    # current : persisted + current[len(persisted):]) DESCARTAVA a msg nova sempre
+    # que o histórico persistido era maior (current[N:] = []), fazendo a IA não ver
+    # o que o cliente digita e re-saudar a cada turno. O correto é simplesmente
+    # anexar as mensagens do turno ao histórico persistido.
+    return persisted + current

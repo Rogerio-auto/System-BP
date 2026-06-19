@@ -604,14 +604,28 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
                     )
                     # F16-S46 BUG-A: parsear {"messages":[...]} do output do modelo.
                     fin, parsed_messages = _parse_agent_output(cap_resp.content or "")
-                    msgs.append({"role": "assistant", "content": fin or (cap_resp.content or "")})
+                    # F16-S50: persistir o reply COMPLETO no historico (todas as msgs),
+                    # nao so a 1a -- senao a IA nao ve o que realmente disse e re-sauda.
+                    _assistant_hist = (
+                        (chr(10) + chr(10)).join(parsed_messages)
+                        if parsed_messages
+                        else (cap_resp.content or "")
+                    )
+                    msgs.append({"role": "assistant", "content": _assistant_hist})
                     break
                 continue
 
             else:
                 # F16-S46 BUG-A: parsear {"messages":[...]} do output do modelo.
                 fin, parsed_messages = _parse_agent_output(resp.content or "")
-                msgs.append({"role": "assistant", "content": fin or (resp.content or "")})
+                # F16-S50: persistir o reply COMPLETO no historico (todas as msgs),
+                # nao so a 1a -- senao a IA nao ve o que realmente disse e re-sauda.
+                _assistant_hist = (
+                    (chr(10) + chr(10)).join(parsed_messages)
+                    if parsed_messages
+                    else (resp.content or "")
+                )
+                msgs.append({"role": "assistant", "content": _assistant_hist})
                 break
 
         su = _extract_state_updates(tool_results_this_turn)
