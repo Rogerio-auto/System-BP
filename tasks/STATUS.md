@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 49    | 1   | 0   | 0   | 1   | 0   | 47  |
+| F16  | 49    | 1   | 0   | 0   | 0   | 1   | 47  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -169,57 +169,57 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 16 —
 
-| ID      | Título                                                                                              | Status         | Prioridade | Depende de                         |
-| ------- | --------------------------------------------------------------------------------------------------- | -------------- | ---------- | ---------------------------------- |
-| F16-S01 | Infra base do live chat — Redis + RabbitMQ + R2 (clientes + topologia de filas)                     | ✅ done        | critical   | —                                  |
-| F16-S02 | Schema multicanal do live chat — channels, channel_secrets, conversations, messages, webhook_events | ✅ done        | critical   | —                                  |
-| F16-S03 | Contratos compartilhados do live chat — discriminated unions + Zod + socket events                  | ✅ done        | critical   | —                                  |
-| F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | ✅ done        | high       | F16-S02, F16-S03                   |
-| F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | ✅ done        | high       | F16-S04                            |
-| F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | ✅ done        | high       | F16-S02, F16-S03, F16-S04          |
-| F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | ✅ done        | high       | F16-S02, F16-S03                   |
-| F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | ✅ done        | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
-| F16-S09 | Worker media — download via adapter, dedup SHA-256, upload R2, media_ready                          | ✅ done        | medium     | F16-S01, F16-S05, F16-S07          |
-| F16-S10 | Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status                  | ✅ done        | high       | F16-S01, F16-S05, F16-S07          |
-| F16-S11 | Canais — connect manual (provider-discriminado, segredo cifrado) + list                             | ✅ done        | high       | F16-S02, F16-S03, F16-S04          |
-| F16-S12 | API conversas (read) — list, get, messages (cursor), window state                                   | ✅ done        | high       | F16-S03, F16-S07                   |
-| F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ✅ done        | high       | F16-S07, F16-S10, F16-S12          |
-| F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ✅ done        | medium     | F16-S01, F16-S03, F16-S07          |
-| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | ✅ done        | high       | F16-S03, F16-S12, F16-S14          |
-| F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | ✅ done        | high       | F16-S15                            |
-| F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | ✅ done        | high       | F16-S15, F16-S13                   |
-| F16-S18 | Composer — upload de mídia (imagem, vídeo, documento, áudio)                                        | ✅ done        | high       | F16-S13, F16-S17                   |
-| F16-S19 | Composer — seletor de template (janela 24h expirada)                                                | ✅ done        | high       | F16-S13, F16-S17                   |
-| F16-S20 | Composer — emoji picker                                                                             | ✅ done        | medium     | F16-S17                            |
-| F16-S21 | Composer — gravação de áudio PTT (push-to-talk)                                                     | ✅ done        | medium     | F16-S18                            |
-| F16-S22 | Inbound dedupe-and-link contato→lead + flag auto-lead                                               | ✅ done        | high       | F16-S07, F16-S08                   |
-| F16-S23 | API vincular/criar lead da conversa (1-clique manual)                                               | ✅ done        | high       | F16-S22                            |
-| F16-S24 | Painel de contato — vínculo de lead e ação criar lead                                               | ✅ done        | high       | F16-S23                            |
-| F16-S25 | Ligar tempo real — registrar socketPlugin + startSocketRelay no boot                                | ✅ done        | critical   | —                                  |
-| F16-S26 | Conversations backend — read emite conversation:updated + PATCH /lead aceita cityId                 | ✅ done        | high       | F16-S25                            |
-| F16-S27 | Front livechat — badge em tempo real, marcar lida ao abrir e Criar lead com cidade                  | ✅ done        | high       | F16-S25, F16-S26                   |
-| F16-S28 | IA no livechat — gate (flag + allowlist de teste) e trigger no inbound                              | ✅ done        | high       | —                                  |
-| F16-S29 | Worker livechat-ai — LangGraph responde no livechat via send service                                | ✅ done        | high       | F16-S28                            |
-| F16-S30 | Handoff real + mensagem de fallback ao cidadão quando a IA falha                                    | ✅ done        | high       | F16-S29                            |
-| F16-S31 | UI livechat — bubble/composer responsivos sem espremer + scrollbar custom                           | ✅ done        | medium     | —                                  |
-| F16-S32 | Permitir criar lead sem city_id no canal IA (remover guard obsoleto)                                | ✅ done        | critical   | —                                  |
-| F16-S33 | Timeout do grafo configurável por env (GRAPH_TIMEOUT_SEC)                                           | ✅ done        | medium     | —                                  |
-| F16-S34 | Worker livechat-ai envia organization_id no request ao LangGraph                                    | ✅ done        | critical   | —                                  |
-| F16-S35 | LangGraph propaga organization_id em todas as chamadas /internal de escrita                         | ✅ done        | critical   | F16-S34                            |
-| F16-S36 | load_state preserva organization_id (não descartar no merge)                                        | ✅ done        | critical   | —                                  |
-| F16-S37 | receive_message extrai organization_id do payload (estado inicial)                                  | ✅ done        | critical   | —                                  |
-| F16-S38 | Sweep org_id — todas as escritas /internal do LangGraph (cities, handoffs, persist, decisions)      | ✅ done        | critical   | —                                  |
-| F16-S39 | Seed do prompt do agente Ana Clara em prompt_versions (key pre_attendance_agent)                    | ✅ done        | critical   | —                                  |
-| F16-S40 | Nó agent_turn (LLM tool-calling) + route_conversation + flag novo×funil                             | ✅ done        | critical   | F16-S39, F16-S42                   |
-| F16-S41 | Saída estruturada {messages:[...]} (≤300) + envio multi-mensagem                                    | ✅ done        | critical   | F16-S40                            |
-| F16-S42 | Estado leve do agente (campos coletados) + popular customer_name do lead                            | ✅ done        | high       | —                                  |
-| F16-S43 | Aposentar o funil determinístico antigo atrás da flag agêntica                                      | 🟢 available   | medium     | F16-S40, F16-S41                   |
-| F16-S44 | Worker livechat-ai itera messages[] do agente (envio multi-mensagem ao WhatsApp)                    | ✅ done        | critical   | F16-S41                            |
-| F16-S45 | Testes conversacionais do agent_turn por cenário (validação pré go-live)                            | ✅ done        | critical   | F16-S40                            |
-| F16-S46 | Fix integração agêntica do pré-atendimento (bugs do smoke real)                                     | ✅ done        | critical   | —                                  |
-| F16-S47 | Fix entrega do reply agêntico (reply channel + messages no response + persist/audit)                | ✅ done        | critical   | —                                  |
-| F16-S48 | Fix correlationId não-UUID no nó log_decision (auditoria final 400)                                 | ✅ done        | high       | —                                  |
-| F16-S49 | Timeout do worker→langgraph muito curto p/ o agente (fallback handoff indevido)                     | 🔵 in-progress | critical   | —                                  |
+| ID      | Título                                                                                              | Status       | Prioridade | Depende de                         |
+| ------- | --------------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------------------------------- |
+| F16-S01 | Infra base do live chat — Redis + RabbitMQ + R2 (clientes + topologia de filas)                     | ✅ done      | critical   | —                                  |
+| F16-S02 | Schema multicanal do live chat — channels, channel_secrets, conversations, messages, webhook_events | ✅ done      | critical   | —                                  |
+| F16-S03 | Contratos compartilhados do live chat — discriminated unions + Zod + socket events                  | ✅ done      | critical   | —                                  |
+| F16-S04 | packages/channels core — IChannelAdapter, graphClient, hmac por-canal, errors                       | ✅ done      | high       | F16-S02, F16-S03                   |
+| F16-S05 | Adapter Meta WhatsApp — webhook.parser + serializer + adapter + códigos de erro WA                  | ✅ done      | high       | F16-S04                            |
+| F16-S06 | Webhook Meta (Fastify) — verify por-app, HMAC por-canal, dedup, publish inbound                     | ✅ done      | high       | F16-S02, F16-S03, F16-S04          |
+| F16-S07 | Domínio livechat — repository + service de persistência (contact/conversation/message + janela)     | ✅ done      | high       | F16-S02, F16-S03                   |
+| F16-S08 | Worker inbound — consome fila, parseia, persiste e publica socket relay                             | ✅ done      | high       | F16-S01, F16-S05, F16-S06, F16-S07 |
+| F16-S09 | Worker media — download via adapter, dedup SHA-256, upload R2, media_ready                          | ✅ done      | medium     | F16-S01, F16-S05, F16-S07          |
+| F16-S10 | Worker outbound — FIFO lock por conversa, dispatch por provider, send, view_status                  | ✅ done      | high       | F16-S01, F16-S05, F16-S07          |
+| F16-S11 | Canais — connect manual (provider-discriminado, segredo cifrado) + list                             | ✅ done      | high       | F16-S02, F16-S03, F16-S04          |
+| F16-S12 | API conversas (read) — list, get, messages (cursor), window state                                   | ✅ done      | high       | F16-S03, F16-S07                   |
+| F16-S13 | API envio de mensagem — valida janela 24h, idempotência, signed-url, enfileira outbound             | ✅ done      | high       | F16-S07, F16-S10, F16-S12          |
+| F16-S14 | Socket server + relay — Socket.io no Fastify, auth, rooms, consumo de socket.relay                  | ✅ done      | medium     | F16-S01, F16-S03, F16-S07          |
+| F16-S15 | Web — camada de dados + realtime (queries, types, SocketProvider, rota)                             | ✅ done      | high       | F16-S03, F16-S12, F16-S14          |
+| F16-S16 | Web — Inbox: layout 3 colunas + ChatList (filtros, busca, scroll infinito, realtime)                | ✅ done      | high       | F16-S15                            |
+| F16-S17 | Web — Conversa: MessageBubble (todos os tipos) + Composer + envio + janela 24h                      | ✅ done      | high       | F16-S15, F16-S13                   |
+| F16-S18 | Composer — upload de mídia (imagem, vídeo, documento, áudio)                                        | ✅ done      | high       | F16-S13, F16-S17                   |
+| F16-S19 | Composer — seletor de template (janela 24h expirada)                                                | ✅ done      | high       | F16-S13, F16-S17                   |
+| F16-S20 | Composer — emoji picker                                                                             | ✅ done      | medium     | F16-S17                            |
+| F16-S21 | Composer — gravação de áudio PTT (push-to-talk)                                                     | ✅ done      | medium     | F16-S18                            |
+| F16-S22 | Inbound dedupe-and-link contato→lead + flag auto-lead                                               | ✅ done      | high       | F16-S07, F16-S08                   |
+| F16-S23 | API vincular/criar lead da conversa (1-clique manual)                                               | ✅ done      | high       | F16-S22                            |
+| F16-S24 | Painel de contato — vínculo de lead e ação criar lead                                               | ✅ done      | high       | F16-S23                            |
+| F16-S25 | Ligar tempo real — registrar socketPlugin + startSocketRelay no boot                                | ✅ done      | critical   | —                                  |
+| F16-S26 | Conversations backend — read emite conversation:updated + PATCH /lead aceita cityId                 | ✅ done      | high       | F16-S25                            |
+| F16-S27 | Front livechat — badge em tempo real, marcar lida ao abrir e Criar lead com cidade                  | ✅ done      | high       | F16-S25, F16-S26                   |
+| F16-S28 | IA no livechat — gate (flag + allowlist de teste) e trigger no inbound                              | ✅ done      | high       | —                                  |
+| F16-S29 | Worker livechat-ai — LangGraph responde no livechat via send service                                | ✅ done      | high       | F16-S28                            |
+| F16-S30 | Handoff real + mensagem de fallback ao cidadão quando a IA falha                                    | ✅ done      | high       | F16-S29                            |
+| F16-S31 | UI livechat — bubble/composer responsivos sem espremer + scrollbar custom                           | ✅ done      | medium     | —                                  |
+| F16-S32 | Permitir criar lead sem city_id no canal IA (remover guard obsoleto)                                | ✅ done      | critical   | —                                  |
+| F16-S33 | Timeout do grafo configurável por env (GRAPH_TIMEOUT_SEC)                                           | ✅ done      | medium     | —                                  |
+| F16-S34 | Worker livechat-ai envia organization_id no request ao LangGraph                                    | ✅ done      | critical   | —                                  |
+| F16-S35 | LangGraph propaga organization_id em todas as chamadas /internal de escrita                         | ✅ done      | critical   | F16-S34                            |
+| F16-S36 | load_state preserva organization_id (não descartar no merge)                                        | ✅ done      | critical   | —                                  |
+| F16-S37 | receive_message extrai organization_id do payload (estado inicial)                                  | ✅ done      | critical   | —                                  |
+| F16-S38 | Sweep org_id — todas as escritas /internal do LangGraph (cities, handoffs, persist, decisions)      | ✅ done      | critical   | —                                  |
+| F16-S39 | Seed do prompt do agente Ana Clara em prompt_versions (key pre_attendance_agent)                    | ✅ done      | critical   | —                                  |
+| F16-S40 | Nó agent_turn (LLM tool-calling) + route_conversation + flag novo×funil                             | ✅ done      | critical   | F16-S39, F16-S42                   |
+| F16-S41 | Saída estruturada {messages:[...]} (≤300) + envio multi-mensagem                                    | ✅ done      | critical   | F16-S40                            |
+| F16-S42 | Estado leve do agente (campos coletados) + popular customer_name do lead                            | ✅ done      | high       | —                                  |
+| F16-S43 | Aposentar o funil determinístico antigo atrás da flag agêntica                                      | 🟢 available | medium     | F16-S40, F16-S41                   |
+| F16-S44 | Worker livechat-ai itera messages[] do agente (envio multi-mensagem ao WhatsApp)                    | ✅ done      | critical   | F16-S41                            |
+| F16-S45 | Testes conversacionais do agent_turn por cenário (validação pré go-live)                            | ✅ done      | critical   | F16-S40                            |
+| F16-S46 | Fix integração agêntica do pré-atendimento (bugs do smoke real)                                     | ✅ done      | critical   | —                                  |
+| F16-S47 | Fix entrega do reply agêntico (reply channel + messages no response + persist/audit)                | ✅ done      | critical   | —                                  |
+| F16-S48 | Fix correlationId não-UUID no nó log_decision (auditoria final 400)                                 | ✅ done      | high       | —                                  |
+| F16-S49 | Timeout do worker→langgraph muito curto p/ o agente (fallback handoff indevido)                     | 🟣 review    | critical   | —                                  |
 
 ## Fase 17 —
 

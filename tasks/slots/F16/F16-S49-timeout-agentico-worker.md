@@ -3,12 +3,12 @@ id: F16-S49
 title: Timeout do worker→langgraph muito curto p/ o agente (fallback handoff indevido)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: in-progress
+status: review
 priority: critical
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-19T14:57:46Z
-completed_at: null
+completed_at: 2026-06-19T15:02:52Z
 pr_url: null
 depends_on: []
 blocks: []
