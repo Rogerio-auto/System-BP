@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 48    | 2   | 0   | 0   | 0   | 0   | 46  |
+| F16  | 48    | 1   | 0   | 0   | 0   | 1   | 46  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -218,7 +218,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S45 | Testes conversacionais do agent_turn por cenário (validação pré go-live)                            | ✅ done      | critical   | F16-S40                            |
 | F16-S46 | Fix integração agêntica do pré-atendimento (bugs do smoke real)                                     | ✅ done      | critical   | —                                  |
 | F16-S47 | Fix entrega do reply agêntico (reply channel + messages no response + persist/audit)                | ✅ done      | critical   | —                                  |
-| F16-S48 | Fix correlationId não-UUID no nó log_decision (auditoria final 400)                                 | 🟢 available | high       | —                                  |
+| F16-S48 | Fix correlationId não-UUID no nó log_decision (auditoria final 400)                                 | 🟣 review    | high       | —                                  |
 
 ## Fase 17 —
 

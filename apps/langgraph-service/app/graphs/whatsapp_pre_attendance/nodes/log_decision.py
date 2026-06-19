@@ -166,22 +166,22 @@ async def log_decision(state: ConversationState) -> dict[str, Any]:
         state.get("organization_id")
         or _get_context_str("organization_id", _UNKNOWN_ORG)
     )
-    # F16-S46 BUG-B: correlation_id DEVE ser UUID valido (Zod .uuid() no backend).
-    # Precedencia: (1) structlog context, (2) conversation_id do state (ja e UUID),
-    # (3) uuid novo gerado (ultimo recurso -- garante nunca enviar "unknown").
-    correlation_id_raw = _get_context_str("correlation_id", "")
-    if not correlation_id_raw:
-        # Fallback para conversation_id (UUID garantido pelo inbound schema)
-        correlation_id_raw = conversation_id
-    if not correlation_id_raw:
-        # Ultimo recurso: gera UUID novo para garantir registro do turno
-        correlation_id_raw = str(uuid.uuid4())
-        log.warning(
-            "log_decision_generated_correlation_id",
-            conversation_id=conversation_id,
-            note="correlation_id ausente no contexto structlog e no state; gerado novo UUID",
-        )
-    correlation_id = correlation_id_raw
+    # F16-S46/S48 BUG-B: correlationId DEVE ser UUID valido (Zod .uuid() no backend).
+    # O correlation_id do contexto structlog e "livechat_msg_<uuid>" (NAO e UUID puro),
+    # entao so o usamos se for UUID valido; senao preferimos conversation_id (UUID
+    # garantido pelo inbound schema), com uuid4() como ultimo recurso. Isso espelha o
+    # agent_turn (que ja usa conversation_id) e evita o 400 "correlationId deve ser UUID".
+    def _as_uuid_or_none(v: str) -> str | None:
+        try:
+            return str(uuid.UUID(v))
+        except (ValueError, AttributeError, TypeError):
+            return None
+
+    correlation_id = (
+        _as_uuid_or_none(_get_context_str("correlation_id", ""))
+        or _as_uuid_or_none(conversation_id)
+        or str(uuid.uuid4())
+    )
 
     tool_results: list[dict[str, Any]] = list(state.get("tool_results") or [])
 
