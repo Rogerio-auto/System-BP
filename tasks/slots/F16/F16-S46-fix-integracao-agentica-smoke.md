@@ -3,11 +3,11 @@ id: F16-S46
 title: Fix integração agêntica do pré-atendimento (bugs do smoke real)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-19T00:23:59Z
 completed_at: null
 pr_url: null
 depends_on: []
