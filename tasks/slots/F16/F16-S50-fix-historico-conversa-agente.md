@@ -3,13 +3,13 @@ id: F16-S50
 title: Fix histórico conversacional do agente (mensagem nova descartada + assistant truncado)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-19T15:22:28Z
 completed_at: 2026-06-19T15:33:50Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/340
 depends_on: []
 blocks: []
 labels: []
