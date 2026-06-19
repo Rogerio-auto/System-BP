@@ -11,6 +11,7 @@ LGPD (doc 17 par.8.4):
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any
 
@@ -361,6 +362,70 @@ def _build_state_context(state: ConversationState) -> str:
     return chr(10).join(parts) if parts else "Nenhum dado coletado ainda nesta sessao."
 
 
+# Regex para extrair bloco JSON de um bloco de codigo markdown (```json ... ```)
+_MD_JSON_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
+
+
+def _parse_agent_output(raw: str) -> tuple[str, list[str]]:
+    """Extrai texto e lista de mensagens do output bruto do LLM (F16-S46 BUG-A).
+
+    O prompt Ana Clara instrui o modelo a responder com:
+        {"messages": ["Mensagem 1", "Mensagem 2"]}
+
+    Esta funcao normaliza 3 formatos possiveis:
+
+    1. JSON puro: '{"messages": ["..."]}' -> extrai lista messages[].
+    2. JSON em bloco markdown: '```json\\n{"messages": [...]}\\n```' -> limpa e extrai.
+    3. Texto puro (fallback): retorna o texto como lista com 1 elemento.
+
+    Args:
+        raw: Conteudo bruto de resp.content do gateway.
+
+    Returns:
+        Tupla (fin, messages) onde:
+        - fin: primeira mensagem (retrocompatibilidade com reply.content)
+        - messages: lista de strings para send_response (pode ser [fin] se 1 msg)
+
+    LGPD: nao aplica transformacao de PII -- o DLP foi aplicado antes pelo gateway.
+    """
+    if not raw or not raw.strip():
+        return "", []
+
+    text = raw.strip()
+
+    # Tentativa 1: extrair JSON de bloco markdown
+    md_match = _MD_JSON_RE.search(text)
+    if md_match:
+        text = md_match.group(1).strip()
+
+    # Tentativa 2: parsear como JSON
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            msgs = parsed.get("messages")
+            if isinstance(msgs, list) and msgs:
+                # Filtrar so strings nao-vazias
+                str_msgs: list[str] = [
+                    str(m).strip() for m in msgs if isinstance(m, str) and str(m).strip()
+                ]
+                if str_msgs:
+                    return str_msgs[0], str_msgs
+            # JSON valido mas sem messages[] -- usa repr do valor como texto
+            # (nao deve acontecer com o prompt atual; fallback defensivo)
+            _parsed_type = type(parsed).__name__
+            _parsed_keys = list(parsed.keys()) if isinstance(parsed, dict) else _parsed_type
+            log.warning(
+                "agent_turn_json_no_messages",
+                parsed_keys=_parsed_keys,
+            )
+    except (json.JSONDecodeError, ValueError):
+        # Nao e JSON -- path de texto puro (fallback ou modelo que nao seguiu o prompt)
+        pass
+
+    # Fallback: texto puro -- retorna como mensagem unica
+    return text, [text]
+
+
 async def agent_turn(state: ConversationState) -> dict[str, Any]:
     start = time.monotonic()
     conversation_id: str = state.get("conversation_id", "")
@@ -430,6 +495,8 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
         schemas = _build_tool_schemas()
         tc_n = 0
         fin: str = ""
+        # F16-S46 BUG-A: lista de mensagens parseadas do JSON {"messages": [...]}
+        parsed_messages: list[str] = []
         hf_tool: bool = False
         fr: str = "stop"
 
@@ -535,14 +602,16 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
                         metadata={"node": "agent_turn", "phase": "cap"},
                         conversation_id=conversation_id,
                     )
-                    fin = cap_resp.content or ""
-                    msgs.append({"role": "assistant", "content": fin})
+                    # F16-S46 BUG-A: parsear {"messages":[...]} do output do modelo.
+                    fin, parsed_messages = _parse_agent_output(cap_resp.content or "")
+                    msgs.append({"role": "assistant", "content": fin or (cap_resp.content or "")})
                     break
                 continue
 
             else:
-                fin = resp.content or ""
-                msgs.append({"role": "assistant", "content": fin})
+                # F16-S46 BUG-A: parsear {"messages":[...]} do output do modelo.
+                fin, parsed_messages = _parse_agent_output(resp.content or "")
+                msgs.append({"role": "assistant", "content": fin or (resp.content or "")})
                 break
 
         su = _extract_state_updates(tool_results_this_turn)
@@ -588,6 +657,21 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
             latency_ms=round(lat, 1),
             handoff_from_tool=hf_tool,
         )
+        # F16-S46 BUG-A: construir reply_content a partir das mensagens parseadas.
+        # Se o modelo retornou {"messages": ["A", "B"]}, juntamos com \n\n para
+        # que send_response._content_to_messages (que splitta por \n\n) re-derive
+        # a lista correta de mensagens individuais para o cliente.
+        # Fallback: fin sozinho (texto puro ou JSON nao-reconhecido).
+        reply_content: str = (chr(10) + chr(10)).join(parsed_messages) if parsed_messages else fin
+        log.info(
+            "agent_turn_reply_content",
+            conversation_id=conversation_id,
+            lead_id=lead_id,
+            parsed_messages_count=len(parsed_messages),
+            reply_content_length=len(reply_content),
+            fin_is_empty=not bool(fin),
+        )
+
         nm = msgs[1:]
         res: dict[str, Any] = {
             "messages": nm,
@@ -611,9 +695,12 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
                 if hf_tool
                 else state.get("handoff_reason")
             ),
+            # F16-S46 BUG-A: reply.content contem as msgs parseadas do JSON do modelo
+            # unidas por \n\n -- send_response._content_to_messages vai re-splitar
+            # e gerar messages[] correto para o cliente WhatsApp.
             "reply": {
-                "type": "text" if fin else "none",
-                "content": fin,
+                "type": "text" if reply_content else "none",
+                "content": reply_content,
                 "template_name": None,
                 "template_variables": None,
             },

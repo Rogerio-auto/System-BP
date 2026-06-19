@@ -89,16 +89,52 @@ async def persist_state(state: ConversationState) -> dict[str, Any]:
     path = f"/internal/conversations/{conversation_id}/state"
 
     try:
-        # InternalApiClient._request aceita qualquer método HTTP; PUT não tem
-        # método público dedicado ainda, mas o mecanismo interno é idêntico.
-        # phone é obrigatório pelo UpsertConversationStateBodySchema (NOT NULL no DB).
-        # organization_id é obrigatório (sem JWT no canal M2M).
+        # phone e organization_id sao obrigatorios pelo backend (NOT NULL / .uuid()).
+        # F16-S46 BUG-C: no path agentico, organization_id pode chegar como ""
+        # (string vazia -- nao None) quando o merge do LangGraph nao propagou
+        # corretamente os campos do load_state. Verificar antes de incluir no body.
         body: dict[str, object] = {
             "state": snapshot,
-            "phone": phone,
         }
-        if organization_id is not None:
+        if phone:
+            body["phone"] = phone
+        else:
+            # phone vazio: tenta recuperar do snapshot serializado
+            snap_phone: object = snapshot.get("phone", "")
+            if snap_phone:
+                body["phone"] = snap_phone
+                log.info(
+                    "persist_state_phone_from_snapshot",
+                    conversation_id=conversation_id,
+                    note="phone recuperado do snapshot serializado",
+                )
+            else:
+                log.warning(
+                    "persist_state_phone_empty",
+                    conversation_id=conversation_id,
+                    lead_id=lead_id,
+                    note="phone vazio: PUT provavelmente retornara 400",
+                )
+        # organization_id: incluir apenas se nao-vazio (string vazia != None no Zod .uuid())
+        if organization_id:
             body["organization_id"] = organization_id
+        elif organization_id is not None:
+            # string vazia -- tenta recuperar do snapshot
+            snap_org: object = snapshot.get("organization_id", "")
+            if snap_org:
+                body["organization_id"] = snap_org
+                log.info(
+                    "persist_state_org_from_snapshot",
+                    conversation_id=conversation_id,
+                    note="organization_id recuperado do snapshot serializado",
+                )
+            else:
+                log.warning(
+                    "persist_state_org_empty",
+                    conversation_id=conversation_id,
+                    lead_id=lead_id,
+                    note="organization_id vazio: PUT provavelmente retornara 400",
+                )
         await client._request("PUT", path, json=body)
         latency_ms = (time.monotonic_ns() - start_ns) // 1_000_000
 
