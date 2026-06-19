@@ -96,13 +96,19 @@ async def persist_state(state: ConversationState) -> dict[str, Any]:
         body: dict[str, object] = {
             "state": snapshot,
         }
+        # F16-S47 BUG-4: o schema do PUT /state exige phone "apenas digitos"
+        # (sem '+'), mas o inbound usa E.164 com '+'. Normaliza removendo o '+'
+        # inicial antes de enviar -- senao 400 "phone deve conter apenas digitos".
+        def _digits_only(p: str) -> str:
+            return p[1:] if p.startswith("+") else p
+
         if phone:
-            body["phone"] = phone
+            body["phone"] = _digits_only(phone)
         else:
             # phone vazio: tenta recuperar do snapshot serializado
             snap_phone: object = snapshot.get("phone", "")
-            if snap_phone:
-                body["phone"] = snap_phone
+            if isinstance(snap_phone, str) and snap_phone:
+                body["phone"] = _digits_only(snap_phone)
                 log.info(
                     "persist_state_phone_from_snapshot",
                     conversation_id=conversation_id,

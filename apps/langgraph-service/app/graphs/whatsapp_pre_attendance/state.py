@@ -132,6 +132,13 @@ class ConversationState(TypedDict, total=False):
     # NUNCA armazenar o CPF em si no estado — apenas este booleano
     cpf_collected: bool
 
+    # Reply do turno produzido por um nó (agent_turn no path agêntico; nós do
+    # funil no path determinístico). DEVE ser um channel declarado, senão o
+    # LangGraph descarta a chave entre nós e o send_response não a enxerga
+    # (bug do 2º smoke F16-S47). send_response lê este campo para compor o reply
+    # final; pode ser dict ({type,content,...}) no path agêntico ou str no funil.
+    reply: dict[str, Any] | str | None
+
 
 # ---------------------------------------------------------------------------
 # Serialização

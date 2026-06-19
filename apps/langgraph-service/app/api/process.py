@@ -200,6 +200,26 @@ def _extract_reply(state: ConversationState) -> ReplyPayload:
     return ReplyPayload(type="none", content="")
 
 
+def _extract_messages(state: ConversationState) -> list[str]:
+    """Extrai o array ``messages`` (multi-mensagem) do estado final.
+
+    O nó ``send_response`` (F16-S41) registra ``messages`` no ``tool_results``
+    com ``node="send_response"``. Sem esta extração, o ``WhatsAppMessageResponse``
+    nasceria com ``messages=[]`` e o worker (F16-S44) cairia no fallback de 1 só
+    mensagem (bug do 2º smoke F16-S47).
+
+    Retorna lista vazia se nenhum ``messages`` foi produzido (funil/flag OFF).
+    """
+    tool_results: list[dict[str, Any]] = list(state.get("tool_results") or [])
+    for entry in reversed(tool_results):
+        if entry.get("node") == "send_response" and "messages" in entry:
+            raw = entry.get("messages")
+            if isinstance(raw, list):
+                return [str(m) for m in raw if isinstance(m, str) and m]
+            return []
+    return []
+
+
 def _extract_actions(state: ConversationState) -> list[ActionItem]:
     """Extrai ``actions_emitted`` do estado e mapeia para ``ActionItem``."""
     raw_actions: list[dict[str, Any]] = list(state.get("actions_emitted") or [])
@@ -450,6 +470,7 @@ async def process_whatsapp_message(
         conversation_id=payload.conversation_id,
         lead_id=final_state.get("lead_id"),
         reply=_extract_reply(final_state),
+        messages=_extract_messages(final_state),
         actions=_extract_actions(final_state),
         handoff=_extract_handoff(final_state),
         state=_extract_state_snapshot(final_state),
