@@ -221,9 +221,10 @@ export async function processJob(
   const botActor: SendActorContext = makeBotActor(organizationId);
 
   if (aiResponse.messages.length > 0) {
-    // Pipeline agentica: N mensagens curtas em sequencia
-    for (let i = 0; i < aiResponse.messages.length; i++) {
-      const msgContent = aiResponse.messages[i];
+    // Pipeline agentica: N mensagens curtas em sequencia.
+    // .entries() dá [indice, conteudo] com conteudo tipado como string
+    // (evita string|undefined do noUncheckedIndexedAccess no acesso por indice).
+    for (const [i, msgContent] of aiResponse.messages.entries()) {
       // Idempotency key unica por indice: evita deduplicacao entre mensagens distintas
       const idempKey = `ai_reply_${messageId}_${i}`;
       try {
@@ -359,7 +360,11 @@ async function startConsumer(
 async function main(): Promise<void> {
   log.info('livechat-ai: starting worker');
   await connectRabbitMQ();
-  const consumerTag = await startConsumer(defaultDb);
+  // F16-S49: timeout configurável p/ o LangGraph. O turno agêntico é mais lento
+  // que o funil; 8s (default do client) causava fallback de handoff indevido.
+  const consumerTag = await startConsumer(defaultDb, {
+    timeoutMs: env.LANGGRAPH_AI_TIMEOUT_MS,
+  });
 
   const shutdown = async (signal: string): Promise<void> => {
     log.info({ signal }, 'livechat-ai: shutdown signal received — draining');
