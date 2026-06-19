@@ -3,13 +3,13 @@ id: F16-S46
 title: Fix integração agêntica do pré-atendimento (bugs do smoke real)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-19T00:23:59Z
 completed_at: 2026-06-19T05:11:39Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/336
 depends_on: []
 blocks: []
 labels: [lgpd-impact]
