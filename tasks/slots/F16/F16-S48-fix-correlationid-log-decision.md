@@ -3,13 +3,13 @@ id: F16-S48
 title: Fix correlationId não-UUID no nó log_decision (auditoria final 400)
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-19T14:11:12Z
 completed_at: 2026-06-19T14:13:16Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/338
 depends_on: []
 blocks: []
 labels: [lgpd-impact]
