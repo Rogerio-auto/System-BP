@@ -439,7 +439,9 @@ class TestPersistStateBugC:
         assert route.called
         body: dict[str, Any] = json.loads(route.calls.last.request.content)
         # Campos obrigatorios devem estar no body
-        assert body.get("phone") == _PHONE, "phone deve estar no body do PUT"
+        # F16-S47 BUG-4: persist_state normaliza o phone removendo o '+' (E.164 -> digitos),
+        # pois o schema do PUT /state exige "apenas digitos".
+        assert body.get("phone") == _PHONE.lstrip("+"), "phone (digitos) deve estar no body do PUT"
         assert body.get("organization_id") == org_id, "organization_id deve estar no body do PUT"
         assert result.get("handoff_required") is not True
 

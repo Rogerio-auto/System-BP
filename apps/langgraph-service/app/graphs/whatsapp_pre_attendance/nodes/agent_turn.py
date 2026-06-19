@@ -628,7 +628,9 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
                 {
                     "organization_id": org_id_early,
                     "conversation_id": conversation_id,
-                    "lead_id": lead_id or "",
+                    # F16-S47 BUG-3: lead_id deve ser None (omitido) quando ausente.
+                    # "" falha a validacao .uuid() do backend -> 400 "leadId deve ser UUID".
+                    "lead_id": lead_id,
                     "node_name": "agent_turn",
                     "decision": {
                         "tool_calls": tc_n,

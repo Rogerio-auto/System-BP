@@ -298,6 +298,8 @@ class TestKnownKeys:
             "collection_status",
             "handoff_active",
             "cpf_collected",
+            # Reply channel (F16-S47) — necessário para propagar agent_turn→send_response
+            "reply",
         ]
     )
 
@@ -306,5 +308,5 @@ class TestKnownKeys:
         assert _KNOWN_KEYS == self.EXPECTED_KEYS
 
     def test_known_keys_count(self) -> None:
-        """29 campos: 22 originais + 7 do estado leve do agente (F16-S42)."""
-        assert len(_KNOWN_KEYS) == 29
+        """30 campos: 22 originais + 7 do estado leve (F16-S42) + reply (F16-S47)."""
+        assert len(_KNOWN_KEYS) == 30
