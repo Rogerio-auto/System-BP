@@ -394,6 +394,29 @@ describe('sendMessage', () => {
     );
   });
 
+  it('sucesso: publica socket relay message:new (outbound) — realtime do agente (F16-S51)', async () => {
+    await sendMessage(
+      fakeDb,
+      makeActorContext(),
+      CONV_ID,
+      { type: 'text', content: 'Olá!' },
+      IDEMPOTENCY_KEY,
+    );
+
+    expect(mockedPublish).toHaveBeenCalledWith(
+      expect.stringContaining('socket.relay'),
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          event: 'message:new',
+          data: expect.objectContaining({
+            conversationId: CONV_ID,
+            direction: 'outbound',
+          }),
+        }),
+      }),
+    );
+  });
+
   it('janela template_only (WA): lança WindowClosedError 422 para type=text', async () => {
     mockedGetComposerState.mockReturnValue(closedWindowTemplateOnly('meta_whatsapp'));
 

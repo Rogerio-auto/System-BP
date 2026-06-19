@@ -3,12 +3,12 @@ id: F16-S51
 title: sendMessage emite message:new (outbound) — mensagens do agente aparecem ao vivo no live chat
 phase: F16
 task_ref: docs/planejamento-fluxo-conversacional-pre-atendimento.md
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-19T15:37:15Z
+completed_at: 2026-06-19T15:41:44Z
 pr_url: null
 depends_on: []
 blocks: []

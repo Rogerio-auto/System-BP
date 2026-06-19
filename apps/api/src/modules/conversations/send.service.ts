@@ -316,6 +316,30 @@ export async function sendMessage(
     }),
   );
 
+  // 7b. Socket relay — message:new (F16-S51): sem isso, as mensagens OUTBOUND
+  //     (inclusive as do agente de IA, enviadas pelo worker livechat-ai uma por
+  //     mensagem do messages[]) não apareciam ao vivo no live chat — o front só
+  //     refaz o fetch da conversa aberta no evento message:new (handleMessageNew),
+  //     que o inbound já emite. Espelha o payload do inbound, direction='outbound',
+  //     SEM content (LGPD — só IDs/tipo/timestamp; o front busca o conteúdo).
+  await publish(
+    QUEUES.socketRelay,
+    makeEnvelope(QUEUES.socketRelay, actor.organizationId, {
+      room: `workspace:${actor.organizationId}`,
+      event: 'message:new',
+      data: {
+        messageId: message.id,
+        conversationId,
+        channelId: conversation.channelId,
+        organizationId: actor.organizationId,
+        messageType,
+        direction: 'outbound',
+        hasMedia: false,
+        createdAt: new Date().toISOString(),
+      },
+    }),
+  );
+
   log.info(
     { organizationId: actor.organizationId, conversationId, messageId: message.id, messageType },
     'send.service: message queued',
