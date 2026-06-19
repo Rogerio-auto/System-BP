@@ -15,7 +15,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F13  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F14  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F15  | 12    | 0   | 1   | 0   | 0   | 0   | 11  |
-| F16  | 45    | 1   | 0   | 0   | 0   | 0   | 44  |
+| F16  | 46    | 2   | 0   | 0   | 0   | 0   | 44  |
 | F17  | 14    | 0   | 0   | 0   | 0   | 0   | 14  |
 | F18  | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
@@ -216,6 +216,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F16-S43 | Aposentar o funil determinístico antigo atrás da flag agêntica                                      | 🟢 available | medium     | F16-S40, F16-S41                   |
 | F16-S44 | Worker livechat-ai itera messages[] do agente (envio multi-mensagem ao WhatsApp)                    | ✅ done      | critical   | F16-S41                            |
 | F16-S45 | Testes conversacionais do agent_turn por cenário (validação pré go-live)                            | ✅ done      | critical   | F16-S40                            |
+| F16-S46 | Fix integração agêntica do pré-atendimento (bugs do smoke real)                                     | 🟢 available | critical   | —                                  |
 
 ## Fase 17 —
 
