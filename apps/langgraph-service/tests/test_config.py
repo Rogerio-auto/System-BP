@@ -33,7 +33,8 @@ def _reload_settings(env_patch: dict[str, str]) -> object:
 
 
 def test_graph_timeout_sec_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Default é 8.0 quando GRAPH_TIMEOUT_SEC não está no ambiente (doc 06 §4.4)."""
+    """Default é 20.0 quando GRAPH_TIMEOUT_SEC não está no ambiente (F16-S49:
+    8.0 era curto p/ o pré-atendimento agêntico; subiu p/ 20.0)."""
     monkeypatch.delenv("GRAPH_TIMEOUT_SEC", raising=False)
     _reload_settings({})
 
@@ -41,7 +42,7 @@ def test_graph_timeout_sec_default(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Precisa reimportar após reload
     importlib.reload(cfg)
-    assert cfg.settings.graph_timeout_sec == pytest.approx(8.0)
+    assert cfg.settings.graph_timeout_sec == pytest.approx(20.0)
 
 
 def test_graph_timeout_sec_override(monkeypatch: pytest.MonkeyPatch) -> None:
