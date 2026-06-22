@@ -83,9 +83,24 @@ if (-not (Test-Path $VenvPython)) {
 # ---------------------------------------------------------------------------
 # 4. Checa porta livre
 # ---------------------------------------------------------------------------
-$listening = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-if ($listening) {
-    $pidOnPort = ($listening | Select-Object -First 1).OwningProcess
+# NAO usar Get-NetTCPConnection: em algumas maquinas Windows ele pendura
+# indefinidamente (depende do provider WMI MSFT_NetTCPConnection, que pode
+# travar). netstat -ano responde em ~0.07s e ainda entrega o PID.
+function Get-PidOnPort {
+    param([int]$Port)
+    $pattern = ':' + $Port + '\s'
+    $line = netstat -ano -p TCP |
+        Select-String -Pattern $pattern |
+        Where-Object { $_ -match 'LISTENING' } |
+        Select-Object -First 1
+    if (-not $line) { return $null }
+    # Ultima coluna da linha do netstat e o PID.
+    $cols = ($line.ToString().Trim() -split '\s+')
+    return [int]$cols[-1]
+}
+
+$pidOnPort = Get-PidOnPort -Port $Port
+if ($pidOnPort) {
     $procName = (Get-Process -Id $pidOnPort -ErrorAction SilentlyContinue).ProcessName
     $portInfo = "porta $Port ocupada por PID $pidOnPort ($procName)"
 
@@ -93,7 +108,7 @@ if ($listening) {
         Write-Host "[dev.ps1] $portInfo -- derrubando (Force)..." -ForegroundColor Yellow
         Stop-Process -Id $pidOnPort -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 1
-        if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) {
+        if (Get-PidOnPort -Port $Port) {
             Write-Host "[dev.ps1] ERRO: nao consegui liberar a porta $Port." -ForegroundColor Red
             exit 1
         }

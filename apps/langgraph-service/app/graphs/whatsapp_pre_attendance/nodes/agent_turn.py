@@ -194,6 +194,17 @@ async def _dispatch_tool(
                 GetOrCreateLeadInput,
                 get_or_create_lead,
             )
+            # Telefone autoritativo: vem SEMPRE do estado (numero real do cliente),
+            # nunca do LLM. O DLP redige o telefone antes do modelo ver, entao o LLM
+            # so chutaria (ex.: +55000...0000) -> lead com telefone errado / 400.
+            phone_state: str = state.get("phone", "") or ""
+            if phone_state:
+                tool_args = {**tool_args, "phone": phone_state}
+            # Nome inicial = push name do WhatsApp (state.customer_name) quando o LLM
+            # ainda nao coletou o nome real. Evita lead "Desconhecido" no CRM e o 400
+            # de name="". update_lead_profile sobrescreve com o nome real depois.
+            if not tool_args.get("name") and state.get("customer_name"):
+                tool_args = {**tool_args, "name": state["customer_name"]}
             inp = GetOrCreateLeadInput(**tool_args)
             result = await get_or_create_lead.ainvoke(inp.model_dump())
             return _dump(result)
