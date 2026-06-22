@@ -22,6 +22,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2   | 11     | 0   | 0   | 0   | 0   | 0   | 11   |
 | F20   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F21   | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
+| F22   | 2     | 2   | 0   | 0   | 0   | 0   | 0   |
 | F3   | 38     | 0   | 0   | 0   | 0   | 0   | 38   |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16     | 0   | 0   | 0   | 0   | 0   | 16   |
@@ -308,6 +309,13 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F21-S02 | Ajuda — revisar e enriquecer guias de Live Chat e Agente de IA  | ✅ done | medium     | —          |
 | F21-S03 | Ajuda — revisar e enriquecer guias de Contratos e Boletos       | ✅ done | low        | —          |
 | F21-S04 | Ajuda — revisar e enriquecer guias de Cobrança, SPC e Advocacia | ✅ done | low        | —          |
+
+## Fase 22 —
+
+| ID      | Título                                                                          | Status      | Prioridade | Depende de |
+| ------- | ------------------------------------------------------------------------------- | ----------- | ---------- | ---------- |
+| F22-S01 | Backend — hardening de isolamento e headers (auditoria de segurança 2026-06-22) | 🟢 available | high       | —          |
+| F22-S02 | Backend — remediação de CVE em dependências runtime (drizzle-orm, xlsx)         | 🟢 available | high       | —          |
 
 ## Fase 3 — Agentes IA
 
