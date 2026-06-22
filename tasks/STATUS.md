@@ -21,7 +21,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F19  | 6     | 0   | 0   | 0   | 0   | 0   | 6   |
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F20  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
-| F21  | 4     | 3   | 0   | 0   | 1   | 0   | 0   |
+| F21  | 4     | 3   | 0   | 0   | 0   | 1   | 0   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -302,12 +302,12 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 21 —
 
-| ID      | Título                                                          | Status         | Prioridade | Depende de |
-| ------- | --------------------------------------------------------------- | -------------- | ---------- | ---------- |
-| F21-S01 | Ajuda — revisar e enriquecer guias de Análise de crédito        | 🟢 available   | medium     | —          |
-| F21-S02 | Ajuda — revisar e enriquecer guias de Live Chat e Agente de IA  | 🟢 available   | medium     | —          |
-| F21-S03 | Ajuda — revisar e enriquecer guias de Contratos e Boletos       | 🟢 available   | low        | —          |
-| F21-S04 | Ajuda — revisar e enriquecer guias de Cobrança, SPC e Advocacia | 🔵 in-progress | low        | —          |
+| ID      | Título                                                          | Status       | Prioridade | Depende de |
+| ------- | --------------------------------------------------------------- | ------------ | ---------- | ---------- |
+| F21-S01 | Ajuda — revisar e enriquecer guias de Análise de crédito        | 🟢 available | medium     | —          |
+| F21-S02 | Ajuda — revisar e enriquecer guias de Live Chat e Agente de IA  | 🟢 available | medium     | —          |
+| F21-S03 | Ajuda — revisar e enriquecer guias de Contratos e Boletos       | 🟢 available | low        | —          |
+| F21-S04 | Ajuda — revisar e enriquecer guias de Cobrança, SPC e Advocacia | 🟣 review    | low        | —          |
 
 ## Fase 3 — Agentes IA
 
