@@ -3,11 +3,11 @@ id: F22-S03
 title: Infra — corrige E2E Smoke quebrado (tsbuildinfo stale na imagem Docker)
 phase: F22
 task_ref: docs/sessions/2026-06-22-security-audit.md
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-22T23:58:47Z
 completed_at: null
 pr_url: null
 depends_on: []
