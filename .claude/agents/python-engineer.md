@@ -93,3 +93,50 @@ uv run pytest
 - Chamar Postgres direto. **Proibido.** Use `InternalApiClient.get_lead(...)` etc.
 - Esquecer headers `HTTP-Referer`/`X-Title` no OpenRouter (gateway já faz; não rode `langchain` direto).
 - Perder o estado entre chamadas — sempre persistir via `/internal/conversations/:id/state`.
+
+## Pipeline agêntica (agent_turn + tools) — pegadinhas REAIS (2026-06)
+
+O fluxo agêntico (`whatsapp_pre_attendance`) é LLM + tool-calling em loop ReAct
+(`nodes/agent_turn.py`). Cada pegadinha abaixo já travou produção. Para **criar ou
+estender um agente/tool**, use a skill **`/langgraph-agent`** (checklist completo).
+
+1. **DLP esconde PII do LLM → injete do estado, nunca confie no arg do modelo.**
+   O gateway redige telefone/CPF (`dlp_redacted`) ANTES de chamar o LLM. Então o
+   modelo **nunca vê** o telefone real e, se a tool pede `phone`, ele **alucina**
+   (`+5569999999999`, `+55000…0000`). Toda arg que é PII tem de ser **sobrescrita
+   no `_dispatch_tool` a partir de `state`** (autoritativo), igual ao `organization_id`:
+
+   ```python
+   if tool_name == "get_or_create_lead":
+       tool_args = {**tool_args, "phone": state.get("phone", "")}  # real, do estado
+   ```
+
+2. **Campo opcional vazio (`""`) → 400 no `/internal`.** Os schemas Zod do backend
+   usam `name.min(1)`. Se a tool repassar `name=""` que o LLM mandou, o backend
+   responde **400 VALIDATION_ERROR** (a tool mapeia p/ `BACKEND_UNAVAILABLE` —
+   enganoso). Nas tools, derrube string vazia ANTES do POST: `if name:` (não
+   `if name is not None`). Backend usa placeholder só quando não há nada.
+
+3. **400 no `/internal` derruba o turno inteiro.** Tool falha → `lead_id` fica `null`
+   → estágio não avança → a IA **re-saúda e "parece sem memória"**. Sintoma clássico
+   de arg malformado. Reproduza o POST com `curl` + `X-Internal-Token` antes de culpar o LLM.
+
+4. **`organization_id` tem de estar em `state` (F16-S35).** Sem ele, todo `/internal`
+   dá 400 e o `agent_turn` cai em handoff automático (`MISSING_ORG_ID`). Cf.
+   `[[feedback_langgraph_orgid_threading]]`.
+
+5. **Cadeia de timeout (senão = fallback de handoff indevido).**
+   `LANGGRAPH_AI_TIMEOUT_MS` (worker Node, `apps/api/src/config/env.ts`) **deve ser >**
+   `GRAPH_TIMEOUT_SEC` (grafo, `app/config.py`) **+ overhead**. Turno agêntico real leva
+   ~8-12s (LLM + idas/voltas no `/internal`). Invertido → Node aborta o HTTP no meio
+   e o cidadão recebe o fallback "um atendente vai te responder".
+
+6. **Threading worker→state.** Campos que o agente precisa (ex.: `customer_name` =
+   push name do WhatsApp) entram via `metadata` do request do worker
+   (`apps/api/src/workers/livechat-ai.ts`) → `receive_message.py` mapeia
+   `metadata.X` → `state["X"]`. Se o worker manda `null`, o dado some.
+
+7. **`--reload` do uvicorn pode rodar bytecode velho.** Já houve `.pyc` stale fazendo
+   um fix em disco não valer em runtime. Ao validar um fix de comportamento:
+   `Remove-Item -Recurse app/**/__pycache__` + restart **hard** (não confie no reload).
+   Confirme o que o runtime carrega com `inspect.getsource`.
