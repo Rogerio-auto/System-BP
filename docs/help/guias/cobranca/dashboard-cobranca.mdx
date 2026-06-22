@@ -59,11 +59,17 @@ O SPC (Serviço de Proteção ao Crédito) pode ser usado para clientes com dív
 O status SPC de um cliente segue esta sequência:
 
 1. **Sem SPC** — situação inicial, sem restrição registrada.
-2. **Pendente de inclusão** — solicitação aberta, aguardando confirmação.
-3. **Incluído no SPC** — restrição registrada no serviço.
-4. **Removido do SPC** — restrição encerrada após regularização.
+2. **Pendente SPC** — solicitação aberta, aguardando confirmação por um gestor.
+3. **No SPC** — restrição registrada. O operador registra manualmente a inclusão no Serasa após esta confirmação.
+4. **Removido SPC** — restrição encerrada após regularização da dívida.
 
 Um cliente removido pode ser reincluído caso a dívida não seja regularizada.
+
+<Callout type="info" title="SPC é uma ação manual fora do sistema">
+  O sistema controla apenas o **status interno** do cliente. A inclusão e remoção efetivas no
+  Serasa (SPC) são operações **manuais realizadas pelo operador diretamente no portal do Serasa**,
+  fora do Elemento. O status aqui serve de registro e controle interno do processo.
+</Callout>
 
 ### Avançar o status SPC de um cliente
 
@@ -82,10 +88,10 @@ Um cliente removido pode ser reincluído caso a dívida não seja regularizada.
   **Clique no botão de ação**
 
   O botão exibe a ação disponível para o status atual:
-  - Status "Sem SPC" mostra: **Solicitar inclusão no SPC**
-  - Status "Pendente de inclusão" mostra: **Confirmar inclusão** e **Cancelar solicitação**
-  - Status "Incluído no SPC" mostra: **Solicitar remoção do SPC**
-  - Status "Removido do SPC" mostra: **Solicitar inclusão no SPC** (reinclusão)
+  - Status **Sem SPC** mostra: **Solicitar inclusão no SPC**
+  - Status **Pendente SPC** mostra: **Confirmar inclusão no SPC** e **Cancelar solicitação**
+  - Status **No SPC** mostra: **Solicitar remoção do SPC**
+  - Status **Removido SPC** mostra: **Solicitar inclusão no SPC** (reinclusão)
 </Step>
 
 <Step number={3}>

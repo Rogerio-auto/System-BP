@@ -3,12 +3,12 @@ id: F21-S04
 title: Ajuda — revisar e enriquecer guias de Cobrança, SPC e Advocacia
 phase: F21
 task_ref: docs/20-central-de-ajuda.md#10
-status: available
+status: review
 priority: low
 estimated_size: M
 agent_id: null
-claimed_at: null
-completed_at: null
+claimed_at: 2026-06-22T16:43:28Z
+completed_at: 2026-06-22T16:52:37Z
 pr_url: null
 depends_on: []
 blocks: []
@@ -89,7 +89,7 @@ Revisar os guias de Cobrança (incl. painel de tarefas e ciclo de SPC) e Advocac
 - [ ] `<FeedbackWidget />` NÃO inline
 - [ ] Validação MDX verde
 
-## Comandos de validação
+## Validação
 
 ```powershell
 pnpm install --frozen-lockfile
