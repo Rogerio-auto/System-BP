@@ -3,13 +3,13 @@ id: F21-S04
 title: Ajuda — revisar e enriquecer guias de Cobrança, SPC e Advocacia
 phase: F21
 task_ref: docs/20-central-de-ajuda.md#10
-status: review
+status: done
 priority: low
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-22T16:43:28Z
 completed_at: 2026-06-22T16:52:37Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/346
 depends_on: []
 blocks: []
 source_docs:
@@ -26,7 +26,6 @@ docs_artifacts:
   - docs/help/guias/advocacia/cadastro-escritorios.mdx
   - docs/help/guias/advocacia/encaminhar-cliente.mdx
 ---
-
 # F21-S04 — Ajuda: Cobrança, SPC e Advocacia (revisão de accuracy)
 
 ## Objetivo

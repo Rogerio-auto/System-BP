@@ -3,13 +3,13 @@ id: F21-S02
 title: Ajuda — revisar e enriquecer guias de Live Chat e Agente de IA
 phase: F21
 task_ref: docs/20-central-de-ajuda.md#10
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-22T16:43:06Z
 completed_at: 2026-06-22T16:51:54Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/344
 depends_on: []
 blocks: []
 source_docs:
@@ -25,7 +25,6 @@ docs_artifacts:
   - docs/help/guias/livechat/responder-conversa.mdx
   - docs/help/guias/livechat/handoff-ia-humano.mdx
 ---
-
 # F21-S02 — Ajuda: Live Chat + Agente de IA (revisão + tempo real / contexto da Ana Clara)
 
 ## Objetivo

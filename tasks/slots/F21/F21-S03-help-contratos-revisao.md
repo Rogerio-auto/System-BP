@@ -3,13 +3,13 @@ id: F21-S03
 title: Ajuda — revisar e enriquecer guias de Contratos e Boletos
 phase: F21
 task_ref: docs/20-central-de-ajuda.md#10
-status: review
+status: done
 priority: low
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-22T16:43:19Z
 completed_at: 2026-06-22T16:51:31Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/345
 depends_on: []
 blocks: []
 source_docs:
@@ -26,7 +26,6 @@ docs_artifacts:
   - docs/help/guias/contratos/saude-de-boletos.mdx
   - docs/help/guias/contratos/winback.mdx
 ---
-
 # F21-S03 — Ajuda: Contratos e Boletos (revisão de accuracy)
 
 ## Objetivo
