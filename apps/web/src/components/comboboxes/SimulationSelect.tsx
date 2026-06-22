@@ -82,12 +82,21 @@ export function SimulationSelect({
     }
   }, [leadId]);
 
-  // Sincroniza quando value é limpo externamente
+  // Sincroniza quando value é limpo externamente OU quando value é definido
+  // externamente (pré-seleção) mas selectedSimulation ainda não reflete isso.
   React.useEffect(() => {
     if (!value) {
       setSelectedSimulation(null);
+      return;
     }
-  }, [value]);
+    // value preenchido, mas trigger ainda não reflete — procura na lista carregada
+    if (!selectedSimulation || selectedSimulation.id !== value) {
+      const found = simulations.find((s) => s.id === value) ?? null;
+      if (found) {
+        setSelectedSimulation(found);
+      }
+    }
+  }, [value, simulations]);
 
   function handleSelect(sim: LeadSimulation) {
     setSelectedSimulation(sim);

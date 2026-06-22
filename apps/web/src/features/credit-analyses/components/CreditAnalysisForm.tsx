@@ -22,6 +22,7 @@ import { Button } from '../../../components/ui/Button';
 import { CurrencyInput } from '../../../components/ui/CurrencyInput';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
+import { useLeadSimulations } from '../../../hooks/crm/useLeadSimulations';
 import { cn } from '../../../lib/cn';
 import {
   useAddVersion,
@@ -342,6 +343,31 @@ export function CreditAnalysisForm({
   const watchedLeadId = watch('lead_id');
   const watchedSimulationId = watch('simulation_id');
 
+  // ─── Auto-seleção: pré-preenche a simulação mais recente quando o form abre
+  // com um lead conhecido (defaultLeadId) mas sem simulação pré-definida.
+  // Aplica UMA VEZ por leadId para não sobrescrever escolha manual do usuário.
+  const autoAppliedForLeadRef = React.useRef<string | null>(null);
+  const { simulations: leadSimulationsForAutoSelect } = useLeadSimulations(
+    !defaultSimulationId && watchedLeadId ? watchedLeadId : '',
+  );
+  React.useEffect(() => {
+    if (defaultSimulationId) return; // tem default explícito — não interfere
+    if (!watchedLeadId) return;
+    if (autoAppliedForLeadRef.current === watchedLeadId) return; // já aplicou
+    if (watchedSimulationId) return; // usuário já escolheu ou campo já tem valor
+    // Aplica a mais recente (index 0 = mais recente conforme API)
+    const mostRecent = leadSimulationsForAutoSelect[0];
+    if (!mostRecent) return; // ainda carregando / lista vazia
+    setValue('simulation_id', mostRecent.id);
+    autoAppliedForLeadRef.current = watchedLeadId;
+  }, [
+    defaultSimulationId,
+    watchedLeadId,
+    watchedSimulationId,
+    leadSimulationsForAutoSelect,
+    setValue,
+  ]);
+
   const { fields, append, remove } = useFieldArray({ control, name: 'pendencias' });
 
   const handleAppend = (): void => {
@@ -384,7 +410,12 @@ export function CreditAnalysisForm({
         <SimulationSelect
           leadId={watchedLeadId || null}
           value={watchedSimulationId ?? ''}
-          onChange={(id) => setValue('simulation_id', id || null)}
+          onChange={(id) => {
+            setValue('simulation_id', id || null);
+            // Quando usuário LIMPA manualmente, reseta o guard de auto-seleção
+            // para que não re-aplique na mesma sessão.
+            if (!id) autoAppliedForLeadRef.current = null;
+          }}
           disabled={isPending}
           label="Simulação vinculada (opcional)"
         />
@@ -587,6 +618,10 @@ interface DecideModalProps {
   open: boolean;
   onClose: () => void;
   analysisId: string;
+  /** ID da simulação vinculada à análise — usado para pré-preencher campos de aprovação. */
+  simulationId?: string | null;
+  /** ID do lead — necessário para buscar a simulação vinculada. */
+  leadId?: string | null;
   onSuccess?: ((analysis: CreditAnalysisResponse) => void) | undefined;
   onError?: ((message: string) => void) | undefined;
 }
@@ -594,11 +629,16 @@ interface DecideModalProps {
 /**
  * Modal de decisão final (aprovado | recusado).
  * Visível apenas com permissão credit_analyses:decide.
+ *
+ * Quando simulationId + leadId são fornecidos e a decisão é "aprovado",
+ * pré-preenche valor/prazo/taxa a partir da simulação vinculada.
  */
 export function DecideModal({
   open,
   onClose,
   analysisId,
+  simulationId,
+  leadId,
   onSuccess,
   onError,
 }: DecideModalProps): React.JSX.Element | null {
@@ -623,9 +663,71 @@ export function DecideModal({
   const decision = watch('decision');
   const watchedApprovedAmount = watch('approved_amount');
 
+  // ─── Campo de taxa: controlado para desacoplar display (%) do form-state (decimal).
+  // `setValueAs` não roda em `setValue` — por isso mantemos um estado local para o
+  // input e gravamos sempre o decimal no form-state diretamente.
+  const watchedRateDecimal = watch('approved_rate_monthly');
+  // ratePctInput: string que o usuário vê/digita (porcentagem). Deriva do form-state
+  // quando vazio (pré-preenchimento externo) e do próprio input quando o usuário digita.
+  const [ratePctInput, setRatePctInput] = React.useState('');
+
+  // Mantém ratePctInput sincronizado quando o form-state muda externamente
+  // (pré-preenchimento por simulação ou reset). Não sobrescreve enquanto o usuário digita:
+  // o useEffect só atualiza se o valor calculado a partir do decimal difere do input atual.
+  React.useEffect(() => {
+    if (watchedRateDecimal === null || watchedRateDecimal === undefined) {
+      setRatePctInput('');
+    } else {
+      const pctFromDecimal = (watchedRateDecimal * 100).toFixed(2);
+      // Só sincroniza se o input atual não representar o mesmo valor — evita cursor reset
+      const currentAsDecimal = ratePctInput ? parseFloat(ratePctInput) / 100 : null;
+      if (currentAsDecimal !== watchedRateDecimal) {
+        setRatePctInput(pctFromDecimal);
+      }
+    }
+    // Dependência apenas no form-state, não em ratePctInput (evita loop).
+    // ratePctInput intencionalmente omitido das deps: incluí-lo causaria Maximum
+    // update depth exceeded (leitura e escrita do mesmo estado no mesmo efeito).
+  }, [watchedRateDecimal]);
+
+  // ─── Pré-preenchimento a partir da simulação vinculada ────────────────────
+  // Aplica UMA VEZ por abertura do modal + transição para 'aprovado'.
+  // Flag resetada no onClose/onSuccess para reprocessar na próxima abertura.
+  const prefilledRef = React.useRef(false);
+  const { simulations: simForPrefill } = useLeadSimulations(leadId ?? '');
+  const linkedSim = React.useMemo(
+    () => (simulationId ? (simForPrefill.find((s) => s.id === simulationId) ?? null) : null),
+    [simulationId, simForPrefill],
+  );
+
+  React.useEffect(() => {
+    if (!open) {
+      // Reseta a flag quando o modal fecha para reprocessar na próxima abertura
+      prefilledRef.current = false;
+      return;
+    }
+    if (prefilledRef.current) return;
+    if (decision !== 'aprovado') return;
+    if (!linkedSim) return;
+
+    // Só preenche campos ainda "intocados" (null/empty)
+    const currentAmount = watchedApprovedAmount;
+    const currentTerm = watch('approved_term_months');
+    const currentRate = watch('approved_rate_monthly');
+
+    if (!currentAmount && !currentTerm && !currentRate) {
+      setValue('approved_amount', linkedSim.amount, { shouldValidate: false });
+      setValue('approved_term_months', linkedSim.termMonths, { shouldValidate: false });
+      setValue('approved_rate_monthly', linkedSim.rateMonthlySnapshot, { shouldValidate: false });
+      prefilledRef.current = true;
+    }
+  }, [open, decision, linkedSim, watchedApprovedAmount, watch, setValue]);
+
   const { decide, isPending } = useDecideAnalysis(analysisId, {
     onSuccess: (data) => {
       reset();
+      setRatePctInput('');
+      prefilledRef.current = false;
       onSuccess?.(data);
       onClose();
     },
@@ -634,8 +736,13 @@ export function DecideModal({
 
   const onSubmit = handleSubmit((data) => decide(data));
 
+  const handleClose = (): void => {
+    prefilledRef.current = false;
+    onClose();
+  };
+
   return (
-    <ModalShell open={open} onClose={onClose} title="Registrar decisão" maxWidth="max-w-lg">
+    <ModalShell open={open} onClose={handleClose} title="Registrar decisão" maxWidth="max-w-lg">
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
         <Select
           id="decide-decision"
@@ -666,6 +773,20 @@ export function DecideModal({
             >
               Dados da aprovação
             </p>
+
+            {/* Nota de pré-preenchimento — exibida quando simulação vinculada preencheu os campos */}
+            {linkedSim && prefilledRef.current && (
+              <p className="font-sans text-xs text-ink-3">
+                Pré-preenchido a partir da simulação vinculada (
+                <span className="font-mono font-semibold text-ink-2">
+                  {linkedSim.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  {' × '}
+                  {linkedSim.termMonths} meses
+                </span>
+                ) — ajuste se necessário.
+              </p>
+            )}
+
             {/* Valor aprovado — CurrencyInput canônico em REAIS (F18-S03) */}
             <CurrencyInput
               id="decide-amount"
@@ -690,8 +811,10 @@ export function DecideModal({
                 setValueAs: (v: string) => (v ? parseInt(v, 10) : null),
               })}
             />
-            {/* Taxa em % a.m. — usuário digita o percentual (ex: 2,5); convertemos
-                para decimal (0.025) no envio. Evita a confusão do campo "decimal". */}
+
+            {/* Taxa em % a.m. — CONTROLADO para que setValue(decimal) funcione no pré-preenchimento.
+                form-state SEMPRE guarda o decimal (ex: 0.025). Input exibe e recebe porcentagem (ex: 2.5).
+                setValueAs foi removido pois não roda em setValue — a conversão fica no onChange. */}
             <Input
               id="decide-rate"
               label="Taxa mensal (% a.m.)"
@@ -701,10 +824,18 @@ export function DecideModal({
               step="0.01"
               placeholder="Ex: 2.5"
               hint="Informe o percentual ao mês. Ex: 2,5 = 2,5% a.m."
+              value={ratePctInput}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setRatePctInput(raw);
+                const decimal = raw === '' ? null : parseFloat(raw) / 100;
+                setValue(
+                  'approved_rate_monthly',
+                  decimal !== null && !isNaN(decimal) ? decimal : null,
+                  { shouldValidate: true },
+                );
+              }}
               error={errors.approved_rate_monthly?.message}
-              {...register('approved_rate_monthly', {
-                setValueAs: (v: string) => (v ? parseFloat(v) / 100 : null),
-              })}
             />
           </div>
         )}
@@ -713,7 +844,7 @@ export function DecideModal({
           <Button
             type="button"
             variant="ghost"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isPending}
             className="flex-1"
           >
