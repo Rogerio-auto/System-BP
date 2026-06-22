@@ -3,12 +3,12 @@ id: F21-S01
 title: Ajuda — revisar e enriquecer guias de Análise de crédito
 phase: F21
 task_ref: docs/20-central-de-ajuda.md#10
-status: in-progress
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-22T16:43:03Z
-completed_at: null
+completed_at: 2026-06-22T16:51:53Z
 pr_url: null
 depends_on: []
 blocks: []
