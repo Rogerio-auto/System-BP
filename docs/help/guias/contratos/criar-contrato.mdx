@@ -13,7 +13,7 @@ O formulário **Novo Contrato** permite que o operador registre um contrato de c
   Na maioria dos casos, contratos são gerados automaticamente quando uma análise de crédito é aprovada. Use o formulário manual apenas para situações excepcionais: importação de histórico, contratos firmados em papel ou acordos especiais aprovados pela gestão.
 </Callout>
 
-<Permission permission="contracts:write">
+<Permission requires="contracts:write">
   Esta funcionalidade exige a permissão **contracts:write**. Se o botão "Novo Contrato" não aparecer no topo da página, contate o administrador do sistema para verificar seu perfil de acesso.
 </Permission>
 
@@ -63,7 +63,7 @@ O formulário **Novo Contrato** permite que o operador registre um contrato de c
 | Problema | Causa provável | Correção |
 |---|---|---|
 | Campo "Valor principal" com erro de formato | Separador decimal incorreto (vírgula em vez de ponto) | Use ponto como separador: 5000.00 |
-| Cliente não aparece na lista | Lead ainda não convertido ou sem customer_id | Confirme que o lead está em status Convertido na aba CRM |
+| Cliente não aparece na lista | Lead ainda não convertido ou sem cadastro de cliente vinculado | Confirme que o lead está em status Convertido na aba CRM |
 | Taxa mensal não preenchida automaticamente | Produto sem regra ativa cadastrada | Preencha a taxa manualmente ou cadastre uma regra no produto |
 | Referência já existente | Outra referência igual já existe na organização | Altere o código gerado para um valor único |
 | Botão "Novo Contrato" não aparece | Permissão contracts:write ausente | Contate o administrador do sistema |

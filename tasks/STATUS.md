@@ -305,8 +305,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ID      | Título                                                          | Status       | Prioridade | Depende de |
 | ------- | --------------------------------------------------------------- | ------------ | ---------- | ---------- |
 | F21-S01 | Ajuda — revisar e enriquecer guias de Análise de crédito        | 🟢 available | medium     | —          |
-| F21-S02 | Ajuda — revisar e enriquecer guias de Live Chat e Agente de IA  | 🟣 review    | medium     | —          |
-| F21-S03 | Ajuda — revisar e enriquecer guias de Contratos e Boletos       | 🟢 available | low        | —          |
+| F21-S02 | Ajuda — revisar e enriquecer guias de Live Chat e Agente de IA  | 🟢 available | medium     | —          |
+| F21-S03 | Ajuda — revisar e enriquecer guias de Contratos e Boletos       | 🟣 review    | low        | —          |
 | F21-S04 | Ajuda — revisar e enriquecer guias de Cobrança, SPC e Advocacia | 🟢 available | low        | —          |
 
 ## Fase 3 — Agentes IA
