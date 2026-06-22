@@ -1,13 +1,14 @@
 ---
 title: Tempo real e leitura — Live Chat
 description: Como o inbox atualiza em tempo real, como o badge de não-lidas funciona e como criar um lead quando o canal não tem cidade configurada.
-order: 7
-keywords: [live chat, tempo real, badge, não lidas, criar lead, cidade, realtime]
+order: 70
+keywords: [live chat, tempo real, badge, não lidas, criar lead, cidade, realtime, reconexao]
+audience: [operador, gestor]
 ---
 
 # Tempo real e leitura
 
-O inbox do Live Chat atualiza automaticamente sem recarregar a página — novas mensagens, badges de não-lidas e alterações de status aparecem em tempo real via WebSocket.
+O inbox do Live Chat atualiza automaticamente sem recarregar a página — novas mensagens, badges de não-lidas e alterações de status aparecem em tempo real assim que acontecem.
 
 ## Badge de não-lidas
 
@@ -15,7 +16,7 @@ Cada conversa na lista exibe um badge verde com o número de mensagens não lida
 
 **Como funciona:**
 
-- O badge aparece automaticamente quando chega uma nova mensagem inbound.
+- O badge aparece automaticamente quando chega uma nova mensagem do contato.
 - Ao abrir uma conversa, o badge some imediatamente — o sistema marca todas as mensagens como lidas.
 - Outros atendentes na mesma organização também veem o badge sumir em tempo real.
 
@@ -27,9 +28,13 @@ Cada conversa na lista exibe um badge verde com o número de mensagens não lida
 
 Novas mensagens aparecem na conversa aberta sem precisar recarregar:
 
-- **Mensagens inbound:** aparecem na parte de baixo do painel de chat assim que chegam.
-- **Mensagens outbound:** enviadas por você ou por outro atendente aparecem imediatamente.
+- **Mensagens do contato:** aparecem na parte de baixo do painel de chat assim que chegam.
+- **Mensagens da equipe ou da Ana Clara:** aparecem imediatamente após o envio, tanto para quem enviou quanto para outros atendentes com a conversa aberta.
 - **Lista do inbox:** a pré-visualização e o timestamp da última mensagem atualizam automaticamente.
+
+<Callout type="info">
+  As respostas da Ana Clara (agente de IA) também aparecem em tempo real no painel — sem precisar recarregar. Consulte [Agente de IA no Live Chat](/ajuda/guias/livechat/agente-ia) para entender como ela funciona.
+</Callout>
 
 Se a conexão cair (internet instável), o sistema reconecta com backoff automático. As mensagens recebidas durante a desconexão aparecem ao reconectar.
 
@@ -57,8 +62,12 @@ Se o canal não tiver cidade configurada, um seletor de cidade aparece antes do 
 
 ## Reconexão automática
 
-O Live Chat reconecta automaticamente quando a conexão WebSocket é interrompida. Durante a reconexão, o ícone de status no rodapé da página indica o estado da conexão.
+O Live Chat reconecta automaticamente quando a conexão com o servidor é interrompida. Durante a reconexão, o ícone de status no rodapé da página indica o estado da conexão.
 
 Após reconectar, o cache de conversas é atualizado automaticamente — não é necessário recarregar a página.
 
-<FeedbackWidget slug="livechat-tempo-real-e-leitura" />
+## Veja também
+
+- [Agente de IA no Live Chat (Ana Clara)](/ajuda/guias/livechat/agente-ia) — como as respostas da Ana Clara aparecem em tempo real.
+- [Caixa de entrada](/ajuda/guias/livechat/caixa-de-entrada) — como funciona o inbox e os badges de não-lidas.
+- [Criar lead a partir de uma conversa](/ajuda/guias/livechat/criar-lead-do-contato) — passo a passo completo para vincular um contato ao CRM.

@@ -1,89 +1,114 @@
 ---
-title: Agente IA no Live Chat
-description: Como habilitar e configurar o agente LangGraph para responder automaticamente a mensagens do live chat.
+title: Agente de IA no Live Chat (Ana Clara)
+description: Como a Ana Clara responde automaticamente às mensagens do live chat, o que você vê em tempo real no painel e como ela mantém o contexto da conversa.
+order: 50
+keywords: [live chat, agente ia, ana clara, resposta automatica, tempo real, contexto, homologacao, allowlist]
+audience: [operador, gestor]
 ---
 
-# Agente IA no Live Chat
+# Agente de IA no Live Chat (Ana Clara)
 
-O Elemento pode responder automaticamente a mensagens recebidas pelo live chat usando um agente LangGraph.
-O agente analisa a conversa e envia uma resposta ao contato, sem intervenção humana.
+A Ana Clara é a assistente de pré-atendimento do Banco do Povo. Quando habilitada, ela responde automaticamente às mensagens recebidas pelo live chat, conduz a triagem inicial do cidadão e encaminha para atendimento humano quando necessário.
 
-Este recurso opera atrás de um **gate de dois níveis**:
+Este recurso opera em dois níveis de controle:
 
-1. **Feature flag** `ai.livechat_agent.enabled` — habilita o agente globalmente.
-2. **Allowlist de números** (`AI_LIVECHAT_ALLOWLIST`) — restringe quais contatos recebem resposta automática (recomendado em homologação).
+1. **Módulo liberado** `ai.livechat_agent.enabled` — habilita a Ana Clara globalmente.
+2. **Lista de números de homologação** — restringe quais contatos recebem resposta automática durante testes.
 
 ---
 
 ## Como habilitar
 
-### Passo 1 — Configurar a allowlist de homologação (recomendado)
+<Callout type="info" title="Antes de começar">
+  Você precisa ter o papel de **administrador** para habilitar este módulo.
+</Callout>
 
-Antes de habilitar a flag, configure a variável de ambiente `AI_LIVECHAT_ALLOWLIST` com os
-números de telefone que devem receber resposta automática durante os testes.
+### Passo 1 — Configurar a lista de homologação (recomendado)
 
-```env
-# .env (API)
-# Formato: CSV de números normalizados (apenas dígitos, sem +)
-AI_LIVECHAT_ALLOWLIST=5569999990000,5569988887777
-```
+Antes de habilitar o módulo, configure quais números de telefone devem receber resposta automática durante os testes. Isso protege os cidadãos reais de receberem respostas automáticas enquanto o sistema está sendo validado.
 
-Enquanto a allowlist estiver preenchida, **somente esses números** receberão resposta do agente —
-mesmo com a flag habilitada. Isso protege cidadãos reais de receberem respostas automáticas
-durante a homologação.
+Consulte o responsável técnico para configurar a variável de ambiente `AI_LIVECHAT_ALLOWLIST` com os números de teste. Enquanto a lista estiver preenchida, somente esses números receberão resposta da Ana Clara — mesmo com o módulo habilitado.
 
-Para desativar a restrição de número e permitir que o agente responda a todos os contatos,
-remova a variável ou deixe-a vazia:
+Para liberar o módulo para todos os contatos (produção), a lista deve ser esvaziada.
 
-```env
-AI_LIVECHAT_ALLOWLIST=
-```
+### Passo 2 — Habilitar o módulo
 
-### Passo 2 — Habilitar a feature flag
-
-Via painel administrativo (**Configurações → Feature Flags**), habilite:
-
-```
-ai.livechat_agent.enabled
-```
-
-Ou via API (usuário com permissão `admin`):
-
-```http
-PATCH /api/admin/feature-flags/ai.livechat_agent.enabled
-Content-Type: application/json
-
-{ "status": "enabled" }
-```
+Via painel administrativo, acesse **Configurações → Módulos** e habilite o módulo de IA do live chat.
 
 ---
 
-## Comportamento
+## O que a Ana Clara faz
 
-| Condição | Resultado |
+A Ana Clara conduz a triagem inicial da conversa: coleta nome, cidade, atividade e objetivo do crédito do cidadão, e o encaminha para o setor correto. Ela se apresenta como inteligência artificial no início do atendimento.
+
+### Comportamento por condição
+
+| Condição | O que acontece |
 |---|---|
-| Flag desabilitada | Agente não responde |
-| Flag habilitada + allowlist vazia | Agente responde a todos os inbounds de texto |
-| Flag habilitada + allowlist preenchida | Agente responde **somente** aos números da lista |
-| Mensagem de mídia (imagem, documento) | Agente não responde (apenas mensagens de texto) |
-| Mensagem duplicata (reprocessada) | Agente não responde |
+| Módulo desabilitado | Ana Clara não responde |
+| Módulo habilitado + lista de homologação vazia | Ana Clara responde a todos os contatos |
+| Módulo habilitado + lista de homologação preenchida | Ana Clara responde somente aos números da lista |
+| Mensagem de mídia (imagem, documento) | Ana Clara não responde (somente mensagens de texto) |
+| Mensagem duplicada | Ana Clara não responde novamente |
 
 ---
 
-## Segurança e privacidade (LGPD)
+## Comportamento em tempo real e contexto da conversa
 
-- Os números da allowlist **nunca aparecem em logs** — apenas a contagem da lista é registrada.
-- O job publicado para o agente contém **apenas IDs internos opacos** — sem nome, CPF ou telefone do contato.
-- Falhas no gate (erro de banco, falha de publicação) são tratadas silenciosamente: o pipeline de mensagens
-  continua normalmente e o agente simplesmente não responde.
+### O que você vê no painel enquanto a Ana Clara responde
+
+As respostas da Ana Clara aparecem automaticamente no painel de conversa, na mesma hora em que são enviadas ao cidadão — sem precisar recarregar a página. O comportamento é o mesmo de quando um atendente humano responde: a mensagem surge na lista e a pré-visualização no inbox é atualizada.
+
+Quando a Ana Clara envia mais de uma mensagem em sequência (o que pode acontecer em etapas de triagem), cada mensagem aparece individualmente assim que é enviada, na ordem correta.
+
+<Callout type="info">
+  O painel do live chat atualiza em tempo real tanto para mensagens do cidadão quanto para respostas da Ana Clara. Você não precisa fazer nada — as mensagens aparecem automaticamente.
+</Callout>
+
+### Como a Ana Clara mantém o contexto da conversa
+
+A Ana Clara lembra o que já foi conversado dentro da mesma sessão. Isso significa:
+
+- Se o cidadão já informou o nome em uma mensagem anterior, ela não pede novamente.
+- Se a conversa foi interrompida e retomada em seguida, ela considera as mensagens anteriores ao formular a resposta.
+- O histórico recente da conversa é considerado automaticamente — o operador não precisa intervir.
+
+<Callout type="info">
+  O contexto é mantido dentro da sessão de atendimento. Em conversas muito longas, as mensagens mais antigas podem não ser consideradas — a Ana Clara prioriza as mais recentes.
+</Callout>
+
+### O que acontece quando a Ana Clara não consegue continuar
+
+Se a Ana Clara encontrar uma situação que exige atendimento humano (pergunta fora do escopo, solicitação explícita do cidadão ou falha técnica), ela aciona o handoff automaticamente. O cidadão recebe uma mensagem informando que um atendente vai responder em instantes, e a conversa passa para o status **Pendente** no inbox.
+
+Consulte [Handoff IA para atendimento humano](/ajuda/guias/livechat/handoff-ia-humano) para entender como assumir essas conversas.
+
+---
+
+## Segurança e privacidade
+
+- Os números da lista de homologação nunca aparecem em relatórios — apenas a contagem da lista é registrada.
+- As mensagens processadas pela Ana Clara contêm apenas identificadores internos — sem CPF, nome ou telefone do contato em trânsito.
+- Qualquer falha no processamento é tratada silenciosamente: o pipeline de mensagens continua e a conversa fica disponível para atendimento humano.
 
 ---
 
 ## Troubleshooting
 
-**O agente não está respondendo mesmo com a flag habilitada.**
+**A Ana Clara não está respondendo, mesmo com o módulo habilitado.**
 
-1. Verifique se o número do contato está na `AI_LIVECHAT_ALLOWLIST` (se preenchida).
-2. Verifique se a mensagem é de texto (`messageType: text`). Mensagens de mídia não disparam o agente.
-3. Verifique os logs da API por warnings `ai-gate:` para diagnóstico.
-4. Confirme que o worker `livechat-ai` (F16-S29) está em execução — este guia cobre apenas o gate e o enfileiramento.
+1. Verifique se o número do contato está na lista de homologação (se ela estiver preenchida).
+2. Verifique se a mensagem é de texto. Mensagens de imagem, áudio ou documento não acionam a Ana Clara.
+3. Consulte o administrador para verificar os registros do sistema por problemas no módulo.
+
+**As respostas da Ana Clara não aparecem no painel automaticamente.**
+
+A atualização em tempo real depende de conexão ativa com o servidor. Se a conexão foi interrompida, recarregue a página. Consulte [Tempo real e leitura](/ajuda/guias/livechat/tempo-real-e-leitura) para entender como funciona a reconexão automática.
+
+---
+
+## Veja também
+
+- [Handoff IA para atendimento humano](/ajuda/guias/livechat/handoff-ia-humano) — como assumir conversas transferidas pela Ana Clara.
+- [Tempo real e leitura](/ajuda/guias/livechat/tempo-real-e-leitura) — como o inbox atualiza em tempo real.
+- [Responder conversas](/ajuda/guias/livechat/responder-conversa) — como usar o painel de conversa para responder manualmente.

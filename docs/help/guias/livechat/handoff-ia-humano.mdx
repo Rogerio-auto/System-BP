@@ -1,19 +1,19 @@
 ---
-title: Handoff IA → Humano no LiveChat
-description: Como funciona a transição do agente IA para atendimento humano no livechat, quando acontece e como o operador recebe a conversa.
-audience: [operador, dev]
+title: Handoff IA para atendimento humano
+description: Como funciona a transferência automática do agente de IA para atendimento humano, quando acontece e como o operador recebe a conversa.
+order: 60
+keywords: [live chat, handoff, ia, ana clara, atendimento humano, pendente, transferencia]
+audience: [operador, gestor]
 ---
 
-# Handoff IA → Humano no LiveChat
+# Handoff IA para atendimento humano
 
 ## O que é handoff
 
-Handoff é o processo pelo qual o agente IA do livechat transfere uma conversa para um
-atendente humano. Isso acontece automaticamente em duas situações:
+Handoff é o processo pelo qual a Ana Clara transfere uma conversa para um atendente humano. Isso acontece automaticamente em duas situações:
 
-1. **Falha técnica da IA** — o LangGraph não conseguiu processar a mensagem (timeout, erro interno).
-2. **Decisão do grafo** — o agente IA identificou que o caso precisa de atendimento humano
-   (ex.: pergunta fora do escopo, situação complexa, solicitação explícita do cidadão).
+1. **Decisão da Ana Clara** — ela identificou que o caso precisa de atendimento humano (por exemplo: pergunta fora do escopo, situação complexa ou solicitação explícita do cidadão).
+2. **Falha técnica** — o agente de IA não conseguiu processar a mensagem por indisponibilidade momentânea.
 
 ## O que o cidadão recebe
 
@@ -21,52 +21,49 @@ Quando o handoff é acionado, o cidadão recebe automaticamente a mensagem:
 
 > "Olá! Um atendente vai te responder em instantes. Aguarde um momento. 🙂"
 
-A mensagem é enviada pelo sistema (bot) e não expõe detalhes técnicos do erro.
-Ela é **idempotente** — mesmo que a fila reprocesse o job, o cidadão recebe a mensagem
-apenas uma vez.
+A mensagem é enviada pelo sistema e não expõe detalhes técnicos. Mesmo que a fila processe a mensagem mais de uma vez, o cidadão recebe o aviso apenas uma vez.
 
 ## O que acontece no inbox
 
 Após o handoff:
 
 - A conversa muda para o status **Pendente** (aguardando atendente humano).
-- O inbox do workspace é atualizado em tempo real via WebSocket.
-- Um agente humano pode assumir a conversa clicando nela no inbox.
+- O inbox do workspace é atualizado automaticamente em tempo real.
+- Um atendente humano pode assumir a conversa clicando nela no inbox.
 
 ## Como o operador identifica uma conversa em handoff
 
-No inbox, conversas em handoff aparecem com status **Pendente**.
-O motivo do handoff (`ai_unavailable` ou `ai_requested`) fica registrado no audit log
-e pode ser consultado por administradores.
+No inbox, conversas em handoff aparecem com status **Pendente**. Localize-as usando o filtro **Pendentes** na parte superior da lista de conversas.
 
-## Fluxo técnico resumido (para devs)
-
-```
-Mensagem do cidadão
-  → Worker livechat-ai (hm.q.livechat.ai)
-    → LangGraph: falha ou handoff.required=true
-      → triggerLivechatHandoff(db, { reason, conversationId, messageId })
-        1. sendMessage(fallback) — idempotency key: ai_fallback_<messageId>
-        2. UPDATE conversations SET status='pending'
-        3. publish(socketRelay, conversation:updated)
-        4. auditLog(action='livechat.ai_handoff')
-```
-
-## Arquivo de implementação
-
-`apps/api/src/modules/livechat/ai-handoff.ts` — módulo de handoff.
-`apps/api/src/workers/livechat-ai.ts` — worker que chama `triggerLivechatHandoff`.
+<Callout type="tip">
+  Ao abrir uma conversa em handoff, você pode ler todo o histórico da triagem feita pela Ana Clara no painel de mensagens antes de responder ao cidadão.
+</Callout>
 
 ## Limitações atuais
 
-- **Atribuição de agente**: o handoff marca a conversa como `pending` mas não atribui
-  automaticamente a um agente específico. A distribuição (round-robin, skills) é planejada
-  para um slot futuro.
-- **Notificação de agentes**: a conversa aparece no inbox como pendente. Notificação push
-  dedicada é planejada para slot futuro.
+- **Atribuição automática de agente:** o handoff marca a conversa como pendente, mas não a atribui automaticamente a um atendente específico. A distribuição entre atendentes é planejada para uma versão futura.
+- **Notificação dedicada:** a conversa aparece no inbox como pendente. Uma notificação push dedicada para o atendente está planejada para versão futura.
 
-## Referências
+## Referência técnica (para administradores e devs)
 
-- Slot: `tasks/slots/F16/F16-S30-livechat-ai-handoff-fallback.md`
-- Arquitetura do agente IA: `docs/06-langgraph-agentes.md §4.4`
-- Pipeline do livechat: `docs/planejamento-live-chat-proprio.md`
+O fluxo técnico resumido:
+
+```
+Mensagem do cidadão
+  → Worker de IA (fila interna)
+    → Agente de IA: falha ou handoff sinalizado
+      → Envia mensagem de aviso ao cidadão (idempotente)
+      → Atualiza status da conversa para 'pending'
+      → Notifica o inbox em tempo real
+      → Registra auditoria (ação 'livechat.ai_handoff')
+```
+
+Arquivos de implementação:
+- `apps/api/src/modules/livechat/ai-handoff.ts` — módulo de handoff.
+- `apps/api/src/workers/livechat-ai.ts` — worker que aciona o handoff.
+
+## Veja também
+
+- [Agente de IA no Live Chat (Ana Clara)](/ajuda/guias/livechat/agente-ia) — como funciona e como habilitar a Ana Clara.
+- [Tempo real e leitura](/ajuda/guias/livechat/tempo-real-e-leitura) — como o inbox atualiza automaticamente.
+- [Caixa de entrada](/ajuda/guias/livechat/caixa-de-entrada) — como filtrar conversas por status.

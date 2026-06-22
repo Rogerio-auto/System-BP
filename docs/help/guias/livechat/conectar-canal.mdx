@@ -3,105 +3,93 @@ title: Conectar um canal de mensagem
 description: Como conectar um canal WhatsApp, Instagram ou WAHA ao Elemento para enviar e receber mensagens dos clientes.
 order: 10
 keywords: [canal, whatsapp, instagram, waha, live chat, mensagem, credencial, token, conectar]
+audience: [gestor, administrador]
 ---
 
 # Conectar um canal de mensagem
 
-O live chat do Elemento funciona por meio de **canais** — integracoes com plataformas de mensagem como WhatsApp Business, Instagram Direct ou servidores WAHA. Este guia explica como conectar um canal manualmente a partir das credenciais obtidas no painel da Meta ou do seu servidor WAHA.
+O live chat do Elemento funciona por meio de **canais** — integrações com plataformas de mensagem como WhatsApp Business, Instagram Direct ou servidores WAHA. Este guia explica como conectar um canal manualmente a partir das credenciais obtidas no painel da Meta ou do seu servidor WAHA.
 
-<Callout type="info" title="Pre-requisito">
-  Voce precisa ter o papel de **administrador** ou **gestor geral** e as credenciais do canal
-  em maos antes de iniciar. Sem as credenciais corretas nao e possivel concluir a conexao.
+<Callout type="info" title="Pré-requisito">
+  Você precisa ter o papel de **administrador** ou **gestor geral** e as credenciais do canal em mãos antes de iniciar. Sem as credenciais corretas não é possível concluir a conexão.
 </Callout>
 
-## O que voce vai precisar
+## O que você vai precisar
 
 **Para WhatsApp Business (Meta):**
 
 - Phone Number ID (exibido no painel de desenvolvedores da Meta)
 - WABA ID (WhatsApp Business Account ID)
-- System User Token com permissao `whatsapp_business_messaging`
+- System User Token com permissão `whatsapp_business_messaging`
 - App Secret do seu Meta App
 
 **Para Instagram Direct (Meta):**
 
 - Instagram Business User ID
-- Token de pagina de longa duracao
+- Token de página de longa duração
 - App Secret do seu Meta App
 
-**Para WAHA (servidor proprio):**
+**Para WAHA (servidor próprio):**
 
 - URL e API key do servidor WAHA
-- ID da sessao WAHA configurada
+- ID da sessão WAHA configurada
 
 ## Passo a passo
 
-<Step number={1} title="Acesse Configuracoes > Canais">
-  No menu lateral, va em **Configuracoes** e depois em **Canais de Mensagem**.
-  Voce vera a lista de canais conectados (pode estar vazia no primeiro acesso).
+<Step number={1} title="Acesse Configurações — Canais">
+  No menu lateral, vá em **Configurações** e depois em **Canais de Mensagem**. Você verá a lista de canais conectados (pode estar vazia no primeiro acesso).
 </Step>
 
 <Step number={2} title="Clique em Conectar canal">
-  Botao no canto superior direito da lista. Um formulario lateral abre.
+  Botão no canto superior direito da lista. Um formulário lateral abre.
 </Step>
 
 <Step number={3} title="Selecione o provider">
-  Escolha entre **WhatsApp Business (Meta)**, **Instagram Direct** ou **WAHA**.
-  O formulario muda de acordo com o provider selecionado.
+  Escolha entre **WhatsApp Business (Meta)**, **Instagram Direct** ou **WAHA**. O formulário muda de acordo com o provider selecionado.
 </Step>
 
 <Step number={4} title="Preencha as credenciais">
-  Informe os dados solicitados para o provider escolhido. Todos os campos sao obrigatorios.
+  Informe os dados solicitados para o provider escolhido. Todos os campos são obrigatórios.
 
-  <Callout type="warning" title="Seguranca das credenciais">
-    O token de acesso e o app secret sao **cifrados com AES-256** antes de serem salvos
-    e nunca aparecem novamente apos a conexao. Guarde uma copia segura das credenciais
-    antes de continuar — voce nao conseguira recupera-las pelo sistema.
+  <Callout type="warning" title="Segurança das credenciais">
+    O token de acesso e o app secret são **cifrados com AES-256** antes de serem salvos e nunca aparecem novamente após a conexão. Guarde uma cópia segura das credenciais antes de continuar — você não conseguirá recuperá-las pelo sistema.
   </Callout>
 </Step>
 
-<Step number={5} title="Salve e aguarde a verificacao">
-  Para WhatsApp e Instagram, o sistema **verifica automaticamente** se as credenciais
-  sao validas chamando a Meta Graph API antes de salvar. Se o token estiver incorreto
-  ou sem permissao, voce vera uma mensagem de erro — nenhum dado e salvo nesse caso.
+<Step number={5} title="Salve e aguarde a verificação">
+  Para WhatsApp e Instagram, o sistema **verifica automaticamente** se as credenciais são válidas chamando a Meta Graph API antes de salvar. Se o token estiver incorreto ou sem permissão, você verá uma mensagem de erro — nenhum dado é salvo nesse caso.
 
-  Apos salvar com sucesso, o canal aparece na lista com status **Ativo**.
+  Após salvar com sucesso, o canal aparece na lista com status **Ativo**.
 </Step>
 
-## Protecao de dados (LGPD)
+## Proteção de dados (LGPD)
 
-O numero de telefone do canal e um dado pessoal protegido pela LGPD. O Elemento:
+O número de telefone do canal é um dado pessoal protegido pela LGPD. O Elemento:
 
-- **Cifra** o numero antes de armazenar (nunca em texto puro no banco).
-- **Nao exibe** o numero completo em listagens — apenas o nome amigavel do canal.
-- **Nao inclui** tokens ou app secrets em qualquer resposta da API.
+- **Cifra** o número antes de armazenar (nunca em texto puro no banco).
+- **Não exibe** o número completo em listagens — apenas o nome amigável do canal.
+- **Não inclui** tokens ou app secrets em qualquer resposta da API.
 
-Se voce precisar atualizar as credenciais, desative o canal e conecte um novo com as credenciais corretas.
+Se você precisar atualizar as credenciais, desative o canal e conecte um novo com as credenciais corretas.
 
 ## Erros comuns
 
-| Erro | Causa provavel | Correcao |
+| Erro | Causa provável | Correção |
 |---|---|---|
-| "Credencial invalida ou sem permissao" | Token errado ou sem permissao `whatsapp_business_messaging` | Verifique o token no painel da Meta e as permissoes do System User |
-| "Canal ja cadastrado" | Mesmo Phone Number ID ja conectado na organizacao | Use o canal existente ou desative-o antes de reconectar |
-| "Token expirado" | Tokens de usuario (nao System User) expiram em 60 dias | Use um System User Token — ele nao expira |
-| Botao desativado | Permissao `channel.connect` nao concedida ao seu papel | Solicite ao administrador da organizacao |
+| "Credencial inválida ou sem permissão" | Token errado ou sem permissão `whatsapp_business_messaging` | Verifique o token no painel da Meta e as permissões do System User |
+| "Canal já cadastrado" | Mesmo Phone Number ID já conectado na organização | Use o canal existente ou desative-o antes de reconectar |
+| "Token expirado" | Tokens de usuário (não System User) expiram em 60 dias | Use um System User Token — ele não expira |
+| Botão desativado | Permissão `channel.connect` não concedida ao seu papel | Solicite ao administrador da organização |
 
 ## Desativar um canal
 
-Para remover um canal, clique nos tres pontos (`...`) ao lado do canal na lista e selecione
-**Desativar**. O canal nao e apagado permanentemente — fica inativo para auditoria.
-Conversas existentes permanecem acessiveis no historico.
+Para remover um canal, clique nos três pontos (`...`) ao lado do canal na lista e selecione **Desativar**. O canal não é apagado permanentemente — fica inativo para auditoria. Conversas existentes permanecem acessíveis no histórico.
 
-<Callout type="info" title="Embedded Signup">
-  O fluxo de conexao via **Facebook Login (Embedded Signup)** — onde o gestor autoriza
-  o app diretamente pelo browser sem precisar copiar credenciais — esta em desenvolvimento.
-  Por enquanto, use o fluxo manual descrito neste guia.
+<Callout type="info" title="Conexão via Facebook Login">
+  O fluxo de conexão via **Facebook Login (Embedded Signup)** — onde o gestor autoriza o app diretamente pelo browser sem precisar copiar credenciais — está em desenvolvimento. Por enquanto, use o fluxo manual descrito neste guia.
 </Callout>
 
-## Veja tambem
+## Veja também
 
-- [Inbox do live chat](/ajuda/guias/livechat/inbox) — como visualizar e responder conversas
-- [Configurar webhook Meta](/ajuda/guias/livechat/webhook-meta) — como registrar o webhook para receber mensagens
-
-<FeedbackWidget />
+- [Caixa de entrada](/ajuda/guias/livechat/caixa-de-entrada) — como visualizar e responder conversas após conectar o canal.
+- [Responder conversas](/ajuda/guias/livechat/responder-conversa) — como usar o compositor de mensagens.
