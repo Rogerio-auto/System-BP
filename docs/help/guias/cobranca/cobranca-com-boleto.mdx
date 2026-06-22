@@ -1,8 +1,9 @@
 ---
 title: Cobrança com Boleto Bancário
 description: Como configurar e enviar boletos automaticamente via WhatsApp na régua de cobrança do Banco do Povo.
+order: 4
+keywords: [boleto, cobranca, cobrança, whatsapp, regua, régua, envio, automatico, automático, pdf]
 audience: [gestor]
-tags: [cobrança, boleto, whatsapp, régua]
 ---
 
 # Cobrança com Boleto Bancário
@@ -15,7 +16,7 @@ A régua de cobrança (D-3, D+0, D+7, D+15…) envia mensagens automáticas via 
 
 ### Fluxo resumido
 
-1. O gestor **importa ou anexa** o boleto na parcela (ver [Anexar boleto a uma parcela](#anexar-boleto)).
+1. O gestor **importa ou anexa** o boleto na parcela (ver [Anexar e visualizar boleto pela interface](/ajuda/guias/cobranca/anexar-boleto-ui)).
 2. O sistema de cobrança detecta automaticamente o boleto no envio agendado.
 3. A mensagem WhatsApp é enviada com o boleto como anexo no cabeçalho.
 
@@ -112,3 +113,9 @@ Sim, templates com `header_type=image` são suportados. O boleto seria enviado c
 
 **O sistema suporta PIX?**
 O campo `pix_copia_cola` pode ser armazenado na parcela. O envio do PIX como texto no corpo da mensagem depende de configuração específica no template (variável `pix_copia_cola`). O cabeçalho de mídia destina-se ao PDF do boleto.
+
+## Veja também
+
+- [Anexar e visualizar boleto pela interface](/ajuda/guias/cobranca/anexar-boleto-ui) — passo a passo visual para vincular o boleto à parcela.
+- [Configurar uma régua de cobrança](/ajuda/guias/cobranca/configurar-reguas) — configure quando e como a cobrança é disparada.
+- [Monitorar jobs de cobrança](/ajuda/guias/cobranca/monitorar-jobs) — acompanhe o status dos disparos e evidências de entrega.

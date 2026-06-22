@@ -89,7 +89,7 @@ Revisar os guias de Cobrança (incl. painel de tarefas e ciclo de SPC) e Advocac
 - [ ] `<FeedbackWidget />` NÃO inline
 - [ ] Validação MDX verde
 
-## Comandos de validação
+## Validação
 
 ```powershell
 pnpm install --frozen-lockfile

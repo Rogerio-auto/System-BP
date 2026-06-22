@@ -30,25 +30,34 @@ Você cria cada etapa como uma régua separada. Todas as réguas da cascata fica
 ## Passo a passo
 
 <Step number={1} title="Abra o painel de réguas de cobrança">
-  No menu lateral, clique em **Configurações → Gestão → Cobrança — Réguas**.
+  No menu lateral, clique em **Configurações** e depois no card **Cobrança — Réguas**
+  (rota `/admin/billing/rules`).
 </Step>
 
 <Step number={2} title="Clique em Nova régua">
-  Botão no canto superior direito. O formulário abre para configurar a nova etapa.
+  Botão azul **Nova régua** no canto superior direito. O modal abre com o formulário de cadastro.
 </Step>
 
-<Step number={3} title="Defina o gatilho por dia">
-  Escolha o **número de dias relativo ao vencimento**: negativo para antes
-  (ex.: -3 = 3 dias antes), positivo para depois (ex.: 1 = 1 dia após).
+<Step number={3} title="Defina o gatilho e as horas de espera">
+  Selecione o **Gatilho**: "Dias após o vencimento" ou "Dias antes do vencimento".
+  Em seguida, informe as **Horas de espera**: o número de horas relativo ao vencimento
+  (ex.: 24 = D+1, 72 = D+3, -24 = D-1 — 1 dia antes do vencimento).
+
+  <Callout type="info">
+    O campo é em **horas**, não em dias. Para a cascata padrão D-3/D+1/D+15 use
+    -72h, 24h e 360h respectivamente. Defina também uma **Chave** única (ex.: `d1_after`)
+    e um **Nome** descritivo (ex.: "Cobrança D+1").
+  </Callout>
 </Step>
 
 <Step number={4} title="Selecione o template">
-  Escolha o template aprovado para esta etapa. Cada etapa da cascata deve
-  ter um template com tom adequado ao momento.
+  No campo **Template do WhatsApp**, selecione o template aprovado para esta etapa.
+  Somente templates com status aprovado aparecem na lista.
+  Cada etapa da cascata deve ter um template com tom adequado ao momento.
 </Step>
 
 <Step number={5} title="Salve e ative">
-  Salve a régua e, quando estiver pronto, ative o toggle **Régua ativa**.
+  Clique em **Criar régua** e, quando estiver pronto, ative o toggle **Régua ativa**.
   Repita o processo para cada etapa da cascata.
 </Step>
 
