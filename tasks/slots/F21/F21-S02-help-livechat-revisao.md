@@ -3,11 +3,11 @@ id: F21-S02
 title: Ajuda — revisar e enriquecer guias de Live Chat e Agente de IA
 phase: F21
 task_ref: docs/20-central-de-ajuda.md#10
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-22T16:43:06Z
 completed_at: null
 pr_url: null
 depends_on: []
