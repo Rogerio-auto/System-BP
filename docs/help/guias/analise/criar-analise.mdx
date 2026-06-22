@@ -2,65 +2,100 @@
 title: Criar uma análise de crédito
 description: Como abrir uma análise a partir de um lead no estágio de simulação.
 order: 10
-keywords: [analise, análise, crédito, credito, criar analise, nova analise, simulacao, simulação, aprovação, aprovacao, parecer]
+keywords: [analise, análise, crédito, credito, criar analise, nova analise, simulacao, simulação, aprovação, aprovacao, parecer, pre-preenchimento, vinculo, simulação vinculada]
 ---
 
 # Criar uma análise de crédito
 
 Use este guia quando um lead chegou ao estágio de simulação e você precisa registrar formalmente a análise para aprovação.
 
-<Callout type="info" title="Pré-requisitos">
-  O lead precisa estar no estágio **Simulação** no CRM. O módulo de Análise deve
-  estar liberado para a sua organização. Você precisa ter o papel de **agente**
-  ou **gestor**.
+<Callout type="info" title="Antes de começar">
+  Você precisa ter o papel de **agente** ou **gestor** (permissão
+  `credit_analyses:write`). O lead deve existir no CRM — ele não precisa
+  estar em nenhum estágio específico para que a análise seja criada.
 </Callout>
 
 ## Passo a passo
 
 <Step number={1} title="Abra a ficha do lead">
-  No CRM, clique no nome do lead. Confirme que o estágio aparece como
-  **Simulação** na barra de progresso no topo da ficha.
+  No CRM, clique no nome do lead para abrir a ficha completa.
 </Step>
 
-<Step number={2} title="Acesse a aba Análise">
-  Dentro da ficha do lead, clique na aba **Análise**. Se a aba não aparecer,
-  o módulo pode não estar liberado — fale com o administrador.
+<Step number={2} title="Acesse a seção Análises de crédito">
+  Role até a seção **Análises de crédito** na ficha do lead. Se a seção não
+  aparecer, o módulo pode não estar liberado para a sua organização — fale
+  com o administrador.
 </Step>
 
 <Step number={3} title="Clique em Nova análise">
-  Botão no canto superior direito da aba. Um formulário de análise abre com
-  os dados do lead já preenchidos automaticamente.
+  Clique no botão **Nova análise** na seção. Um formulário se abre com os
+  campos da análise.
 </Step>
 
-<Step number={4} title="Preencha os campos obrigatórios">
-  Verifique e complete: **Valor solicitado**, **Finalidade**, **Prazo** e
-  **Garantias** (quando aplicável). Campos com asterisco são obrigatórios
-  para enviar ao gestor.
+<Step number={4} title="Vincule uma simulação (opcional)">
+  Se o lead já possui simulações, o campo **Simulação vinculada** aparece
+  preenchido automaticamente com a simulação mais recente. Você pode:
+
+  - **Manter** a pré-seleção automática para aproveitar os dados da simulação.
+  - **Escolher** outra simulação no campo de busca.
+  - **Limpar** o campo se preferir não vincular nenhuma.
+
+  <Callout type="tip" title="Pré-preenchimento pela simulação">
+    Quando uma simulação está vinculada, os campos de valor, prazo e taxa
+    do modal de decisão (passo final do gestor) são pré-preenchidos
+    automaticamente a partir dela. O agente e o gestor podem ajustar os
+    valores manualmente antes de confirmar — o pré-preenchimento é apenas
+    um ponto de partida, nunca um bloqueio.
+  </Callout>
 </Step>
 
-<Step number={5} title="Envie para análise">
-  Clique em **Enviar para aprovação**. A análise fica com status
-  **Aguardando parecer** e aparece na fila do gestor responsável.
+<Step number={5} title="Defina o status inicial e o parecer">
+  Escolha o **Status inicial** (padrão: **Em análise**) e escreva um
+  **Parecer inicial** descrevendo a situação do lead. O parecer não deve
+  conter CPF, RG ou outros dados pessoais brutos.
+</Step>
+
+<Step number={6} title="Confirme a criação">
+  Clique em **Criar análise**. A análise aparece na lista da seção com o
+  status escolhido e fica visível para o gestor responsável.
 </Step>
 
 <Callout type="info" title="Versão imutável após parecer">
-  Depois que o gestor assina o parecer, a análise vira uma versão imutável —
-  ela não pode ser editada ou apagada. Isso garante rastreabilidade total
-  da decisão de crédito.
+  Depois que o gestor registra a decisão final, a análise gera uma versão
+  imutável — ela não pode ser editada ou apagada. Isso garante
+  rastreabilidade total da decisão de crédito (Art. 20 §1º LGPD).
 </Callout>
 
-<Callout type="tip" title="Atalho">
-  No Kanban do CRM, arraste o card para a coluna **Simulação** — a aba
-  Análise abre automaticamente em destaque.
+## Pré-preencher pela simulação vinculada
+
+Quando o campo **Simulação vinculada** tem uma simulação selecionada, o
+sistema pré-preenche os campos de aprovação automaticamente no momento em
+que o gestor abre o modal **Registrar decisão** e seleciona "Aprovado".
+
+Os campos pré-preenchidos são:
+
+- **Valor aprovado** — valor solicitado da simulação
+- **Prazo** — prazo em meses da simulação
+- **Taxa mensal** — taxa mensal da simulação vinculada
+
+O pré-preenchimento ocorre apenas uma vez por abertura do modal e somente
+se os campos ainda estiverem vazios — valores já digitados pelo gestor
+nunca são sobrescritos. Uma nota discreta abaixo dos campos confirma que
+os dados vieram da simulação, com o valor e o prazo de referência.
+
+<Callout type="tip" title="Quando a auto-seleção não acontece">
+  Se o lead não tiver simulações registradas, ou se o agente limpar
+  manualmente o campo **Simulação vinculada** antes de criar a análise, o
+  campo fica vazio e nenhum pré-preenchimento ocorre no modal de decisão.
 </Callout>
 
 ## Erros comuns
 
 | Problema | Causa provável | Correção |
 |---|---|---|
-| Aba "Análise" não aparece | Módulo não liberado ou papel sem permissão | Fale com o administrador |
-| Botão "Enviar para aprovação" desabilitado | Campos obrigatórios incompletos | Preencha todos os campos com asterisco |
-| Lead não está em Simulação | Estágio errado no CRM | Mova o card para a coluna correta antes de abrir a análise |
+| Seção "Análises de crédito" não aparece | Módulo não liberado ou papel sem permissão | Fale com o administrador |
+| Botão "Criar análise" desabilitado | Campos obrigatórios não preenchidos | Verifique o lead vinculado e o parecer inicial |
+| Simulação vinculada não aparece na lista | Lead sem simulações cadastradas | Crie uma simulação primeiro na aba de simulações do lead |
 
 ## Veja também
 

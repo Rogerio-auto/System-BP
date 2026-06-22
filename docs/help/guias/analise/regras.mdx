@@ -2,7 +2,7 @@
 title: Regras de aprovação automática
 description: Como o motor de regras decide a aprovação automática de análises e como ler o motivo de uma rejeição.
 order: 30
-keywords: [regras, regra, motor de regras, aprovacao, aprovação, automatica, automática, rejeicao, rejeição, analise, análise, configurar regras]
+keywords: [regras, regra, motor de regras, aprovacao, aprovação, automatica, automática, rejeicao, rejeição, analise, análise, configurar regras, produtos, concessao]
 ---
 
 # Regras de aprovação automática
@@ -11,7 +11,7 @@ O Manager Banco do Povo inclui um motor de regras que avalia análises automatic
 
 ## Como o motor de regras funciona
 
-Quando uma análise é enviada para aprovação, o motor verifica um conjunto de critérios configurados pelo administrador — como valor máximo, histórico de inadimplência e tipo de garantia. Se todos os critérios forem atendidos, a análise pode ser **aprovada automaticamente**. Se algum critério falhar, a análise é **reprovada automaticamente** e o motivo fica registrado.
+Quando uma análise é criada, o motor verifica os critérios configurados por produto — como valor mínimo e máximo, prazo permitido e tipo de produto. Se os critérios forem atendidos, a análise pode ser **aprovada automaticamente**. Se algum critério falhar, a análise é **reprovada automaticamente** e o motivo fica registrado.
 
 O gestor ainda pode revisar e sobrescrever qualquer decisão automática — o motor é um assistente, não a palavra final.
 
@@ -23,48 +23,56 @@ O gestor ainda pode revisar e sobrescrever qualquer decisão automática — o m
 
 ## Onde o administrador configura as regras
 
+As regras de concessão são definidas por produto de crédito, não de forma global.
+
 <Step number={1} title="Acesse Configurações">
-  No menu lateral, clique em **Configurações → Administração técnica → Regras de análise**.
+  No menu lateral, clique em **Configurações**. Na tela que se abre, localize
+  o card **Produtos & Regras** e clique nele.
+
+  <Permission requires="credit_products:read" />
 </Step>
 
-<Step number={2} title="Veja as regras ativas">
-  A lista mostra todas as regras por ordem de prioridade. Cada regra tem um
-  nome, critério e ação (aprovar ou reprovar).
+<Step number={2} title="Abra o produto desejado">
+  Na lista de produtos, clique no nome do produto cujas regras você quer
+  configurar. A ficha do produto se abre com as regras de concessão vigentes.
 </Step>
 
-<Step number={3} title="Crie ou edite uma regra">
-  Clique em **Nova regra** ou no nome de uma regra existente. Defina o
-  critério (ex.: valor acima de R$ 50.000 requer revisão manual) e salve.
+<Step number={3} title="Publique ou atualize uma regra">
+  Clique em **Publicar nova regra** para criar uma nova versão das condições
+  (taxa, valor mínimo/máximo, prazo mínimo/máximo, IOF). A regra anterior
+  é preservada no histórico — só a mais recente é aplicada às novas análises.
 </Step>
 
-<Callout type="warn" title="Teste antes de ativar">
+<Callout type="warn" title="Teste antes de publicar">
   Regras mal configuradas podem reprovar análises válidas automaticamente.
-  Teste cada nova regra com análises de exemplo antes de ativar em produção.
+  Valide os limites com o gestor responsável antes de publicar em produção.
 </Callout>
 
 ## Como o agente lê o motivo de uma rejeição automática
 
 <Step number={1} title="Abra a análise reprovada">
-  Na ficha do lead, aba **Análise**, clique na análise com status **Reprovado automaticamente**.
+  Na ficha do lead, seção **Análises de crédito**, clique na análise com
+  status indicando reprovação automática.
 </Step>
 
-<Step number={2} title="Leia o painel de motivos">
-  O painel exibe cada critério avaliado e destaca em vermelho o critério que
-  não foi atendido — por exemplo, "Valor solicitado acima do limite configurado".
+<Step number={2} title="Leia o parecer registrado">
+  O parecer exibe o critério que não foi atendido — por exemplo, "Valor
+  solicitado acima do limite configurado para o produto".
 </Step>
 
 <Step number={3} title="Decida o próximo passo">
-  Se a rejeição for questionável, encaminhe para o gestor revisar. Se for
-  válida, explique ao lead e registre uma anotação na timeline.
+  Se a rejeição for questionável, encaminhe para o gestor revisar clicando
+  em **Solicitar revisão**. Se for válida, explique ao lead e registre uma
+  anotação na timeline do CRM.
 </Step>
 
 ## Erros comuns
 
 | Problema | Causa provável | Correção |
 |---|---|---|
-| Análise ficou "Aguardando" por muito tempo | Motor de regras desativado | Administrador verifica o status do módulo em Administração técnica |
-| Motivo de rejeição vago | Regra sem descrição configurada | Administrador edita a regra e adiciona descrição clara |
-| Análise aprovada automaticamente que deveria ser manual | Critério de valor muito alto | Administrador ajusta o limite de aprovação automática |
+| Análise ficou "Em análise" por muito tempo sem decisão automática | Produto sem regra publicada | Administrador publica a primeira regra em Configurações → Produtos & Regras |
+| Motivo de rejeição genérico | Parecer não personalizado na regra | Administrador edita a regra e adiciona descrição mais clara |
+| Análise aprovada automaticamente que deveria ser manual | Limite de valor muito alto na regra | Administrador ajusta o valor máximo da regra do produto |
 
 ## Veja também
 
