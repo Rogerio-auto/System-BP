@@ -459,6 +459,8 @@ export function CreditAnalysisDetailPage(): React.JSX.Element {
             open={decideOpen}
             onClose={() => setDecideOpen(false)}
             analysisId={analysisId}
+            simulationId={analysis.simulation_id}
+            leadId={analysis.lead_id}
             onSuccess={(updated) => {
               const label =
                 updated.status === 'aprovado' ? 'Análise aprovada!' : 'Análise recusada.';

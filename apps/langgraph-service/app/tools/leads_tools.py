@@ -138,7 +138,10 @@ async def get_or_create_lead(
         structlog.contextvars.bind_contextvars(correlation_id=correlation_id)
 
     payload: dict[str, object] = {"phone": phone, "source": source}
-    if name is not None:
+    # `if name` (nao `is not None`): string vazia "" do LLM seria rejeitada pelo
+    # Zod do backend (name.min(1)) com 400. Tratamos "" como ausente -> backend
+    # usa placeholder "Desconhecido" so quando nao ha nenhum nome disponivel.
+    if name:
         payload["name"] = name
     if organization_id is not None:
         payload["organization_id"] = organization_id

@@ -155,7 +155,10 @@ export async function processJob(
     metadata: {
       city_id: convRow.cityId ?? null,
       city_name: null,
-      customer_name: null,
+      // Push name do WhatsApp (contacts[].profile.name) capturado no webhook e
+      // salvo em conversations.contact_name. Vira o nome inicial do lead (em vez de
+      // "Desconhecido"); a IA sobrescreve com o nome real via update_lead_profile.
+      customer_name: convRow.contactName ?? null,
       previous_state_loaded:
         Object.keys(stateSnapshot).filter((k) => k !== 'last_processed_livechat_message_id')
           .length > 0,
