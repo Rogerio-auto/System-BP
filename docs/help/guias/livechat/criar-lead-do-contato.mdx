@@ -1,6 +1,8 @@
 ---
 title: Criar lead a partir de uma conversa
-description: Como vincular um contato do live chat ao CRM criando ou associando um lead diretamente pelo painel de contato
+description: Como vincular um contato do live chat ao CRM criando ou associando um lead diretamente pelo painel de contato.
+order: 35
+keywords: [live chat, lead, crm, criar lead, vincular, contato]
 audience: [operador]
 ---
 
@@ -8,39 +10,48 @@ audience: [operador]
 
 ## Para que serve
 
-Quando você atende uma conversa no live chat, pode acontecer de o contato ainda nao ter um lead no CRM — seja porque chegou por um canal novo, seja porque o vinculo automatico nao ocorreu.
+Quando você atende uma conversa no live chat, pode acontecer de o contato ainda não ter um lead no CRM — seja porque chegou por um canal novo, seja porque o vínculo automático não ocorreu.
 
 O painel de contato permite criar ou vincular o lead com 1 clique, sem sair da tela de atendimento.
 
-## Quando o vinculo ja existe
+## Quando o vínculo já existe
 
-Se a conversa ja tem um lead vinculado, o painel lateral exibe a secao **Lead no CRM** com o link **Ver perfil do lead**. Clique para abrir o perfil completo do lead no CRM em uma nova aba.
+Se a conversa já tem um lead vinculado, o painel lateral exibe a seção **Lead no CRM** com o link **Ver perfil do lead**. Clique para abrir o perfil completo do lead no CRM em uma nova aba.
 
-## Quando o contato ainda nao tem lead
+## Quando o contato ainda não tem lead
 
-Se a conversa nao tem lead vinculado e voce tem permissao de gerenciar conversas (`livechat:conversation:manage`), a secao exibe o botao **Criar lead**.
+Se a conversa não tem lead vinculado e você tem permissão de gerenciar conversas (`livechat:conversation:manage`), a seção exibe o botão **Criar lead**.
 
 ### Passo a passo
 
-1. Abra a conversa no inbox do live chat.
-2. No painel lateral direito, localize a secao **Lead no CRM**.
-3. Clique no botao **Criar lead**.
-4. Aguarde a confirmacao — o painel exibira o link para o perfil do lead assim que o processo concluir.
+<Step number={1} title="Abra a conversa no inbox">
+  Na lista lateral do Live Chat, clique na conversa do contato.
+</Step>
 
-O sistema usa os dados do contato (telefone normalizado + nome, quando disponivel) e a cidade configurada no canal para criar o lead no CRM automaticamente.
+<Step number={2} title="Localize a seção Lead no CRM">
+  No painel lateral direito, localize a seção **Lead no CRM**.
+</Step>
 
-## O que acontece nos bastidores
+<Step number={3} title="Clique em Criar lead">
+  Clique no botão **Criar lead**. Aguarde a confirmação — o painel exibirá o link para o perfil do lead assim que o processo concluir.
+</Step>
 
-1. O sistema chama o endpoint `PATCH /api/conversations/:id/lead` sem informar um `leadId` especifico.
-2. O backend verifica se ja existe um lead com o mesmo telefone normalizado no CRM (deduplicacao automatica).
-3. Se encontrar: vincula o lead existente e retorna `created: false`.
-4. Se nao encontrar: cria um novo lead com os dados basicos e vincula, retornando `created: true`.
-5. O painel atualiza em tempo real via socket `conversation:updated` — sem precisar recarregar a pagina.
+O sistema usa os dados do contato (telefone normalizado + nome, quando disponível) e a cidade configurada no canal para criar o lead no CRM automaticamente.
 
-## Observacoes
+## O que acontece
 
-- Se o canal nao tiver cidade configurada, a criacao automatica de lead nao e possivel. Nesse caso, consulte o administrador do sistema para configurar a cidade do canal.
-- O vinculo e idempotente: clicar **Criar lead** em uma conversa ja vinculada nao gera duplicata.
-- Apos o vinculo, cada mensagem subsequente da conversa gera uma linha de interacao no CRM, visivel no kanban do lead.
+1. O sistema verifica se já existe um lead com o mesmo telefone normalizado no CRM (deduplicação automática).
+2. Se encontrar: vincula o lead existente.
+3. Se não encontrar: cria um novo lead com os dados básicos e vincula.
+4. O painel atualiza automaticamente — sem precisar recarregar a página.
 
-<FeedbackWidget />
+## Observações
+
+- Se o canal não tiver cidade configurada, a criação automática de lead não é possível. Nesse caso, consulte o administrador do sistema para configurar a cidade do canal.
+- O vínculo é seguro contra duplicatas: clicar **Criar lead** em uma conversa já vinculada não gera um segundo lead.
+- Após o vínculo, cada mensagem subsequente da conversa gera uma linha de interação no CRM, visível no kanban do lead.
+
+## Veja também
+
+- [Vínculo automático de contato ao CRM](/ajuda/guias/livechat/vinculo-automatico-crm) — como o sistema vincula leads automaticamente no primeiro inbound.
+- [Tempo real e leitura](/ajuda/guias/livechat/tempo-real-e-leitura) — como criar lead quando o canal não tem cidade configurada.

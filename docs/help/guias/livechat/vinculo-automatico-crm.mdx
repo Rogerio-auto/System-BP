@@ -1,80 +1,66 @@
 ---
-title: Vinculo automatico de contato ao CRM
-description: Como o live chat vincula automaticamente contatos do WhatsApp a leads do CRM no primeiro inbound
-audience: [gestor, dev]
+title: Vínculo automático de contato ao CRM
+description: Como o live chat vincula automaticamente contatos do WhatsApp a leads do CRM no primeiro inbound e como vincular manualmente.
+order: 40
+keywords: [live chat, crm, lead, vinculo automatico, contato, whatsapp, deduplicacao]
+audience: [gestor, operador]
 ---
 
-# Vinculo automatico de contato ao CRM
+# Vínculo automático de contato ao CRM
 
-## O que e
+## O que é
 
-Quando o live chat recebe a primeira mensagem de um contato, o sistema verifica se o numero de
-telefone desse contato ja existe no CRM. Se existir, a conversa e vinculada automaticamente
-ao lead correspondente — sem nenhuma acao manual.
+Quando o live chat recebe a primeira mensagem de um contato, o sistema verifica se o número de telefone desse contato já existe no CRM. Se existir, a conversa é vinculada automaticamente ao lead correspondente — sem nenhuma ação manual.
 
-Sob uma feature flag configuravel, o sistema tambem pode **criar um novo lead** automaticamente
-quando o contato ainda nao esta no CRM.
+Com o módulo de criação automática habilitado, o sistema também pode **criar um novo lead** automaticamente quando o contato ainda não está no CRM.
 
 ## Como funciona
 
 Ao receber a primeira mensagem de um contato no canal WhatsApp:
 
-1. O sistema extrai o numero de telefone do campo .
-2. Faz um lookup no CRM pelo numero normalizado (sem ).
-3. **Se encontrar lead existente:** vincula a conversa ao lead imediatamente. A partir da
-   proxima mensagem, o painel do agente mostra o historico do CRM e os interactions sao
-   registrados automaticamente.
-4. **Se nao encontrar lead:**
-   - Se a flag  estiver **desligada** (padrao): a conversa fica
-     sem vinculo. O agente pode vincular manualmente pelo painel do contato.
-   - Se a flag estiver **ligada** e o canal tiver cidade configurada: um novo lead-shell e
-     criado no CRM com os dados basicos do contato (telefone + nome, se disponivel), e a
-     conversa e vinculada a ele.
+1. O sistema extrai o número de telefone do contato.
+2. Faz uma busca no CRM pelo número normalizado.
+3. **Se encontrar lead existente:** vincula a conversa ao lead imediatamente. A partir da próxima mensagem, o painel do agente mostra o histórico do CRM e as interações são registradas automaticamente.
+4. **Se não encontrar lead:**
+   - Se o módulo de criação automática estiver **desligado** (padrão): a conversa fica sem vínculo. O agente pode vincular manualmente pelo painel do contato.
+   - Se o módulo estiver **ligado** e o canal tiver cidade configurada: um novo lead é criado no CRM com os dados básicos do contato (telefone + nome, se disponível), e a conversa é vinculada a ele.
 
-## Feature flag
+## Módulo de criação automática de lead
 
-| Flag | Descricao | Padrao |
+| Módulo | Descrição | Padrão |
 |------|-----------|--------|
-|  | Criacao automatica de lead-shell para contatos desconhecidos |  |
+| Criação automática de lead para contatos novos | Cria um lead quando o contato ainda não existe no CRM | Desligado |
 
-Para habilitar no painel administrativo: **Configuracoes > Feature Flags > Live Chat**.
+Para habilitar no painel administrativo: **Configurações → Módulos → Live Chat**.
 
-> **Atencao:** Habilite apenas apos validar que os canais de live chat estao com **cidade**
-> configurada corretamente. Sem cidade, o lead nao pode ser criado (restricao de schema).
+<Callout type="warning">
+  Habilite apenas após validar que os canais de live chat estão com **cidade** configurada corretamente. Sem cidade, o lead não pode ser criado.
+</Callout>
 
 ## Vínculo manual
 
-Quando a flag estiver desligada (ou o canal nao tiver cidade), o agente pode vincular a
-conversa manualmente pelo painel do contato:
+Quando o módulo estiver desligado (ou o canal não tiver cidade), o agente pode vincular a conversa manualmente pelo painel do contato:
 
 1. Abrir a conversa no inbox do live chat.
-2. No painel lateral > **Contato** > **Vincular a lead**.
-3. Pesquisar pelo nome ou CPF do lead.
-4. Confirmar.
+2. No painel lateral, acesse a seção **Contato** e clique em **Vincular a lead**.
+3. Pesquise pelo nome ou CPF do lead.
+4. Confirme.
 
-## Regras de negocio
+## Regras de funcionamento
 
-- **Idempotencia:** Se a conversa ja tem um lead vinculado, o sistema nao tenta re-vincular
-  em mensagens subsequentes. O guard e feito no worker antes de chamar o servico.
-- **Tolerancia a falhas:** Se o lookup ou criacao do lead falhar por qualquer motivo (timeout
-  de DB, erro inesperado), a mensagem e entregue normalmente (ack). O vinculo nao e criado,
-  mas o pipeline inbound nao e interrompido.
-- **LGPD:** O numero de telefone nunca aparece em logs. Apenas IDs opacos sao registrados.
-  O outbox de  nao carrega PII bruta.
+- **Sem duplicata:** se a conversa já tem um lead vinculado, o sistema não tenta re-vincular em mensagens subsequentes.
+- **Tolerância a falhas:** se a busca ou criação do lead falhar por qualquer motivo (lentidão do servidor, erro inesperado), a mensagem é entregue normalmente. O vínculo não é criado, mas o atendimento não é interrompido.
+- **Privacidade:** o número de telefone nunca aparece em registros de sistema. Apenas identificadores internos são usados.
 
 ## Impacto no painel do agente
 
-Apos o vinculo:
+Após o vínculo:
 
-- O nome e historico do lead aparecem no painel lateral da conversa.
-- Cada mensagem subsequente gera uma linha de  no CRM (visivel no kanban do lead).
+- O nome e histórico do lead aparecem no painel lateral da conversa.
+- Cada mensagem subsequente gera uma linha de interação no CRM (visível no kanban do lead).
 - O agente pode navegar diretamente para o perfil do lead clicando no nome.
 
-## Consideracoes para devs
+## Veja também
 
-- O helper  em  implementa
-  toda a logica. Ele nunca lanca excecao para o caller (try/catch interno + warning log).
-- O helper  em  faz o UPDATE idempotente
-  com  — chamadas duplicadas sao no-ops.
--  e  sao consumidos de  sem modificacao.
-- A flag  e semeada em  com status .
+- [Criar lead a partir de uma conversa](/ajuda/guias/livechat/criar-lead-do-contato) — como vincular manualmente pelo painel de contato.
+- [Caixa de entrada](/ajuda/guias/livechat/caixa-de-entrada) — como localizar e gerenciar conversas.
