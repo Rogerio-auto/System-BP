@@ -9,7 +9,7 @@ keywords: [contrato, ficha, saúde, boleto, parcela, parcelas, inadimplente, ven
 
 A ficha do contrato exibe, além dos dados cadastrais, um **indicador de saúde** de pagamento e a **lista de parcelas** com possibilidade de anexar ou visualizar boletos. Isso permite acompanhar a situação financeira do contrato sem precisar sair da tela.
 
-<Permission required="contracts:read">
+<Permission requires="contracts:read">
   Você precisa da permissão **contracts:read** para visualizar a ficha. Para anexar boletos, é necessária também a permissão **billing:boleto:write** (concedida a **Admin**, **Gestor Geral** e **Gestor Regional**).
 </Permission>
 
@@ -30,7 +30,7 @@ O campo **Saúde** resume a situação de pagamento do contrato com base nas par
 | Status | Significado |
 |---|---|
 | Saudável | Nenhuma parcela em atraso |
-| Em risco | Ao menos uma parcela vencida recentemente (menos de 15 dias) |
+| Em risco | Ao menos uma parcela vencida há menos de 15 dias |
 | Inadimplente | Ao menos uma parcela vencida há 15 dias ou mais |
 | Quitado | Todas as parcelas foram pagas |
 
@@ -40,7 +40,7 @@ O indicador também mostra:
 - **Valor em atraso**: total de parcelas vencidas (quando houver)
 - **Valor pendente**: total ainda a vencer
 
-<Callout type="warning" title="Atraso recente">
+<Callout type="warn" title="Atraso recente">
   Um contrato classificado como **Em risco** ainda pode ser regularizado. Contratos **Inadimplentes** devem ser tratados com prioridade pela equipe de cobrança.
 </Callout>
 
@@ -48,7 +48,7 @@ O indicador também mostra:
 
 Abaixo do indicador de saúde, a seção **Parcelas** lista todas as prestações do contrato com:
 
-- **Numero da parcela** (ex: 1, 2, 3...)
+- **Número da parcela** (ex: 1, 2, 3...)
 - **Data de vencimento**
 - **Valor** da parcela
 - **Status**: Pendente, Vencida, Paga, Renegociada ou Cancelada
@@ -70,7 +70,7 @@ Abaixo do indicador de saúde, a seção **Parcelas** lista todas as prestaçõe
 
 ### Anexar um boleto
 
-<Callout type="warning" title="Proteção de dados — LGPD §14.2">
+<Callout type="warn" title="Proteção de dados — LGPD §14.2">
   O boleto pode conter dados pessoais do devedor (nome, CPF, endereço). O tratamento dessas
   informações segue as regras definidas em
   [`docs/17-lgpd-protecao-dados.md` §14.2](/docs/17-lgpd-protecao-dados#checklist-de-dados-pessoais).
@@ -87,40 +87,47 @@ Abaixo do indicador de saúde, a seção **Parcelas** lista todas as prestaçõe
 </Step>
 
 <Step number={3} title="Escolha o modo de anexo">
-  - **Upload PDF**: arraste um arquivo PDF, JPG ou PNG (max 10 MB) ou clique na area de upload para selecionar.
+  - **Upload PDF**: arraste um arquivo PDF, JPG ou PNG (máx. 10 MB) ou clique na área de upload para selecionar.
   - **Referência**: preencha ao menos um dos campos — URL do boleto, linha digitável ou PIX copia-e-cola.
 </Step>
 
 <Step number={4} title="Confirme o anexo">
-  Clique em **Enviar boleto** (upload) ou **Salvar referencia** (referencia). O botão da parcela ficara azul indicando que o boleto foi registrado.
+  Clique em **Enviar boleto** (upload) ou **Salvar referência** (referência). O botão da parcela ficará azul indicando que o boleto foi registrado.
 </Step>
 
-<Callout type="warning" title="Nome de arquivo">
+<Callout type="warn" title="Nome de arquivo">
   Nunca inclua CPF, nome completo ou outros dados pessoais no nome do arquivo ao fazer upload.
 </Callout>
 
 ## Substituir ou remover um boleto
 
-No modal de um boleto ja anexado:
+No modal de um boleto já anexado:
 
-- Clique em **Substituir boleto** para fazer um novo upload ou informar uma nova referencia.
-- Clique em **Remover boleto** para desvincular o arquivo da parcela. Esta acao nao cancela a parcela.
+- Clique em **Substituir boleto** para fazer um novo upload ou informar uma nova referência.
+- Clique em **Remover boleto** para desvincular o arquivo da parcela. Esta ação não cancela a parcela.
 
 ## Erros comuns
 
-**Parcelas nao aparecem na ficha**
-As parcelas sao importadas pelo sistema a partir dos dados do contrato. Se a lista estiver vazia, pode ser que o contrato nao tenha parcelas registradas ainda. Contate o administrador.
+### Parcelas não aparecem na ficha
 
-**Botao de boleto desativado**
-A funcionalidade de boleto pode estar desabilitada para sua organizacao. O banner "Gestao de boletos nao habilitada" aparecera na parte superior da lista de parcelas.
+**Causa:** As parcelas são importadas pelo sistema a partir dos dados do contrato.
 
-**Erro ao carregar saude do contrato**
-Se o indicador de saude exibir erro, clique em **Tentar novamente**. Caso o problema persista, verifique sua conexao e recarregue a pagina.
+**Solução:** Se a lista estiver vazia, o contrato pode não ter parcelas registradas ainda. Contate o administrador.
 
-## Veja tambem
+### Botão de boleto desativado ou invisível
 
-- [Aba Contratos](/guias/contratos/aba-contratos) — como listar e filtrar contratos
-- [Saude de boletos](/guias/contratos/saude-de-boletos) — calculo do indicador de saude
-- [Gestao de parcelas](/guias/cobranca/registrar-parcelas) — modulo completo de cobranca
+**Causa:** A funcionalidade de gestão de boletos pode estar desabilitada para sua organização, ou sua conta não tem a permissão **billing:boleto:write**.
 
-<FeedbackWidget />
+**Solução:** Verifique o banner "Gestão de boletos não habilitada" na parte superior da lista de parcelas. Se o banner aparecer, contate o administrador.
+
+### Erro ao carregar saúde do contrato
+
+**Causa:** Falha de rede ou dados do contrato ainda não processados.
+
+**Solução:** Clique em **Tentar novamente**. Caso o problema persista, verifique sua conexão e recarregue a página.
+
+## Veja também
+
+- [Aba Contratos](/ajuda/guias/contratos/aba-contratos) — como listar e filtrar contratos.
+- [Saúde de boletos](/ajuda/guias/contratos/saude-de-boletos) — cálculo detalhado do indicador de saúde.
+- [Parcelas e cobrança](/ajuda/guias/cobranca/registrar-parcelas) — módulo completo de cobrança.
