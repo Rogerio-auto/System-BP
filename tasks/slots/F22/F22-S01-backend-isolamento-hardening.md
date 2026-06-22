@@ -3,12 +3,12 @@ id: F22-S01
 title: Backend — hardening de isolamento e headers (auditoria de segurança 2026-06-22)
 phase: F22
 task_ref: docs/sessions/2026-06-22-security-audit.md
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-22T19:58:39Z
-completed_at: null
+completed_at: 2026-06-22T20:35:37Z
 pr_url: null
 depends_on: []
 blocks: []
