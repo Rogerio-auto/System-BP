@@ -269,6 +269,10 @@ function makeHeaders(token = VALID_TOKEN): Record<string, string> {
   return {
     'content-type': 'application/json',
     'x-internal-token': token,
+    // SEC-04: POST /internal/simulations/:id/sent exige X-Organization-Id para
+    // restringir a operação à org do caller (LangGraph). O endpoint de criação
+    // ignora o header (lê org do body), então incluí-lo aqui é inócuo para ele.
+    'x-organization-id': FIXTURE_ORG_ID,
   };
 }
 
@@ -855,6 +859,58 @@ describe('POST /internal/simulations/:id/sent — 401 autenticação', () => {
 
     expect(res.statusCode).toBe(401);
     expect(res.json().error).toBe('UNAUTHORIZED');
+  });
+});
+
+// ===========================================================================
+// Suite 8b (SEC-04): POST /internal/simulations/:id/sent — 400 sem X-Organization-Id
+// ===========================================================================
+
+describe('POST /internal/simulations/:id/sent — 400 sem X-Organization-Id', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('retorna 400 quando header X-Organization-Id está ausente', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      // token válido, mas sem x-organization-id
+      headers: { 'content-type': 'application/json', 'x-internal-token': VALID_TOKEN },
+      payload: { channel: 'whatsapp', messageId: 'msg-123' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('VALIDATION_ERROR');
+    // não deve chegar ao service quando o contrato de header falha
+    expect(mockMarkSimulationSent).not.toHaveBeenCalled();
+  });
+
+  it('retorna 400 quando header X-Organization-Id está vazio', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/simulations/${FIXTURE_SIMULATION_ID}/sent`,
+      headers: {
+        'content-type': 'application/json',
+        'x-internal-token': VALID_TOKEN,
+        'x-organization-id': '   ',
+      },
+      payload: { channel: 'whatsapp', messageId: 'msg-123' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('VALIDATION_ERROR');
+    expect(mockMarkSimulationSent).not.toHaveBeenCalled();
   });
 });
 

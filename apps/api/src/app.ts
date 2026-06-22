@@ -221,7 +221,33 @@ export async function buildApp() {
     }
   }
 
-  await app.register(helmet, { contentSecurityPolicy: false });
+  // SEC-08: CSP restritivo — API é JSON-only, não serve HTML nem recursos estáticos.
+  // defaultSrc: 'none' bloqueia qualquer recurso externo (subrecursos, frames, etc.).
+  // frameAncestors: 'none' equivale a X-Frame-Options: DENY — previne clickjacking.
+  //
+  // Em desenvolvimento (NODE_ENV !== 'production'), o Swagger UI precisa de scripts
+  // inline e do CDN do unpkg, então relaxamos o CSP fora de produção para não
+  // quebrar /documentation.
+  await app.register(helmet, {
+    contentSecurityPolicy:
+      env.NODE_ENV === 'production'
+        ? {
+            directives: {
+              defaultSrc: ["'none'"],
+              frameAncestors: ["'none'"],
+            },
+          }
+        : {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'", "'unsafe-inline'", 'unpkg.com'],
+              styleSrc: ["'self'", "'unsafe-inline'", 'unpkg.com'],
+              imgSrc: ["'self'", 'data:'],
+              connectSrc: ["'self'"],
+              frameAncestors: ["'none'"],
+            },
+          },
+  });
   await app.register(cors, {
     origin: env.CORS_ALLOWED_ORIGINS,
     credentials: true,

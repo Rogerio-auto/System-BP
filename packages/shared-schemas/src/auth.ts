@@ -16,7 +16,12 @@ export const loginBodySchema = z.object({
     .string({ required_error: 'Email é obrigatório' })
     .email('Email inválido')
     .max(255, 'Email muito longo'),
-  password: z.string({ required_error: 'Senha é obrigatória' }).min(1, 'Senha é obrigatória'),
+  password: z
+    .string({ required_error: 'Senha é obrigatória' })
+    .min(1, 'Senha é obrigatória')
+    // SEC-05: limite superior de 72 bytes — bcryptjs ignora bytes além de 72,
+    // o que abre DoS via entradas longas que bloqueiam o event loop (pré-auth, anônimo).
+    .max(72, 'Senha inválida'),
 });
 
 export type LoginBody = z.infer<typeof loginBodySchema>;

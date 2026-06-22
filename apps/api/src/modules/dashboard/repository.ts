@@ -751,33 +751,80 @@ export interface CollectionCardResult {
 // due_soon: parcelas vencendo em até 7 dias
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// City scope helper para dashboard de cobrança (SEC-03)
+// ---------------------------------------------------------------------------
+
+/**
+ * Constrói fragmento SQL de filtro de cidade para as queries de cobrança.
+ *
+ * Semântica de cityScopeIds (sec-03, scope.ts):
+ *   null              → acesso global (admin/gestor_geral): sem filtro de cidade.
+ *   []                → sem acesso a cidade alguma: retorna 0 linhas (1=0).
+ *   string[]          → filtra via IN (customers→leads.city_id).
+ *
+ * city_id específico tem precedência: quando presente, o service já validou
+ * via assertCityInScope, então filtramos apenas por essa cidade.
+ */
+function buildCollectionCityFragment(
+  cityScopeIds: string[] | null,
+  cityId?: string,
+): ReturnType<typeof sql> {
+  // city_id específico: filtro exato (já validado via assertCityInScope no service)
+  if (cityId !== undefined) {
+    return sql`
+      AND pd.customer_id IN (
+        SELECT c.id FROM customers c
+        INNER JOIN leads l ON l.id = c.primary_lead_id
+        WHERE l.city_id = ${cityId}
+          AND l.deleted_at IS NULL
+      )`;
+  }
+
+  // Acesso global — sem filtro de cidade
+  if (cityScopeIds === null) {
+    return sql``;
+  }
+
+  // Sem acesso a cidade alguma — retorna zero linhas
+  if (cityScopeIds.length === 0) {
+    return sql`AND 1 = 0`;
+  }
+
+  // Escopo restrito: IN (cidade1, cidade2, ...)
+  // sql.join com placeholders parametrizados — sem interpolação de string crua.
+  return sql`
+    AND pd.customer_id IN (
+      SELECT c.id FROM customers c
+      INNER JOIN leads l ON l.id = c.primary_lead_id
+      WHERE l.city_id IN (${sql.join(
+        cityScopeIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+        AND l.deleted_at IS NULL
+    )`;
+}
+
 /**
  * Conta parcelas status IN ('pending','overdue') com due_date entre hoje e today+7.
  * Usa índice idx_payment_dues_status_due (status, due_date).
  *
  * city_id opcional: quando fornecido, aplica JOIN em customers→leads para filtrar
  * pela cidade do lead original do customer.
+ * cityScopeIds: quando não-null, aplica restrição de cidades do usuário (SEC-03).
  */
 export async function countDueSoon(
   db: Database,
   organizationId: string,
   cityId?: string,
+  cityScopeIds?: string[] | null,
 ): Promise<CollectionCardResult> {
   // Calculamos as datas no lado da aplicação — evita depender de now() imutável em testes
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayPlus7 = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const cityFragment =
-    cityId !== undefined
-      ? sql`
-          AND pd.customer_id IN (
-            SELECT c.id FROM customers c
-            INNER JOIN leads l ON l.id = c.primary_lead_id
-            WHERE l.city_id = ${cityId}
-              AND l.deleted_at IS NULL
-          )`
-      : sql``;
+  const cityFragment = buildCollectionCityFragment(cityScopeIds ?? null, cityId);
 
   const result = await db.execute(sql`
     SELECT
@@ -806,22 +853,15 @@ export async function countDueSoon(
  * também contam como "uncollected" — job falhou ou foi cancelado.
  *
  * Usa NOT EXISTS para evitar N+1 e aproveitar idx_collection_jobs_payment_due.
+ * cityScopeIds: quando não-null, aplica restrição de cidades do usuário (SEC-03).
  */
 export async function countOverdueUncollected(
   db: Database,
   organizationId: string,
   cityId?: string,
+  cityScopeIds?: string[] | null,
 ): Promise<CollectionCardResult> {
-  const cityFragment =
-    cityId !== undefined
-      ? sql`
-          AND pd.customer_id IN (
-            SELECT c.id FROM customers c
-            INNER JOIN leads l ON l.id = c.primary_lead_id
-            WHERE l.city_id = ${cityId}
-              AND l.deleted_at IS NULL
-          )`
-      : sql``;
+  const cityFragment = buildCollectionCityFragment(cityScopeIds ?? null, cityId);
 
   const result = await db.execute(sql`
     SELECT
@@ -851,22 +891,15 @@ export async function countOverdueUncollected(
  * "Ativo" = status IN ('scheduled', 'triggered', 'sent').
  * Agrupa por payment_due_id para não contar a mesma parcela múltiplas vezes
  * quando há mais de um job ativo (raro, mas possível em reenvios).
+ * cityScopeIds: quando não-null, aplica restrição de cidades do usuário (SEC-03).
  */
 export async function countInCollection(
   db: Database,
   organizationId: string,
   cityId?: string,
+  cityScopeIds?: string[] | null,
 ): Promise<CollectionCardResult> {
-  const cityFragment =
-    cityId !== undefined
-      ? sql`
-          AND pd.customer_id IN (
-            SELECT c.id FROM customers c
-            INNER JOIN leads l ON l.id = c.primary_lead_id
-            WHERE l.city_id = ${cityId}
-              AND l.deleted_at IS NULL
-          )`
-      : sql``;
+  const cityFragment = buildCollectionCityFragment(cityScopeIds ?? null, cityId);
 
   const result = await db.execute(sql`
     SELECT
@@ -894,26 +927,19 @@ export async function countInCollection(
 /**
  * Conta parcelas vencidas há 15 dias ou mais (status='overdue' AND due_date <= today-15).
  * Candidatos prioritários para inclusão no SPC ou escalonamento jurídico.
+ * cityScopeIds: quando não-null, aplica restrição de cidades do usuário (SEC-03).
  */
 export async function countOverdue15d(
   db: Database,
   organizationId: string,
   cityId?: string,
+  cityScopeIds?: string[] | null,
 ): Promise<CollectionCardResult> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const cutoff = new Date(today.getTime() - 15 * 24 * 60 * 60 * 1000);
 
-  const cityFragment =
-    cityId !== undefined
-      ? sql`
-          AND pd.customer_id IN (
-            SELECT c.id FROM customers c
-            INNER JOIN leads l ON l.id = c.primary_lead_id
-            WHERE l.city_id = ${cityId}
-              AND l.deleted_at IS NULL
-          )`
-      : sql``;
+  const cityFragment = buildCollectionCityFragment(cityScopeIds ?? null, cityId);
 
   const result = await db.execute(sql`
     SELECT
@@ -942,15 +968,19 @@ export async function countOverdue15d(
  * total_amount = soma de payment_dues pending/overdue dos clientes incluídos.
  *
  * city_id opcional: filtra clientes via JOIN em leads.
+ * cityScopeIds: quando não-null, aplica restrição de cidades do usuário (SEC-03).
  */
 export async function countInSpc(
   db: Database,
   organizationId: string,
   cityId?: string,
+  cityScopeIds?: string[] | null,
 ): Promise<CollectionCardResult> {
-  // city_id filtra clientes via JOIN customers→leads
+  const resolvedCityScopeIds = cityScopeIds ?? null;
+
+  // city_id específico tem precedência (já validado via assertCityInScope no service)
   if (cityId !== undefined) {
-    // Com filtro de cidade: duas queries paralelas (count + sum)
+    // Com filtro de cidade exata: duas queries paralelas (count + sum)
     const [countResult, amountResult] = await Promise.all([
       db.execute(sql`
         SELECT COUNT(*)::int AS count
@@ -979,7 +1009,48 @@ export async function countInSpc(
     return { count: cRow?.count ?? 0, total_amount: aRow?.total_amount ?? '0' };
   }
 
-  // Sem filtro de cidade: query mais simples com JOIN em payment_dues
+  // Sem city_id específico: aplica cityScopeIds se restritivo
+  if (resolvedCityScopeIds !== null) {
+    // Escopo vazio → zero linhas
+    if (resolvedCityScopeIds.length === 0) {
+      return { count: 0, total_amount: '0' };
+    }
+
+    // IN (cidade1, cidade2, ...) — placeholders parametrizados
+    const cityInFragment = sql.join(
+      resolvedCityScopeIds.map((id) => sql`${id}`),
+      sql`, `,
+    );
+
+    const [countResult, amountResult] = await Promise.all([
+      db.execute(sql`
+        SELECT COUNT(*)::int AS count
+        FROM customers c
+        INNER JOIN leads l ON l.id = c.primary_lead_id
+        WHERE c.organization_id = ${organizationId}
+          AND c.spc_status = 'included'
+          AND l.city_id IN (${cityInFragment})
+          AND l.deleted_at IS NULL
+      `),
+      db.execute(sql`
+        SELECT COALESCE(SUM(pd.amount), 0)::text AS total_amount
+        FROM payment_dues pd
+        INNER JOIN customers c ON c.id = pd.customer_id
+        INNER JOIN leads l ON l.id = c.primary_lead_id
+        WHERE pd.organization_id = ${organizationId}
+          AND pd.status IN ('pending', 'overdue')
+          AND c.spc_status = 'included'
+          AND l.city_id IN (${cityInFragment})
+          AND l.deleted_at IS NULL
+      `),
+    ]);
+
+    const cRow = countResult.rows[0] as { count: number } | undefined;
+    const aRow = amountResult.rows[0] as { total_amount: string } | undefined;
+    return { count: cRow?.count ?? 0, total_amount: aRow?.total_amount ?? '0' };
+  }
+
+  // Acesso global (cityScopeIds === null): query sem filtro de cidade
   const [countResult, amountResult] = await Promise.all([
     db
       .select({ count: count() })

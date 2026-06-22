@@ -257,25 +257,37 @@ export async function getDashboardMetrics(
  * Agrega os 5 cards do dashboard de cobrança para o role `cobranca`.
  *
  * city_id é opcional — sem ele, agrega toda a organização (acesso global).
+ * Quando fornecido, valida que city_id está no escopo do usuário (SEC-03).
+ * cityScopeIds é propagado para todas as queries para evitar cross-city leakage.
  * Queries independentes executadas em paralelo via Promise.all.
  *
  * LGPD: retorna apenas contagens e totais agregados — sem PII individual.
+ *
+ * @throws ForbiddenError (403) — cityId fora do escopo do usuário.
  */
 export async function getCollectionDashboard(
   db: Database,
   actor: ActorContext,
   query: CollectionDashboardQuery,
 ): Promise<CollectionDashboardResponse> {
-  const { organizationId } = actor;
+  const { organizationId, cityScopeIds } = actor;
   const cityId = query.city_id;
 
-  // Executar as 5 queries em paralelo — todas independentes
+  // SEC-03: validar city scope quando city_id específico é fornecido.
+  // Espelha o comportamento de getLeadsDashboard (assertCityInScope).
+  if (cityId !== undefined) {
+    assertCityInScope(cityId, cityScopeIds);
+  }
+
+  // Executar as 5 queries em paralelo — todas independentes.
+  // cityScopeIds propagado para garantir isolamento de cidade mesmo quando
+  // city_id não é especificado (usuário escopado não vê outras cidades).
   const [dueSoon, overdueUncollected, inCollection, overdue15d, inSpc] = await Promise.all([
-    countDueSoon(db, organizationId, cityId),
-    countOverdueUncollected(db, organizationId, cityId),
-    countInCollection(db, organizationId, cityId),
-    countOverdue15d(db, organizationId, cityId),
-    countInSpc(db, organizationId, cityId),
+    countDueSoon(db, organizationId, cityId, cityScopeIds),
+    countOverdueUncollected(db, organizationId, cityId, cityScopeIds),
+    countInCollection(db, organizationId, cityId, cityScopeIds),
+    countOverdue15d(db, organizationId, cityId, cityScopeIds),
+    countInSpc(db, organizationId, cityId, cityScopeIds),
   ]);
 
   return {

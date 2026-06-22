@@ -403,7 +403,11 @@ export async function markSimulationSent(
   messageId: string | null,
 ): Promise<MarkSimulationSentResult> {
   // ---------------------------------------------------------------------------
-  // 1. Busca simulação por ID (sem city scope — IA tem acesso global à org)
+  // 1. Busca simulação por ID filtrado por organization_id (SEC-04)
+  //
+  // Filtra WHERE id = $1 AND organization_id = $2 para impedir que uma tool
+  // da IA de org A marque simulações de org B (isolamento multi-tenant).
+  // actor.organizationId é preenchido pelo endpoint via header X-Organization-Id.
   //
   // Usamos sql`` para acessar sent_at sem o schema tipado.
   // `as` justificado: drizzle sql`` retorna Row[] genérico; sentAt é nullable
@@ -413,6 +417,7 @@ export async function markSimulationSent(
     sql`SELECT id, lead_id, organization_id, sent_at
         FROM credit_simulations
         WHERE id = ${simulationId}
+          AND organization_id = ${actor.organizationId}
         LIMIT 1`,
   );
 
@@ -426,6 +431,7 @@ export async function markSimulationSent(
   const row = rows.rows[0] as SimulationRow | undefined;
 
   if (!row) {
+    // 404 (não 403) — não vaza existência de simulações de outra org.
     throw new NotFoundError(`Simulação ${simulationId} não encontrada`);
   }
 

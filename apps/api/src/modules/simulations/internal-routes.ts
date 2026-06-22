@@ -16,11 +16,12 @@
 //   Primeira chamada → cria simulação, persiste chave em idempotency_keys.
 //   Reenvio com mesma chave → 200 com simulação original (sem novo INSERT).
 //
-// POST /internal/simulations/:id/sent (F3-S11):
+// POST /internal/simulations/:id/sent (F3-S11, SEC-04):
 //   Marca a simulação como enviada ao cliente (sent_at).
 //   Idempotente: reenvio não regrava sent_at já gravado.
 //   Emite simulations.sent_to_customer uma única vez via outbox.
-//   404 se a simulação não existir.
+//   404 se a simulação não existir ou pertencer a outra org.
+//   Exige header X-Organization-Id (multi-tenant — regra inviolável #3).
 //
 // Origin:
 //   Toda simulação criada por POST /internal/simulations recebe `origin='ai'`.
@@ -47,6 +48,7 @@ import { env } from '../../config/env.js';
 import { db } from '../../db/client.js';
 import { creditSimulations } from '../../db/schema/creditSimulations.js';
 import { idempotencyKeys } from '../../db/schema/idempotencyKeys.js';
+import { verifyInternalToken } from '../../lib/auth/internal-token.js';
 import { AppError, UnauthorizedError } from '../../shared/errors.js';
 
 import { SimulationResponseSchema } from './schemas.js';
@@ -187,10 +189,9 @@ export const internalSimulationsRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request, reply) => {
       // -----------------------------------------------------------------------
-      // 1. Verificar X-Internal-Token
+      // 1. Verificar X-Internal-Token (timing-safe — SEC-04)
       // -----------------------------------------------------------------------
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new UnauthorizedError('Token interno inválido ou ausente');
       }
 
@@ -432,27 +433,42 @@ export const internalSimulationsRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     async (request, reply) => {
       // -----------------------------------------------------------------------
-      // 1. Verificar X-Internal-Token
+      // 1. Verificar X-Internal-Token (timing-safe — SEC-04)
       // -----------------------------------------------------------------------
-      const token = request.headers['x-internal-token'];
-      if (token !== env.LANGGRAPH_INTERNAL_TOKEN) {
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
         throw new UnauthorizedError('Token interno inválido ou ausente');
       }
+
+      // -----------------------------------------------------------------------
+      // 2. Extrair X-Organization-Id — obrigatório (SEC-04, regra inviolável #3)
+      //
+      // Garante que a operação fica restrita à org do caller (multi-tenant).
+      // 400 se ausente/vazio — é erro de contrato do caller (LangGraph).
+      // -----------------------------------------------------------------------
+      const orgHeader = request.headers['x-organization-id'];
+      if (typeof orgHeader !== 'string' || orgHeader.trim() === '') {
+        throw new AppError(
+          400,
+          'VALIDATION_ERROR',
+          'Header X-Organization-Id obrigatório para escopo multi-tenant (regra inviolável #3).',
+        );
+      }
+      const organizationId = orgHeader;
 
       const { id: simulationId } = request.params as { id: string };
       const body = request.body as InternalSimulationSentBody;
 
       // -----------------------------------------------------------------------
-      // 2. Montar SimulationActorContext para IA
+      // 3. Montar SimulationActorContext para IA
       //
-      // cityScopeIds: null → sem restrição (IA acessa qualquer simulação da org).
-      // organizationId: não disponível sem JWT — a service busca pela simulação.
-      //   Usamos string vazia como placeholder; markSimulationSent não usa o
-      //   organizationId do actor para autorizar (a simulação carrega sua própria org).
+      // organizationId: vem do header X-Organization-Id (SEC-04) — não mais vazio.
+      //   markSimulationSent usa actor.organizationId para filtrar a simulação por org,
+      //   impedindo que uma tool da IA de org A marque simulações de org B.
+      // cityScopeIds: null → sem restrição de cidade (IA opera no escopo da org toda).
       // -----------------------------------------------------------------------
       const actor: SimulationActorContext = {
         userId: '',
-        organizationId: '',
+        organizationId,
         role: 'ai',
         cityScopeIds: null,
         ip: request.ip,
@@ -460,7 +476,7 @@ export const internalSimulationsRoutes: FastifyPluginAsyncZod = async (app) => {
       };
 
       // -----------------------------------------------------------------------
-      // 3. Marcar como enviada via service layer
+      // 4. Marcar como enviada via service layer
       // -----------------------------------------------------------------------
       const result = await markSimulationSent(
         db,
@@ -471,7 +487,7 @@ export const internalSimulationsRoutes: FastifyPluginAsyncZod = async (app) => {
       );
 
       // -----------------------------------------------------------------------
-      // 4. Retornar 200
+      // 5. Retornar 200
       //
       // Sempre 200: tanto criação quanto reenvio idempotente.
       // already_sent=false = marcada agora; already_sent=true = já estava marcada.
