@@ -59,7 +59,7 @@ import {
   publish,
   QUEUES,
 } from '../lib/queue/index.js';
-import * as r2 from '../lib/storage/r2.js';
+import * as storage from '../lib/storage/index.js';
 
 // ---------------------------------------------------------------------------
 // Logger para este worker — redact de PII (LGPD doc 17 §8.3)
@@ -263,11 +263,21 @@ export async function processMediaJob(
   }
 
   // -----------------------------------------------------------------------
-  // 4. R2 disponível? Guard antes de qualquer download.
-  //    Se R2 não configurado, nack gracioso (sem crash do worker).
+  // 4. Storage disponível? Guard antes de qualquer download.
+  //    Verifica se o provider ativo está configurado (R2 ou Supabase).
+  //    Nack gracioso se não configurado — sem crash do worker.
   // -----------------------------------------------------------------------
-  if (!process.env['R2_ACCOUNT_ID']) {
-    log.error({ messageId }, 'livechat-media: R2_ACCOUNT_ID não configurado — nack sem requeue');
+  const storageProvider = process.env['STORAGE_PROVIDER'] ?? 'r2';
+  const storageReady =
+    storageProvider === 'supabase'
+      ? Boolean(process.env['SUPABASE_STORAGE_URL'])
+      : Boolean(process.env['R2_ACCOUNT_ID']);
+
+  if (!storageReady) {
+    log.error(
+      { messageId, storageProvider },
+      'livechat-media: storage não configurado — nack sem requeue',
+    );
     return 'nack';
   }
 
@@ -412,20 +422,22 @@ export async function processMediaJob(
     const r2Key = buildR2Key(organizationId, mimeType, mediaRef.fileName);
 
     try {
-      await r2.putObject(r2Key, mediaBytes, mimeType, {
-        // Metadata opaca (IDs internos — sem PII)
+      await storage.putObject(r2Key, mediaBytes, mimeType, {
+        // Metadata opaca (IDs internos — sem PII).
+        // Nota: driver Supabase descarta metadata silenciosamente (API não suporta
+        // x-* headers arbitrários de forma confiável) — o DB já vincula message↔media via FK.
         'x-message-id': messageId,
         'x-organization-id': organizationId,
       });
     } catch (err) {
       log.error(
         { messageId, organizationId, err: err instanceof Error ? err.message : String(err) },
-        'livechat-media: upload R2 falhou — nack',
+        'livechat-media: upload storage falhou — nack',
       );
       return 'nack';
     }
 
-    publicUrl = r2.getPublicUrl(r2Key);
+    publicUrl = storage.getPublicUrl(r2Key);
 
     // LGPD: não logar publicUrl (pode ter info sensível no nome do arquivo)
     log.info(
@@ -435,7 +447,7 @@ export async function processMediaJob(
         contentType: mimeType,
         sizeBytes: mediaBytes.length,
       },
-      'livechat-media: upload R2 concluído',
+      'livechat-media: upload storage concluído',
     );
   }
 

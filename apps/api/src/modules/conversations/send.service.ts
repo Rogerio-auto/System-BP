@@ -31,12 +31,9 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
 
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { and, eq, isNull } from 'drizzle-orm';
 import pino from 'pino';
 
-import { env } from '../../config/env.js';
 import type { Database } from '../../db/client.js';
 import { conversations } from '../../db/schema/conversations.js';
 import { idempotencyKeys } from '../../db/schema/idempotencyKeys.js';
@@ -44,6 +41,7 @@ import type { AuditTx } from '../../lib/audit.js';
 import { auditLog } from '../../lib/audit.js';
 import { makeEnvelope, publish } from '../../lib/queue/index.js';
 import { QUEUES } from '../../lib/queue/topology.js';
+import * as storage from '../../lib/storage/index.js';
 import { AppError } from '../../shared/errors.js';
 import {
   findChannel,
@@ -569,11 +567,8 @@ export async function resolveConversation(
 // generateUploadSignedUrl
 // ---------------------------------------------------------------------------
 
-/** Validade da URL pré-assinada de upload (15 minutos). */
-const UPLOAD_URL_EXPIRES_SEC = 15 * 60;
-
 /**
- * Gera uma URL pré-assinada PUT para upload de mídia outbound ao R2.
+ * Gera uma URL pré-assinada para upload direto de mídia outbound.
  *
  * Key do objeto: `outbound/{organizationId}/{randomUUID}.{ext}`
  * Padrão garante:
@@ -581,11 +576,14 @@ const UPLOAD_URL_EXPIRES_SEC = 15 * 60;
  *   - Sem PII no caminho (UUID aleatório, não derivado do contato).
  *   - Extensão preservada para Content-Type correto.
  *
+ * O driver ativo (R2 ou Supabase) é selecionado pela facade via STORAGE_PROVIDER.
+ * O browser recebe uploadUrl e faz PUT diretamente no storage — sem passar pelo backend.
+ *
  * LGPD: key não contém PII — apenas orgId (ID opaco) + UUID.
  *
- * @param actor    Contexto do ator autenticado
+ * @param actor          Contexto do ator autenticado
  * @param conversationId UUID da conversa (verificação de scope)
- * @param body     { fileName, mime, sizeBytes }
+ * @param body           { fileName, mime, sizeBytes }
  */
 export async function generateUploadSignedUrl(
   db: Database,
@@ -598,11 +596,6 @@ export async function generateUploadSignedUrl(
     cityScopeIds: actor.cityScopeIds,
   });
 
-  // Guard de R2 configurado
-  if (!env.R2_ACCOUNT_ID || !env.R2_BUCKET) {
-    throw new AppError(500, 'INTERNAL_ERROR', 'R2 storage não configurado');
-  }
-
   // Key LGPD-safe: sem PII no caminho
   const ext =
     path
@@ -612,29 +605,15 @@ export async function generateUploadSignedUrl(
   const objectId = crypto.randomUUID();
   const key = `outbound/${actor.organizationId}/${objectId}${ext}`;
 
-  const client = new S3Client({
-    endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    region: 'auto',
-    credentials: {
-      accessKeyId: env.R2_ACCESS_KEY_ID ?? '',
-      secretAccessKey: env.R2_SECRET_ACCESS_KEY ?? '',
-    },
-  });
-
-  const command = new PutObjectCommand({
-    Bucket: env.R2_BUCKET,
-    Key: key,
-    ContentType: body.mime,
-    ContentLength: body.sizeBytes,
-  });
-
-  const uploadUrl = await getSignedUrl(client, command, { expiresIn: UPLOAD_URL_EXPIRES_SEC });
-  const publicMediaUrl = `${env.R2_PUBLIC_URL ?? ''}/${key}`;
+  // Delega ao driver ativo (R2 ou Supabase) via facade — guard de config é
+  // responsabilidade do driver (lança Error com mensagem clara se não configurado).
+  const { uploadUrl, publicUrl } = await storage.createSignedUploadUrl(key, body.mime);
 
   log.debug(
-    { organizationId: actor.organizationId, conversationId, key, mime: body.mime },
+    { organizationId: actor.organizationId, conversationId, mime: body.mime },
     'send.service: signed upload URL generated',
+    // LGPD: não logar key nem uploadUrl — uploadUrl contém token temporário
   );
 
-  return { uploadUrl, publicMediaUrl, key };
+  return { uploadUrl, publicMediaUrl: publicUrl, key };
 }

@@ -6,6 +6,7 @@
 // getSignedUrl: URL pre-assinada de download (padrao: 3600s).
 // putObject: upload de conteudo para uma key.
 // headObject: verifica existencia/metadados sem baixar o objeto.
+// createSignedUploadUrl: URL pre-assinada PUT para upload direto do browser.
 // =============================================================================
 import {
   GetObjectCommand,
@@ -129,4 +130,33 @@ export async function headObject(key: string): Promise<{
 /** URL publica do objeto (se o bucket tiver dominio publico configurado). */
 export function getPublicUrl(key: string): string {
   return `${env.R2_PUBLIC_URL}/${key}`;
+}
+
+/**
+ * Gera uma URL pre-assinada PUT para upload direto do browser ao R2.
+ *
+ * Usa PutObjectCommand presigned — equivalente ao endpoint de signed upload
+ * do Supabase Storage. Permite que o browser envie o arquivo diretamente
+ * ao R2 sem passar pelo backend.
+ *
+ * @param key  - Chave do objeto (LGPD-safe: sem PII).
+ * @param mime - MIME type para o browser enviar no Content-Type do PUT.
+ * @returns    { uploadUrl: URL pre-assinada PUT; publicUrl: URL publica final }
+ */
+export async function createSignedUploadUrl(
+  key: string,
+  mime: string,
+): Promise<{ uploadUrl: string; publicUrl: string }> {
+  const client = getR2Client();
+  const command = new PutObjectCommand({
+    Bucket: env.R2_BUCKET,
+    Key: key,
+    ContentType: mime,
+  });
+
+  const uploadUrl = await awsGetSignedUrl(client, command, {
+    expiresIn: 15 * 60, // 15 minutos — mesmo TTL usado em send.service.ts
+  });
+
+  return { uploadUrl, publicUrl: getPublicUrl(key) };
 }
