@@ -17,13 +17,13 @@ source_docs: [docs/19-runbook-go-live.md]
 docs_required: false
 ---
 
-# F22-S03 — Infra: corrige E2E Smoke quebrado (tsbuildinfo stale na imagem Docker)
+# F22-S03 — Infra: ressuscita o E2E Smoke (3 camadas)
 
 ## Objetivo
 
-Destravar o gate **E2E Smoke** (`.github/workflows/e2e.yml`), que está **vermelho na
-`main`**: a imagem Docker da API não sobe porque o `@elemento/shared-schemas/dist/index.js`
-não é emitido durante o build da imagem.
+Destravar o gate **E2E Smoke** (`.github/workflows/e2e.yml`), **vermelho na `main`**: a
+imagem Docker da API nunca completava o boot no CI por 3 quebras empilhadas (dist sem `.js`,
+rabbitmq ausente, topologia não declarada). Ver §Escopo para as três correções.
 
 ## Contexto
 
