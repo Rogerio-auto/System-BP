@@ -22,7 +22,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F2   | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F20  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
-| F22  | 3     | 0   | 0   | 0   | 0   | 3   | 0   |
+| F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -312,11 +312,11 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 22 —
 
-| ID      | Título                                                                            | Status    | Prioridade | Depende de |
-| ------- | --------------------------------------------------------------------------------- | --------- | ---------- | ---------- |
-| F22-S01 | Backend — hardening de isolamento e headers (auditoria de segurança 2026-06-22)   | 🟣 review | high       | —          |
-| F22-S02 | Backend — remediação de CVE em dependências runtime (drizzle-orm, xlsx)           | 🟣 review | high       | —          |
-| F22-S03 | Infra — ressuscita E2E Smoke (tsbuildinfo + rabbitmq CI + topologia socket-relay) | 🟣 review | high       | —          |
+| ID      | Título                                                                            | Status  | Prioridade | Depende de |
+| ------- | --------------------------------------------------------------------------------- | ------- | ---------- | ---------- |
+| F22-S01 | Backend — hardening de isolamento e headers (auditoria de segurança 2026-06-22)   | ✅ done | high       | —          |
+| F22-S02 | Backend — remediação de CVE em dependências runtime (drizzle-orm, xlsx)           | ✅ done | high       | —          |
+| F22-S03 | Infra — ressuscita E2E Smoke (tsbuildinfo + rabbitmq CI + topologia socket-relay) | ✅ done | high       | —          |
 
 ## Fase 3 — Agentes IA
 
