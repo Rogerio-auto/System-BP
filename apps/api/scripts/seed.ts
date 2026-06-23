@@ -262,7 +262,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'imports:cancel',
     'cities:manage',
     'agents:manage',
-    'users:manage',
+    // users:manage é admin-only (gestão de usuários/papéis na pág. de Configurações).
+    // gestor_geral gerencia agentes via agents:manage, mas não cria/edita usuários nem papéis.
     'flags:read',
     'audit:read',
     'dashboard:read',
