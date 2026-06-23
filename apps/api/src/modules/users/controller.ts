@@ -57,6 +57,7 @@ function getActorContext(request: FastifyRequest): ActorContext {
     userId: id,
     organizationId,
     role,
+    permissions,
     ip: request.ip,
     userAgent: request.headers['user-agent'] ?? null,
   };

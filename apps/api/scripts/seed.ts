@@ -191,6 +191,11 @@ const PERMISSIONS = [
     key: 'credit_analyses:request_review',
     description: 'Solicitar revisão de análises de crédito (módulo F8)',
   },
+  // anti-escalonamento de papéis — hardening go-live 2026-06-23
+  {
+    key: 'users:assign_privileged_roles',
+    description: 'Atribuir os papéis privilegiados (admin, gestor_geral) a usuários — admin-only',
+  },
 ] as const;
 
 /**
@@ -262,8 +267,10 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'imports:cancel',
     'cities:manage',
     'agents:manage',
-    // users:manage é admin-only (gestão de usuários/papéis na pág. de Configurações).
-    // gestor_geral gerencia agentes via agents:manage, mas não cria/edita usuários nem papéis.
+    // users:manage restaurado: gestor_geral pode cadastrar usuários e atribuir papéis
+    // não-privilegiados. O guard assertCanAssignRoles() no service bloqueia a atribuição
+    // de admin/gestor_geral — apenas quem tem users:assign_privileged_roles pode fazê-lo.
+    'users:manage',
     'flags:read',
     'audit:read',
     'dashboard:read',

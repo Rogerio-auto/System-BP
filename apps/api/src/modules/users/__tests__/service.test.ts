@@ -44,6 +44,7 @@ const mockCountAdminUsers = vi.fn();
 const mockFindUserCityScopes = vi.fn();
 const mockReplaceUserCityScopes = vi.fn();
 const mockUpdatePersonalEmail = vi.fn();
+const mockGetRoleKeysByIds = vi.fn();
 
 vi.mock('../repository.js', () => ({
   findUsers: (...args: unknown[]) => mockFindUsers(...args),
@@ -61,6 +62,7 @@ vi.mock('../repository.js', () => ({
   findUserCityScopes: (...args: unknown[]) => mockFindUserCityScopes(...args),
   replaceUserCityScopes: (...args: unknown[]) => mockReplaceUserCityScopes(...args),
   updatePersonalEmail: (...args: unknown[]) => mockUpdatePersonalEmail(...args),
+  getRoleKeysByIds: (...args: unknown[]) => mockGetRoleKeysByIds(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -100,6 +102,8 @@ const actor = {
   userId: FIXTURE_USER_ID,
   organizationId: FIXTURE_ORG_ID,
   role: 'admin',
+  // admin tem a permissão especial; evita que o guard bloqueie os testes existentes
+  permissions: ['users:assign_privileged_roles', 'users:manage'],
   ip: '127.0.0.1',
   userAgent: 'vitest',
 };
@@ -625,5 +629,207 @@ describe('F18-S09 — updatePersonalEmailService', () => {
     expect(after['personal_email']).toBe('[redacted]');
     // O email real não deve aparecer em nenhum lugar
     expect(JSON.stringify(params)).not.toContain('segredo@gmail.com');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: guard de anti-escalonamento de papéis (hardening go-live 2026-06-23)
+//
+// Garante que:
+//   1. Ator SEM users:assign_privileged_roles tentando atribuir admin/gestor_geral
+//      → ForbiddenError (403)
+//   2. Ator SEM essa permissão atribuindo roles não-privilegiados → OK
+//   3. Ator COM a permissão (admin) atribuindo admin/gestor_geral → OK
+// ---------------------------------------------------------------------------
+
+const FIXTURE_ADMIN_ROLE_KEY_ID = 'aaaa1111-0000-0000-0000-000000000001';
+const FIXTURE_GESTOR_GERAL_ROLE_ID = 'bbbb2222-0000-0000-0000-000000000002';
+const FIXTURE_NON_PRIV_ROLE_ID = 'cccc3333-0000-0000-0000-000000000003';
+
+/** Ator sem a permissão especial — simula gestor_geral com users:manage mas não privileged */
+const actorNoPriv = {
+  userId: FIXTURE_USER_ID,
+  organizationId: FIXTURE_ORG_ID,
+  role: 'gestor_geral',
+  permissions: ['users:manage'],
+  ip: '127.0.0.1',
+  userAgent: 'vitest',
+};
+
+describe('Guard anti-escalonamento — createUserService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // email não duplicado por padrão
+    mockFindUserByEmailInOrg.mockResolvedValue(null);
+  });
+
+  it('ator sem users:assign_privileged_roles tentando criar com role admin → ForbiddenError', async () => {
+    const { createUserService } = await import('../service.js');
+    const { ForbiddenError } = await import('../../../shared/errors.js');
+    const mockDb = makeMockDb();
+
+    mockGetRoleKeysByIds.mockResolvedValue(['admin']);
+
+    await expect(
+      createUserService(mockDb as unknown as Parameters<typeof createUserService>[0], actorNoPriv, {
+        email: 'novo@bdp.ro.gov.br',
+        fullName: 'Novo Usuario',
+        status: 'pending',
+        roleIds: [FIXTURE_ADMIN_ROLE_KEY_ID],
+        cityIds: [],
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+
+    // Transação não deve ter sido iniciada
+    expect(mockDb.transaction).not.toHaveBeenCalled();
+  });
+
+  it('ator sem users:assign_privileged_roles tentando criar com role gestor_geral → ForbiddenError', async () => {
+    const { createUserService } = await import('../service.js');
+    const { ForbiddenError } = await import('../../../shared/errors.js');
+    const mockDb = makeMockDb();
+
+    mockGetRoleKeysByIds.mockResolvedValue(['gestor_geral']);
+
+    await expect(
+      createUserService(mockDb as unknown as Parameters<typeof createUserService>[0], actorNoPriv, {
+        email: 'novo@bdp.ro.gov.br',
+        fullName: 'Novo Usuario',
+        status: 'pending',
+        roleIds: [FIXTURE_GESTOR_GERAL_ROLE_ID],
+        cityIds: [],
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('ator sem users:assign_privileged_roles atribuindo role não-privilegiada → OK', async () => {
+    const { createUserService } = await import('../service.js');
+    const mockDb = makeMockDb();
+
+    mockGetRoleKeysByIds.mockResolvedValue(['gestor_regional']);
+    mockCreateUser.mockResolvedValue(makeUser());
+    mockReplaceUserRoles.mockResolvedValue(undefined);
+    mockReplaceUserCityScopes.mockResolvedValue(undefined);
+
+    await expect(
+      createUserService(mockDb as unknown as Parameters<typeof createUserService>[0], actorNoPriv, {
+        email: 'novo@bdp.ro.gov.br',
+        fullName: 'Novo Usuario',
+        status: 'pending',
+        roleIds: [FIXTURE_NON_PRIV_ROLE_ID],
+        cityIds: [],
+      }),
+    ).resolves.toMatchObject({ id: expect.any(String), tempPassword: expect.any(String) });
+  });
+
+  it('admin (com users:assign_privileged_roles) atribuindo role admin → OK', async () => {
+    const { createUserService } = await import('../service.js');
+    const mockDb = makeMockDb();
+
+    // admin short-circuits o guard — getRoleKeysByIds não deve ser chamado
+    mockCreateUser.mockResolvedValue(makeUser());
+    mockReplaceUserRoles.mockResolvedValue(undefined);
+    mockReplaceUserCityScopes.mockResolvedValue(undefined);
+
+    await expect(
+      createUserService(mockDb as unknown as Parameters<typeof createUserService>[0], actor, {
+        email: 'novo@bdp.ro.gov.br',
+        fullName: 'Novo Admin',
+        status: 'pending',
+        roleIds: [FIXTURE_ADMIN_ROLE_KEY_ID],
+        cityIds: [],
+      }),
+    ).resolves.toMatchObject({ id: expect.any(String) });
+
+    // Guard short-circuited: getRoleKeysByIds não foi chamado
+    expect(mockGetRoleKeysByIds).not.toHaveBeenCalled();
+  });
+});
+
+describe('Guard anti-escalonamento — setUserRolesService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('ator sem users:assign_privileged_roles tentando setar role admin → ForbiddenError', async () => {
+    const { setUserRolesService } = await import('../service.js');
+    const { ForbiddenError } = await import('../../../shared/errors.js');
+    const mockDb = makeMockDb();
+
+    mockFindUserById.mockResolvedValue(makeUser());
+    mockGetRoleKeysByIds.mockResolvedValue(['admin']);
+
+    await expect(
+      setUserRolesService(
+        mockDb as unknown as Parameters<typeof setUserRolesService>[0],
+        actorNoPriv,
+        FIXTURE_TARGET_USER_ID,
+        { roleIds: [FIXTURE_ADMIN_ROLE_KEY_ID] },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+
+    expect(mockDb.transaction).not.toHaveBeenCalled();
+  });
+
+  it('ator sem users:assign_privileged_roles tentando setar role gestor_geral → ForbiddenError', async () => {
+    const { setUserRolesService } = await import('../service.js');
+    const { ForbiddenError } = await import('../../../shared/errors.js');
+    const mockDb = makeMockDb();
+
+    mockFindUserById.mockResolvedValue(makeUser());
+    mockGetRoleKeysByIds.mockResolvedValue(['gestor_geral']);
+
+    await expect(
+      setUserRolesService(
+        mockDb as unknown as Parameters<typeof setUserRolesService>[0],
+        actorNoPriv,
+        FIXTURE_TARGET_USER_ID,
+        { roleIds: [FIXTURE_GESTOR_GERAL_ROLE_ID] },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('ator sem users:assign_privileged_roles atribuindo roles não-privilegiadas → OK', async () => {
+    const { setUserRolesService } = await import('../service.js');
+    const mockDb = makeMockDb();
+
+    mockFindUserById.mockResolvedValue(makeUser());
+    mockGetRoleKeysByIds.mockResolvedValue(['agente']);
+    // target não é admin → last-admin check não dispara
+    mockFindUserRoles.mockResolvedValue([
+      { id: FIXTURE_NON_PRIV_ROLE_ID, key: 'agente', label: 'Agente' },
+    ]);
+    mockReplaceUserRoles.mockResolvedValue(undefined);
+
+    await expect(
+      setUserRolesService(
+        mockDb as unknown as Parameters<typeof setUserRolesService>[0],
+        actorNoPriv,
+        FIXTURE_TARGET_USER_ID,
+        { roleIds: [FIXTURE_NON_PRIV_ROLE_ID] },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it('admin (com users:assign_privileged_roles) atribuindo gestor_geral → OK', async () => {
+    const { setUserRolesService } = await import('../service.js');
+    const mockDb = makeMockDb();
+
+    mockFindUserById.mockResolvedValue(makeUser());
+    // target não é admin → last-admin check não dispara
+    mockFindUserRoles.mockResolvedValue([]);
+    mockReplaceUserRoles.mockResolvedValue(undefined);
+
+    await expect(
+      setUserRolesService(
+        mockDb as unknown as Parameters<typeof setUserRolesService>[0],
+        actor, // admin com users:assign_privileged_roles
+        FIXTURE_TARGET_USER_ID,
+        { roleIds: [FIXTURE_GESTOR_GERAL_ROLE_ID] },
+      ),
+    ).resolves.toBeUndefined();
+
+    // Guard short-circuited: getRoleKeysByIds não foi chamado
+    expect(mockGetRoleKeysByIds).not.toHaveBeenCalled();
   });
 });

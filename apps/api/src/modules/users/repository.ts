@@ -290,6 +290,23 @@ export async function replaceUserRoles(
 }
 
 /**
+ * Retorna as keys (ex: 'admin', 'gestor_geral') das roles cujos IDs foram passados.
+ * Usado pelo guard de anti-escalonamento de papéis antes de atribuir roles.
+ * Retorna [] quando roleIds está vazio (evita query desnecessária).
+ */
+export async function getRoleKeysByIds(db: Database, roleIds: string[]): Promise<string[]> {
+  if (roleIds.length === 0) return [];
+
+  const rows = await db
+    .select({ key: roles.key })
+    .from(roles)
+    // `as` justificado: inArray retorna SQL<unknown> mas é condição válida para where()
+    .where(inArray(roles.id, roleIds) as ReturnType<typeof eq>);
+
+  return rows.map((r) => r.key);
+}
+
+/**
  * Verifica se uma role existe pelo ID.
  */
 export async function roleExistsById(db: Database, roleId: string): Promise<boolean> {
