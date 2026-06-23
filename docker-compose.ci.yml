@@ -37,6 +37,25 @@ services:
     networks:
       - elemento-ci
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: elemento
+      RABBITMQ_DEFAULT_PASS: elemento_ci_secret
+    tmpfs:
+      - /var/lib/rabbitmq
+    healthcheck:
+      # check_port_connectivity garante que o listener amqp (5672) está aceitando
+      # conexões — `ping` apenas confirma que o node subiu, e a API (sem retry no
+      # boot) crasha se conectar antes do listener bindar.
+      test: ['CMD', 'rabbitmq-diagnostics', 'check_port_connectivity']
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+    networks:
+      - elemento-ci
+
   api:
     build:
       context: .
@@ -61,8 +80,13 @@ services:
       LGPD_DATA_KEY: P5Uc4j/vdAisFljJ0kdz08PLWmPvMC/NX5VIy99Bv+E=
       LGPD_DEDUPE_PEPPER: xgRqlH8Ag8bV/DI9gza3qIFx0w4RF3f9ZF/RSilyV2s=
       FX_BRL_PER_USD: '5.75'
+      # RabbitMQ (live chat F16-S01) — a API conecta no boot; sem isto crasha
+      # com ECONNREFUSED em amqp://localhost:5672 (default do env.ts).
+      RABBITMQ_URL: amqp://elemento:elemento_ci_secret@rabbitmq:5672
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     ports:
       - '3333:3333'

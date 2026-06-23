@@ -33,7 +33,7 @@ import { z } from 'zod';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { envelopeSchema } from '../lib/queue/envelope.js';
-import { QUEUES } from '../lib/queue/topology.js';
+import { assertTopology, QUEUES } from '../lib/queue/topology.js';
 
 // ---------------------------------------------------------------------------
 // Schema do job publicado pelos workers na fila socket.relay
@@ -105,6 +105,12 @@ export async function startSocketRelay(io: SocketIOServer): Promise<() => Promis
 
   // prefetch=1: garante processamento sequencial e entrega ordenada por sala
   await channel.prefetch(1);
+
+  // Garante que a topologia (exchanges + filas, incl. hm.q.socket.relay) existe
+  // antes de consumir. Idempotente. Sem isto, com um broker fresco (ex.: CI com
+  // rabbitmq stateless) onde nenhum publisher rodou ainda, o consume falha com
+  // 404 NOT_FOUND e derruba o boot da API.
+  await assertTopology(channel);
 
   logger.info({ queue: QUEUES.socketRelay }, 'socket relay: iniciando consumo da fila');
 
