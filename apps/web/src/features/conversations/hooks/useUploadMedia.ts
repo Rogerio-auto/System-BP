@@ -13,14 +13,24 @@
 //   - Não armazenar em localStorage.
 // =============================================================================
 
+import {
+  MEDIA_MAX_BYTES_ANY,
+  formatMaxBytes,
+  maxUploadBytesForMime,
+  mediaKindFromMime,
+} from '@elemento/shared-schemas';
 import * as React from 'react';
 
 import { api } from '../../../lib/api';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-/** Limite de 16 MB (WhatsApp Cloud API). */
-export const MAX_UPLOAD_BYTES = 16 * 1024 * 1024;
+/**
+ * Teto absoluto de upload (= FILE_SIZE_LIMIT do storage na VPS).
+ * Os limites efetivos são POR TIPO (via maxUploadBytesForMime — fonte única em
+ * @elemento/shared-schemas): imagem 5MB · áudio/vídeo 16MB · documento 50MB.
+ */
+export const MAX_UPLOAD_BYTES = MEDIA_MAX_BYTES_ANY;
 
 // ─── Tipos públicos ───────────────────────────────────────────────────────────
 
@@ -66,12 +76,10 @@ interface SignedUrlResponse {
 /**
  * Detecta o `mediaKind` a partir do MIME type do arquivo.
  * image/* → image | video/* → video | audio/* → audio | resto → document
+ * Delega à fonte única em @elemento/shared-schemas (sem duplicar a lógica).
  */
 export function detectMediaKind(mime: string): MediaKind {
-  if (mime.startsWith('image/')) return 'image';
-  if (mime.startsWith('video/')) return 'video';
-  if (mime.startsWith('audio/')) return 'audio';
-  return 'document';
+  return mediaKindFromMime(mime);
 }
 
 /**
@@ -113,16 +121,19 @@ export function useUploadMedia(conversationId: string): UseUploadMediaReturn {
 
   const upload = React.useCallback(
     async (file: File): Promise<UploadResult> => {
-      // ── Validação de tamanho ─────────────────────────────────────────────
-      if (file.size > MAX_UPLOAD_BYTES) {
-        const err = new Error(`Arquivo excede o limite de 16 MB.`);
-        setProgress({ phase: 'error', percent: 0, error: err.message });
-        throw err;
-      }
-
       const mime = file.type || 'application/octet-stream';
       const fileName = file.name;
       const mediaKind = detectMediaKind(mime);
+
+      // ── Validação de tamanho (limite POR TIPO de mídia) ──────────────────
+      const maxBytes = maxUploadBytesForMime(mime);
+      if (file.size > maxBytes) {
+        const err = new Error(
+          `Arquivo excede o limite de ${formatMaxBytes(maxBytes)} para este tipo de mídia.`,
+        );
+        setProgress({ phase: 'error', percent: 0, error: err.message });
+        throw err;
+      }
 
       // ── Fase 1: Obter signed-url ─────────────────────────────────────────
       setProgress({ phase: 'signing', percent: 0 });
@@ -134,7 +145,8 @@ export function useUploadMedia(conversationId: string): UseUploadMediaReturn {
         const res = await api.post<SignedUrlResponse>(
           `/api/conversations/${encodeURIComponent(conversationId)}/uploads/signed-url`,
           // LGPD: não logar — apenas passamos os metadados necessários para assinatura.
-          { fileName, mime },
+          // sizeBytes é obrigatório no schema do backend (validação por tipo).
+          { fileName, mime, sizeBytes: file.size },
         );
         uploadUrl = res.uploadUrl;
         publicMediaUrl = res.publicMediaUrl;

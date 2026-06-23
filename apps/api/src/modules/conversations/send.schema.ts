@@ -12,7 +12,12 @@
 //
 // Sem `any`. Sem `as` sem justificativa.
 // =============================================================================
-import { InteractivePayloadSchema } from '@elemento/shared-schemas';
+import {
+  InteractivePayloadSchema,
+  MEDIA_MAX_BYTES_ANY,
+  formatMaxBytes,
+  maxUploadBytesForMime,
+} from '@elemento/shared-schemas';
 import type { MessageTypeSchema } from '@elemento/shared-schemas';
 import { z } from 'zod';
 
@@ -165,19 +170,32 @@ export type ResolveResponse = z.infer<typeof ResolveResponseSchema>;
 // SignedUrlBody — corpo do POST /conversations/:id/uploads/signed-url
 // ---------------------------------------------------------------------------
 
-export const SignedUrlBodySchema = z.object({
-  /** Nome do arquivo (sem path). Usado para Content-Disposition. */
-  fileName: z.string().min(1).max(255).describe('Nome do arquivo (ex: imagem.jpg)'),
-  /** MIME type do arquivo. */
-  mime: z.string().min(1).describe('MIME type (ex: image/jpeg)'),
-  /** Tamanho em bytes (para validação de quota). */
-  sizeBytes: z
-    .number()
-    .int()
-    .positive()
-    .max(50 * 1024 * 1024)
-    .describe('Tamanho em bytes (máx 50 MB)'),
-});
+export const SignedUrlBodySchema = z
+  .object({
+    /** Nome do arquivo (sem path). Usado para Content-Disposition. */
+    fileName: z.string().min(1).max(255).describe('Nome do arquivo (ex: imagem.jpg)'),
+    /** MIME type do arquivo. */
+    mime: z.string().min(1).describe('MIME type (ex: image/jpeg)'),
+    /** Tamanho em bytes. Validado contra o limite por tipo de mídia. */
+    sizeBytes: z
+      .number()
+      .int()
+      .positive()
+      .max(MEDIA_MAX_BYTES_ANY)
+      .describe('Tamanho em bytes (teto absoluto do deploy)'),
+  })
+  // Limite por tipo (WhatsApp): imagem 5MB, áudio/vídeo 16MB, documento 50MB.
+  // Fonte única em @elemento/shared-schemas (maxUploadBytesForMime).
+  .superRefine((data, ctx) => {
+    const limit = maxUploadBytesForMime(data.mime);
+    if (data.sizeBytes > limit) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['sizeBytes'],
+        message: `Arquivo excede o limite de ${formatMaxBytes(limit)} para este tipo de mídia.`,
+      });
+    }
+  });
 
 export type SignedUrlBody = z.infer<typeof SignedUrlBodySchema>;
 
