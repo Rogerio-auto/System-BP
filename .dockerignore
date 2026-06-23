@@ -20,6 +20,13 @@ dist
 **/dist
 build
 **/build
+# Estado incremental do tsc (incremental:true no tsconfig.base). Sem isto, o
+# COPY . . do Dockerfile leva *.tsbuildinfo stale do host para a imagem; o tsc
+# considera o output atualizado e PULA a emissao dos .js de shared-schemas/
+# shared-types (emite so .d.ts), quebrando a API em runtime. Build Docker tem
+# de ser sempre fresco. (F22-S03)
+*.tsbuildinfo
+**/*.tsbuildinfo
 coverage
 **/coverage
 .turbo
