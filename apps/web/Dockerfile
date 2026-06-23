@@ -11,6 +11,14 @@ COPY apps/web/package.json ./apps/web/
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 COPY apps/web ./apps/web
+# VITE_API_URL é inlined em build-time pelo Vite. Em prod, passar via build-arg:
+#   docker build --build-arg VITE_API_URL=https://api.bancodopovoderondonia.org.br ...
+ARG VITE_API_URL=http://localhost:3333
+ENV VITE_API_URL=$VITE_API_URL
+# Buildar libs de workspace primeiro — sem o dist/, o `tsc -b` do web não resolve
+# @elemento/shared-schemas e cascateia erros de tipo. Espelha apps/api/Dockerfile.
+RUN pnpm --filter @elemento/shared-types build
+RUN pnpm --filter @elemento/shared-schemas build
 RUN pnpm --filter @elemento/web build
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runner

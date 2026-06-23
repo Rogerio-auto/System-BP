@@ -436,7 +436,12 @@ async function seed(): Promise<void> {
       console.warn(`[seed] AVISO: role '${roleKey}' não encontrado — pulando`);
       continue;
     }
-    for (const permKey of permKeys) {
+    // admin é superusuário: recebe TODAS as permissões existentes (catálogo do
+    // seed + as semeadas por migrations seed_*). Sem isto, permissões adicionadas
+    // por fases futuras não entram no admin e features com flag ligada ficam
+    // invisíveis/403 — bug observado no go-live 2026-06-23 (admin tinha 38/73).
+    const keysForRole = roleKey === 'admin' ? allPerms.map((p) => p.key) : permKeys;
+    for (const permKey of keysForRole) {
       const permId = permByKey[permKey];
       if (!permId) {
         console.warn(`[seed] AVISO: permission '${permKey}' não encontrada — pulando`);

@@ -42,6 +42,8 @@ function refreshCookieOptions(isProduction: boolean, maxAgeSeconds: number) {
     sameSite: 'strict' as const,
     path: '/api/auth',
     maxAge: maxAgeSeconds,
+    // Compartilha o cookie entre subdomínios (app./api.) quando definido.
+    ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {}),
   };
 }
 
@@ -54,6 +56,9 @@ function csrfCookieOptions(isProduction: boolean, maxAgeSeconds: number) {
     // página do SPA (refresh é disparado de qualquer rota via interceptor 401).
     path: '/',
     maxAge: maxAgeSeconds,
+    // Domínio-pai (ex.: .bancodopovoderondonia.org.br) para o JS do frontend
+    // em app.* conseguir ler o csrf_token setado pela API em api.*.
+    ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {}),
   };
 }
 
@@ -239,6 +244,8 @@ export async function logoutController(
     sameSite: 'strict' as const,
     maxAge: 0,
     expires: new Date(0),
+    // Deve bater com o domain de criação, senão o browser não expira o cookie.
+    ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {}),
   };
 
   reply.setCookie(REFRESH_COOKIE, '', { ...baseClear, httpOnly: true, path: '/api/auth' });
