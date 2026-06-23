@@ -1,0 +1,145 @@
+# =============================================================================
+# docker-stack.prod.yml — Stack de produção do Elemento para Docker Swarm / Portainer.
+#
+# 3 serviços: api (Node/Fastify), web (SPA nginx), langgraph (Python).
+# Infra reutilizada da VPS (NÃO sobe aqui):
+#   - Postgres  → Supabase (host.docker.internal:5432, pooler/supavisor, DB `elemento`)
+#   - Redis     → redis_redis:6386/1  (network_public)
+#   - RabbitMQ  → rabbitmq_rabbitmq:5672  vhost `elemento`  (network_public)
+#
+# Segredos: NÃO ficam neste arquivo. São injetados por ${VAR} no deploy
+#   (via `set -a; . /root/elemento-secrets/api.env; . /root/elemento-secrets/langgraph.env; set +a`)
+#   ou pelos campos de env do Portainer.
+#
+# Portas publicadas no host (apenas o nginx do host as consome via localhost;
+#   bloqueadas externamente pelo firewall — ver bdp-firewall):
+#   - api  8181 → nginx `api.bancodopovoderondonia.org.br`
+#   - web  8082 → nginx `app.bancodopovoderondonia.org.br`
+#   - langgraph: SEM porta no host (só overlay interno).
+#
+# Deploy:
+#   docker stack deploy -c docker-stack.prod.yml elemento --with-registry-auth
+# =============================================================================
+version: '3.9'
+
+services:
+  api:
+    image: elemento-api:prod
+    # host.docker.internal → alcança o pooler do Supabase publicado no host (5432)
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      API_HOST: 0.0.0.0
+      API_PORT: '3333'
+      API_PUBLIC_URL: ${API_PUBLIC_URL}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL}
+      LANGGRAPH_INTERNAL_TOKEN: ${LANGGRAPH_INTERNAL_TOKEN}
+      LANGGRAPH_SERVICE_URL: http://langgraph:8000
+      LGPD_DATA_KEY: ${LGPD_DATA_KEY}
+      LGPD_DEDUPE_PEPPER: ${LGPD_DEDUPE_PEPPER}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+      META_WHATSAPP_ACCESS_TOKEN: ${META_WHATSAPP_ACCESS_TOKEN}
+      META_WHATSAPP_PHONE_NUMBER_ID: ${META_WHATSAPP_PHONE_NUMBER_ID}
+      META_WABA_ID: ${META_WABA_ID}
+      CHATWOOT_BASE_URL: ${CHATWOOT_BASE_URL}
+      CHATWOOT_API_TOKEN: ${CHATWOOT_API_TOKEN}
+      CHATWOOT_ACCOUNT_ID: ${CHATWOOT_ACCOUNT_ID}
+      CHATWOOT_WEBHOOK_HMAC_SECRET: ${CHATWOOT_WEBHOOK_HMAC_SECRET}
+      FX_BRL_PER_USD: ${FX_BRL_PER_USD}
+    ports:
+      - target: 3333
+        published: 8181
+        protocol: tcp
+        mode: host
+    networks:
+      - elemento_net
+      - network_public
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3333/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 640M
+
+  langgraph:
+    image: elemento-langgraph:prod
+    environment:
+      LOG_LEVEL: INFO
+      BACKEND_INTERNAL_URL: http://api:3333
+      LANGGRAPH_INTERNAL_TOKEN: ${LANGGRAPH_INTERNAL_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      LLM_MODEL_CLASSIFIER: ${LLM_MODEL_CLASSIFIER}
+      LLM_MODEL_REASONER: ${LLM_MODEL_REASONER}
+      LLM_MODEL_FALLBACK: ${LLM_MODEL_FALLBACK}
+      LLM_DAILY_BUDGET_USD: ${LLM_DAILY_BUDGET_USD}
+    networks:
+      - elemento_net
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 640M
+
+  web:
+    image: elemento-web:prod
+    ports:
+      - target: 8080
+        published: 8082
+        protocol: tcp
+        mode: host
+    networks:
+      - elemento_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 96M
+
+networks:
+  elemento_net:
+    driver: overlay
+  network_public:
+    external: true

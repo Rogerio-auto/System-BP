@@ -58,6 +58,14 @@ const envSchema = z.object({
     )
     .pipe(z.array(z.string().url()).min(1, 'CORS_ALLOWED_ORIGINS não pode ser vazio')),
 
+  // Domínio dos cookies de sessão (refresh_token, csrf_token). Em produção com
+  // frontend e API em subdomínios distintos (app./api.), deve ser o domínio-pai
+  // com ponto inicial (ex.: `.bancodopovoderondonia.org.br`) para o cookie ser
+  // compartilhado entre subdomínios — senão o JS do frontend não consegue ler o
+  // csrf_token (host-only da API) e o refresh falha com "CSRF token ausente".
+  // Dev / same-origin: deixar ausente (cookie host-only).
+  COOKIE_DOMAIN: z.string().optional(),
+
   LANGGRAPH_INTERNAL_TOKEN: z.string().min(32),
   LANGGRAPH_SERVICE_URL: z.string().url(),
   // Timeout (ms) do worker livechat-ai ao chamar o LangGraph. O pré-atendimento
