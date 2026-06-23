@@ -1,6 +1,6 @@
 ---
 id: F22-S03
-title: Infra — corrige E2E Smoke quebrado (tsbuildinfo stale na imagem Docker)
+title: Infra — ressuscita E2E Smoke (tsbuildinfo + rabbitmq CI + topologia socket-relay)
 phase: F22
 task_ref: docs/sessions/2026-06-22-security-audit.md
 status: in-progress
@@ -44,20 +44,34 @@ Diagnóstico (sessão 2026-06-22, ao validar F22-S01/S02 antes do merge):
 
 ## Escopo (faz)
 
-1. Adicionar `*.tsbuildinfo` e `**/*.tsbuildinfo` ao `.dockerignore`, garantindo build
-   Docker determinístico (sem herdar estado incremental do host).
+O E2E Smoke estava quebrado em **3 camadas empilhadas** (cada uma mascarava a próxima);
+o boot da API nunca completava no CI. As três correções:
+
+1. **tsbuildinfo (`.dockerignore`)** — adicionar `*.tsbuildinfo` e `**/*.tsbuildinfo`,
+   garantindo build Docker determinístico (sem herdar estado incremental do host que
+   suprimia a emissão dos `.js` de shared-schemas/shared-types).
+2. **rabbitmq ausente no CI (`docker-compose.ci.yml`)** — a API conecta no amqp no boot
+   (`RABBITMQ_URL`, live chat F16-S01) e crashava com `ECONNREFUSED 5672`. Adicionado
+   serviço `rabbitmq` stateless + `RABBITMQ_URL` na API + `depends_on` healthy. Healthcheck
+   usa `check_port_connectivity` (o listener 5672 pode não estar pronto quando `ping` passa).
+3. **topologia não declarada antes do consumo (`workers/livechat-socket-relay.ts`)** — o
+   relay criava canal dedicado e consumia `hm.q.socket.relay` sem `assertTopology` antes →
+   `404 NOT_FOUND` em broker fresco (CI stateless). Adicionado `assertTopology(channel)`
+   (idempotente) antes do `consume`. Em dev/prod o bug ficava mascarado por filas duráveis
+   de boots anteriores.
 
 ## Fora de escopo (NÃO faz)
 
 - Desligar `incremental` no `tsconfig.base.json` (afeta velocidade de build local; o
   problema é só o vazamento para a imagem Docker).
-- Mudar a estratégia de `pnpm deploy` no Dockerfile (o deploy está correto — o symlink do
-  workspace é resolvido; o que faltava era o `.js` no `dist`).
+- Mudar a estratégia de `pnpm deploy` no Dockerfile (o deploy está correto).
 - Os fixes de F22-S01/S02.
 
 ## Arquivos permitidos
 
 - `.dockerignore`
+- `docker-compose.ci.yml`
+- `apps/api/src/workers/livechat-socket-relay.ts`
 
 ## Arquivos proibidos
 
@@ -70,14 +84,17 @@ Diagnóstico (sessão 2026-06-22, ao validar F22-S01/S02 antes do merge):
 
 - Build da imagem `elemento-ci-api` produz `node_modules/@elemento/shared-schemas/dist/index.js`
   (e `shared-types`).
-- `docker compose -f docker-compose.ci.yml up -d` sobe `api` saudável (`/health` 200).
-- `pnpm --filter @elemento/api e2e` roda contra a stack CI (gate E2E deixa de falhar no boot).
+- `docker compose -f docker-compose.ci.yml up -d` sobe `api` **saudável** (`/health` 200)
+  com rabbitmq + langgraph na rede.
+- `pnpm --filter @elemento/api e2e` roda **verde** contra a stack CI.
 
 ## Definition of Done
 
-- [ ] `.dockerignore` exclui `*.tsbuildinfo`
-- [ ] Imagem `api` builda e sobe saudável na stack `docker-compose.ci.yml`
-- [ ] Migrations aplicam e a suíte E2E executa (sem o crash de `shared-schemas/dist`)
+- [x] `.dockerignore` exclui `*.tsbuildinfo`
+- [x] CI compose tem `rabbitmq` e a API recebe `RABBITMQ_URL`
+- [x] `socket-relay` assert a topologia antes de consumir
+- [x] Imagem `api` builda e sobe **saudável** na stack `docker-compose.ci.yml`
+- [x] Migrations aplicam e a suíte E2E roda **verde** (11/11)
 
 ## Comandos de validação
 
@@ -91,8 +108,7 @@ docker compose -f docker-compose.ci.yml down --volumes
 
 ## Notas para o agente
 
-- Fix mínimo e cirúrgico — só `.dockerignore`. Não tocar Dockerfile nem tsconfig.
-- Validar com build **sem cache** da camada de contexto (a mudança do `.dockerignore`
-  invalida o `COPY . .`).
-  </content>
-  </invoke>
+- Escopo cresceu durante a execução: começou só `.dockerignore`, mas o boot da API
+  revelou 2 camadas adicionais (rabbitmq, topologia). Validado end-to-end: `pnpm e2e` 11/11.
+- Não tocar Dockerfile nem tsconfig.base — os fixes são determinísticos sem isso.
+- `assertTopology` é idempotente; chamá-lo no consumer não conflita com o publisher.
