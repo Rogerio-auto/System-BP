@@ -3,12 +3,12 @@ id: F22-S03
 title: Infra — ressuscita E2E Smoke (tsbuildinfo + rabbitmq CI + topologia socket-relay)
 phase: F22
 task_ref: docs/sessions/2026-06-22-security-audit.md
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-22T23:58:47Z
-completed_at: null
+completed_at: 2026-06-23T11:54:31Z
 pr_url: null
 depends_on: []
 blocks: []
