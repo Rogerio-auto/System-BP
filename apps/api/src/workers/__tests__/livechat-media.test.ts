@@ -199,13 +199,31 @@ vi.mock('../../lib/queue/envelope.js', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock lib/storage/r2
+// Mock lib/storage/index (facade — worker importa daqui após refactor)
 // ---------------------------------------------------------------------------
-vi.mock('../../lib/storage/r2.js', () => ({
+vi.mock('../../lib/storage/index.js', () => ({
   putObject: (...args: unknown[]) => mockPutObject(...args),
   getPublicUrl: (...args: unknown[]) => mockGetPublicUrl(...args),
   getSignedUrl: vi.fn().mockResolvedValue('https://signed.example.com/file'),
   headObject: vi.fn().mockResolvedValue(null),
+  createSignedUploadUrl: vi.fn().mockResolvedValue({
+    uploadUrl: 'https://signed.example.com/upload',
+    publicUrl: 'https://media.example.com/org/2026/06/16/uuid.jpg',
+  }),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock lib/storage/r2 (mantido para não quebrar imports indiretos)
+// ---------------------------------------------------------------------------
+vi.mock('../../lib/storage/r2.js', () => ({
+  putObject: vi.fn().mockResolvedValue(undefined),
+  getPublicUrl: vi.fn().mockReturnValue('https://media.example.com/org/2026/06/16/uuid.jpg'),
+  getSignedUrl: vi.fn().mockResolvedValue('https://signed.example.com/file'),
+  headObject: vi.fn().mockResolvedValue(null),
+  createSignedUploadUrl: vi.fn().mockResolvedValue({
+    uploadUrl: 'https://signed.example.com/upload',
+    publicUrl: 'https://media.example.com/org/2026/06/16/uuid.jpg',
+  }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -374,7 +392,8 @@ function mockEnvelopeParseFailure(): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // R2_ACCOUNT_ID disponível por padrão nos testes
+  // Storage configurado por padrão nos testes (provider R2)
+  process.env['STORAGE_PROVIDER'] = 'r2';
   process.env['R2_ACCOUNT_ID'] = 'test-r2-account';
 
   // Download bem-sucedido por padrão
@@ -459,9 +478,27 @@ describe('livechat-media worker — processMediaJob', () => {
     });
   });
 
-  describe('Cenário 3: R2 não configurado', () => {
-    it('retorna nack gracioso quando R2_ACCOUNT_ID ausente', async () => {
+  describe('Cenário 3: storage não configurado', () => {
+    it('retorna nack gracioso quando R2_ACCOUNT_ID ausente (provider=r2)', async () => {
+      process.env['STORAGE_PROVIDER'] = 'r2';
       delete process.env['R2_ACCOUNT_ID'];
+
+      mockEnvelopeParse(BASE_JOB);
+      mockChannelFound();
+
+      const rawBody = Buffer.from(
+        JSON.stringify({ id: 'x', type: 'test', organizationId: ORG_ID, payload: BASE_JOB, ts: 1 }),
+      );
+      const result = await processMediaJob(rawBody);
+
+      expect(result).toBe('nack');
+      expect(mockPutObject).not.toHaveBeenCalled();
+      expect(mockPublish).not.toHaveBeenCalled();
+    });
+
+    it('retorna nack gracioso quando SUPABASE_STORAGE_URL ausente (provider=supabase)', async () => {
+      process.env['STORAGE_PROVIDER'] = 'supabase';
+      delete process.env['SUPABASE_STORAGE_URL'];
 
       mockEnvelopeParse(BASE_JOB);
       mockChannelFound();
