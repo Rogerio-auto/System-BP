@@ -22,6 +22,13 @@ import { Badge } from '../../../components/ui/Badge';
 import type { RoleOption } from '../../../hooks/admin/useUsers.types';
 import { GLOBAL_ROLE_KEYS, ROLE_LABELS } from '../../../hooks/admin/useUsers.types';
 import { cn } from '../../../lib/cn';
+import { useAuth } from '../../auth/useAuth';
+
+// Papéis privilegiados que só quem tem `users:assign_privileged_roles` (admin)
+// pode atribuir. Anti-escalonamento: gestor_geral cadastra usuários mas não cria
+// admin nem outro gestor_geral. O backend é a fonte da verdade (guard no service);
+// aqui é só UX — esconder do dropdown o que o usuário não pode atribuir.
+const PRIVILEGED_ROLE_KEYS = ['admin', 'gestor_geral'];
 
 interface UserRoleSelectProps {
   value: string[];
@@ -69,8 +76,14 @@ export function UserRoleSelect({
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
 
+  const { hasPermission } = useAuth();
+  const canAssignPrivileged = hasPermission('users:assign_privileged_roles');
+
   const selectedRoles = roles.filter((r) => value.includes(r.id));
-  const availableRoles = roles.filter((r) => !value.includes(r.id));
+  // Esconde admin/gestor_geral das opções quando o usuário não pode atribuí-los.
+  const availableRoles = roles.filter(
+    (r) => !value.includes(r.id) && (canAssignPrivileged || !PRIVILEGED_ROLE_KEYS.includes(r.key)),
+  );
 
   function handleAdd(roleId: string): void {
     onChange([...value, roleId]);

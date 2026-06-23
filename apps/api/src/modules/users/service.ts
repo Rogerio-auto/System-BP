@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto';
 import type { Database } from '../../db/client.js';
 import type { User } from '../../db/schema/users.js';
 import { auditLog } from '../../lib/audit.js';
-import { ConflictError, NotFoundError, AppError } from '../../shared/errors.js';
+import { ConflictError, ForbiddenError, NotFoundError, AppError } from '../../shared/errors.js';
 import { passwordHash } from '../../shared/password.js';
 
 import {
@@ -31,6 +31,7 @@ import {
   findUserCityScopes,
   findUserRoles,
   findUsers,
+  getRoleKeysByIds,
   reactivateUser,
   replaceUserCityScopes,
   replaceUserRoles,
@@ -66,6 +67,44 @@ class CannotRemoveLastAdminError extends AppError {
 }
 
 // ---------------------------------------------------------------------------
+// Guard de anti-escalonamento de papéis
+// ---------------------------------------------------------------------------
+
+/**
+ * Papéis que só o administrador pode atribuir.
+ * Qualquer usuário com `users:manage` mas sem `users:assign_privileged_roles`
+ * (ex: gestor_geral) é bloqueado ao tentar atribuir estes papéis.
+ */
+const PRIVILEGED_ROLE_KEYS = ['admin', 'gestor_geral'] as const;
+type PrivilegedRoleKey = (typeof PRIVILEGED_ROLE_KEYS)[number];
+
+/**
+ * Lança ForbiddenError se o ator não tem permissão para atribuir os roleIds
+ * que contêm papéis privilegiados (admin, gestor_geral).
+ *
+ * Curto-circuita imediatamente se o ator possuir `users:assign_privileged_roles`
+ * (somente admin recebe essa permissão pelo seed).
+ */
+async function assertCanAssignRoles(
+  db: Database,
+  actor: ActorContext,
+  roleIds: string[],
+): Promise<void> {
+  if (actor.permissions.includes('users:assign_privileged_roles')) return;
+
+  const keys = await getRoleKeysByIds(db, roleIds);
+  const blocked = keys.filter((k): k is PrivilegedRoleKey =>
+    PRIVILEGED_ROLE_KEYS.includes(k as PrivilegedRoleKey),
+  );
+
+  if (blocked.length > 0) {
+    throw new ForbiddenError(
+      `Você não tem permissão para atribuir os papéis: ${blocked.join(', ')}. Apenas administradores podem atribuir admin ou gestor_geral.`,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Contexto do ator (passado pelo controller a partir de request.user)
 // ---------------------------------------------------------------------------
 
@@ -74,6 +113,8 @@ export interface ActorContext {
   organizationId: string;
   /** Role key do ator — snapshot no momento da ação. */
   role: string;
+  /** Permissões do ator (lista de keys do JWT). Usado pelo guard de roles. */
+  permissions: string[];
   ip?: string | null;
   userAgent?: string | null;
 }
@@ -165,6 +206,9 @@ export async function createUserService(
   actor: ActorContext,
   body: CreateUserBody,
 ): Promise<CreateUserResponse> {
+  // 0. Guard: bloquear atribuição de papéis privilegiados a ator sem permissão
+  await assertCanAssignRoles(db, actor, body.roleIds);
+
   // 1. Verificar duplicidade de email na org
   const existing = await findUserByEmailInOrg(db, body.email, actor.organizationId);
   if (existing) {
@@ -355,6 +399,9 @@ export async function setUserRolesService(
 ): Promise<void> {
   const target = await findUserById(db, targetUserId, actor.organizationId);
   if (!target) throw new NotFoundError('Usuário não encontrado');
+
+  // Guard: bloquear atribuição de papéis privilegiados a ator sem permissão
+  await assertCanAssignRoles(db, actor, body.roleIds);
 
   // Self-protection: se o target é admin e o caller está removendo a role admin
   // precisamos garantir que não é o último admin da org.
