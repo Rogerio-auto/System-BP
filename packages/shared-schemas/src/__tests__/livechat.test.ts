@@ -8,6 +8,11 @@ import {
   OutboundJobSchema,
   SendResultSchema,
   ViewStatusSchema,
+  MEDIA_MAX_BYTES_ANY,
+  WHATSAPP_MEDIA_MAX_BYTES,
+  mediaKindFromMime,
+  maxUploadBytesForMime,
+  formatMaxBytes,
 } from '../livechat.js';
 
 // ---------------------------------------------------------------------------
@@ -531,5 +536,46 @@ describe('ViewStatusSchema', () => {
   });
   it('rejeita status invalido', () => {
     expect(() => ViewStatusSchema.parse('bounced')).toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Limites de tamanho de midia
+// ---------------------------------------------------------------------------
+
+describe('limites de midia (WhatsApp Cloud API)', () => {
+  it('mediaKindFromMime deriva o tipo do MIME', () => {
+    expect(mediaKindFromMime('image/jpeg')).toBe('image');
+    expect(mediaKindFromMime('image/webp')).toBe('image');
+    expect(mediaKindFromMime('video/mp4')).toBe('video');
+    expect(mediaKindFromMime('audio/ogg; codecs=opus')).toBe('audio');
+    expect(mediaKindFromMime('audio/mpeg')).toBe('audio');
+    expect(mediaKindFromMime('application/pdf')).toBe('document');
+    expect(mediaKindFromMime('application/octet-stream')).toBe('document');
+  });
+
+  it('limites por tipo conforme WhatsApp (com documento capado no teto do deploy)', () => {
+    expect(WHATSAPP_MEDIA_MAX_BYTES.image).toBe(5 * 1024 * 1024);
+    expect(WHATSAPP_MEDIA_MAX_BYTES.video).toBe(16 * 1024 * 1024);
+    expect(WHATSAPP_MEDIA_MAX_BYTES.audio).toBe(16 * 1024 * 1024);
+    expect(WHATSAPP_MEDIA_MAX_BYTES.document).toBe(MEDIA_MAX_BYTES_ANY);
+  });
+
+  it('teto absoluto = 50MB e nenhum tipo o excede', () => {
+    expect(MEDIA_MAX_BYTES_ANY).toBe(50 * 1024 * 1024);
+    for (const limit of Object.values(WHATSAPP_MEDIA_MAX_BYTES)) {
+      expect(limit).toBeLessThanOrEqual(MEDIA_MAX_BYTES_ANY);
+    }
+  });
+
+  it('maxUploadBytesForMime mapeia MIME -> limite por tipo', () => {
+    expect(maxUploadBytesForMime('image/png')).toBe(5 * 1024 * 1024);
+    expect(maxUploadBytesForMime('audio/ogg')).toBe(16 * 1024 * 1024);
+    expect(maxUploadBytesForMime('application/pdf')).toBe(50 * 1024 * 1024);
+  });
+
+  it('formatMaxBytes formata em MB', () => {
+    expect(formatMaxBytes(5 * 1024 * 1024)).toBe('5 MB');
+    expect(formatMaxBytes(50 * 1024 * 1024)).toBe('50 MB');
   });
 });

@@ -114,6 +114,50 @@ const MediaRefSchema = z.object({
 export type MediaRef = z.infer<typeof MediaRefSchema>;
 
 // ---------------------------------------------------------------------------
+// Limites de tamanho de mídia — fonte única (frontend + backend + worker).
+//
+// Limites oficiais da WhatsApp Cloud API por tipo:
+//   image 5MB · video 16MB · audio/voice 16MB · sticker 100KB(estático)/500KB(animado)
+//   document 100MB.
+// ATENÇÃO: o teto absoluto deste deploy é 50MB — o storage-api do Supabase na VPS
+// tem FILE_SIZE_LIMIT=50MB e o container da API buffera a mídia em memória (limite
+// de RAM). Por isso `document` é capado em 50MB aqui (abaixo dos 100MB da Meta).
+// Ao escalar o storage/RAM (white-label), revisar `document` e MEDIA_ANY.
+// ---------------------------------------------------------------------------
+
+/** Tipo de mídia derivável do MIME (subconjunto enviável por upload de agente). */
+export type UploadMediaKind = 'image' | 'video' | 'audio' | 'document';
+
+/** Teto absoluto de upload deste deploy (= FILE_SIZE_LIMIT do storage). */
+export const MEDIA_MAX_BYTES_ANY = 50 * 1024 * 1024; // 50 MB
+
+/** Limite de tamanho (bytes) por tipo de mídia. */
+export const WHATSAPP_MEDIA_MAX_BYTES: Record<UploadMediaKind, number> = {
+  image: 5 * 1024 * 1024, // 5 MB
+  video: 16 * 1024 * 1024, // 16 MB
+  audio: 16 * 1024 * 1024, // 16 MB (inclui voz/PTT)
+  document: MEDIA_MAX_BYTES_ANY, // 50 MB (Meta permite 100MB; teto do deploy = 50MB)
+};
+
+/** Deriva o tipo de upload a partir do MIME type. */
+export function mediaKindFromMime(mime: string): UploadMediaKind {
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('video/')) return 'video';
+  if (mime.startsWith('audio/')) return 'audio';
+  return 'document';
+}
+
+/** Limite de bytes para um dado MIME (mapa por tipo). */
+export function maxUploadBytesForMime(mime: string): number {
+  return WHATSAPP_MEDIA_MAX_BYTES[mediaKindFromMime(mime)];
+}
+
+/** Formata um limite de bytes como "5 MB" para mensagens de erro. */
+export function formatMaxBytes(bytes: number): string {
+  return `${Math.round(bytes / (1024 * 1024))} MB`;
+}
+
+// ---------------------------------------------------------------------------
 // InboundEvent — discriminated union com organizationId + channelId obrigatorios.
 //
 // organizationId: roteamento por tenant (fila/socket).

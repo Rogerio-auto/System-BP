@@ -18,16 +18,12 @@
 //   - Blob de áudio PTT apenas em memória — nunca persistido localmente
 // =============================================================================
 
+import { formatMaxBytes, maxUploadBytesForMime } from '@elemento/shared-schemas';
 import * as React from 'react';
 
 import { useAuth } from '../../../../lib/auth-store';
 import { cn } from '../../../../lib/cn';
-import {
-  detectMediaKind,
-  formatBytes,
-  MAX_UPLOAD_BYTES,
-  useUploadMedia,
-} from '../../hooks/useUploadMedia';
+import { detectMediaKind, formatBytes, useUploadMedia } from '../../hooks/useUploadMedia';
 import type { MediaKind } from '../../hooks/useUploadMedia';
 
 import { AudioRecorder } from './AudioRecorder';
@@ -344,9 +340,14 @@ export function MessageComposer({
 
     if (!file) return;
 
-    // Validação de tamanho — inline, antes de qualquer chamada de rede
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setFileSizeError('Arquivo muito grande. O limite é 16 MB.');
+    // Validação de tamanho — inline, antes de qualquer chamada de rede.
+    // Limite POR TIPO de mídia (imagem 5MB · áudio/vídeo 16MB · documento 50MB).
+    const mime = file.type || 'application/octet-stream';
+    const maxBytes = maxUploadBytesForMime(mime);
+    if (file.size > maxBytes) {
+      setFileSizeError(
+        `Arquivo muito grande. O limite é ${formatMaxBytes(maxBytes)} para este tipo.`,
+      );
       return;
     }
 
@@ -354,7 +355,7 @@ export function MessageComposer({
 
     // Criar object URL para preview local (nunca enviado ao servidor)
     const objectUrl = URL.createObjectURL(file);
-    const mediaKind = detectMediaKind(file.type || 'application/octet-stream');
+    const mediaKind = detectMediaKind(mime);
     setMediaPreview({ file, objectUrl, mediaKind });
   }
 

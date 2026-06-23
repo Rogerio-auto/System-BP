@@ -38,6 +38,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { extname } from 'node:path';
 
+import { MEDIA_MAX_BYTES_ANY } from '@elemento/shared-schemas';
 import type amqplib from 'amqplib';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -71,8 +72,10 @@ const log = logger.child({ worker: 'livechat-media' });
 // Limites configuráveis
 // ---------------------------------------------------------------------------
 
-/** Tamanho máximo de mídia aceito (bytes). Acima disso → nack. */
-const MEDIA_MAX_SIZE_BYTES = 25 * 1_024 * 1_024; // 25 MB
+/** Tamanho máximo de mídia aceito (bytes). Acima disso → nack.
+ *  Alinhado ao teto de upload (fonte única em shared-schemas) e ao
+ *  FILE_SIZE_LIMIT do storage. */
+const MEDIA_MAX_SIZE_BYTES = MEDIA_MAX_BYTES_ANY; // 50 MB
 
 /** Timeout de download da mídia da Meta (ms). */
 const MEDIA_DOWNLOAD_TIMEOUT_MS = 60_000; // 60 s
