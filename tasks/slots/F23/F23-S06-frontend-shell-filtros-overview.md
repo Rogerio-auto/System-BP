@@ -3,12 +3,12 @@ id: F23-S06
 title: Frontend — shell de /relatorios, filtros adaptativos e Visão Geral
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-24T15:23:50Z
-completed_at: null
+completed_at: 2026-06-24T15:44:13Z
 pr_url: null
 depends_on: [F23-S03]
 blocks: []
