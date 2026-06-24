@@ -3,13 +3,13 @@ id: F23-S13
 title: Hardening de segurança do reports — rate-limit do export, assertion de escopo, filename
 phase: F23
 task_ref: docs/sessions/2026-06-24-reports-security.md
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-24T21:00:38Z
 completed_at: 2026-06-24T21:26:22Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/368
 depends_on: [F23-S09]
 blocks: []
 labels: [backend, security, reports, hardening]
