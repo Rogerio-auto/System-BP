@@ -3,11 +3,11 @@ id: F23-S09
 title: Backend — exportação de relatórios (CSV/XLSX/PDF) com RBAC e audit
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: L
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-24T16:48:28Z
 completed_at: null
 pr_url: null
 depends_on: [F23-S04, F23-S05]
