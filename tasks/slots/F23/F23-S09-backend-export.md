@@ -3,13 +3,13 @@ id: F23-S09
 title: Backend — exportação de relatórios (CSV/XLSX/PDF) com RBAC e audit
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: review
+status: done
 priority: medium
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-24T16:48:28Z
 completed_at: 2026-06-24T17:18:32Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/364
 depends_on: [F23-S04, F23-S05]
 blocks: []
 labels: [backend, reports, export, rbac, lgpd-impact]
