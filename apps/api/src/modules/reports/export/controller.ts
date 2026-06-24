@@ -28,6 +28,22 @@ function getActorContext(request: FastifyRequest): ReportsActorContext {
   };
 }
 
+// B-01 (hardening): sanitiza o filename antes de emiti-lo no Content-Disposition.
+// Allow-list restrita a caracteres seguros para headers HTTP -- remove path traversal
+// ("../", "/", "\\\\") e qualquer char fora de [a-zA-Z0-9._-].
+// O filename gerado pelo service ja e seguro, mas este guard cobre regressoes futuras.
+function sanitizeFilename(raw: string): string {
+  // Etapa 1: normaliza separadores de caminho para underscore (/ e backslash)
+  let safe = '';
+  for (const ch of raw) {
+    safe += ch === '/' || ch === '\\' ? '_' : ch;
+  }
+  // Etapa 2: colapsar '..' (path traversal sem barra) para '.' simples
+  safe = safe.replace(/\.{2,}/g, '.');
+  // Etapa 3: allow-list -- apenas letras, digitos, ponto, hifen, underscore
+  return safe.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 export async function postReportsExportController(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -36,9 +52,10 @@ export async function postReportsExportController(
   const body = typedBody<ExportRequest>(request);
   try {
     const result = await exportReport(db, actor, body.section, body.format, body.filters ?? {});
+    const safeFilename = sanitizeFilename(result.filename);
     void reply
       .header('Content-Type', result.contentType)
-      .header('Content-Disposition', 'attachment; filename="' + result.filename + '"')
+      .header('Content-Disposition', 'attachment; filename="' + safeFilename + '"')
       .header('X-Export-Row-Count', String(result.rowCount))
       .status(200)
       .send(result.buffer);

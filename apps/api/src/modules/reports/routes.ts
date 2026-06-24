@@ -194,6 +194,11 @@ export const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
     getReportsAuditController,
   );
   // POST /api/reports/export (F23-S09)
+  // M-02 (hardening): rate-limit especifico por IP.
+  // Exports sao operacoes custosas (I/O DB + serializacao CSV/XLSX/PDF) -- 15 req/min
+  // por IP e suficiente para uso legitimo (UI nunca dispara mais que 1-2/min) e
+  // bloqueia scraping automatizado. Reutiliza o padrao config.rateLimit do projeto
+  // (ver internal/leads/routes.ts) -- NAO altera app.ts nem registra plugin extra.
   app.post(
     '/api/reports/export',
     {
@@ -206,6 +211,22 @@ export const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
         body: ExportRequestSchema,
       },
       preHandler: [authorize({ permissions: ['reports:export'] as [string, ...string[]] })],
+      config: {
+        rateLimit: {
+          max: 15,
+          timeWindow: '1 minute',
+          errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
+            const err = Object.assign(
+              new Error('Rate limit excedido: maximo 15 exportacoes por minuto por IP.'),
+              {
+                statusCode: context.statusCode,
+                code: 'RATE_LIMITED',
+              },
+            );
+            return err;
+          },
+        },
+      },
     },
     postReportsExportController,
   );
