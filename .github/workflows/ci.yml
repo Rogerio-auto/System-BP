@@ -74,6 +74,11 @@ jobs:
           LGPD_DEDUPE_PEPPER: xgRqlH8Ag8bV/DI9gza3qIFx0w4RF3f9ZF/RSilyV2s=
           FX_BRL_PER_USD: '5.75'
         run: pnpm --filter @elemento/api db:migrate
+      - name: Reports integration tests (real DB)
+        # Roda os testes de integração de reports DIRETO no vitest (sem turbo, que filtra
+        # env vars). DATABASE_URL herda do job (elemento_test, já migrado no passo acima);
+        # o globalSetup (setup.ts) preserva via ??= e injeta o resto do env de teste.
+        run: pnpm --filter @elemento/api exec vitest run reports.integration
       - run: pnpm turbo run lint typecheck test build
 
   python:

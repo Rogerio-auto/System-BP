@@ -41,16 +41,10 @@ let dbAvailable = false;
 try {
   await pool.query('SELECT 1');
   dbAvailable = true;
-} catch (err) {
-  // DB indisponível localmente — suíte vai pular via describe.runIf(dbAvailable)
-  // DIAGNÓSTICO TEMPORÁRIO (remover): por que o probe falha no CI?
-  // eslint-disable-next-line no-console
-  console.error(
-    '[reports.integration] probe falhou. DATABASE_URL=',
-    process.env['DATABASE_URL'],
-    'err=',
-    err instanceof Error ? err.message : String(err),
-  );
+} catch {
+  // DB indisponível (rodada local sem Postgres) — describe.runIf(dbAvailable) pula
+  // a suíte limpa. No CI, o passo dedicado "Reports integration tests (real DB)"
+  // roda vitest com DATABASE_URL=elemento_test → probe conecta → testes executam.
 }
 
 // IDs unicos por run -- evita colisao em DB compartilhado entre workers
