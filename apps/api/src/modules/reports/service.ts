@@ -123,6 +123,14 @@ function resolveScopeAndValidate(
       throw new ForbiddenError('Agentes só podem ver dados próprios');
     return { selfUserId: actor.userId, scopeLabel: 'self', scopeCtx };
   }
+  // M-01 (defense-in-depth): estado inconsistente papel+escopo.
+  // Em condicoes normais, actor.cityScopeIds===null <=> papel global (admin/gestor_geral),
+  // que obrigatoriamente tem dashboard:read. Este guard bloqueia o caso hipotetico de um
+  // papel global-scope sem a permissao correspondente — evita que cityScopeIds===null
+  // conceda visao global silenciosamente sem a permissao correta.
+  if (actor.cityScopeIds === null && !hasDashboardRead) {
+    throw new ForbiddenError('Estado inconsistente: escopo global requer permissao dashboard:read');
+  }
   if (query.cityIds !== undefined && query.cityIds.length > 0 && actor.cityScopeIds !== null) {
     for (const id of query.cityIds) {
       if (!actor.cityScopeIds.includes(id)) throw new ForbiddenError(`Cidade ${id} fora do escopo`);
