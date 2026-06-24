@@ -3,11 +3,11 @@ id: F23-S10
 title: Frontend — UI de exportação de relatórios
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-24T17:26:10Z
 completed_at: null
 pr_url: null
 depends_on: [F23-S08, F23-S09]
