@@ -17,21 +17,45 @@ import { OverviewSection } from './components/OverviewSection';
 import { ProductivitySection } from './components/ProductivitySection';
 import { ReportFiltersBar } from './components/ReportFiltersBar';
 import { useReportFilters } from './hooks/useReportFilters';
-function inferAvailableScopes(hasPermission: (p: string) => boolean): ReportScope[] {
-  if (hasPermission('audit:read')) return ['global', 'city'];
-  if (hasPermission('dashboard:read')) return ['city', 'self'];
+/**
+ * Determina os escopos disponíveis para o scope toggle de /relatorios.
+ *
+ * Usa cityScopeIds (payload de auth) em vez de heurística por permissão:
+ *   - dashboard:read + null (global): admin/gestor_geral → ['global', 'city']
+ *   - dashboard:read + [] ou [...] (city-scoped): gestor_regional → ['city']
+ *   - dashboard:read_by_agent (sem dashboard:read): agente → ['self']
+ *
+ * Regra: toggle só aparece com >1 escopo (ReportFiltersBar.showScopeToggle).
+ */
+function inferAvailableScopes(
+  hasPermission: (p: string) => boolean,
+  cityScopeIds: string[] | null,
+): ReportScope[] {
+  if (hasPermission('dashboard:read')) {
+    // null = acesso global (admin/gestor_geral)
+    if (cityScopeIds === null) return ['global', 'city'];
+    // array (vazio ou com cidades) = city-scoped (gestor_regional/agente com dashboard:read)
+    return ['city'];
+  }
   return ['self'];
 }
-function inferDefaultScope(hasPermission: (p: string) => boolean): ReportScope {
-  if (hasPermission('audit:read')) return 'global';
-  if (hasPermission('dashboard:read')) return 'city';
+
+function inferDefaultScope(
+  hasPermission: (p: string) => boolean,
+  cityScopeIds: string[] | null,
+): ReportScope {
+  if (hasPermission('dashboard:read')) {
+    if (cityScopeIds === null) return 'global';
+    return 'city';
+  }
   return 'self';
 }
 export function RelatoriosPage(): React.JSX.Element {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const { cities } = useCitiesList();
-  const availableScopes = inferAvailableScopes(hasPermission);
-  const defaultScope = inferDefaultScope(hasPermission);
+  const cityScopeIds = user?.cityScopeIds ?? null;
+  const availableScopes = inferAvailableScopes(hasPermission, cityScopeIds);
+  const defaultScope = inferDefaultScope(hasPermission, cityScopeIds);
   const filters = useReportFilters(defaultScope);
   const canSeeAtendimentos =
     hasPermission('dashboard:read') || hasPermission('dashboard:read_by_agent');

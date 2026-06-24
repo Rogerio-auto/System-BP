@@ -22,6 +22,16 @@ export interface AuthUser {
   organizationId: string;
   /** Permissões/roles — populado em futuras iterações (F1-S04+) */
   permissions: string[];
+  /**
+   * Escopo de cidade do usuário sincronizado no payload de auth:
+   *   null     → admin/gestor_geral — acesso global (sem filtro de cidade).
+   *   string[] → UUIDs das cidades permitidas (gestor_regional/agente).
+   *   []       → sem cidade configurada.
+   *
+   * Usado para inferir opções do scope toggle em /relatorios sem heurística
+   * de permissão. O backend NUNCA confia neste campo para autorização.
+   */
+  cityScopeIds: string[] | null;
 }
 
 export interface AuthState {
