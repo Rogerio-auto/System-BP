@@ -41,8 +41,16 @@ let dbAvailable = false;
 try {
   await pool.query('SELECT 1');
   dbAvailable = true;
-} catch {
+} catch (err) {
   // DB indisponível localmente — suíte vai pular via describe.runIf(dbAvailable)
+  // DIAGNÓSTICO TEMPORÁRIO (remover): por que o probe falha no CI?
+  // eslint-disable-next-line no-console
+  console.error(
+    '[reports.integration] probe falhou. DATABASE_URL=',
+    process.env['DATABASE_URL'],
+    'err=',
+    err instanceof Error ? err.message : String(err),
+  );
 }
 
 // IDs unicos por run -- evita colisao em DB compartilhado entre workers
