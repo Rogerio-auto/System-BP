@@ -403,13 +403,18 @@ function AdminSection(): React.JSX.Element {
           },
         ]
       : []),
-    // Cidades: visível a todos (sem gating de UI confirmado)
-    {
-      title: 'Cidades',
-      description: 'Municípios atendidos, IBGE codes e cobertura do Banco do Povo.',
-      icon: <IconCidades />,
-      href: '/admin/cities',
-    },
+    // Cidades: gestão do catálogo de municípios — requer cities:manage (admin).
+    // Sem o gating, gestor_regional/agente viam o card e a página dava 403.
+    ...(hasPermission('cities:manage')
+      ? [
+          {
+            title: 'Cidades',
+            description: 'Municípios atendidos, IBGE codes e cobertura do Banco do Povo.',
+            icon: <IconCidades />,
+            href: '/admin/cities',
+          },
+        ]
+      : []),
     ...(hasPermission('agents:manage')
       ? [
           {
