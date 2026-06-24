@@ -7,7 +7,39 @@
 -- =============================================================================
 
 -- MV 1 -- mv_reports_overview: KPIs de leads/conversas/simulacoes/contratos por org/city/dia
+-- IMPORTANTE: conversas/simulacoes/contratos sao pre-agregados por lead em CTEs antes do
+-- join com leads. Isso evita o fan-out de multiplos LEFT JOIN 1:N (que inflaria SUM/AVG
+-- monetarios -- COUNT DISTINCT se salvava, SUM nao). Cada CTE e 1 linha por lead.
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_reports_overview AS
+WITH conv AS (
+    SELECT organization_id, lead_id,
+        COUNT(*) AS total_conversations,
+        COUNT(*) FILTER (WHERE status = 'open') AS conversations_open,
+        COUNT(*) FILTER (WHERE status = 'resolved') AS conversations_resolved
+    FROM conversations
+    WHERE deleted_at IS NULL AND lead_id IS NOT NULL
+    GROUP BY organization_id, lead_id
+),
+sim AS (
+    SELECT organization_id, lead_id,
+        COUNT(*) AS total_simulations,
+        COALESCE(SUM(amount_requested), 0) AS simulations_amount_sum
+    FROM credit_simulations
+    WHERE lead_id IS NOT NULL
+    GROUP BY organization_id, lead_id
+),
+con AS (
+    SELECT ct.organization_id, cu.primary_lead_id AS lead_id,
+        COUNT(*) AS total_contracts,
+        COUNT(*) FILTER (WHERE ct.status = 'active') AS contracts_active,
+        COUNT(*) FILTER (WHERE ct.status = 'settled') AS contracts_settled,
+        COUNT(*) FILTER (WHERE ct.status = 'defaulted') AS contracts_defaulted,
+        COALESCE(SUM(ct.principal_amount), 0) AS contracts_amount_sum
+    FROM contracts ct
+    JOIN customers cu ON cu.id = ct.customer_id
+    WHERE cu.primary_lead_id IS NOT NULL
+    GROUP BY ct.organization_id, cu.primary_lead_id
+)
 SELECT
     l.organization_id,
     l.city_id,
@@ -19,22 +51,23 @@ SELECT
     COUNT(l.id) FILTER (WHERE l.status = 'closed_won') AS leads_closed_won,
     COUNT(l.id) FILTER (WHERE l.status = 'closed_lost') AS leads_closed_lost,
     COUNT(l.id) FILTER (WHERE l.status = 'archived') AS leads_archived,
-    COUNT(DISTINCT c.id) AS total_conversations,
-    COUNT(DISTINCT c.id) FILTER (WHERE c.status = 'open') AS conversations_open,
-    COUNT(DISTINCT c.id) FILTER (WHERE c.status = 'resolved') AS conversations_resolved,
-    COUNT(DISTINCT cs.id) AS total_simulations,
-    COALESCE(SUM(cs.amount_requested), 0) AS simulations_amount_sum,
-    COALESCE(AVG(cs.amount_requested), 0) AS simulations_amount_avg,
-    COUNT(DISTINCT ct.id) AS total_contracts,
-    COUNT(DISTINCT ct.id) FILTER (WHERE ct.status = 'active') AS contracts_active,
-    COUNT(DISTINCT ct.id) FILTER (WHERE ct.status = 'settled') AS contracts_settled,
-    COUNT(DISTINCT ct.id) FILTER (WHERE ct.status = 'defaulted') AS contracts_defaulted,
-    COALESCE(SUM(ct.principal_amount), 0) AS contracts_amount_sum
+    COALESCE(SUM(conv.total_conversations), 0) AS total_conversations,
+    COALESCE(SUM(conv.conversations_open), 0) AS conversations_open,
+    COALESCE(SUM(conv.conversations_resolved), 0) AS conversations_resolved,
+    COALESCE(SUM(sim.total_simulations), 0) AS total_simulations,
+    COALESCE(SUM(sim.simulations_amount_sum), 0) AS simulations_amount_sum,
+    CASE WHEN COALESCE(SUM(sim.total_simulations), 0) > 0
+         THEN SUM(sim.simulations_amount_sum) / SUM(sim.total_simulations)
+         ELSE 0 END AS simulations_amount_avg,
+    COALESCE(SUM(con.total_contracts), 0) AS total_contracts,
+    COALESCE(SUM(con.contracts_active), 0) AS contracts_active,
+    COALESCE(SUM(con.contracts_settled), 0) AS contracts_settled,
+    COALESCE(SUM(con.contracts_defaulted), 0) AS contracts_defaulted,
+    COALESCE(SUM(con.contracts_amount_sum), 0) AS contracts_amount_sum
 FROM leads l
-LEFT JOIN conversations c ON c.organization_id = l.organization_id AND c.lead_id = l.id AND c.deleted_at IS NULL
-LEFT JOIN credit_simulations cs ON cs.organization_id = l.organization_id AND cs.lead_id = l.id
-LEFT JOIN customers cu ON cu.organization_id = l.organization_id AND cu.primary_lead_id = l.id
-LEFT JOIN contracts ct ON ct.organization_id = l.organization_id AND ct.customer_id = cu.id
+LEFT JOIN conv ON conv.lead_id = l.id AND conv.organization_id = l.organization_id
+LEFT JOIN sim ON sim.lead_id = l.id AND sim.organization_id = l.organization_id
+LEFT JOIN con ON con.lead_id = l.id AND con.organization_id = l.organization_id
 WHERE l.deleted_at IS NULL
 GROUP BY l.organization_id, l.city_id, date_trunc('day', l.created_at AT TIME ZONE 'UTC')::date
 WITH DATA;
@@ -55,9 +88,13 @@ WITH DATA;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_mv_reports_funnel ON mv_reports_funnel (organization_id, stage_id, (COALESCE(city_id::text, '__null__')));
 
 -- MV 3 -- mv_reports_stage_dwell: tempo medio por estagio (LAG window function)
+-- IMPORTANTE: o intervalo (transitioned_at - prev) e o tempo que o card passou no estagio
+-- que ELE DEIXOU nesta transicao = from_stage_id (nao to_stage_id). Atribuir a to_stage_id
+-- lancaria o tempo no estagio errado (off-by-one). prev_transitioned_at = quando entrou
+-- nesse from_stage. Rows de entrada inicial (from_stage_id NULL) caem no filtro de prev NULL.
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_reports_stage_dwell AS
 WITH transitions_with_prev AS (
-    SELECT ksh.card_id, ksh.to_stage_id AS stage_id, ksh.transitioned_at,
+    SELECT ksh.card_id, ksh.from_stage_id AS stage_id, ksh.transitioned_at,
         LAG(ksh.transitioned_at) OVER (PARTITION BY ksh.card_id ORDER BY ksh.transitioned_at) AS prev_transitioned_at,
         kc.organization_id, l.city_id
     FROM kanban_stage_history ksh
@@ -67,7 +104,8 @@ WITH transitions_with_prev AS (
 dwell_times AS (
     SELECT organization_id, city_id, stage_id,
         EXTRACT(EPOCH FROM (transitioned_at - prev_transitioned_at)) / 3600.0 AS dwell_hours
-    FROM transitions_with_prev WHERE prev_transitioned_at IS NOT NULL AND transitioned_at > prev_transitioned_at
+    FROM transitions_with_prev
+    WHERE prev_transitioned_at IS NOT NULL AND stage_id IS NOT NULL AND transitioned_at > prev_transitioned_at
 )
 SELECT dt.organization_id, dt.city_id, dt.stage_id, ks.name AS stage_name, ks.order_index AS stage_order,
     COUNT(*) AS transition_count, AVG(dt.dwell_hours) AS avg_dwell_hours,
