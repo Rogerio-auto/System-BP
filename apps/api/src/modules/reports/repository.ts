@@ -799,10 +799,10 @@ export async function getCollectionJobsStats(
 ): Promise<CollectionJobsResult> {
   const result = await db.execute(sql`
     SELECT
-      COUNT(*) FILTER (WHERE status = "scheduled")        AS scheduled,
-      COUNT(*) FILTER (WHERE status = "sent")             AS sent,
-      COUNT(*) FILTER (WHERE status = "failed")           AS failed,
-      COUNT(*) FILTER (WHERE status = "paid_before_send") AS paid_before_send
+      COUNT(*) FILTER (WHERE status = 'scheduled')        AS scheduled,
+      COUNT(*) FILTER (WHERE status = 'sent')             AS sent,
+      COUNT(*) FILTER (WHERE status = 'failed')           AS failed,
+      COUNT(*) FILTER (WHERE status = 'paid_before_send') AS paid_before_send
     FROM collection_jobs
     WHERE organization_id = ${organizationId}
       AND created_at >= ${dateRange.from.toISOString()}::timestamptz
@@ -898,7 +898,7 @@ export async function getProductivityByAgent(
       FROM leads l
       JOIN agents a ON a.id = l.agent_id AND a.organization_id = ${organizationId}
       WHERE l.organization_id = ${organizationId}
-        AND l.status = "closed_won"
+        AND l.status = 'closed_won'
         AND l.updated_at >= ${dateRange.from.toISOString()}::timestamptz
         AND l.updated_at <= ${dateRange.to.toISOString()}::timestamptz
         AND l.deleted_at IS NULL
@@ -925,7 +925,7 @@ export async function getProductivityByAgent(
       FROM conversations conv
       JOIN agents a ON a.user_id = conv.assigned_user_id AND a.organization_id = ${organizationId}
       WHERE conv.organization_id = ${organizationId}
-        AND conv.status = "resolved"
+        AND conv.status = 'resolved'
         AND conv.updated_at >= ${dateRange.from.toISOString()}::timestamptz
         AND conv.updated_at <= ${dateRange.to.toISOString()}::timestamptz
         AND conv.deleted_at IS NULL
@@ -949,22 +949,28 @@ export async function getProductivityByAgent(
       GROUP BY l.agent_id
     ),
     first_resp AS (
-      SELECT a.id AS agent_id,
-        AVG(EXTRACT(EPOCH FROM (
-          MIN(m.created_at) FILTER (WHERE m.direction = "out") - conv.created_at
-        ))) AS avg_sec
-      FROM conversations conv
-      JOIN agents a ON a.user_id = conv.assigned_user_id AND a.organization_id = ${organizationId}
-      LEFT JOIN messages m ON m.conversation_id = conv.id
-      WHERE conv.organization_id = ${organizationId}
-        AND conv.status = "resolved"
-        AND conv.updated_at >= ${dateRange.from.toISOString()}::timestamptz
-        AND conv.updated_at <= ${dateRange.to.toISOString()}::timestamptz
-        AND conv.deleted_at IS NULL
-        ${convScopeFrag}
-        ${convFilterFrag}
-        ${selfAgentFrag}
-      GROUP BY a.id, conv.id
+      SELECT agent_id, AVG(sec) AS avg_sec
+      FROM (
+        SELECT
+          a.id AS agent_id,
+          EXTRACT(EPOCH FROM (
+            MIN(m.created_at) FILTER (WHERE m.direction = 'out') - conv.created_at
+          )) AS sec
+        FROM conversations conv
+        JOIN agents a ON a.user_id = conv.assigned_user_id AND a.organization_id = ${organizationId}
+        LEFT JOIN messages m ON m.conversation_id = conv.id
+        WHERE conv.organization_id = ${organizationId}
+          AND conv.status = 'resolved'
+          AND conv.updated_at >= ${dateRange.from.toISOString()}::timestamptz
+          AND conv.updated_at <= ${dateRange.to.toISOString()}::timestamptz
+          AND conv.deleted_at IS NULL
+          ${convScopeFrag}
+          ${convFilterFrag}
+          ${selfAgentFrag}
+        GROUP BY a.id, conv.id, conv.created_at
+      ) per_conv
+      WHERE sec IS NOT NULL AND sec >= 0
+      GROUP BY agent_id
     )
     SELECT
       a.id                                    AS agent_id,
@@ -973,7 +979,7 @@ export async function getProductivityByAgent(
       COALESCE(sc.simulations_count, 0)       AS simulations_created,
       COALESCE(cr.conversations_resolved, 0)  AS conversations_resolved,
       COALESCE(co.contracts_originated, 0)    AS contracts_originated,
-      AVG(fr.avg_sec)                         AS avg_first_response_sec
+      fr.avg_sec                              AS avg_first_response_sec
     FROM agents a
     LEFT JOIN leads_won lw      ON lw.agent_id = a.id
     LEFT JOIN sims_created sc   ON sc.agent_id = a.id
@@ -983,8 +989,6 @@ export async function getProductivityByAgent(
     WHERE a.organization_id = ${organizationId}
       AND a.is_active = true AND a.deleted_at IS NULL
       ${selfAgentFrag}
-    GROUP BY a.id, a.display_name, lw.leads_closed_won, sc.simulations_count,
-             cr.conversations_resolved, co.contracts_originated
     ORDER BY COALESCE(lw.leads_closed_won, 0) DESC
   `);
   // as justified: db.execute returns unknown[] typed to agents+CTEs shape
@@ -1067,7 +1071,7 @@ export async function getProductivityTeamAverage(
       FROM leads l
       JOIN agents a ON a.id = l.agent_id AND a.organization_id = ${organizationId}
       WHERE l.organization_id = ${organizationId}
-        AND l.status = "closed_won"
+        AND l.status = 'closed_won'
         AND l.updated_at >= ${dateRange.from.toISOString()}::timestamptz
         AND l.updated_at <= ${dateRange.to.toISOString()}::timestamptz
         AND l.deleted_at IS NULL
@@ -1094,7 +1098,7 @@ export async function getProductivityTeamAverage(
       FROM conversations conv
       JOIN agents a ON a.user_id = conv.assigned_user_id AND a.organization_id = ${organizationId}
       WHERE conv.organization_id = ${organizationId}
-        AND conv.status = "resolved"
+        AND conv.status = 'resolved'
         AND conv.updated_at >= ${dateRange.from.toISOString()}::timestamptz
         AND conv.updated_at <= ${dateRange.to.toISOString()}::timestamptz
         AND conv.deleted_at IS NULL
