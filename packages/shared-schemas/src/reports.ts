@@ -327,3 +327,164 @@ export const ProductivityResponseSchema = z.object({
 });
 
 export type ProductivityResponse = z.infer<typeof ProductivityResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// AI / Pre-attendance -- §4-C (F23-S05)
+//
+// Fonte: ai_conversation_states, ai_decision_logs, chatwoot_handoffs.
+// Gating: dashboard:read + flag ai.livechat_agent.enabled.
+// Zero PII: sem phone, sem summary de handoff, sem lead_id em texto livre.
+// Custo de LLM: tokens × tarifa por modelo. Se tarifa indisponivel no catalogo,
+//   costAvailable=false e estimatedCostUsd=null (nao inventar tarifa).
+// ---------------------------------------------------------------------------
+
+export const AiQuerySchema = CommonReportQuerySchema;
+export type AiQuery = z.infer<typeof AiQuerySchema>;
+
+// Saude de conversas IA (contagens e taxas)
+const AiConversationHealthSchema = z.object({
+  total: z.number().int().nonnegative(),
+  active: z.number().int().nonnegative(),
+  handoffed: z.number().int().nonnegative(),
+  handoffRate: z.number().nonnegative(),
+  completedWithoutHandoff: z.number().int().nonnegative(),
+});
+
+// Motivos de handoff (breakdown por reason)
+const AiHandoffReasonRowSchema = z.object({
+  reason: z.string(),
+  count: z.number().int().nonnegative(),
+  rate: z.number().nonnegative(),
+});
+
+// Distribuicao por no do grafo (intenção/decisão)
+const AiNodeDistributionRowSchema = z.object({
+  nodeName: z.string(),
+  callCount: z.number().int().nonnegative(),
+  errorCount: z.number().int().nonnegative(),
+  errorRate: z.number().nonnegative(),
+  avgLatencyMs: z.number().nonnegative().nullable(),
+});
+
+// Metricas de LLM (tokens, custo, latencia)
+const AiLlmMetricsSchema = z.object({
+  totalTokensIn: z.number().int().nonnegative(),
+  totalTokensOut: z.number().int().nonnegative(),
+  totalCalls: z.number().int().nonnegative(),
+  // custo estimado em USD. null se tarifa nao disponivel no catalogo.
+  estimatedCostUsd: z.number().nonnegative().nullable(),
+  // false = tarifa nao disponivel para um ou mais modelos usados
+  costAvailable: z.boolean(),
+  avgLatencyMs: z.number().nonnegative().nullable(),
+  p90LatencyMs: z.number().nonnegative().nullable(),
+  errorRate: z.number().nonnegative(),
+});
+
+// Breakdown por modelo (tokens + custo por model key)
+const AiModelBreakdownRowSchema = z.object({
+  model: z.string(),
+  callCount: z.number().int().nonnegative(),
+  tokensIn: z.number().int().nonnegative(),
+  tokensOut: z.number().int().nonnegative(),
+  estimatedCostUsd: z.number().nonnegative().nullable(),
+  costAvailable: z.boolean(),
+});
+
+// SLA de handoff (tempo entre criacao e accepted/resolved)
+const AiHandoffSlaSchema = z.object({
+  avgTimeToAcceptSec: z.number().nonnegative().nullable(),
+  p90TimeToAcceptSec: z.number().nonnegative().nullable(),
+  pendingHandoffs: z.number().int().nonnegative(),
+});
+
+export const AiResponseSchema = z.object({
+  range: z.object({
+    from: z.string(),
+    to: z.string(),
+    label: z.string(),
+    scope: ReportScopeEnum,
+  }),
+  conversations: AiConversationHealthSchema,
+  handoffReasons: z.array(AiHandoffReasonRowSchema),
+  nodeDistribution: z.array(AiNodeDistributionRowSchema),
+  llmMetrics: AiLlmMetricsSchema,
+  modelBreakdown: z.array(AiModelBreakdownRowSchema),
+  handoffSla: AiHandoffSlaSchema,
+});
+
+export type AiResponse = z.infer<typeof AiResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Audit & Operations -- §4-H (F23-S05)
+//
+// Fonte: audit_logs, event_outbox, event_dlq.
+// Gating: audit:read (admin/gestor_geral).
+// Zero PII: sem before/after dos audit_logs, sem payload de evento.
+//   Apenas contagens, taxas e IDs opacos de resource_type/action.
+// ---------------------------------------------------------------------------
+
+export const AuditQuerySchema = CommonReportQuerySchema;
+export type AuditQuery = z.infer<typeof AuditQuerySchema>;
+
+// Resumo de acoes por tipo (ex: "leads.created" -> 42)
+const AuditActionRowSchema = z.object({
+  action: z.string(),
+  count: z.number().int().nonnegative(),
+});
+
+// Resumo de acoes criticas (alteracoes de usuario, flags, permissoes)
+const AuditCriticalActionRowSchema = z.object({
+  action: z.string(),
+  count: z.number().int().nonnegative(),
+  actorCount: z.number().int().nonnegative(),
+});
+
+// Volume total de audit logs no periodo
+const AuditVolumeSchema = z.object({
+  total: z.number().int().nonnegative(),
+  byResourceType: z.array(
+    z.object({
+      resourceType: z.string(),
+      count: z.number().int().nonnegative(),
+    }),
+  ),
+});
+
+// Saude do outbox (eventos processados, pendentes, falhos)
+const EventOutboxHealthSchema = z.object({
+  totalCreated: z.number().int().nonnegative(),
+  totalProcessed: z.number().int().nonnegative(),
+  totalPending: z.number().int().nonnegative(),
+  totalFailed: z.number().int().nonnegative(),
+  successRate: z.number().nonnegative(),
+  avgProcessingLatencySec: z.number().nonnegative().nullable(),
+});
+
+// DLQ snapshot (itens pendentes de reprocessamento)
+const EventDlqSnapshotSchema = z.object({
+  pendingReprocess: z.number().int().nonnegative(),
+  totalMoved: z.number().int().nonnegative(),
+  // breakdown por event_name (top N)
+  topEventNames: z.array(
+    z.object({
+      eventName: z.string(),
+      count: z.number().int().nonnegative(),
+    }),
+  ),
+});
+
+export const AuditResponseSchema = z.object({
+  range: z.object({
+    from: z.string(),
+    to: z.string(),
+    label: z.string(),
+    scope: ReportScopeEnum,
+  }),
+  auditVolume: AuditVolumeSchema,
+  topActions: z.array(AuditActionRowSchema),
+  criticalActions: z.array(AuditCriticalActionRowSchema),
+  outboxHealth: EventOutboxHealthSchema,
+  dlqSnapshot: EventDlqSnapshotSchema,
+});
+
+export type AuditResponse = z.infer<typeof AuditResponseSchema>;
