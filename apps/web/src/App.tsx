@@ -42,6 +42,7 @@ import { DocPage } from './features/help/DocPage';
 import { HelpHomePage } from './features/help/HelpHomePage';
 import { ImportWizardPage } from './features/imports/ImportWizardPage';
 import { LawFirmsPage } from './features/law-firms/LawFirmsPage';
+import { RelatoriosPage } from './features/relatorios/RelatoriosPage';
 import { TasksPage } from './features/tasks';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from './features/templates';
 import { AgentsPage } from './pages/admin/Agents';
@@ -72,21 +73,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-// Placeholder genérico para rotas ainda não implementadas
-function PlaceholderPage({ title }: { title: string }): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-4">
-      <h1
-        className="font-display font-bold text-ink"
-        style={{ fontSize: 'var(--text-3xl)', letterSpacing: '-0.03em' }}
-      >
-        {title}
-      </h1>
-      <p className="font-sans text-sm text-ink-3">Em breve.</p>
-    </div>
-  );
-}
 
 export function App(): React.JSX.Element {
   return (
@@ -157,7 +143,7 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/credit-analyses" element={<CreditAnalysesListPage />} />
           <Route path="/credit-analyses/:id" element={<CreditAnalysisDetailPage />} />
           <Route path="/contratos" element={<ContractsPage />} />
-          <Route path="/relatorios" element={<PlaceholderPage title="Relatórios" />} />
+          <Route path="/relatorios" element={<RelatoriosPage />} />
           <Route path="/configuracoes" element={<ConfiguracoesPage />} />
           <Route path="/configuracoes/advocacia" element={<LawFirmsPage />} />
           <Route path="/configuracoes/ia/prompts" element={<PromptsListPage />} />

@@ -1,0 +1,87 @@
+---
+title: "Visao Geral dos Relatorios"
+description: "Entenda os indicadores da Visao Geral e como usar os filtros de relatorio no Elemento."
+order: 10
+---
+
+Use este guia quando precisar interpretar os indicadores da tela de Relatorios
+ou ajustar os filtros para analisar um periodo ou escopo especifico.
+
+<Callout type="info" title="Permissoes necessarias">
+  O acesso aos Relatorios depende do seu papel:
+
+  - **Agente:** ve apenas seus proprios dados (Meus dados).
+  - **Gestor regional:** ve os dados das cidades sob sua responsabilidade.
+  - **Gestor geral / Admin:** ve todos os dados de todas as cidades (Consolidado).
+</Callout>
+
+## O que e a Visao Geral
+
+A secao **Visao Geral** exibe os principais indicadores operacionais do periodo selecionado:
+
+- **Total de leads** e quantos foram novos no periodo.
+- **Conversao**: percentual de leads fechados como ganhos sobre o total de fechamentos.
+- **Simulacoes**: quantidade e valor medio das simulacoes de credito.
+- **Contratos ativos** e o volume total da carteira.
+- **Adimplencia**: percentual de contratos ativos sem inadimplencia.
+- **Conversas** abertas e resolvidas no periodo.
+
+Quando a opcao **vs periodo anterior** esta ativa, os cards exibem uma seta indicando
+se o indicador subiu ou caiu em relacao ao periodo equivalente anterior.
+
+## Como usar os filtros
+
+<Step number={1}>
+  **Escolha o periodo**
+
+  Use o seletor **Periodo** para escolher um intervalo predefinido (Hoje, Ultimos 7 dias,
+  Ultimos 30 dias, Ultimos 90 dias, Este mes, Mes anterior).
+</Step>
+
+<Step number={2}>
+  **Selecione o escopo** (quando disponivel)
+
+  Se o seu papel permite mais de um escopo, o seletor **Escopo** aparece com as opcoes:
+
+  - **Meus dados**: somente leads, simulacoes e contratos atribuidos a voce.
+  - **Minha cidade**: todos os dados das cidades sob sua responsabilidade.
+  - **Consolidado**: visao agregada de todas as cidades (admin/gestor geral).
+
+  Agentes nao veem esse seletor; o escopo e fixo em Meus dados.
+</Step>
+
+<Step number={3}>
+  **Filtre por cidade** (quando disponivel)
+
+  Quando o escopo e **Minha cidade** ou **Consolidado** e ha mais de uma cidade disponivel,
+  um seletor de cidades aparece. Voce pode selecionar multiplas cidades mantendo
+  **Ctrl** (Windows) ou **Cmd** (Mac) pressionado.
+
+  Sem selecao, todos os dados do escopo sao exibidos.
+</Step>
+
+<Step number={4}>
+  **Ative a comparacao com o periodo anterior**
+
+  Marque **vs periodo anterior** para ver deltas (setas para cima/baixo) nos cards
+  que suportam comparacao (leads, conversao, simulacoes).
+</Step>
+
+## Erros comuns
+
+### Sem dados no periodo selecionado
+
+**Causa:** nenhum registro foi criado ou atribuido ao escopo e periodo combinados.
+
+**Solucao:** amplie o periodo (ex: de Hoje para Ultimos 30 dias) ou selecione um escopo maior.
+
+### Indicadores diferentes do esperado
+
+**Causa:** o escopo pode estar restrito a uma cidade ou ao proprio usuario.
+
+**Solucao:** verifique o seletor de Escopo e o filtro de Cidades. Para ver dados consolidados,
+o papel deve ter permissao de gestor geral ou admin.
+
+## Veja tambem
+
+- [Papeis e cidades](/ajuda/conceitos/papeis-e-cidades) - entenda quem pode ver o que.
