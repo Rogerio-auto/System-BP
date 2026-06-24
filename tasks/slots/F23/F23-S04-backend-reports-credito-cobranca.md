@@ -3,13 +3,13 @@ id: F23-S04
 title: Backend — reports: crédito, cobrança e produtividade
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-24T13:08:52Z
 completed_at: 2026-06-24T14:02:30Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/358
 depends_on: [F23-S03]
 blocks: []
 labels: [backend, reports, rbac, lgpd-impact, multi-tenant]
