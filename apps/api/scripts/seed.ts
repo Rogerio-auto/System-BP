@@ -321,6 +321,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'credit_analyses:decide',
     // relatórios & métricas — F23-S02 (billing city-scoped via cityScopeIds no código)
     'billing:read',
+    'reports:export',
   ],
   agente: [
     'leads:read',

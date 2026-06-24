@@ -217,8 +217,9 @@ export type ContractsPermissionKey = (typeof CONTRACTS_PERMISSIONS)[number]['key
  * Corresponde ao SQL da migration 0072_seed_reports_permissions.sql.
  *
  * reports:export — gating de exportação de CSV/XLSX na página de relatórios.
- *   Restrito a admin e gestor_geral: gestor_regional não exporta (D2 §10
- *   do plano canônico; expansão futura via slot dedicado).
+ *   Concedido a admin, gestor_geral e gestor_regional (plano §8 + spec do slot).
+ *   O export reaplica city-scope no backend, então o regional só baixa agregados
+ *   da própria cidade.
  *
  * billing:read para gestor_regional — decisão D2 (§10): gestor_regional passa
  *   a visualizar o dashboard de cobrança filtrado pela(s) sua(s) cidade(s).
@@ -231,7 +232,7 @@ export const REPORTS_PERMISSIONS = [
     key: 'reports:export',
     description:
       'Exportação de relatórios em CSV/XLSX — gating da ação de download na página de relatórios',
-    roles: ['admin', 'gestor_geral'],
+    roles: ['admin', 'gestor_geral', 'gestor_regional'],
   },
   {
     key: 'billing:read',

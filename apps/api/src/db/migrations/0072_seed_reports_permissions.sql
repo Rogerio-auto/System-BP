@@ -48,19 +48,21 @@ VALUES
 ON CONFLICT ("key") DO NOTHING;
 
 -- ---------------------------------------------------------------------------
--- 2. Vincular `reports:export` a admin e gestor_geral
+-- 2. Vincular `reports:export` a admin, gestor_geral e gestor_regional
 --
 -- admin: acesso total sem restrição de cidade.
 -- gestor_geral: visão global — pode exportar relatórios de qualquer cidade.
--- gestor_regional: deliberadamente excluído neste slot (D2 não prevê exportação
---   para regionais ainda; pode ser expandido em slot futuro via permissão adicional).
+-- gestor_regional: exporta os relatórios da(s) sua(s) cidade(s). O export
+--   reaplica o city-scope no backend (F23-S09) + flag reports.export.enabled,
+--   então o regional só baixa agregados da própria cidade. Conforme o plano §8
+--   e o spec deste slot (concessão a admin/gestor_geral/gestor_regional).
 -- ---------------------------------------------------------------------------
 
 INSERT INTO "role_permissions" ("role_id", "permission_id")
 SELECT r.id, p.id
 FROM "roles" r
 CROSS JOIN "permissions" p
-WHERE r.key IN ('admin', 'gestor_geral')
+WHERE r.key IN ('admin', 'gestor_geral', 'gestor_regional')
   AND p.key = 'reports:export'
 ON CONFLICT DO NOTHING;
 
