@@ -1,0 +1,126 @@
+---
+title: "Credito, Cobranca, Produtividade e Auditoria"
+description: "Como interpretar as secoes de Credito, Cobranca e Carteira, Produtividade e Auditoria no modulo de Relatorios."
+section: relatorios
+---
+
+# Credito, Cobranca, Produtividade e Auditoria
+
+O modulo de Relatorios apresenta quatro secoes adicionais para usuarios com permissoes especificas:
+**Credito**, **Cobranca e Carteira**, **Produtividade** e **Auditoria e Operacao**.
+
+---
+
+## Credito
+
+Exibe o desempenho do processo de concessao de credito no periodo filtrado.
+
+### Funil de credito
+
+Visualizacao em quatro estagios:
+
+1. **Simulacoes** - total de simulacoes realizadas.
+2. **Analises** - pedidos enviados para analise de credito.
+3. **Aprovadas** - analises com resultado aprovado.
+4. **Contratos** - contratos efetivamente firmados.
+
+As taxas de conversao entre estagios sao exibidas ao lado de cada barra.
+
+### Metricas principais
+
+- **Simulacoes** - volume total no periodo.
+- **Analises** - percentual das simulacoes que geraram analise.
+- **Aprovadas** - taxa de aprovacao sobre as analises.
+- **Recusadas** - taxa de recusa.
+- **Contratos** - percentual das simulacoes que viraram contrato.
+- **Inadimplencia** - percentual de contratos ativos em atraso.
+
+### Valores medios
+
+- Valor medio de simulacao, valor medio aprovado e principal total em carteira.
+
+### Quem ve esta secao
+
+Usuarios com a permissao **dashboard:read** (gestores) ou **billing:read**.
+
+---
+
+## Cobranca e Carteira
+
+Mostra o estado atual da carteira de cobranca e a eficiencia dos processos automaticos.
+
+### Carteira por status (5 cards)
+
+- **A vencer** - parcelas pendentes com valor total.
+- **Em atraso** - parcelas vencidas e nao pagas.
+- **Pagos** - parcelas quitadas no periodo.
+- **Renegociados** - parcelas renegociadas.
+- **Cancelados** - parcelas canceladas.
+
+### Taxas
+
+- **Adimplencia** - percentual de parcelas pagas sobre o total.
+- **Inadimplencia** - percentual de parcelas em atraso.
+- **Atraso medio** - media em dias corridos de atraso.
+
+### Eficiencia de cobranca
+
+- Cobranças agendadas, enviadas, com falha e pagas antes do envio.
+
+### Quem ve esta secao
+
+Usuarios com a permissao **billing:read**.
+Gestores regionais veem apenas as cidades sob sua responsabilidade (escopo city).
+
+---
+
+## Produtividade
+
+Exibe o desempenho individual dos agentes no periodo filtrado.
+
+### Colunas do ranking
+
+- **Leads fechados** - leads com status "ganho".
+- **Simulacoes** - simulacoes criadas pelo agente.
+- **Conversas resolvidas** - conversas com status resolvido.
+- **Contratos originados** - contratos firmados pelo agente.
+- **1a resp.** - tempo medio de primeira resposta.
+
+### Decisao D3 (privacidade de agentes)
+
+O sistema protege a privacidade dos agentes conforme a decisao D3:
+
+- **Gestores** (dashboard:read): veem o ranking nominal completo de todos os agentes.
+- **Agentes** (dashboard:read_by_agent): veem apenas seus proprios dados e a **media anonima da equipe**.
+  A media e calculada de forma anonima e nao identifica colegas.
+
+### Quem ve esta secao
+
+Usuarios com **dashboard:read** (gestores) ou **dashboard:read_by_agent** (agentes, com escopo self).
+
+---
+
+## Auditoria e Operacao
+
+Visibilidade sobre eventos de auditoria, acoes criticas e saude da infraestrutura de eventos.
+
+### Metricas principais
+
+- **Total de eventos** - volume de audit_logs no periodo.
+- **Outbox processados** - eventos enviados com sucesso pelo sistema de outbox.
+- **Outbox pendentes** - eventos aguardando processamento.
+- **DLQ pendentes** - eventos com falha que precisam ser reprocessados manualmente.
+
+### DLQ
+
+Se houver eventos na DLQ (Dead Letter Queue), um aviso amarelo e exibido com os tipos de evento mais frequentes.
+Contate o suporte tecnico para reprocessar os eventos.
+
+### Top acoes e acoes criticas
+
+- **Top acoes**: as operacoes mais realizadas no periodo (ex: leads.created, messages.sent).
+- **Acoes criticas**: operacoes sensiveis (ex: permissoes alteradas, flags ativadas) com contagem de atores.
+
+### Quem ve esta secao
+
+Apenas usuarios com a permissao **audit:read** (admin e gestor_geral).
