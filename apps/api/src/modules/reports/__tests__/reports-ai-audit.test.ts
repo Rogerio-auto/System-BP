@@ -131,6 +131,17 @@ describe('getReportsAi', () => {
     await expect(getReportsAi(mockDb as any, auditOnlyActor, baseQuery)).rejects.toThrow();
   });
 
+  it('dashboard:read city-scoped (gestor_regional/leitura) lanca 403 — IA é org-global', async () => {
+    const cityScopedActor = {
+      userId: 'u5',
+      organizationId: 'org-1',
+      permissions: ['dashboard:read'],
+      cityScopeIds: ['city-1'],
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await expect(getReportsAi(mockDb as any, cityScopedActor as any, baseQuery)).rejects.toThrow();
+  });
+
   it('flag IA desabilitada lanca 403', async () => {
     mockIsFlagEnabled.mockResolvedValue({ enabled: false });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

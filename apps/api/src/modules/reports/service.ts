@@ -483,6 +483,13 @@ export async function getReportsAi(
   if (!actor.permissions.includes('dashboard:read'))
     throw new ForbiddenError('Permissao insuficiente para relatorios de IA');
 
+  // IA/LLM é dado org-global (ai_conversation_states/ai_decision_logs/chatwoot_handoffs
+  // não têm city_id) — restrito a papéis globais (admin/gestor_geral, cityScopeIds===null).
+  // Plano §4-C marca custo/saúde de LLM como admin; papéis city-scoped (gestor_regional/
+  // leitura) não podem ver agregados org-wide que misturam todas as cidades.
+  if (actor.cityScopeIds !== null)
+    throw new ForbiddenError('Relatorio de IA restrito a papeis globais (admin/gestor_geral)');
+
   const { enabled: aiEnabled } = await isFlagEnabled(db, AI_GATE_FLAG_KEY);
   if (!aiEnabled) throw new ForbiddenError('Modulo de IA nao habilitado');
 
