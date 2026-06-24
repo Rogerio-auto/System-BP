@@ -23,7 +23,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F20  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
-| F23  | 11    | 1   | 0   | 0   | 0   | 1   | 9   |
+| F23  | 11    | 1   | 0   | 0   | 0   | 0   | 10  |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -332,7 +332,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F23-S07 | Frontend — seções Atendimentos, IA e Funil/CRM                               | ✅ done      | medium     | F23-S05, F23-S06          |
 | F23-S08 | Frontend — seções Crédito, Cobrança, Produtividade e Auditoria               | ✅ done      | medium     | F23-S04, F23-S05, F23-S06 |
 | F23-S09 | Backend — exportação de relatórios (CSV/XLSX/PDF) com RBAC e audit           | ✅ done      | medium     | F23-S04, F23-S05          |
-| F23-S10 | Frontend — UI de exportação de relatórios                                    | 🟣 review    | medium     | F23-S08, F23-S09          |
+| F23-S10 | Frontend — UI de exportação de relatórios                                    | ✅ done      | medium     | F23-S08, F23-S09          |
 | F23-S11 | QA & Segurança — isolamento por papel, métricas×SQL e LGPD do export         | 🟢 available | high       | F23-S07, F23-S08, F23-S10 |
 
 ## Fase 3 — Agentes IA
