@@ -488,3 +488,50 @@ export const AuditResponseSchema = z.object({
 });
 
 export type AuditResponse = z.infer<typeof AuditResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Export -- §6 (F23-S09)
+//
+// POST /api/reports/export
+// Gating: reports:export + flag reports.export.enabled.
+// LGPD: apenas agregados exportados -- nenhum CPF/telefone/nome de cidadão.
+// Seções disponíveis espelham as rotas GET existentes.
+// ---------------------------------------------------------------------------
+
+export const ReportSectionEnum = z.enum([
+  'overview',
+  'funnel',
+  'attendance',
+  'credit',
+  'collection',
+  'productivity',
+  'ai',
+  'audit',
+]);
+export type ReportSection = z.infer<typeof ReportSectionEnum>;
+
+export const ExportFormatEnum = z.enum(['csv', 'xlsx', 'pdf']);
+export type ExportFormat = z.infer<typeof ExportFormatEnum>;
+
+// Filters reutiliza CommonReportQuerySchema + campos específicos de seção.
+// O backend valida e rejeita filtros fora do escopo do papel.
+export const ExportFiltersSchema = CommonReportQuerySchema.extend({
+  productIds: z.array(z.string().uuid()).optional(),
+});
+export type ExportFilters = z.infer<typeof ExportFiltersSchema>;
+
+export const ExportRequestSchema = z.object({
+  section: ReportSectionEnum,
+  format: ExportFormatEnum,
+  filters: ExportFiltersSchema.optional().default({}),
+});
+export type ExportRequest = z.infer<typeof ExportRequestSchema>;
+
+// Response de erro orientado (limite de linhas excedido)
+export const ExportLimitErrorSchema = z.object({
+  error: z.literal('EXPORT_LIMIT_EXCEEDED'),
+  message: z.string(),
+  rowCount: z.number().int().nonnegative(),
+  limit: z.number().int().nonnegative(),
+});
+export type ExportLimitError = z.infer<typeof ExportLimitErrorSchema>;

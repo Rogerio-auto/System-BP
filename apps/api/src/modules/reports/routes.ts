@@ -21,6 +21,7 @@ import {
   FunnelQuerySchema,
   FunnelResponseSchema,
   OverviewQuerySchema,
+  ExportRequestSchema,
   OverviewResponseSchema,
   ProductivityQuerySchema,
   ProductivityResponseSchema,
@@ -40,6 +41,7 @@ import {
   getReportsOverviewController,
   getReportsProductivityController,
 } from './controller.js';
+import { postReportsExportController } from './export/controller.js';
 
 const DASHBOARD_READ_BY_AGENT: [string, ...string[]] = [
   'dashboard:read',
@@ -190,5 +192,21 @@ export const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: ['audit:read'] as [string, ...string[]] })],
     },
     getReportsAuditController,
+  );
+  // POST /api/reports/export (F23-S09)
+  app.post(
+    '/api/reports/export',
+    {
+      schema: {
+        tags: ['Reports'],
+        summary: 'Exportacao de relatorio (CSV/XLSX/PDF)',
+        description:
+          'Gera arquivo para a secao solicitada. Gating: reports:export + flag reports.export.enabled. LGPD: apenas agregados.',
+        security: [{ bearerAuth: [] }],
+        body: ExportRequestSchema,
+      },
+      preHandler: [authorize({ permissions: ['reports:export'] as [string, ...string[]] })],
+    },
+    postReportsExportController,
   );
 };
