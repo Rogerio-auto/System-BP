@@ -46,6 +46,7 @@ import { kanbanRoutes } from './modules/kanban/routes.js';
 import { lawFirmsRoutes } from './modules/law-firms/routes.js';
 import { leadsRoutes } from './modules/leads/routes.js';
 import { notificationsRoutes } from './modules/notifications/index.js';
+import { reportsRoutes } from './modules/reports/routes.js';
 import { rolesRoutes } from './modules/roles/routes.js';
 import { internalSimulationsRoutes } from './modules/simulations/internal-routes.js';
 import { simulationsRoutes } from './modules/simulations/routes.js';
@@ -330,6 +331,8 @@ export async function buildApp() {
   await app.register(rolesRoutes);
   // Dashboard KPIs agregados (F8-S03)
   await app.register(dashboardRoutes);
+  // Relatorios e metricas (F23-S03) - overview, funil, atendimentos
+  await app.register(reportsRoutes);
   // Console de IA — gestão de prompt_versions (F9-S01)
   await app.register(promptsRoutes, { prefix: '/api/ai-console/prompts' });
   // Console de IA — viewer de decisões ai_decision_logs (F9-S02)
