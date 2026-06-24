@@ -8,8 +8,12 @@
 // LGPD: responses nunca contêm PII — apenas contagens e totais.
 // =============================================================================
 import {
+  AiQuerySchema,
+  AiResponseSchema,
   AttendanceQuerySchema,
   AttendanceResponseSchema,
+  AuditQuerySchema,
+  AuditResponseSchema,
   CollectionQuerySchema,
   CollectionResponseSchema,
   CreditQuerySchema,
@@ -27,7 +31,9 @@ import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
 
 import {
+  getReportsAiController,
   getReportsAttendanceController,
+  getReportsAuditController,
   getReportsCollectionController,
   getReportsCreditController,
   getReportsFunnelController,
@@ -148,5 +154,41 @@ export const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: DASHBOARD_READ_BY_AGENT })],
     },
     getReportsProductivityController,
+  );
+
+  // GET /api/reports/ai (F23-S05)
+  app.get(
+    '/api/reports/ai',
+    {
+      schema: {
+        tags: ['Reports'],
+        summary: 'IA / Pre-atendimento -- metricas secao 4-C',
+        description:
+          'Saude das conversas IA, motivos de handoff, distribuicao por no, tokens/custo/latencia LLM e SLA de handoff. Gating: dashboard:read + flag ai.livechat_agent.enabled.',
+        security: [{ bearerAuth: [] }],
+        querystring: AiQuerySchema,
+        response: { 200: AiResponseSchema },
+      },
+      preHandler: [authorize({ permissions: ['dashboard:read'] as [string, ...string[]] })],
+    },
+    getReportsAiController,
+  );
+
+  // GET /api/reports/audit (F23-S05)
+  app.get(
+    '/api/reports/audit',
+    {
+      schema: {
+        tags: ['Reports'],
+        summary: 'Auditoria e Operacao -- metricas secao 4-H',
+        description:
+          'Volume de audit logs, top acoes, acoes criticas, saude do outbox e snapshot do DLQ. Gating: audit:read.',
+        security: [{ bearerAuth: [] }],
+        querystring: AuditQuerySchema,
+        response: { 200: AuditResponseSchema },
+      },
+      preHandler: [authorize({ permissions: ['audit:read'] as [string, ...string[]] })],
+    },
+    getReportsAuditController,
   );
 };

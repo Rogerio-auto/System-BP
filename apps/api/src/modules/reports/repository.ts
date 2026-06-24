@@ -1154,3 +1154,635 @@ export async function getProductivityTeamAverage(
     contractsOriginated: Math.round(Number(row?.avg_contracts ?? 0) * 100) / 100,
   };
 }
+
+// =============================================================================
+// F23-S05 --- AI/Pre-attendance + Audit & Operations
+// SQL: sql parametrizado. Sem sql.raw() com input de usuario.
+// Estas tabelas nao tem city_id --- scope e por organization_id apenas.
+// =============================================================================
+
+const LLM_PRICING_USD_PER_1M: Readonly<Record<string, { input: number; output: number }>> = {
+  'anthropic/claude-3-5-sonnet': { input: 3.0, output: 15.0 },
+  'anthropic/claude-3-5-sonnet-20241022': { input: 3.0, output: 15.0 },
+  'anthropic/claude-3-haiku': { input: 0.25, output: 1.25 },
+  'anthropic/claude-3-haiku-20240307': { input: 0.25, output: 1.25 },
+  'anthropic/claude-3-opus': { input: 15.0, output: 75.0 },
+  'anthropic/claude-3-opus-20240229': { input: 15.0, output: 75.0 },
+  'openai/gpt-4o': { input: 2.5, output: 10.0 },
+  'openai/gpt-4o-mini': { input: 0.15, output: 0.6 },
+  'openai/gpt-4-turbo': { input: 10.0, output: 30.0 },
+  'openai/gpt-3.5-turbo': { input: 0.5, output: 1.5 },
+  'google/gemini-flash-1.5': { input: 0.075, output: 0.3 },
+  'google/gemini-pro-1.5': { input: 1.25, output: 5.0 },
+};
+
+function computeLlmCost(
+  model: string,
+  tokensIn: number,
+  tokensOut: number,
+): { costUsd: number; available: boolean } {
+  const pricing = LLM_PRICING_USD_PER_1M[model];
+  if (pricing === undefined) return { costUsd: 0, available: false };
+  const cost = (tokensIn / 1_000_000) * pricing.input + (tokensOut / 1_000_000) * pricing.output;
+  return { costUsd: cost, available: true };
+}
+
+export interface AiConversationHealthResult {
+  total: number;
+  active: number;
+  handoffed: number;
+  handoffRate: number;
+  completedWithoutHandoff: number;
+}
+
+export interface AiHandoffReasonRow {
+  reason: string;
+  count: number;
+  rate: number;
+}
+
+export interface AiNodeDistributionRow {
+  nodeName: string;
+  callCount: number;
+  errorCount: number;
+  errorRate: number;
+  avgLatencyMs: number | null;
+}
+
+export interface AiLlmMetricsResult {
+  totalTokensIn: number;
+  totalTokensOut: number;
+  totalCalls: number;
+  estimatedCostUsd: number | null;
+  costAvailable: boolean;
+  avgLatencyMs: number | null;
+  p90LatencyMs: number | null;
+  errorRate: number;
+}
+
+export interface AiModelBreakdownRow {
+  model: string;
+  callCount: number;
+  tokensIn: number;
+  tokensOut: number;
+  estimatedCostUsd: number | null;
+  costAvailable: boolean;
+}
+
+export interface AiHandoffSlaResult {
+  avgTimeToAcceptSec: number | null;
+  p90TimeToAcceptSec: number | null;
+  pendingHandoffs: number;
+}
+
+export interface AuditVolumeResult {
+  total: number;
+  byResourceType: Array<{ resourceType: string; count: number }>;
+}
+
+export interface AuditActionRow {
+  action: string;
+  count: number;
+}
+
+export interface AuditCriticalActionRow {
+  action: string;
+  count: number;
+  actorCount: number;
+}
+
+export interface EventOutboxHealthResult {
+  totalCreated: number;
+  totalProcessed: number;
+  totalPending: number;
+  totalFailed: number;
+  successRate: number;
+  avgProcessingLatencySec: number | null;
+}
+
+export interface EventDlqSnapshotResult {
+  pendingReprocess: number;
+  totalMoved: number;
+  topEventNames: Array<{ eventName: string; count: number }>;
+}
+const CRITICAL_ACTION_PREFIXES = [
+  'user.',
+  'feature_flag.',
+  'rbac.',
+  'organization.',
+  'auth.',
+] as const;
+
+export async function getAiConversationHealth(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+): Promise<AiConversationHealthResult> {
+  const result = await db.execute(sql`
+    SELECT
+      COUNT(*) FILTER (
+        WHERE created_at >= ${dateRange.from.toISOString()}::timestamptz
+          AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+      ) AS total,
+      COUNT(*) FILTER (
+        WHERE deleted_at IS NULL
+          AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+          AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+      ) AS active,
+      COUNT(*) FILTER (
+        WHERE deleted_at IS NOT NULL
+          AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+          AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+      ) AS soft_deleted
+    FROM ai_conversation_states
+    WHERE organization_id = ${organizationId}
+  `);
+
+  const handoffResult = await db.execute(sql`
+    SELECT COUNT(DISTINCT conversation_id) AS handoffed
+    FROM chatwoot_handoffs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+      AND deleted_at IS NULL
+  `);
+
+  // `as` justificado: db.execute retorna unknown[] --- tipamos shape das queries acima
+  const row = result.rows[0] as
+    | { total: string | number; active: string | number; soft_deleted: string | number }
+    | undefined;
+  const handoffRow = handoffResult.rows[0] as { handoffed: string | number } | undefined;
+  const total = Number(row?.total ?? 0);
+  const active = Number(row?.active ?? 0);
+  const handoffed = Number(handoffRow?.handoffed ?? 0);
+  const completedWithoutHandoff = Math.max(0, total - active - handoffed);
+  const handoffRate = total > 0 ? Math.round((handoffed / total) * 10000) / 100 : 0;
+  return { total, active, handoffed, handoffRate, completedWithoutHandoff };
+}
+
+export async function getAiHandoffReasons(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+): Promise<AiHandoffReasonRow[]> {
+  const result = await db.execute(sql`
+    SELECT reason, COUNT(*) AS reason_count
+    FROM chatwoot_handoffs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+      AND deleted_at IS NULL
+    GROUP BY reason
+    ORDER BY reason_count DESC
+  `);
+  // `as` justificado: db.execute retorna unknown[]
+  const rows = result.rows as Array<{ reason: string; reason_count: string | number }>;
+  const total = rows.reduce((sum, r) => sum + Number(r.reason_count), 0);
+  return rows.map((r) => ({
+    reason: String(r.reason),
+    count: Number(r.reason_count),
+    rate: total > 0 ? Math.round((Number(r.reason_count) / total) * 10000) / 100 : 0,
+  }));
+}
+
+export async function getAiNodeDistribution(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+): Promise<AiNodeDistributionRow[]> {
+  const result = await db.execute(sql`
+    SELECT
+      node_name,
+      COUNT(*) AS call_count,
+      COUNT(*) FILTER (WHERE error IS NOT NULL) AS error_count,
+      AVG(latency_ms) FILTER (WHERE latency_ms IS NOT NULL) AS avg_latency_ms
+    FROM ai_decision_logs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+    GROUP BY node_name
+    ORDER BY call_count DESC
+  `);
+  // `as` justificado: db.execute retorna unknown[]
+  const rows = result.rows as Array<{
+    node_name: string;
+    call_count: string | number;
+    error_count: string | number;
+    avg_latency_ms: string | number | null;
+  }>;
+  return rows.map((r) => {
+    const callCount = Number(r.call_count);
+    const errorCount = Number(r.error_count);
+    return {
+      nodeName: String(r.node_name),
+      callCount,
+      errorCount,
+      errorRate: callCount > 0 ? Math.round((errorCount / callCount) * 10000) / 100 : 0,
+      avgLatencyMs:
+        r.avg_latency_ms !== null && r.avg_latency_ms !== undefined
+          ? Math.round(Number(r.avg_latency_ms))
+          : null,
+    };
+  });
+}
+
+export async function getAiLlmMetrics(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+): Promise<AiLlmMetricsResult> {
+  // Query 1: per-model aggregation; cost computed in TS via LLM_PRICING_USD_PER_1M
+  const byModelResult = await db.execute(sql`
+    SELECT model,
+      COUNT(*) AS call_count,
+      COALESCE(SUM(tokens_in), 0) AS tokens_in_sum,
+      COALESCE(SUM(tokens_out), 0) AS tokens_out_sum,
+      COUNT(*) FILTER (WHERE error IS NOT NULL) AS error_count
+    FROM ai_decision_logs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+      AND model IS NOT NULL
+      AND tokens_in IS NOT NULL
+      AND tokens_out IS NOT NULL
+    GROUP BY model
+  `);
+
+  // Query 2: overall latency stats (sem aggregate aninhado)
+  const latencyResult = await db.execute(sql`
+    SELECT
+      COUNT(*) AS total_calls,
+      COUNT(*) FILTER (WHERE error IS NOT NULL) AS total_errors,
+      AVG(latency_ms) AS avg_latency_ms,
+      PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY latency_ms)
+        FILTER (WHERE latency_ms IS NOT NULL) AS p90_latency_ms
+    FROM ai_decision_logs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+  `);
+
+  // `as` justificado: db.execute retorna unknown[]
+  const modelRows = byModelResult.rows as Array<{
+    model: string;
+    call_count: string | number;
+    tokens_in_sum: string | number;
+    tokens_out_sum: string | number;
+    error_count: string | number;
+  }>;
+  const latencyRow = (
+    latencyResult.rows as Array<{
+      total_calls: string | number;
+      total_errors: string | number;
+      avg_latency_ms: string | number | null;
+      p90_latency_ms: string | number | null;
+    }>
+  )[0];
+
+  // Compute total cost in TS using pricing catalog
+  let totalCostUsd = 0;
+  let costAvailable = true;
+
+  for (const r of modelRows) {
+    const computed = computeLlmCost(r.model, Number(r.tokens_in_sum), Number(r.tokens_out_sum));
+    if (!computed.available) {
+      costAvailable = false;
+    } else {
+      totalCostUsd += computed.costUsd;
+    }
+  }
+
+  const totalTokensIn = modelRows.reduce((sum, r) => sum + Number(r.tokens_in_sum), 0);
+  const totalTokensOut = modelRows.reduce((sum, r) => sum + Number(r.tokens_out_sum), 0);
+  const totalCalls = latencyRow ? Number(latencyRow.total_calls) : 0;
+
+  return {
+    totalCalls,
+    errorRate:
+      totalCalls > 0 && latencyRow
+        ? Math.round((Number(latencyRow.total_errors) / totalCalls) * 10000) / 100
+        : 0,
+    totalTokensIn,
+    totalTokensOut,
+    estimatedCostUsd: costAvailable ? Math.round(totalCostUsd * 1e6) / 1e6 : null,
+    costAvailable,
+    avgLatencyMs:
+      latencyRow !== undefined && latencyRow.avg_latency_ms !== null
+        ? Math.round(Number(latencyRow.avg_latency_ms))
+        : null,
+    p90LatencyMs:
+      latencyRow !== undefined && latencyRow.p90_latency_ms !== null
+        ? Math.round(Number(latencyRow.p90_latency_ms))
+        : null,
+  };
+}
+export async function getAiModelBreakdown(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+): Promise<AiModelBreakdownRow[]> {
+  const result = await db.execute(sql`
+    SELECT model,
+      COUNT(*) AS call_count,
+      COALESCE(SUM(tokens_in), 0) AS tokens_in_sum,
+      COALESCE(SUM(tokens_out), 0) AS tokens_out_sum,
+      COUNT(*) FILTER (WHERE error IS NOT NULL) AS error_count
+    FROM ai_decision_logs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+      AND model IS NOT NULL
+    GROUP BY model
+    ORDER BY call_count DESC
+  `);
+
+  // `as` justificado: db.execute retorna unknown[]
+  const rows = result.rows as Array<{
+    model: string;
+    call_count: string | number;
+    tokens_in_sum: string | number;
+    tokens_out_sum: string | number;
+    error_count: string | number;
+  }>;
+
+  return rows.map((r) => {
+    const callCount = Number(r.call_count);
+    const tokensIn = Number(r.tokens_in_sum);
+    const tokensOut = Number(r.tokens_out_sum);
+    const computed = computeLlmCost(r.model, tokensIn, tokensOut);
+    return {
+      model: String(r.model),
+      callCount,
+      tokensIn,
+      tokensOut,
+      estimatedCostUsd: computed.available ? Math.round(computed.costUsd * 1e6) / 1e6 : null,
+      costAvailable: computed.available,
+    };
+  });
+}
+export async function getAiHandoffSla(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+): Promise<AiHandoffSlaResult> {
+  const result = await db.execute(sql`
+    SELECT
+      COUNT(*) AS total_handoffs,
+      COUNT(*) FILTER (WHERE status IN ('accepted', 'resolved')) AS completed_handoffs,
+      COUNT(*) FILTER (WHERE status = 'requested') AS pending_handoffs,
+      AVG(
+        EXTRACT(EPOCH FROM (updated_at - created_at))
+      ) FILTER (WHERE status IN ('accepted', 'resolved')) AS avg_resolution_secs,
+      PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (updated_at - created_at)))
+        FILTER (WHERE status IN ('accepted', 'resolved')) AS p90_resolution_secs
+    FROM chatwoot_handoffs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+      AND deleted_at IS NULL
+  `);
+
+  // as justificado: db.execute retorna unknown[]
+  const row = (
+    result.rows as Array<{
+      total_handoffs: string | number;
+      completed_handoffs: string | number;
+      pending_handoffs: string | number;
+      avg_resolution_secs: string | number | null;
+      p90_resolution_secs: string | number | null;
+    }>
+  )[0];
+
+  if (!row) {
+    return {
+      pendingHandoffs: 0,
+      avgTimeToAcceptSec: null,
+      p90TimeToAcceptSec: null,
+    };
+  }
+
+  return {
+    pendingHandoffs: Number(row.pending_handoffs),
+    avgTimeToAcceptSec:
+      row.avg_resolution_secs !== null ? Math.round(Number(row.avg_resolution_secs)) : null,
+    p90TimeToAcceptSec:
+      row.p90_resolution_secs !== null ? Math.round(Number(row.p90_resolution_secs)) : null,
+  };
+}
+// ---------------------------------------------------------------------------
+// Audit and Operations (section 4-H)
+// ---------------------------------------------------------------------------
+
+export async function getAuditVolume(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+): Promise<AuditVolumeResult> {
+  const totalResult = await db.execute(sql`
+    SELECT COUNT(*) AS total_events
+    FROM audit_logs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+  `);
+
+  const byResourceResult = await db.execute(sql`
+    SELECT resource_type, COUNT(*) AS event_count
+    FROM audit_logs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+    GROUP BY resource_type
+    ORDER BY event_count DESC
+    LIMIT 20
+  `);
+
+  // as justificado: db.execute retorna unknown[]
+  const totalRow = (totalResult.rows as Array<{ total_events: string | number }>)[0];
+  const byResourceRows = byResourceResult.rows as Array<{
+    resource_type: string;
+    event_count: string | number;
+  }>;
+
+  return {
+    total: totalRow ? Number(totalRow.total_events) : 0,
+    byResourceType: byResourceRows.map((r) => ({
+      resourceType: String(r.resource_type),
+      count: Number(r.event_count),
+    })),
+  };
+}
+export async function getAuditTopActions(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+  limit = 20,
+): Promise<AuditActionRow[]> {
+  // sql.raw justificado: limit e number controlado por codigo (Math.floor + clamp [1,100]), sem input externo
+  const limitLiteral = sql.raw(String(Math.max(1, Math.min(100, Math.floor(limit)))));
+  const result = await db.execute(sql`
+    SELECT action, COUNT(*) AS event_count
+    FROM audit_logs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+    GROUP BY action
+    ORDER BY event_count DESC
+    LIMIT ${limitLiteral}
+  `);
+
+  // as justificado: db.execute retorna unknown[]
+  const rows = result.rows as Array<{ action: string; event_count: string | number }>;
+  return rows.map((r) => ({
+    action: String(r.action),
+    count: Number(r.event_count),
+  }));
+}
+export async function getAuditCriticalActions(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+): Promise<AuditCriticalActionRow[]> {
+  // CRITICAL_ACTION_PREFIXES parametrizados via sql.join com LIKE --- sem sql.raw com dados externos
+  const likeConditions = CRITICAL_ACTION_PREFIXES.map((prefix) => sql`action LIKE ${prefix + '%'}`);
+  const criticalCondition = sql.join(likeConditions, sql` OR `);
+
+  const result = await db.execute(sql`
+    SELECT action,
+      COUNT(*) AS event_count,
+      COUNT(DISTINCT actor_user_id) AS actor_count
+    FROM audit_logs
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+      AND (${criticalCondition})
+    GROUP BY action
+    ORDER BY event_count DESC
+    LIMIT 50
+  `);
+
+  // as justificado: db.execute retorna unknown[]
+  const rows = result.rows as Array<{
+    action: string;
+    event_count: string | number;
+    actor_count: string | number;
+  }>;
+  return rows.map((r) => ({
+    action: String(r.action),
+    count: Number(r.event_count),
+    actorCount: Number(r.actor_count),
+  }));
+}
+export async function getEventOutboxHealth(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+): Promise<EventOutboxHealthResult> {
+  const outboxResult = await db.execute(sql`
+    SELECT
+      COUNT(*) AS total_events,
+      COUNT(*) FILTER (WHERE processed_at IS NOT NULL) AS processed_count,
+      COUNT(*) FILTER (WHERE failed_at IS NOT NULL AND processed_at IS NULL) AS failed_count,
+      COUNT(*) FILTER (WHERE processed_at IS NULL AND failed_at IS NULL) AS pending_count
+    FROM event_outbox
+    WHERE organization_id = ${organizationId}
+      AND created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND created_at <= ${dateRange.to.toISOString()}::timestamptz
+  `);
+
+  const latencyResult = await db.execute(sql`
+    SELECT
+      AVG(duration_ms) AS avg_duration_ms,
+      PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY duration_ms)
+        FILTER (WHERE duration_ms IS NOT NULL) AS p90_duration_ms,
+      COUNT(*) FILTER (WHERE status = 'failed') AS failed_handler_count
+    FROM event_processing_logs epl
+    INNER JOIN event_outbox eo ON eo.id = epl.event_id
+    WHERE eo.organization_id = ${organizationId}
+      AND epl.processed_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND epl.processed_at <= ${dateRange.to.toISOString()}::timestamptz
+  `);
+
+  // as justificado: db.execute retorna unknown[]
+  const outboxRow = (
+    outboxResult.rows as Array<{
+      total_events: string | number;
+      processed_count: string | number;
+      failed_count: string | number;
+      pending_count: string | number;
+    }>
+  )[0];
+
+  const latencyRow = (
+    latencyResult.rows as Array<{
+      avg_duration_ms: string | number | null;
+      p90_duration_ms: string | number | null;
+      failed_handler_count: string | number;
+    }>
+  )[0];
+
+  const totalCreated = outboxRow ? Number(outboxRow.total_events) : 0;
+  const totalProcessed = outboxRow ? Number(outboxRow.processed_count) : 0;
+
+  return {
+    totalCreated,
+    totalProcessed,
+    totalFailed: outboxRow ? Number(outboxRow.failed_count) : 0,
+    totalPending: outboxRow ? Number(outboxRow.pending_count) : 0,
+    successRate: totalCreated > 0 ? Math.round((totalProcessed / totalCreated) * 10000) / 100 : 0,
+    avgProcessingLatencySec:
+      latencyRow !== undefined && latencyRow.avg_duration_ms !== null
+        ? Math.round(Number(latencyRow.avg_duration_ms) / 10) / 100
+        : null,
+  };
+}
+export async function getEventDlqSnapshot(
+  db: Database,
+  organizationId: string,
+  dateRange: DateRange,
+): Promise<EventDlqSnapshotResult> {
+  const totalResult = await db.execute(sql`
+    SELECT
+      COUNT(*) AS total_dlq,
+      COUNT(*) FILTER (WHERE reprocessed = true) AS reprocessed_count
+    FROM event_dlq
+    WHERE organization_id = ${organizationId}
+      AND moved_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND moved_at <= ${dateRange.to.toISOString()}::timestamptz
+  `);
+
+  const topEventNamesResult = await db.execute(sql`
+    SELECT event_name, COUNT(*) AS dlq_count
+    FROM event_dlq
+    WHERE organization_id = ${organizationId}
+      AND moved_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND moved_at <= ${dateRange.to.toISOString()}::timestamptz
+    GROUP BY event_name
+    ORDER BY dlq_count DESC
+    LIMIT 10
+  `);
+
+  // as justificado: db.execute retorna unknown[]
+  const totalRow = (
+    totalResult.rows as Array<{
+      total_dlq: string | number;
+      reprocessed_count: string | number;
+    }>
+  )[0];
+
+  const topRows = topEventNamesResult.rows as Array<{
+    event_name: string;
+    dlq_count: string | number;
+  }>;
+
+  return {
+    totalMoved: totalRow ? Number(totalRow.total_dlq) : 0,
+    pendingReprocess: totalRow
+      ? Number(totalRow.total_dlq) - Number(totalRow.reprocessed_count)
+      : 0,
+    topEventNames: topRows.map((r) => ({
+      eventName: String(r.event_name),
+      count: Number(r.dlq_count),
+    })),
+  };
+}

@@ -4,7 +4,9 @@
 // request.user é garantido por authenticate() + authorize() nos preHandlers.
 // =============================================================================
 import type {
+  AiQuery,
   AttendanceQuery,
+  AuditQuery,
   CollectionQuery,
   CreditQuery,
   FunnelQuery,
@@ -19,7 +21,9 @@ import { typedQuery } from '../../shared/fastify-types.js';
 
 import type { ReportsActorContext } from './service.js';
 import {
+  getReportsAi,
   getReportsAttendance,
+  getReportsAudit,
   getReportsCollection,
   getReportsCredit,
   getReportsFunnel,
@@ -92,5 +96,23 @@ export async function getReportsProductivityController(
 ): Promise<void> {
   const actor = getActorContext(request);
   const result = await getReportsProductivity(db, actor, typedQuery<ProductivityQuery>(request));
+  return reply.status(200).send(result);
+}
+
+export async function getReportsAiController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const result = await getReportsAi(db, actor, typedQuery<AiQuery>(request));
+  return reply.status(200).send(result);
+}
+
+export async function getReportsAuditController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const result = await getReportsAudit(db, actor, typedQuery<AuditQuery>(request));
   return reply.status(200).send(result);
 }

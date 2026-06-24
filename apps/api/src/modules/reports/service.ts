@@ -1,7 +1,11 @@
 // reports/service.ts (F23-S03)
 import type {
+  AiQuery,
+  AiResponse,
   AttendanceQuery,
   AttendanceResponse,
+  AuditQuery,
+  AuditResponse,
   CollectionQuery,
   CollectionResponse,
   CreditQuery,
@@ -20,6 +24,7 @@ import { auditLog } from '../../lib/audit.js';
 import type { AuditActor } from '../../lib/audit.js';
 import { ForbiddenError } from '../../shared/errors.js';
 import type { UserScopeCtx } from '../../shared/scope.js';
+import { isFlagEnabled } from '../featureFlags/service.js';
 
 import {
   getAttendanceByChannel,
@@ -36,6 +41,17 @@ import {
   getOverviewConversations,
   getOverviewLeads,
   getOverviewSimulations,
+  getAiConversationHealth,
+  getAiHandoffReasons,
+  getAiNodeDistribution,
+  getAiLlmMetrics,
+  getAiModelBreakdown,
+  getAiHandoffSla,
+  getAuditVolume,
+  getAuditTopActions,
+  getAuditCriticalActions,
+  getEventOutboxHealth,
+  getEventDlqSnapshot,
 } from './repository.js';
 
 export interface ReportsActorContext {
@@ -122,7 +138,15 @@ function resolveScopeAndValidate(
 async function writeAuditLog(
   db: Database,
   actor: ReportsActorContext,
-  section: 'overview' | 'funnel' | 'attendance' | 'credit' | 'collection' | 'productivity',
+  section:
+    | 'overview'
+    | 'funnel'
+    | 'attendance'
+    | 'credit'
+    | 'collection'
+    | 'productivity'
+    | 'reports.ai'
+    | 'reports.audit',
   filters: Record<string, unknown>,
   scopeLabel: string,
 ): Promise<void> {
@@ -442,5 +466,101 @@ export async function getReportsProductivity(
     },
     agents,
     teamAverage,
+  };
+}
+
+// =============================================================================
+// F23-S05 --- AI / Pre-attendance + Audit & Operations
+// =============================================================================
+
+const AI_GATE_FLAG_KEY = 'ai.livechat_agent.enabled' as const;
+
+export async function getReportsAi(
+  db: Database,
+  actor: ReportsActorContext,
+  query: AiQuery,
+): Promise<AiResponse> {
+  if (!actor.permissions.includes('dashboard:read'))
+    throw new ForbiddenError('Permissao insuficiente para relatorios de IA');
+
+  const { enabled: aiEnabled } = await isFlagEnabled(db, AI_GATE_FLAG_KEY);
+  if (!aiEnabled) throw new ForbiddenError('Modulo de IA nao habilitado');
+
+  const dateRange = computeRange(query);
+  const { organizationId } = actor;
+
+  const [conversations, handoffReasons, nodeDistribution, llmMetrics, modelBreakdown, handoffSla] =
+    await Promise.all([
+      getAiConversationHealth(db, organizationId, dateRange),
+      getAiHandoffReasons(db, organizationId, dateRange),
+      getAiNodeDistribution(db, organizationId, dateRange),
+      getAiLlmMetrics(db, organizationId, dateRange),
+      getAiModelBreakdown(db, organizationId, dateRange),
+      getAiHandoffSla(db, organizationId, dateRange),
+    ]);
+
+  void writeAuditLog(
+    db,
+    actor,
+    'reports.ai',
+    { range: query.range, organizationId },
+    'global',
+  ).catch(() => undefined);
+
+  return {
+    range: {
+      from: dateRange.from.toISOString(),
+      to: dateRange.to.toISOString(),
+      label: dateRange.label,
+      scope: ReportScopeEnum.parse('global'),
+    },
+    conversations,
+    handoffReasons,
+    nodeDistribution,
+    llmMetrics,
+    modelBreakdown,
+    handoffSla,
+  };
+}
+
+export async function getReportsAudit(
+  db: Database,
+  actor: ReportsActorContext,
+  query: AuditQuery,
+): Promise<AuditResponse> {
+  if (!actor.permissions.includes('audit:read'))
+    throw new ForbiddenError('Permissao insuficiente para relatorios de auditoria');
+
+  const dateRange = computeRange(query);
+  const { organizationId } = actor;
+
+  const [auditVolume, topActions, criticalActions, outboxHealth, dlqSnapshot] = await Promise.all([
+    getAuditVolume(db, organizationId, dateRange),
+    getAuditTopActions(db, organizationId, dateRange),
+    getAuditCriticalActions(db, organizationId, dateRange),
+    getEventOutboxHealth(db, organizationId, dateRange),
+    getEventDlqSnapshot(db, organizationId, dateRange),
+  ]);
+
+  void writeAuditLog(
+    db,
+    actor,
+    'reports.audit',
+    { range: query.range, organizationId },
+    'global',
+  ).catch(() => undefined);
+
+  return {
+    range: {
+      from: dateRange.from.toISOString(),
+      to: dateRange.to.toISOString(),
+      label: dateRange.label,
+      scope: ReportScopeEnum.parse('global'),
+    },
+    auditVolume,
+    topActions,
+    criticalActions,
+    outboxHealth,
+    dlqSnapshot,
   };
 }
