@@ -81,6 +81,33 @@ async function queryUserCityScopeIds(db: Database, userId: string): Promise<stri
 }
 
 // ---------------------------------------------------------------------------
+// Helpers exportados para reutilização no fluxo pre-auth (login/refresh)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve o escopo de cidade do usuário aplicando a regra "role global → null".
+ *
+ * Recebe os roleKeys já carregados (evita query duplicada quando o chamador
+ * já carregou queryUserRoleKeys em paralelo) e faz a query de city scopes
+ * apenas se necessário (roles não-globais).
+ *
+ * Reutilizada pelo auth/service.ts no fluxo pre-auth (login/verify-2fa/refresh)
+ * onde request.user ainda não está disponível.
+ *
+ * @param roleKeys - Array de role keys do usuário (ex: ['gestor_regional'])
+ * @returns null para roles globais (admin/gestor_geral); string[] para demais.
+ */
+export async function queryUserCityScopeIdsResolved(
+  db: Database,
+  userId: string,
+  roleKeys: string[],
+): Promise<string[] | null> {
+  const hasGlobalScope = roleKeys.some((k) => GLOBAL_SCOPE_ROLES.has(k));
+  if (hasGlobalScope) return null;
+  return queryUserCityScopeIds(db, userId);
+}
+
+// ---------------------------------------------------------------------------
 // Entry point público
 // ---------------------------------------------------------------------------
 

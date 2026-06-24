@@ -111,6 +111,7 @@ export async function loginController(
       full_name: result.user.fullName,
       organization_id: result.user.organizationId,
       permissions: result.user.permissions,
+      city_scope_ids: result.user.cityScopeIds,
     },
   });
 }
@@ -160,6 +161,7 @@ export async function verify2faController(
       full_name: result.user.fullName,
       organization_id: result.user.organizationId,
       permissions: result.user.permissions,
+      city_scope_ids: result.user.cityScopeIds,
     },
   });
 }
@@ -210,6 +212,7 @@ export async function refreshController(
       full_name: result.user.fullName,
       organization_id: result.user.organizationId,
       permissions: result.user.permissions,
+      city_scope_ids: result.user.cityScopeIds,
     },
   });
 }
