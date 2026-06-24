@@ -2,10 +2,16 @@
 import type {
   AttendanceQuery,
   AttendanceResponse,
+  CollectionQuery,
+  CollectionResponse,
+  CreditQuery,
+  CreditResponse,
   FunnelQuery,
   FunnelResponse,
   OverviewQuery,
   OverviewResponse,
+  ProductivityQuery,
+  ProductivityResponse,
 } from '@elemento/shared-schemas';
 import { ReportScopeEnum } from '@elemento/shared-schemas';
 
@@ -19,6 +25,12 @@ import {
   getAttendanceByChannel,
   getAttendanceTimings,
   getAttendanceTotals,
+  getCreditAggregate,
+  getCreditByProduct,
+  getCollectionJobsStats,
+  getCollectionWallet,
+  getProductivityByAgent,
+  getProductivityTeamAverage,
   getFunnelStages,
   getOverviewContracts,
   getOverviewConversations,
@@ -110,7 +122,7 @@ function resolveScopeAndValidate(
 async function writeAuditLog(
   db: Database,
   actor: ReportsActorContext,
-  section: 'overview' | 'funnel' | 'attendance',
+  section: 'overview' | 'funnel' | 'attendance' | 'credit' | 'collection' | 'productivity',
   filters: Record<string, unknown>,
   scopeLabel: string,
 ): Promise<void> {
@@ -250,5 +262,185 @@ export async function getReportsAttendance(
     },
     byChannel,
     timings,
+  };
+}
+
+export async function getReportsCredit(
+  db: Database,
+  actor: ReportsActorContext,
+  query: CreditQuery,
+): Promise<CreditResponse> {
+  const dateRange = computeRange(query);
+  const { scopeLabel, scopeCtx } = resolveScopeAndValidate(actor, query);
+  const [agg, byProduct] = await Promise.all([
+    getCreditAggregate(db, actor.organizationId, scopeCtx, query.cityIds, query.productIds),
+    getCreditByProduct(db, actor.organizationId, scopeCtx, query.cityIds, query.productIds),
+  ]);
+  // Funnel rates - default to 0 (not null) to match Zod schema nonnegative()
+  const simToAnalysisRate =
+    agg.simulations > 0 ? Math.round((agg.analyses / agg.simulations) * 10000) / 100 : 0;
+  const approvalRate =
+    agg.analyses > 0 ? Math.round((agg.analysesApproved / agg.analyses) * 10000) / 100 : 0;
+  const simToContractRate =
+    agg.simulations > 0 ? Math.round((agg.contracts / agg.simulations) * 10000) / 100 : 0;
+  const defaultRate =
+    agg.contracts > 0 ? Math.round((agg.contractsDefaulted / agg.contracts) * 10000) / 100 : 0;
+  void writeAuditLog(
+    db,
+    actor,
+    'credit',
+    { range: query.range, cityIds: query.cityIds ?? null, productIds: query.productIds ?? null },
+    scopeLabel,
+  ).catch(() => undefined);
+  return {
+    range: {
+      from: dateRange.from.toISOString(),
+      to: dateRange.to.toISOString(),
+      label: dateRange.label,
+      scope: ReportScopeEnum.parse(scopeLabel),
+    },
+    funnel: {
+      simulations: agg.simulations,
+      analyses: agg.analyses,
+      analysesApproved: agg.analysesApproved,
+      analysesRefused: agg.analysesRefused,
+      analysesInProgress: agg.analysesInProgress,
+      contracts: agg.contracts,
+      simToAnalysisRate,
+      approvalRate,
+      simToContractRate,
+    },
+    amounts: {
+      simulationsAmountSum: agg.simulationsAmountSum,
+      simulationsAmountAvg: agg.simulationsAmountAvg,
+      simulationsTermAvg: agg.simulationsTermAvg,
+      analysesApprovedAmountAvg: agg.analysesApprovedAmountAvg,
+      contractsPrincipalSum: agg.contractsPrincipalSum,
+    },
+    contractsByStatus: {
+      active: agg.contractsActive,
+      settled: agg.contractsSettled,
+      defaulted: agg.contractsDefaulted,
+      defaultRate,
+    },
+    byProduct,
+  };
+}
+
+export async function getReportsCollection(
+  db: Database,
+  actor: ReportsActorContext,
+  query: CollectionQuery,
+): Promise<CollectionResponse> {
+  const hasBillingRead = actor.permissions.includes('billing:read');
+  if (!hasBillingRead) throw new ForbiddenError('Permissão billing:read necessária');
+  const dateRange = computeRange(query);
+  // billing:read is always city-scoped or global - no self-scope for collection
+  const scopeCtx = { cityScopeIds: actor.cityScopeIds };
+  const [wallet, jobs] = await Promise.all([
+    getCollectionWallet(db, actor.organizationId, scopeCtx, query.cityIds),
+    getCollectionJobsStats(db, actor.organizationId, dateRange),
+  ]);
+  const totalActive = wallet.pending + wallet.overdue;
+  const adimplenciaRate =
+    totalActive > 0 ? Math.round((wallet.pending / totalActive) * 10000) / 100 : 0;
+  const inadimplenciaRate =
+    totalActive > 0 ? Math.round((wallet.overdue / totalActive) * 10000) / 100 : 0;
+  const jobsSentTotal = jobs.sent + jobs.failed;
+  const sendRate = jobsSentTotal > 0 ? Math.round((jobs.sent / jobsSentTotal) * 10000) / 100 : 0;
+  const failRate = jobsSentTotal > 0 ? Math.round((jobs.failed / jobsSentTotal) * 10000) / 100 : 0;
+  void writeAuditLog(
+    db,
+    actor,
+    'collection',
+    { range: query.range, cityIds: query.cityIds ?? null },
+    actor.cityScopeIds === null ? 'global' : 'city',
+  ).catch(() => undefined);
+  return {
+    range: {
+      from: dateRange.from.toISOString(),
+      to: dateRange.to.toISOString(),
+      label: dateRange.label,
+      scope: ReportScopeEnum.parse(actor.cityScopeIds === null ? 'global' : 'city'),
+    },
+    wallet: {
+      pending: wallet.pending,
+      pendingAmountSum: wallet.pendingAmountSum,
+      overdue: wallet.overdue,
+      overdueAmountSum: wallet.overdueAmountSum,
+      paid: wallet.paid,
+      paidAmountSum: wallet.paidAmountSum,
+      renegotiated: wallet.renegotiated,
+      cancelled: wallet.cancelled,
+    },
+    rates: {
+      adimplenciaRate,
+      inadimplenciaRate,
+      avgDaysOverdue: wallet.avgDaysOverdue,
+    },
+    jobsEfficiency: {
+      scheduled: jobs.scheduled,
+      sent: jobs.sent,
+      failed: jobs.failed,
+      paidBeforeSend: jobs.paidBeforeSend,
+      sendRate,
+      failRate,
+    },
+  };
+}
+
+export async function getReportsProductivity(
+  db: Database,
+  actor: ReportsActorContext,
+  query: ProductivityQuery,
+): Promise<ProductivityResponse> {
+  const dateRange = computeRange(query);
+  const hasDashboardRead = actor.permissions.includes('dashboard:read');
+  const hasByAgent = actor.permissions.includes('dashboard:read_by_agent');
+  if (!hasDashboardRead && !hasByAgent)
+    throw new ForbiddenError('Permissão insuficiente para relatórios de produtividade');
+  const scopeCtx = { cityScopeIds: actor.cityScopeIds };
+  // D3: self-scoped agent sees only own row + anonymous team average
+  const isSelfScoped = !hasDashboardRead && hasByAgent;
+  const selfUserId = isSelfScoped ? actor.userId : null;
+  const includeDisplayName = hasDashboardRead; // managers see names; agents do not
+  const scopeLabel = isSelfScoped ? 'self' : actor.cityScopeIds === null ? 'global' : 'city';
+  const agents = await getProductivityByAgent(
+    db,
+    actor.organizationId,
+    scopeCtx,
+    dateRange,
+    selfUserId,
+    includeDisplayName,
+    query.cityIds,
+  );
+  // D3: only return teamAverage when self-scoped
+  let teamAverage: ProductivityResponse['teamAverage'] = undefined;
+  if (isSelfScoped) {
+    teamAverage = await getProductivityTeamAverage(
+      db,
+      actor.organizationId,
+      scopeCtx,
+      dateRange,
+      actor.userId,
+      query.cityIds,
+    );
+  }
+  void writeAuditLog(
+    db,
+    actor,
+    'productivity',
+    { range: query.range, cityIds: query.cityIds ?? null, selfScoped: isSelfScoped },
+    scopeLabel,
+  ).catch(() => undefined);
+  return {
+    range: {
+      from: dateRange.from.toISOString(),
+      to: dateRange.to.toISOString(),
+      label: dateRange.label,
+      scope: ReportScopeEnum.parse(scopeLabel),
+    },
+    agents,
+    teamAverage,
   };
 }
