@@ -3,12 +3,12 @@ id: F23-S08
 title: Frontend — seções Crédito, Cobrança, Produtividade e Auditoria
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-24T16:20:31Z
-completed_at: null
+completed_at: 2026-06-24T16:42:44Z
 pr_url: null
 depends_on: [F23-S04, F23-S05, F23-S06]
 blocks: []
