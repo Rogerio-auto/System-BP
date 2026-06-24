@@ -61,6 +61,18 @@ jobs:
         run: pnpm --filter @elemento/web docs:api
         continue-on-error: true
       - name: Run migrations (test DB)
+        # db:migrate roda FORA do vitest, então o globalSetup (src/test/setup.ts) não
+        # injeta env. Fornecemos aqui os mesmos valores de teste que o setup usa, para
+        # passar a validação do env.ts. DATABASE_URL herda do env do job (elemento_test).
+        env:
+          JWT_ACCESS_SECRET: test-access-secret-used-only-in-vitest-do-not-use-in-production-00000000
+          JWT_REFRESH_SECRET: test-refresh-secret-used-only-in-vitest-do-not-use-in-production-0000000
+          WHATSAPP_APP_SECRET: test-whatsapp-app-secret-vitest-only
+          WHATSAPP_VERIFY_TOKEN: test-verify-token-vitest
+          CHATWOOT_WEBHOOK_HMAC_SECRET: test-chatwoot-hmac-secret-vitest
+          LGPD_DATA_KEY: P5Uc4j/vdAisFljJ0kdz08PLWmPvMC/NX5VIy99Bv+E=
+          LGPD_DEDUPE_PEPPER: xgRqlH8Ag8bV/DI9gza3qIFx0w4RF3f9ZF/RSilyV2s=
+          FX_BRL_PER_USD: '5.75'
         run: pnpm --filter @elemento/api db:migrate
       - run: pnpm turbo run lint typecheck test build
 
