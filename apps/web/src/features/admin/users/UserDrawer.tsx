@@ -225,6 +225,10 @@ function CreateUserForm({ onClose, onCreated }: CreateFormProps): React.JSX.Elem
             email: data.email,
             roleIds: data.roleIds,
             cityIds: data.cityIds,
+            // Criado já ATIVO: não há fluxo de convite/confirmação por e-mail —
+            // o admin gera a senha temporária e entrega. Sem isso o usuário
+            // nasceria 'pending' e o login retornaria 401 ("Conta inativa ou pendente").
+            status: 'active',
           }),
         )(e);
       }}
