@@ -1,4 +1,4 @@
-// features/relatorios/RelatoriosPage.tsx -- Modulo de Relatorios (F23-S06/S07/S08).
+// features/relatorios/RelatoriosPage.tsx -- Modulo de Relatorios (F23-S06/S07/S08/S10).
 import type { CommonReportQuery, ReportScope } from '@elemento/shared-schemas';
 import * as React from 'react';
 
@@ -11,6 +11,7 @@ import { AttendanceSection } from './components/AttendanceSection';
 import { AuditSection } from './components/AuditSection';
 import { CollectionSection } from './components/CollectionSection';
 import { CreditSection } from './components/CreditSection';
+import { ExportButton } from './components/ExportButton';
 import { FunnelSection } from './components/FunnelSection';
 import { OverviewSection } from './components/OverviewSection';
 import { ProductivitySection } from './components/ProductivitySection';
@@ -70,6 +71,7 @@ export function RelatoriosPage(): React.JSX.Element {
           </p>
         </div>
         <ContextualHelp featureKey="relatorios.overview" />
+        <ExportButton currentSection="overview" filters={filters} />
       </div>
       <ReportFiltersBar
         filters={filters}

@@ -1,0 +1,81 @@
+---
+title: "Exportar Relatorios"
+description: "Como exportar os dados do modulo de Relatorios em CSV, Excel ou PDF, escolhendo formato e abrangencia."
+section: relatorios
+---
+
+# Exportar Relatorios
+
+O botao **Exportar** permite baixar os dados dos relatorios em diferentes formatos para analise externa, apresentacoes ou arquivo.
+
+---
+
+## Requisitos de acesso
+
+O botao **Exportar** so e exibido quando as duas condicoes abaixo sao verdadeiras:
+
+1. Seu papel possui a permissao **reports:export**.
+2. A funcionalidade de exportacao esta ativada pelo administrador (flag reports.export.enabled).
+
+Se o botao nao aparecer, verifique com o administrador do sistema.
+
+---
+
+## Como exportar
+
+1. Aplique os filtros desejados na barra superior (periodo, escopo, cidade, agente).
+2. Clique no botao **Exportar** no canto superior direito da pagina.
+3. Escolha o **formato** do arquivo:
+   - **CSV** - compativel com qualquer planilha (separado por virgula).
+   - **Excel (XLSX)** - abre diretamente no Microsoft Excel ou LibreOffice Calc.
+   - **PDF** - documento formatado para impressao ou envio.
+4. Escolha a **abrangencia**:
+   - **Secao atual** - exporta apenas os dados da secao que voce selecionou.
+   - **Relatorio completo** - exporta todas as secoes disponiveis para o seu papel.
+5. Clique em **Baixar**.
+6. O arquivo sera gerado e o download iniciara automaticamente.
+
+---
+
+## Filtros refletidos no export
+
+O arquivo exportado reflete **exatamente** os filtros ativos no momento do clique:
+
+- **Periodo** (ex: Ultimos 30 dias, Este mes).
+- **Escopo** (Meus dados / Minha cidade / Consolidado).
+- **Cidades** selecionadas (quando o escopo permite).
+- **Agente** selecionado (quando disponivel).
+
+Se voce alterar os filtros apos iniciar um export, o proximo export ja refletira os novos filtros.
+
+---
+
+## Estados do botao
+
+| Estado | Indicacao visual |
+|--------|-----------------|
+| Pronto | Icone de download + texto "Exportar" |
+| Gerando | Spinner + texto "Gerando..." |
+| Sucesso | Checkmark verde + texto "Baixado!" (por 2,5 s) |
+| Erro | Mensagem de erro abaixo do menu |
+
+---
+
+## Erro de limite de dados
+
+Se o periodo ou escopo selecionado retornar mais dados do que o permitido, o sistema exibe a mensagem:
+
+> **Muitos dados: X linhas (limite: Y).** Refine os filtros de periodo ou cidades e tente novamente.
+
+**Como resolver:**
+- Reduza o periodo (ex: de 90 dias para 30 dias).
+- Selecione uma cidade especifica em vez do escopo Consolidado.
+- Exporte por secao em vez de Relatorio completo.
+
+---
+
+## LGPD e dados exportados
+
+Os arquivos exportados contem **apenas dados agregados** (contagens, percentuais, totais).
+Nenhum dado pessoal de cidadaos (CPF, telefone, nome) e incluido nas exportacoes.
+Isso esta em conformidade com a politica de privacidade do Elemento (LGPD).
