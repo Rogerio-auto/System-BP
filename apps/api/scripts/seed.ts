@@ -246,6 +246,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'credit_analyses:write',
     'credit_analyses:decide',
     'credit_analyses:request_review',
+    // relatórios & métricas — F23-S02
+    'reports:export',
   ],
   gestor_geral: [
     'leads:read',
@@ -285,6 +287,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'credit_analyses:read',
     'credit_analyses:write',
     'credit_analyses:decide',
+    // relatórios & métricas — F23-S02
+    'reports:export',
   ],
   gestor_regional: [
     'leads:read',
@@ -315,6 +319,9 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'credit_analyses:read',
     'credit_analyses:write',
     'credit_analyses:decide',
+    // relatórios & métricas — F23-S02 (billing city-scoped via cityScopeIds no código)
+    'billing:read',
+    'reports:export',
   ],
   agente: [
     'leads:read',
