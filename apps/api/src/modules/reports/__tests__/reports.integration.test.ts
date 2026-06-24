@@ -226,12 +226,14 @@ beforeAll(async () => {
     sql`INSERT INTO conversations (id, organization_id, city_id, channel_id, contact_remote_id, status, created_at, updated_at) VALUES (${CONV_B1_ID}, ${ORG_B_ID}, ${CITY_B_ID}, ${CHANNEL_A_ID}, 'remote_b1', 'open', ${nowIso}::timestamptz, ${nowIso}::timestamptz) ON CONFLICT DO NOTHING`,
   );
   // Messages via sql bruto
+  // channel_id: NOT NULL (desnormalizacao deliberada — deve coincidir com o channel_id da conversa)
+  // type: NOT NULL (taxonomia de tipo de mensagem; 'text' para mensagens de texto simples)
   await db.execute(
-    sql`INSERT INTO messages (id, conversation_id, direction, content, created_at) VALUES (${MSG_A1_ID}, ${CONV_A1_ID}, 'in', 'ola', ${nowIso}::timestamptz) ON CONFLICT DO NOTHING`,
+    sql`INSERT INTO messages (id, conversation_id, channel_id, direction, type, content, created_at) VALUES (${MSG_A1_ID}, ${CONV_A1_ID}, ${CHANNEL_A_ID}, 'in', 'text', 'ola', ${nowIso}::timestamptz) ON CONFLICT DO NOTHING`,
   );
   const outTime = new Date(now.getTime() + 30_000).toISOString();
   await db.execute(
-    sql`INSERT INTO messages (id, conversation_id, direction, content, created_at) VALUES (${MSG_A2_ID}, ${CONV_A1_ID}, 'out', 'bom dia', ${outTime}::timestamptz) ON CONFLICT DO NOTHING`,
+    sql`INSERT INTO messages (id, conversation_id, channel_id, direction, type, content, created_at) VALUES (${MSG_A2_ID}, ${CONV_A1_ID}, ${CHANNEL_A_ID}, 'out', 'text', 'bom dia', ${outTime}::timestamptz) ON CONFLICT DO NOTHING`,
   );
   // REFRESH MVs (CONCURRENTLY requer unique index -- garantido pela migration 0071)
   const mvNames = [
