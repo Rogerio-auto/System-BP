@@ -1,5 +1,5 @@
 // =============================================================================
-// features/relatorios/api.ts — Funções de API para o módulo de Relatórios (F23-S06/S07).
+// features/relatorios/api.ts — Funções de API para o módulo de Relatórios (F23-S06/S07/S08).
 //
 // Consome os endpoints GET /api/reports/* entregues em F23-S03/S04/S05.
 // Tipos vêm de @elemento/shared-schemas — sem drift front×API.
@@ -9,13 +9,21 @@
 import {
   AiResponseSchema,
   AttendanceResponseSchema,
+  AuditResponseSchema,
+  CollectionResponseSchema,
+  CreditResponseSchema,
   FunnelResponseSchema,
   OverviewResponseSchema,
+  ProductivityResponseSchema,
   type AiResponse,
   type AttendanceResponse,
+  type AuditResponse,
+  type CollectionResponse,
   type CommonReportQuery,
+  type CreditResponse,
   type FunnelResponse,
   type OverviewResponse,
+  type ProductivityResponse,
 } from '@elemento/shared-schemas';
 
 import { api } from '../../lib/api';
@@ -90,4 +98,50 @@ export async function fetchReportsFunnel(
   const params = buildParams(query);
   const raw = await api.get<unknown>(`/api/reports/funnel?${params.toString()}`);
   return FunnelResponseSchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/reports/credit (F23-S08)
+// ---------------------------------------------------------------------------
+
+export async function fetchReportsCredit(
+  query: Partial<CommonReportQuery>,
+): Promise<CreditResponse> {
+  const params = buildParams(query);
+  const raw = await api.get<unknown>(`/api/reports/credit?${params.toString()}`);
+  return CreditResponseSchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/reports/collection (F23-S08)
+// ---------------------------------------------------------------------------
+
+export async function fetchReportsCollection(
+  query: Partial<CommonReportQuery>,
+): Promise<CollectionResponse> {
+  const params = buildParams(query);
+  const raw = await api.get<unknown>(`/api/reports/collection?${params.toString()}`);
+  return CollectionResponseSchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/reports/productivity (F23-S08)
+// ---------------------------------------------------------------------------
+
+export async function fetchReportsProductivity(
+  query: Partial<CommonReportQuery>,
+): Promise<ProductivityResponse> {
+  const params = buildParams(query);
+  const raw = await api.get<unknown>(`/api/reports/productivity?${params.toString()}`);
+  return ProductivityResponseSchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/reports/audit (F23-S08)
+// ---------------------------------------------------------------------------
+
+export async function fetchReportsAudit(query: Partial<CommonReportQuery>): Promise<AuditResponse> {
+  const params = buildParams(query);
+  const raw = await api.get<unknown>(`/api/reports/audit?${params.toString()}`);
+  return AuditResponseSchema.parse(raw);
 }
