@@ -9,7 +9,9 @@ export function setup(): void {
   // 'silent' não existe no envSchema — usamos 'error' (menor verbosidade válida)
   process.env['LOG_LEVEL'] = 'error';
   process.env['API_PUBLIC_URL'] = 'http://localhost:3333';
-  process.env['DATABASE_URL'] = 'postgres://test:test@localhost:5432/test';
+  // Nullish-coalescing: se o CI já define DATABASE_URL (elemento_test), preserva.
+  // Localmente sem a var, cai no dummy (conexão vai falhar → probe no teste captura).
+  process.env['DATABASE_URL'] ??= 'postgres://test:test@localhost:5432/test';
 
   // Mínimo 64 chars conforme envSchema
   process.env['JWT_ACCESS_SECRET'] =
