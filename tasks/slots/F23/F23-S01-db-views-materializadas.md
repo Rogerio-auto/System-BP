@@ -3,13 +3,13 @@ id: F23-S01
 title: DB — views materializadas, índices e job de refresh para relatórios
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-23T23:27:43Z
 completed_at: 2026-06-24T00:14:37Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/354
 depends_on: []
 blocks: []
 labels: [db, backend, reports, performance]
