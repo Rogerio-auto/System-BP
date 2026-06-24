@@ -33,6 +33,8 @@ interface LoginResponseOk {
     organization_id: string;
     /** Permissões RBAC consolidadas — espelha `loginResponseSchema` em shared-schemas. */
     permissions: string[];
+    /** Escopo de cidade: null → global; string[] → cidades permitidas. */
+    city_scope_ids: string[] | null;
   };
 }
 
@@ -54,6 +56,8 @@ function mapResponseToUser(res: LoginResponseOk): AuthUser {
     // Backend (F1-S03 + fix de auth-permissions) retorna permissions consolidadas.
     // Fallback `?? []` protege contra response antigo durante deploy progressivo.
     permissions: res.user.permissions ?? [],
+    // Fallback ?? null: backend antigo sem city_scope_ids → tratar como global.
+    cityScopeIds: res.user.city_scope_ids ?? null,
   };
 }
 

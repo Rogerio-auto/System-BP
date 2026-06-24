@@ -47,7 +47,11 @@ import {
 import { passwordVerify } from '../../shared/password.js';
 import { listAvailableRecoveryCodes, markRecoveryCodeUsedAtomic } from '../account/repository.js';
 
-import { queryUserPermissions, queryUserRoleKeys } from './middlewares/user-context.repository.js';
+import {
+  queryUserPermissions,
+  queryUserRoleKeys,
+  queryUserCityScopeIdsResolved,
+} from './middlewares/user-context.repository.js';
 import {
   createSession,
   createTotpChallenge,
@@ -102,6 +106,13 @@ export interface LoginResultOk {
     organizationId: string;
     /** Permissões RBAC consolidadas — usadas pelo frontend para gating de UI. */
     permissions: string[];
+    /**
+     * Escopo de cidade do usuário:
+     *   null     → admin/gestor_geral — acesso global (sem filtro de cidade).
+     *   string[] → UUIDs das cidades permitidas (gestor_regional/agente).
+     *   []       → sem cidade configurada.
+     */
+    cityScopeIds: string[] | null;
   };
 }
 
@@ -121,6 +132,11 @@ export interface RefreshResult {
     organizationId: string;
     /** Permissões RBAC ressincronizadas — reflete mudanças de role pós-login original. */
     permissions: string[];
+    /**
+     * Escopo de cidade ressincronizado — reflete mudanças de escopo pós-login original.
+     * Mesma semântica de LoginResultOk.user.cityScopeIds.
+     */
+    cityScopeIds: string[] | null;
   };
 }
 
@@ -265,13 +281,16 @@ async function _issueSession(
 
   await updateUserLastLogin(db, user.id);
 
-  // Carrega permissões RBAC + role keys consolidados para o frontend.
+  // Carrega permissões RBAC + role keys em paralelo.
   // Role keys (ex: 'admin', 'gestor_geral') são mesclados nas permissions para
   // que o frontend possa fazer gating de UI baseado em role sem endpoint /me dedicado.
   const [userPermissions, userRoleKeys] = await Promise.all([
     queryUserPermissions(db, user.id),
     queryUserRoleKeys(db, user.id),
   ]);
+
+  // City scope: reutiliza roleKeys já carregados para aplicar a regra global → null.
+  const cityScopeIds = await queryUserCityScopeIdsResolved(db, user.id, userRoleKeys);
 
   log.info(
     {
@@ -297,6 +316,7 @@ async function _issueSession(
       fullName: user.fullName,
       organizationId: user.organizationId,
       permissions: [...userPermissions, ...userRoleKeys],
+      cityScopeIds,
     },
   };
 }
@@ -524,6 +544,9 @@ export async function refresh(
     queryUserRoleKeys(db, user.id),
   ]);
 
+  // City scope ressincronizado — reflete mudanças de escopo pós-login original.
+  const cityScopeIds = await queryUserCityScopeIdsResolved(db, user.id, userRoleKeys);
+
   log.info(
     {
       event: 'auth.refresh.success',
@@ -547,6 +570,7 @@ export async function refresh(
       fullName: user.fullName,
       organizationId: user.organizationId,
       permissions: [...userPermissions, ...userRoleKeys],
+      cityScopeIds,
     },
   };
 }

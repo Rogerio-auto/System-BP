@@ -93,13 +93,19 @@ vi.mock('../../account/repository.js', () => ({
   markRecoveryCodeUsedAtomic: (...args: unknown[]) => mockMarkRecoveryCodeUsedAtomic(...args),
 }));
 
-// Mock de queryUserPermissions — usado pelo service para popular user.permissions
-// no response do login/verify-2fa/refresh. Sem este mock o service tenta executar
-// uma query Drizzle real (db.select().from().innerJoin()...) contra o mockDb e
-// crasha em runtime → 500.
+// Mock de queryUserPermissions, queryUserRoleKeys e queryUserCityScopeIdsResolved —
+// usados pelo service para popular user.permissions e user.cityScopeIds no response
+// do login/verify-2fa/refresh. Sem estes mocks o service tenta executar queries Drizzle
+// reais contra o mockDb e crasha em runtime → 500.
 const mockQueryUserPermissions = vi.fn().mockResolvedValue([] as string[]);
+// Por padrão simula agente sem role global: roleKeys vazio.
+const mockQueryUserRoleKeys = vi.fn().mockResolvedValue([] as string[]);
+// Por padrão simula agente sem cidades configuradas: array vazio (não null).
+const mockQueryUserCityScopeIdsResolved = vi.fn().mockResolvedValue([] as string[]);
 vi.mock('../middlewares/user-context.repository.js', () => ({
   queryUserPermissions: (...args: unknown[]) => mockQueryUserPermissions(...args),
+  queryUserRoleKeys: (...args: unknown[]) => mockQueryUserRoleKeys(...args),
+  queryUserCityScopeIdsResolved: (...args: unknown[]) => mockQueryUserCityScopeIdsResolved(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -228,6 +234,9 @@ describe('POST /api/auth/login', () => {
     vi.clearAllMocks();
     mockUpdateUserLastLogin.mockResolvedValue(undefined);
     mockCreateSession.mockResolvedValue(undefined);
+    // Resetar mocks de user-context para valores padrão (agente sem role global)
+    mockQueryUserRoleKeys.mockResolvedValue([] as string[]);
+    mockQueryUserCityScopeIdsResolved.mockResolvedValue([] as string[]);
   });
 
   it('retorna 200 com access_token e seta cookies quando credenciais corretas (sem 2FA)', async () => {
@@ -310,6 +319,69 @@ describe('POST /api/auth/login', () => {
     });
 
     expect(res.statusCode).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Testes específicos de city_scope_ids no payload de login
+// (describe separado para evitar colisão com rate-limit do describe de login)
+// ---------------------------------------------------------------------------
+describe('POST /api/auth/login — city_scope_ids no payload', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUpdateUserLastLogin.mockResolvedValue(undefined);
+    mockCreateSession.mockResolvedValue(undefined);
+    mockQueryUserRoleKeys.mockResolvedValue([] as string[]);
+    mockQueryUserCityScopeIdsResolved.mockResolvedValue([] as string[]);
+  });
+
+  it('retorna city_scope_ids=null no payload quando usuário tem role global (admin)', async () => {
+    mockFindUserByEmail.mockResolvedValue(makeUser());
+    mockQueryUserRoleKeys.mockResolvedValueOnce(['admin']);
+    mockQueryUserCityScopeIdsResolved.mockResolvedValueOnce(null);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'agente@bdp.ro.gov.br', password: 'senha-correta-123' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<Record<string, unknown>>();
+    expect(body['status']).toBe('ok');
+    // Admin/gestor_geral: city_scope_ids deve ser null (acesso global)
+    const user = body['user'] as Record<string, unknown>;
+    expect(user['city_scope_ids']).toBeNull();
+  });
+
+  it('retorna city_scope_ids=[uuid] no payload quando usuário tem escopo de cidade', async () => {
+    const CIDADE_ID = 'd4e5f6a7-b8c9-0123-defa-234567890123';
+    mockFindUserByEmail.mockResolvedValue(makeUser());
+    mockQueryUserRoleKeys.mockResolvedValueOnce(['gestor_regional']);
+    mockQueryUserCityScopeIdsResolved.mockResolvedValueOnce([CIDADE_ID]);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'agente@bdp.ro.gov.br', password: 'senha-correta-123' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<Record<string, unknown>>();
+    expect(body['status']).toBe('ok');
+    // gestor_regional: city_scope_ids deve ser array com UUID da cidade
+    const user = body['user'] as Record<string, unknown>;
+    expect(user['city_scope_ids']).toEqual([CIDADE_ID]);
   });
 });
 

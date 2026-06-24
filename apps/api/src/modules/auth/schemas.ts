@@ -35,6 +35,9 @@ export const loginResponseSchema = z.object({
     // Permissões RBAC carregadas pelo service via queryUserPermissions().
     // Usado pelo frontend para gating de UI (hub de Configurações, cards admin, etc.).
     permissions: z.array(z.string()),
+    // Escopo de cidade: null → global (admin/gestor_geral); string[] → city-scoped.
+    // Frontend usa para determinar o scope toggle em /relatorios sem heurística.
+    city_scope_ids: z.array(z.string().uuid()).nullable(),
   }),
 });
 

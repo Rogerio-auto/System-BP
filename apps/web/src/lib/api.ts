@@ -113,6 +113,8 @@ export async function bootstrapSession(): Promise<boolean> {
         // Backend (refresh) retorna permissions consolidadas — usa para hidratar
         // o store após reload do SPA sem exigir re-login.
         permissions: data.user.permissions ?? [],
+        // Ressincroniza city scope no bootstrap pós-reload (F23-S12).
+        cityScopeIds: data.user.city_scope_ids ?? null,
       },
       data.access_token,
     );
