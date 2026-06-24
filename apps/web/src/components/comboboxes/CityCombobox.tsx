@@ -1,28 +1,29 @@
 // =============================================================================
 // components/comboboxes/CityCombobox.tsx — Combobox compartilhado de cidade.
 //
-// Busca live em GET /api/admin/cities?search=<termo>&limit=20.
-// Debounce 300ms. Não dispara para queries < 2 chars.
+// Fonte: GET /api/cities (endpoint PÚBLICO — qualquer usuário autenticado).
+// Antes batia em /api/admin/cities (cities:manage) e dava 403 para
+// gestor_regional/agente no painel de contato do live chat. O catálogo é
+// pequeno (municípios da org) → busca client-side sobre a lista pública.
 //
-// Exibe: nome (semibold) + state_uf + Badge "Inativa" quando is_active === false.
+// Exibe: nome (semibold) + state_uf. O endpoint público só retorna cidades
+// ativas, então não há badge "Inativa".
 // LGPD: cidades não contêm PII (nome de município + UF). Sem redact necessário.
 //
 // DS: Input §9.2 + dropdown elev-3 + hover Spotlight + light-first + dark.
 // =============================================================================
 
-import type { CityResponse } from '@elemento/shared-schemas';
-import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
-import { api } from '../../lib/api';
+import type { CityPublic } from '../../hooks/useCitiesList';
+import { useCitiesList } from '../../hooks/useCitiesList';
 import { cn } from '../../lib/cn';
-import { Badge } from '../ui/Badge';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 export interface CityComboboxProps {
   value: string; // cityId selecionado
-  onChange: (cityId: string, city: CityResponse | null) => void;
+  onChange: (cityId: string, city: CityPublic | null) => void;
   error?: string | undefined;
   disabled?: boolean;
   label?: string;
@@ -30,44 +31,22 @@ export interface CityComboboxProps {
   placeholder?: string;
 }
 
-// ─── Fetcher ─────────────────────────────────────────────────────────────────
+// ─── Normalização para busca (case/acento-insensível) ──────────────────────────
 
-async function searchCities(search: string): Promise<CityResponse[]> {
-  if (!search.trim()) return [];
-  const qs = new URLSearchParams({ search: search.trim(), limit: '20' });
-  try {
-    const resp = await api.get<{ data: CityResponse[] }>(`/api/admin/cities?${qs.toString()}`);
-    return resp.data;
-  } catch {
-    return [];
-  }
-}
-
-// ─── Hook debounced ───────────────────────────────────────────────────────────
-
-function useCitySearch(query: string) {
-  const [debouncedQ, setDebouncedQ] = React.useState(query);
-
-  React.useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(query), 300);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  return useQuery({
-    queryKey: ['cities', 'search', debouncedQ],
-    queryFn: () => searchCities(debouncedQ),
-    enabled: debouncedQ.length >= 2,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
+function normalize(s: string): string {
+  // Decompõe acentos (NFD) e remove os combining marks (U+0300–U+036F).
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
 }
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 
 /**
- * Combobox de cidades com busca live.
- * Abre dropdown ao digitar >= 2 chars. Fecha ao selecionar ou perder foco.
- * Exibe: nome semibold + UF + badge "Inativa" quando is_active === false.
+ * Combobox de cidades com busca local sobre a lista pública.
+ * Abre dropdown ao focar/digitar. Fecha ao selecionar ou perder foco.
+ * Exibe: nome semibold + UF.
  */
 export function CityCombobox({
   value,
@@ -80,13 +59,20 @@ export function CityCombobox({
 }: CityComboboxProps): React.JSX.Element {
   const [inputValue, setInputValue] = React.useState('');
   const [open, setOpen] = React.useState(false);
-  const [selectedCity, setSelectedCity] = React.useState<CityResponse | null>(null);
+  const [selectedCity, setSelectedCity] = React.useState<CityPublic | null>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  const { data: results, isFetching } = useCitySearch(inputValue);
+  const { cities, isLoading } = useCitiesList();
 
   const hasError = Boolean(error);
+
+  // Filtro client-side: a lista pública é pequena (municípios da org).
+  const results = React.useMemo(() => {
+    const q = normalize(inputValue.trim());
+    const base = q ? cities.filter((c) => normalize(c.name).includes(q)) : cities;
+    return base.slice(0, 50);
+  }, [cities, inputValue]);
 
   // Fecha ao clicar fora
   React.useEffect(() => {
@@ -119,7 +105,7 @@ export function CityCombobox({
     }
   }
 
-  function handleSelect(city: CityResponse) {
+  function handleSelect(city: CityPublic) {
     setSelectedCity(city);
     setInputValue(city.name);
     setOpen(false);
@@ -127,10 +113,10 @@ export function CityCombobox({
   }
 
   function handleInputFocus() {
-    if (inputValue.length >= 2) setOpen(true);
+    setOpen(true);
   }
 
-  const showDropdown = open && (results?.length || isFetching);
+  const showDropdown = open && (results.length > 0 || isLoading);
 
   return (
     <div className="flex flex-col gap-2">
@@ -198,7 +184,7 @@ export function CityCombobox({
           />
 
           {/* Indicador de loading */}
-          {isFetching && (
+          {isLoading && (
             <span
               aria-hidden="true"
               className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
@@ -221,7 +207,7 @@ export function CityCombobox({
             )}
             style={{ boxShadow: 'var(--elev-3)' }}
           >
-            {results && results.length > 0
+            {results.length > 0
               ? results.map((city) => (
                   <li
                     key={city.id}
@@ -245,9 +231,6 @@ export function CityCombobox({
                       <p className="font-sans text-xs text-ink-3 truncate">{city.state_uf}</p>
                     </div>
 
-                    {/* Badge inativa */}
-                    {!city.is_active && <Badge variant="neutral">Inativa</Badge>}
-
                     {/* Checkmark se selecionado */}
                     {city.id === value && (
                       <svg
@@ -262,7 +245,7 @@ export function CityCombobox({
                     )}
                   </li>
                 ))
-              : !isFetching && (
+              : !isLoading && (
                   <li className="px-4 py-3 font-sans text-sm text-ink-3 text-center">
                     Nenhuma cidade encontrada
                   </li>
@@ -278,12 +261,6 @@ export function CityCombobox({
           <span className="font-semibold text-ink">
             {selectedCity.name} — {selectedCity.state_uf}
           </span>
-          {!selectedCity.is_active && (
-            <>
-              {' · '}
-              <Badge variant="neutral">Inativa</Badge>
-            </>
-          )}
         </p>
       )}
 
