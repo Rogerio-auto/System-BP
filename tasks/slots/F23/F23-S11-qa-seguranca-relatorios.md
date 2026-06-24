@@ -36,6 +36,14 @@ Plano §2 (princípios), §10/§11 (riscos: escopo é o maior risco de bug). Mai
 regressão é o cruzamento papel × endpoint. Este slot adiciona testes onde a cobertura dos
 slots anteriores ficou rasa e roda a revisão de segurança read-only.
 
+> ⚠️ **Lacuna conhecida a fechar (lições S03/S04):** os testes de repository dos slots S03/S04
+> são **mockados** — não executam SQL contra Postgres. Isso deixou passar 3 lotes de bugs de
+> runtime (IN-list sem aspa de fechamento, `channels.kind` inexistente, aspa dupla como
+> identificador, `AVG(MIN())` aninhado) que só a revisão manual pegou. Os endpoints de reports
+> **NÃO** estão no fluxo do E2E Smoke. Este slot DEVE fechar isso: toda query de reports tem que
+> ser **executada contra o Postgres de teste real** (o harness do `apps/api` já roda contra
+> `postgres://test:test@localhost:5432/test` no CI — usar o mesmo, NÃO mockar `db.execute`).
+
 ## Escopo (faz)
 
 - Testes de integração de **isolamento** para cada endpoint de `reports` (overview, funnel,
@@ -44,7 +52,11 @@ slots anteriores ficou rasa e roda a revisão de segurança read-only.
   - global vê tudo; city-scoped vê só suas cidades; self-scoped vê só a si.
   - cross-tenant: org A nunca enxerga org B.
   - filtro fora do escopo é rejeitado, não silenciosamente ampliado.
-- Testes de **paridade métrica×SQL** (amostra representativa de KPIs).
+- **Execução real contra DB (obrigatório):** cada endpoint/query de reports roda contra o
+  Postgres de teste com dados semeados — pega erro de SQL (coluna inexistente, sintaxe, aggregate
+  aninhado, aspa) que teste mockado não pega. Sem mock de `db.execute` nesses testes.
+- Testes de **paridade métrica×SQL** (amostra representativa de KPIs) — comparar o agregado do
+  endpoint contra `SELECT` direto na(s) tabela(s)-fonte no mesmo DB semeado.
 - Testes de **LGPD**: nenhum response/export contém CPF/telefone/nome de cidadão; D3 (agente
   não vê colegas nominalmente); export auditado sem PII.
 - Revisão de segurança (`/hm-security` / security-reviewer) read-only sobre o diff de F23 com
@@ -77,8 +89,9 @@ slots anteriores ficou rasa e roda a revisão de segurança read-only.
 
 ## Definition of Done
 
+- [ ] **Toda query de reports executada contra Postgres real** (sem mock de `db.execute`) — overview/funnel/attendance/ai/credit/collection/productivity/export
 - [ ] Testes de isolamento por papel/cidade/tenant para todos os endpoints de reports
-- [ ] Testes de paridade métrica×SQL
+- [ ] Testes de paridade métrica×SQL (endpoint vs SELECT direto no mesmo DB semeado)
 - [ ] Testes de ausência de PII (response + export) e D3
 - [ ] Revisão de segurança read-only + relatório no PR; sem ALTO aberto
 - [ ] `pnpm --filter @elemento/api test` + `pnpm --filter @elemento/web test` verdes
