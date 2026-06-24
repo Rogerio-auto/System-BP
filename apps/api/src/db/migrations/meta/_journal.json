@@ -463,6 +463,13 @@
       "when": 1782243200000,
       "tag": "0070_seed_pre_attendance_agent_prompt",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1782329600000,
+      "tag": "0071_reports_materialized_views",
+      "breakpoints": true
     }
   ]
 }

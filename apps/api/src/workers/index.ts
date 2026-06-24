@@ -74,6 +74,12 @@ export { runWinbackScan } from './winback-scan.js';
 // Exporta processMessage para testes unitários (sem iniciar o consumer real).
 export { processMessage } from './livechat-inbound.js';
 
+// F23-S01: worker periodico de refresh das MVs de relatorios.
+// Iniciado como processo separado: pnpm --filter @elemento/api worker:reports:refresh
+// Intervalo: 5 min. Advisory lock previne sobreposicao de execucoes.
+// Gated por dashboard.enabled (default=disabled).
+export { runReportsRefreshTick } from './reports-refresh.js';
+
 /**
  * Registra todos os worker-handlers de domínio no registry do outbox-publisher.
  *

@@ -23,6 +23,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F20  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
+| F23  | 11    | 10  | 0   | 0   | 0   | 1   | 0   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -317,6 +318,22 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F22-S01 | Backend — hardening de isolamento e headers (auditoria de segurança 2026-06-22)   | ✅ done | high       | —          |
 | F22-S02 | Backend — remediação de CVE em dependências runtime (drizzle-orm, xlsx)           | ✅ done | high       | —          |
 | F22-S03 | Infra — ressuscita E2E Smoke (tsbuildinfo + rabbitmq CI + topologia socket-relay) | ✅ done | high       | —          |
+
+## Fase 23 —
+
+| ID      | Título                                                                       | Status       | Prioridade | Depende de                |
+| ------- | ---------------------------------------------------------------------------- | ------------ | ---------- | ------------------------- |
+| F23-S01 | DB — views materializadas, índices e job de refresh para relatórios          | 🟣 review    | high       | —                         |
+| F23-S02 | RBAC — permissão reports:export e billing:read escopado para gestor_regional | 🟢 available | high       | —                         |
+| F23-S03 | Backend — módulo reports (core): schemas Zod + overview/funil/atendimentos   | 🟢 available | high       | F23-S01, F23-S02          |
+| F23-S04 | Backend — reports: crédito, cobrança e produtividade                         | 🟢 available | high       | F23-S03                   |
+| F23-S05 | Backend — reports: saúde da IA/LLM e auditoria/operação                      | 🟢 available | medium     | F23-S03                   |
+| F23-S06 | Frontend — shell de /relatorios, filtros adaptativos e Visão Geral           | 🟢 available | high       | F23-S03                   |
+| F23-S07 | Frontend — seções Atendimentos, IA e Funil/CRM                               | 🟢 available | medium     | F23-S05, F23-S06          |
+| F23-S08 | Frontend — seções Crédito, Cobrança, Produtividade e Auditoria               | 🟢 available | medium     | F23-S04, F23-S05, F23-S06 |
+| F23-S09 | Backend — exportação de relatórios (CSV/XLSX/PDF) com RBAC e audit           | 🟢 available | medium     | F23-S04, F23-S05          |
+| F23-S10 | Frontend — UI de exportação de relatórios                                    | 🟢 available | medium     | F23-S08, F23-S09          |
+| F23-S11 | QA & Segurança — isolamento por papel, métricas×SQL e LGPD do export         | 🟢 available | high       | F23-S07, F23-S08, F23-S10 |
 
 ## Fase 3 — Agentes IA
 
