@@ -1,5 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // reports/repository.ts (F23-S03)
+// Todas as queries contra MVs usam sql`` parametrizado — sem sql.raw(), sem interpolação
+// de string crua, sem sanitizadores manuais. Valores entram via placeholders do Drizzle
+// (parametrizados pelo driver pg). Padrão: dashboard/repository.ts §buildCollectionCityFragment.
 import { and, count, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
@@ -61,17 +63,90 @@ export interface AttendanceTimingsResult {
   resolutionP90Sec: number | null;
 }
 
-function sanitizeUuid(id: string): string {
-  return id.replace(/[^a-f0-9-]/gi, '');
+// ---------------------------------------------------------------------------
+// Helpers de fragmento SQL parametrizado para city scope nas MVs
+// ---------------------------------------------------------------------------
+
+/**
+ * Constrói fragmentos SQL parametrizados de city scope para queries contra MVs.
+ * O alias da tabela (ex: 'f', 'mv') é um valor literal do código — nunca input do usuário.
+ * Padrão idêntico a dashboard/repository.ts§buildCollectionCityFragment.
+ *
+ * Semântica de cityScopeIds:
+ *   null     → acesso global: fragmento vazio (sem filtro).
+ *   []       → sem acesso: AND 1 = 0.
+ *   string[] → AND city_id IN ($1, $2, ...) com placeholders parametrizados.
+ */
+function mvCityScopeClause(
+  cityScopeIds: string[] | null,
+  filterCityIds: string[] | undefined,
+): {
+  scopeFrag: ReturnType<typeof sql>;
+  filterFrag: ReturnType<typeof sql>;
+} {
+  let scopeFrag: ReturnType<typeof sql>;
+  if (cityScopeIds === null) {
+    scopeFrag = sql``;
+  } else if (cityScopeIds.length === 0) {
+    scopeFrag = sql`AND 1 = 0`;
+  } else {
+    scopeFrag = sql`AND city_id IN (${sql.join(
+      cityScopeIds.map((id) => sql`${id}`),
+      sql`, `,
+    )})`;
+  }
+
+  let filterFrag: ReturnType<typeof sql>;
+  if (filterCityIds === undefined || filterCityIds.length === 0) {
+    filterFrag = sql``;
+  } else {
+    filterFrag = sql`AND city_id IN (${sql.join(
+      filterCityIds.map((id) => sql`${id}`),
+      sql`, `,
+    )})`;
+  }
+
+  return { scopeFrag, filterFrag };
 }
-function toSqlIdList(ids: string[]): string {
-  return ids.map((id) => `'${sanitizeUuid(id)}`).join(',');
-}
-function toSqlDate(d: Date): string {
-  return d.toISOString().split('T')[0] ?? '';
-}
-function toSqlTs(d: Date): string {
-  return d.toISOString();
+
+/**
+ * Variante com prefixo de alias explícito (para queries com múltiplos JOINs).
+ * alias é um literal de código (ex: 'f', 'c') — nunca input do usuário.
+ */
+function mvCityScopeClauseAliased(
+  cityScopeIds: string[] | null,
+  filterCityIds: string[] | undefined,
+  alias: 'f' | 'c' | 'mv',
+): {
+  scopeFrag: ReturnType<typeof sql>;
+  filterFrag: ReturnType<typeof sql>;
+} {
+  // alias é controlado pelo código — uso de sql.raw justificado (não é input de usuário).
+  const col = sql.raw(`${alias}.city_id`) as ReturnType<typeof sql>;
+
+  let scopeFrag: ReturnType<typeof sql>;
+  if (cityScopeIds === null) {
+    scopeFrag = sql``;
+  } else if (cityScopeIds.length === 0) {
+    scopeFrag = sql`AND 1 = 0`;
+  } else {
+    scopeFrag = sql`AND ${col} IN (${sql.join(
+      cityScopeIds.map((id) => sql`${id}`),
+      sql`, `,
+    )})`;
+  }
+
+  let filterFrag: ReturnType<typeof sql>;
+  if (filterCityIds === undefined || filterCityIds.length === 0) {
+    filterFrag = sql``;
+  } else {
+    filterFrag = sql`AND ${col} IN (${sql.join(
+      filterCityIds.map((id) => sql`${id}`),
+      sql`, `,
+    )})`;
+  }
+
+  return { scopeFrag, filterFrag };
 }
 
 export async function getOverviewLeads(
@@ -128,19 +203,25 @@ export async function getOverviewSimulations(
 ): Promise<OverviewSimulationsResult> {
   if (scopeCtx.cityScopeIds !== null && scopeCtx.cityScopeIds.length === 0)
     return { total: 0, amountSum: 0, amountAvg: 0 };
-  const orgId = sanitizeUuid(organizationId);
-  const conds = [`organization_id = '${orgId}'`];
-  if (scopeCtx.cityScopeIds !== null && scopeCtx.cityScopeIds.length > 0)
-    conds.push(`city_id IN (${toSqlIdList(scopeCtx.cityScopeIds)})`);
-  if (filterCityIds !== undefined && filterCityIds.length > 0)
-    conds.push(`city_id IN (${toSqlIdList(filterCityIds)})`);
-  conds.push(`day >= '${toSqlDate(dateRange.from)}'`);
-  conds.push(`day <= '${toSqlDate(dateRange.to)}'`);
-  const [row] = (await db.execute(
-    sql.raw(
-      `SELECT COALESCE(SUM(total_simulations), 0) AS total_sims, COALESCE(SUM(simulations_amount_sum), 0) AS amount_sum FROM mv_reports_overview WHERE ${conds.join(' AND ')}`,
-    ),
-  )) as unknown as any[];
+
+  const { scopeFrag, filterFrag } = mvCityScopeClause(scopeCtx.cityScopeIds, filterCityIds);
+
+  const result = await db.execute(sql`
+    SELECT
+      COALESCE(SUM(total_simulations), 0) AS total_sims,
+      COALESCE(SUM(simulations_amount_sum), 0) AS amount_sum
+    FROM mv_reports_overview
+    WHERE organization_id = ${organizationId}
+      ${scopeFrag}
+      ${filterFrag}
+      AND day >= ${dateRange.from.toISOString().split('T')[0] ?? ''}::date
+      AND day <= ${dateRange.to.toISOString().split('T')[0] ?? ''}::date
+  `);
+
+  // `as` justificado: db.execute retorna unknown[] — tipamos o shape esperado da MV
+  const row = result.rows[0] as
+    | { total_sims: string | number; amount_sum: string | number }
+    | undefined;
   return {
     total: Number(row?.total_sims ?? 0),
     amountSum: Number(row?.amount_sum ?? 0),
@@ -160,19 +241,32 @@ export async function getOverviewContracts(
 ): Promise<OverviewContractsResult> {
   if (scopeCtx.cityScopeIds !== null && scopeCtx.cityScopeIds.length === 0)
     return { active: 0, settled: 0, defaulted: 0, activePrincipalSum: 0 };
-  const orgId = sanitizeUuid(organizationId);
-  const conds = [`organization_id = '${orgId}'`];
-  if (scopeCtx.cityScopeIds !== null && scopeCtx.cityScopeIds.length > 0)
-    conds.push(`city_id IN (${toSqlIdList(scopeCtx.cityScopeIds)})`);
-  if (filterCityIds !== undefined && filterCityIds.length > 0)
-    conds.push(`city_id IN (${toSqlIdList(filterCityIds)})`);
-  conds.push(`day >= '${toSqlDate(dateRange.from)}'`);
-  conds.push(`day <= '${toSqlDate(dateRange.to)}'`);
-  const [row] = (await db.execute(
-    sql.raw(
-      `SELECT COALESCE(SUM(contracts_active), 0) AS active, COALESCE(SUM(contracts_settled), 0) AS settled, COALESCE(SUM(contracts_defaulted), 0) AS defaulted, COALESCE(SUM(contracts_amount_sum), 0) AS principal_sum FROM mv_reports_overview WHERE ${conds.join(' AND ')}`,
-    ),
-  )) as unknown as any[];
+
+  const { scopeFrag, filterFrag } = mvCityScopeClause(scopeCtx.cityScopeIds, filterCityIds);
+
+  const result = await db.execute(sql`
+    SELECT
+      COALESCE(SUM(contracts_active), 0) AS active,
+      COALESCE(SUM(contracts_settled), 0) AS settled,
+      COALESCE(SUM(contracts_defaulted), 0) AS defaulted,
+      COALESCE(SUM(contracts_amount_sum), 0) AS principal_sum
+    FROM mv_reports_overview
+    WHERE organization_id = ${organizationId}
+      ${scopeFrag}
+      ${filterFrag}
+      AND day >= ${dateRange.from.toISOString().split('T')[0] ?? ''}::date
+      AND day <= ${dateRange.to.toISOString().split('T')[0] ?? ''}::date
+  `);
+
+  // `as` justificado: db.execute retorna unknown[] — tipamos o shape esperado da MV
+  const row = result.rows[0] as
+    | {
+        active: string | number;
+        settled: string | number;
+        defaulted: string | number;
+        principal_sum: string | number;
+      }
+    | undefined;
   return {
     active: Number(row?.active ?? 0),
     settled: Number(row?.settled ?? 0),
@@ -210,18 +304,46 @@ export async function getFunnelStages(
   filterCityIds?: string[],
 ): Promise<FunnelStageRow[]> {
   if (scopeCtx.cityScopeIds !== null && scopeCtx.cityScopeIds.length === 0) return [];
-  const orgId = sanitizeUuid(organizationId);
-  const conds = [`f.organization_id = '${orgId}'`];
-  if (scopeCtx.cityScopeIds !== null && scopeCtx.cityScopeIds.length > 0)
-    conds.push(`f.city_id IN (${toSqlIdList(scopeCtx.cityScopeIds)})`);
-  if (filterCityIds !== undefined && filterCityIds.length > 0)
-    conds.push(`f.city_id IN (${toSqlIdList(filterCityIds)})`);
-  const rows = (await db.execute(
-    sql.raw(
-      `SELECT f.stage_id, f.stage_name, f.stage_order, SUM(f.card_count) AS card_count, SUM(f.stale_card_count) AS stale_card_count, AVG(d.avg_dwell_hours) AS avg_dwell_hours, AVG(d.median_dwell_hours) AS median_dwell_hours FROM mv_reports_funnel f LEFT JOIN mv_reports_stage_dwell d ON d.stage_id = f.stage_id AND d.organization_id = f.organization_id AND (d.city_id = f.city_id OR (d.city_id IS NULL AND f.city_id IS NULL)) WHERE ${conds.join(' AND ')} GROUP BY f.stage_id, f.stage_name, f.stage_order ORDER BY f.stage_order ASC`,
-    ),
-  )) as unknown as any[];
-  return rows.map((r: any) => ({
+
+  const { scopeFrag, filterFrag } = mvCityScopeClauseAliased(
+    scopeCtx.cityScopeIds,
+    filterCityIds,
+    'f',
+  );
+
+  const result = await db.execute(sql`
+    SELECT
+      f.stage_id,
+      f.stage_name,
+      f.stage_order,
+      SUM(f.card_count) AS card_count,
+      SUM(f.stale_card_count) AS stale_card_count,
+      AVG(d.avg_dwell_hours) AS avg_dwell_hours,
+      AVG(d.median_dwell_hours) AS median_dwell_hours
+    FROM mv_reports_funnel f
+    LEFT JOIN mv_reports_stage_dwell d
+      ON d.stage_id = f.stage_id
+     AND d.organization_id = f.organization_id
+     AND (d.city_id = f.city_id OR (d.city_id IS NULL AND f.city_id IS NULL))
+    WHERE f.organization_id = ${organizationId}
+      ${scopeFrag}
+      ${filterFrag}
+    GROUP BY f.stage_id, f.stage_name, f.stage_order
+    ORDER BY f.stage_order ASC
+  `);
+
+  // `as` justificado: db.execute retorna unknown[] — tipamos o shape das MVs mv_reports_funnel + mv_reports_stage_dwell
+  return (
+    result.rows as Array<{
+      stage_id: string;
+      stage_name: string;
+      stage_order: string | number;
+      card_count: string | number;
+      stale_card_count: string | number;
+      avg_dwell_hours: string | number | null;
+      median_dwell_hours: string | number | null;
+    }>
+  ).map((r) => ({
     stageId: String(r.stage_id),
     stageName: String(r.stage_name),
     stageOrder: Number(r.stage_order),
@@ -283,28 +405,49 @@ export async function getAttendanceByChannel(
   filterChannel?: string,
 ): Promise<AttendanceByChannelRow[]> {
   if (scopeCtx.cityScopeIds !== null && scopeCtx.cityScopeIds.length === 0) return [];
-  const orgId = sanitizeUuid(organizationId);
-  const conds = [
-    `c.organization_id = '${orgId}'`,
-    `c.deleted_at IS NULL`,
-    `c.created_at >= '${toSqlTs(dateRange.from)}'`,
-    `c.created_at <= '${toSqlTs(dateRange.to)}'`,
-  ];
-  if (scopeCtx.cityScopeIds !== null && scopeCtx.cityScopeIds.length > 0)
-    conds.push(`c.city_id IN (${toSqlIdList(scopeCtx.cityScopeIds)})`);
-  if (filterCityIds !== undefined && filterCityIds.length > 0)
-    conds.push(`c.city_id IN (${toSqlIdList(filterCityIds)})`);
-  if (selfUserId !== null) conds.push(`c.assigned_user_id = '${sanitizeUuid(selfUserId)}'`);
-  if (filterChannel !== undefined) {
-    const safeChannel = filterChannel.replace(/[^a-z_]/gi, '');
-    conds.push(`ch.kind = '${safeChannel}'`);
-  }
-  const rows = (await db.execute(
-    sql.raw(
-      `SELECT ch.kind AS channel, COUNT(DISTINCT c.id) AS conv_count, COUNT(m.id) AS msg_count FROM conversations c JOIN channels ch ON ch.id = c.channel_id LEFT JOIN messages m ON m.conversation_id = c.id WHERE ${conds.join(' AND ')} GROUP BY ch.kind ORDER BY COUNT(DISTINCT c.id) DESC`,
-    ),
-  )) as unknown as any[];
-  return rows.map((r: any) => ({
+
+  const { scopeFrag, filterFrag } = mvCityScopeClauseAliased(
+    scopeCtx.cityScopeIds,
+    filterCityIds,
+    'c',
+  );
+
+  // selfUserId e filterChannel são valores parametrizados — nunca interpolados
+  const selfFrag = selfUserId !== null ? sql`AND c.assigned_user_id = ${selfUserId}` : sql``;
+
+  // filterChannel: o valor vem de query param validado por Zod enum no controller
+  // (valores permitidos: meta_whatsapp, meta_instagram, waha).
+  // Passa como placeholder parametrizado — o DB valida via CHECK constraint.
+  const channelFrag = filterChannel !== undefined ? sql`AND ch.provider = ${filterChannel}` : sql``;
+
+  const result = await db.execute(sql`
+    SELECT
+      ch.provider AS channel,
+      COUNT(DISTINCT c.id) AS conv_count,
+      COUNT(m.id) AS msg_count
+    FROM conversations c
+    JOIN channels ch ON ch.id = c.channel_id
+    LEFT JOIN messages m ON m.conversation_id = c.id
+    WHERE c.organization_id = ${organizationId}
+      AND c.deleted_at IS NULL
+      AND c.created_at >= ${dateRange.from.toISOString()}::timestamptz
+      AND c.created_at <= ${dateRange.to.toISOString()}::timestamptz
+      ${scopeFrag}
+      ${filterFrag}
+      ${selfFrag}
+      ${channelFrag}
+    GROUP BY ch.provider
+    ORDER BY COUNT(DISTINCT c.id) DESC
+  `);
+
+  // `as` justificado: db.execute retorna unknown[] — tipamos o shape esperado das tabelas conversations + channels
+  return (
+    result.rows as Array<{
+      channel: string;
+      conv_count: string | number;
+      msg_count: string | number;
+    }>
+  ).map((r) => ({
     channel: String(r.channel),
     conversationCount: Number(r.conv_count ?? 0),
     messageCount: Number(r.msg_count ?? 0),
@@ -326,24 +469,56 @@ export async function getAttendanceTimings(
     resolutionP90Sec: null,
   };
   if (scopeCtx.cityScopeIds !== null && scopeCtx.cityScopeIds.length === 0) return empty;
-  const orgId = sanitizeUuid(organizationId);
-  const conds = [
-    `c.organization_id = '${orgId}'`,
-    `c.deleted_at IS NULL`,
-    `c.created_at >= '${toSqlTs(dateRange.from)}'`,
-    `c.created_at <= '${toSqlTs(dateRange.to)}'`,
-    `c.status = 'resolved'`,
-  ];
-  if (scopeCtx.cityScopeIds !== null && scopeCtx.cityScopeIds.length > 0)
-    conds.push(`c.city_id IN (${toSqlIdList(scopeCtx.cityScopeIds)})`);
-  if (filterCityIds !== undefined && filterCityIds.length > 0)
-    conds.push(`c.city_id IN (${toSqlIdList(filterCityIds)})`);
-  if (selfUserId !== null) conds.push(`c.assigned_user_id = '${sanitizeUuid(selfUserId)}'`);
-  const [row] = (await db.execute(
-    sql.raw(
-      `WITH fr AS (SELECT c.id, EXTRACT(EPOCH FROM (MIN(m.created_at) FILTER (WHERE m.direction = 'out') - c.created_at)) AS first_sec, EXTRACT(EPOCH FROM (c.updated_at - c.created_at)) AS res_sec FROM conversations c LEFT JOIN messages m ON m.conversation_id = c.id WHERE ${conds.join(' AND ')} GROUP BY c.id, c.created_at, c.updated_at) SELECT AVG(first_sec) AS first_response_avg_sec, PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY first_sec) AS first_response_p90_sec, AVG(res_sec) AS resolution_avg_sec, PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY res_sec) AS resolution_p90_sec FROM fr WHERE first_sec IS NOT NULL AND first_sec >= 0`,
-    ),
-  )) as unknown as any[];
+
+  const { scopeFrag, filterFrag } = mvCityScopeClauseAliased(
+    scopeCtx.cityScopeIds,
+    filterCityIds,
+    'c',
+  );
+
+  const selfFrag = selfUserId !== null ? sql`AND c.assigned_user_id = ${selfUserId}` : sql``;
+
+  const result = await db.execute(sql`
+    WITH fr AS (
+      SELECT
+        c.id,
+        EXTRACT(EPOCH FROM (
+          MIN(m.created_at) FILTER (WHERE m.direction = 'out') - c.created_at
+        )) AS first_sec,
+        EXTRACT(EPOCH FROM (c.updated_at - c.created_at)) AS res_sec
+      FROM conversations c
+      LEFT JOIN messages m ON m.conversation_id = c.id
+      WHERE c.organization_id = ${organizationId}
+        AND c.deleted_at IS NULL
+        AND c.created_at >= ${dateRange.from.toISOString()}::timestamptz
+        AND c.created_at <= ${dateRange.to.toISOString()}::timestamptz
+        AND c.status = 'resolved'
+        ${scopeFrag}
+        ${filterFrag}
+        ${selfFrag}
+      GROUP BY c.id, c.created_at, c.updated_at
+    )
+    SELECT
+      AVG(first_sec) AS first_response_avg_sec,
+      PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY first_sec) AS first_response_p90_sec,
+      AVG(res_sec) AS resolution_avg_sec,
+      PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY res_sec) AS resolution_p90_sec
+    FROM fr
+    WHERE first_sec IS NOT NULL AND first_sec >= 0
+  `);
+
+  if (result.rows.length === 0) return empty;
+
+  // `as` justificado: db.execute retorna unknown[] — tipamos o shape esperado do CTE fr
+  const row = result.rows[0] as
+    | {
+        first_response_avg_sec: string | number | null;
+        first_response_p90_sec: string | number | null;
+        resolution_avg_sec: string | number | null;
+        resolution_p90_sec: string | number | null;
+      }
+    | undefined;
+
   if (row === undefined) return empty;
   return {
     firstResponseAvgSec:

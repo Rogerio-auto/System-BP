@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // reports/__tests__/reports.test.ts -- Testes modulo reports (F23-S03)
 // RBAC, scope, self-scope, funnel conversionRate, PII check, custom range
+// repository city-scope SQL parametrizado (cobertura dos bugs de IN-list)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -247,5 +248,232 @@ describe('getReportsAttendance', () => {
     await expect(getReportsAttendance(mockDb as any, noPermActor, baseQuery)).rejects.toThrow(
       'Permiss',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Testes de repository: SQL parametrizado + city-scope IN-list
+//
+// vi.mock('../repository.js') acima intercepta o módulo para os testes de service.
+// Para testar o REPOSITORY REAL usamos vi.importActual — obtemos a implementação
+// concreta sem o mock, e injetamos um db-stub que captura o SQL produzido pelo
+// Drizzle tagged-template antes de enviá-lo ao driver.
+//
+// Estes testes cobrem os bugs que os service-tests (que mockam o próprio repository)
+// não capturavam:
+//
+//   Bug 1 (CRÍTICO): toSqlIdList gerava "'uuid" (sem aspas de fechamento)
+//                    → city_id IN ('uuid-a,'uuid-b) → erro de sintaxe Postgres.
+//   Bug 2 (CRÍTICO): ch.kind não existe — coluna real é ch.provider.
+//
+// A validação verifica:
+//   - O SQL gerado contém placeholders ($N) em vez de UUIDs interpolados
+//   - A coluna referenciada é ch.provider (não ch.kind)
+//   - Quando cityScopeIds=[] retorna vazio sem tocar o banco (short-circuit)
+// ---------------------------------------------------------------------------
+
+const CITY_UUID_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const CITY_UUID_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const ORG_UUID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+
+const repoDateRange = {
+  from: new Date('2026-01-01T00:00:00.000Z'),
+  to: new Date('2026-01-31T23:59:59.999Z'),
+};
+
+/**
+ * Drizzle entrega a db.execute() uma instância SQL (não um plain object).
+ * Para extrair o texto e os params, chamamos sqlObj.toQuery() com as funções
+ * de escape do driver pg (escapeParam = '$N').
+ */
+interface DrizzleSqlObject {
+  toQuery: (dialect: {
+    escapeName: (n: string) => string;
+    escapeString: (s: string) => string;
+    escapeParam: (n: number, v: unknown) => string;
+  }) => { sql: string; params: unknown[] };
+}
+
+/** Cria um db-stub que captura e desmonta o objeto SQL que o Drizzle passa a db.execute. */
+function makeCaptureDb() {
+  let captured: { sql: string; params: unknown[] } | null = null;
+
+  const db = {
+    execute: vi.fn().mockImplementation((sqlObj: DrizzleSqlObject) => {
+      // Extraímos o SQL gerado usando o dialect do driver pg (parâmetros $1..$n)
+      const query = sqlObj.toQuery({
+        escapeName: (n: string) => `"${n}"`,
+        escapeString: (s: string) => `'${s}'`,
+        escapeParam: (n: number) => `$${n}`,
+      });
+      captured = { sql: query.sql, params: query.params };
+      return Promise.resolve({ rows: [] });
+    }),
+    // Stub mínimo do select builder (usado por getOverviewLeads / getOverviewConversations)
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+        innerJoin: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }),
+      }),
+    }),
+  };
+
+  return { db, getCapture: () => captured };
+}
+
+// Interface mínima das funções testadas no repository (evita typeof import() inline)
+interface RepoFns {
+  getOverviewSimulations: (
+    db: unknown,
+    orgId: string,
+    scope: { cityScopeIds: string[] | null },
+    range: { from: Date; to: Date },
+    filterCityIds?: string[],
+  ) => Promise<{ total: number; amountSum: number; amountAvg: number }>;
+  getOverviewContracts: (
+    db: unknown,
+    orgId: string,
+    scope: { cityScopeIds: string[] | null },
+    range: { from: Date; to: Date },
+    filterCityIds?: string[],
+  ) => Promise<{ active: number; settled: number; defaulted: number; activePrincipalSum: number }>;
+  getFunnelStages: (
+    db: unknown,
+    orgId: string,
+    scope: { cityScopeIds: string[] | null },
+    filterCityIds?: string[],
+  ) => Promise<unknown[]>;
+  getAttendanceByChannel: (
+    db: unknown,
+    orgId: string,
+    scope: { cityScopeIds: string[] | null },
+    range: { from: Date; to: Date },
+    selfUserId: string | null,
+    filterCityIds?: string[],
+    filterChannel?: string,
+  ) => Promise<unknown[]>;
+  getAttendanceTimings: (
+    db: unknown,
+    orgId: string,
+    scope: { cityScopeIds: string[] | null },
+    range: { from: Date; to: Date },
+    selfUserId: string | null,
+    filterCityIds?: string[],
+  ) => Promise<unknown>;
+}
+
+describe('repository — city-scope parametrizado (SQL gerado — real impl)', () => {
+  // Importa o módulo real (não mockado) do repository
+  let repo: RepoFns;
+
+  beforeEach(async () => {
+    // vi.importActual contorna o vi.mock acima e entrega a implementação real
+    repo = await vi.importActual<RepoFns>('../repository.js');
+  });
+
+  it('getOverviewSimulations: cityScopeIds com 2 cidades usa placeholders, nao interpolacao', async () => {
+    const { db, getCapture } = makeCaptureDb();
+    await repo.getOverviewSimulations(
+      db as any,
+      ORG_UUID,
+      { cityScopeIds: [CITY_UUID_A, CITY_UUID_B] },
+      repoDateRange,
+    );
+
+    const cap = getCapture();
+    expect(cap).not.toBeNull();
+    // Drizzle parametriza via $1..$n — o SQL deve conter placeholder
+    expect(cap!.sql).toContain('$');
+    // UUIDs devem estar nos params, nunca embutidos no SQL
+    expect(cap!.params).toContain(CITY_UUID_A);
+    expect(cap!.params).toContain(CITY_UUID_B);
+    expect(cap!.sql).not.toContain(CITY_UUID_A);
+    expect(cap!.sql).not.toContain(CITY_UUID_B);
+  });
+
+  it('getOverviewSimulations: cityScopeIds=[] retorna vazio sem chamar db.execute', async () => {
+    const { db } = makeCaptureDb();
+    const result = await repo.getOverviewSimulations(
+      db as any,
+      ORG_UUID,
+      { cityScopeIds: [] },
+      repoDateRange,
+    );
+    expect(result).toEqual({ total: 0, amountSum: 0, amountAvg: 0 });
+    expect(db.execute).not.toHaveBeenCalled();
+  });
+
+  it('getOverviewContracts: filterCityIds usa placeholders, nao interpolacao', async () => {
+    const { db, getCapture } = makeCaptureDb();
+    await repo.getOverviewContracts(db as any, ORG_UUID, { cityScopeIds: null }, repoDateRange, [
+      CITY_UUID_A,
+    ]);
+
+    const cap = getCapture();
+    expect(cap).not.toBeNull();
+    expect(cap!.params).toContain(CITY_UUID_A);
+    expect(cap!.sql).not.toContain(CITY_UUID_A);
+  });
+
+  it('getFunnelStages: cityScopeIds com cidade usa placeholder (bug IN-list corrigido)', async () => {
+    const { db, getCapture } = makeCaptureDb();
+    await repo.getFunnelStages(db as any, ORG_UUID, { cityScopeIds: [CITY_UUID_A] });
+
+    const cap = getCapture();
+    expect(cap).not.toBeNull();
+    expect(cap!.params).toContain(CITY_UUID_A);
+    expect(cap!.sql).not.toContain(CITY_UUID_A);
+    expect(cap!.sql).toContain('mv_reports_funnel');
+  });
+
+  it('getAttendanceByChannel: referencia ch.provider (nao ch.kind)', async () => {
+    const { db, getCapture } = makeCaptureDb();
+    await repo.getAttendanceByChannel(
+      db as any,
+      ORG_UUID,
+      { cityScopeIds: [CITY_UUID_A] },
+      repoDateRange,
+      null,
+      undefined,
+      'meta_whatsapp',
+    );
+
+    const cap = getCapture();
+    expect(cap).not.toBeNull();
+    expect(cap!.sql).toContain('ch.provider');
+    expect(cap!.sql).not.toContain('ch.kind');
+    // o valor do filterChannel vai como param (parametrizado, nao interpolado)
+    expect(cap!.params).toContain('meta_whatsapp');
+  });
+
+  it('getAttendanceByChannel: cityScopeIds=[] retorna [] sem chamar db', async () => {
+    const { db } = makeCaptureDb();
+    const result = await repo.getAttendanceByChannel(
+      db as any,
+      ORG_UUID,
+      { cityScopeIds: [] },
+      repoDateRange,
+      null,
+    );
+    expect(result).toEqual([]);
+    expect(db.execute).not.toHaveBeenCalled();
+  });
+
+  it('getAttendanceTimings: cityScopeIds com 2 cidades parametriza corretamente', async () => {
+    const { db, getCapture } = makeCaptureDb();
+    await repo.getAttendanceTimings(
+      db as any,
+      ORG_UUID,
+      { cityScopeIds: [CITY_UUID_A, CITY_UUID_B] },
+      repoDateRange,
+      null,
+    );
+
+    const cap = getCapture();
+    expect(cap).not.toBeNull();
+    expect(cap!.params).toContain(CITY_UUID_A);
+    expect(cap!.params).toContain(CITY_UUID_B);
+    expect(cap!.sql).not.toContain(CITY_UUID_A);
+    expect(cap!.sql).not.toContain(CITY_UUID_B);
   });
 });
