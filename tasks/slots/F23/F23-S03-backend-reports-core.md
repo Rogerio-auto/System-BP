@@ -3,12 +3,12 @@ id: F23-S03
 title: Backend — módulo reports (core): schemas Zod + overview/funil/atendimentos
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-24T01:24:18Z
-completed_at: null
+completed_at: 2026-06-24T02:11:53Z
 pr_url: null
 depends_on: [F23-S01, F23-S02]
 blocks: []
