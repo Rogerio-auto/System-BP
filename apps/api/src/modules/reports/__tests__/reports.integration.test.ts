@@ -68,8 +68,8 @@ const CHANNEL_A_ID = makeUuid('ca000001');
 const CONV_A1_ID = makeUuid('cb000001');
 const CONV_A2_ID = makeUuid('cb000002');
 const CONV_B1_ID = makeUuid('cb000003');
-const MSG_A1_ID = makeUuid('mc000001');
-const MSG_A2_ID = makeUuid('mc000002');
+const MSG_A1_ID = makeUuid('ac000001');
+const MSG_A2_ID = makeUuid('ac000002');
 
 const DATE_RANGE = {
   from: new Date('2020-01-01T00:00:00.000Z'),
