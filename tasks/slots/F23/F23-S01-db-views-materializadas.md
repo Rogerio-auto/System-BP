@@ -3,12 +3,12 @@ id: F23-S01
 title: DB — views materializadas, índices e job de refresh para relatórios
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-23T23:27:43Z
-completed_at: null
+completed_at: 2026-06-24T00:14:37Z
 pr_url: null
 depends_on: []
 blocks: []
