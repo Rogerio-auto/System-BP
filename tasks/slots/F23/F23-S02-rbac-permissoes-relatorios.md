@@ -3,13 +3,13 @@ id: F23-S02
 title: RBAC — permissão reports:export e billing:read escopado para gestor_regional
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
 claimed_at: 2026-06-24T00:48:24Z
 completed_at: 2026-06-24T01:15:47Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/355
 depends_on: []
 blocks: []
 labels: [backend, db, rbac, security, reports]

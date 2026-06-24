@@ -23,7 +23,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F20  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
-| F23  | 11    | 9   | 0   | 0   | 0   | 1   | 1   |
+| F23  | 11    | 9   | 0   | 0   | 0   | 0   | 2   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -324,7 +324,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ID      | Título                                                                       | Status       | Prioridade | Depende de                |
 | ------- | ---------------------------------------------------------------------------- | ------------ | ---------- | ------------------------- |
 | F23-S01 | DB — views materializadas, índices e job de refresh para relatórios          | ✅ done      | high       | —                         |
-| F23-S02 | RBAC — permissão reports:export e billing:read escopado para gestor_regional | 🟣 review    | high       | —                         |
+| F23-S02 | RBAC — permissão reports:export e billing:read escopado para gestor_regional | ✅ done      | high       | —                         |
 | F23-S03 | Backend — módulo reports (core): schemas Zod + overview/funil/atendimentos   | 🟢 available | high       | F23-S01, F23-S02          |
 | F23-S04 | Backend — reports: crédito, cobrança e produtividade                         | 🟢 available | high       | F23-S03                   |
 | F23-S05 | Backend — reports: saúde da IA/LLM e auditoria/operação                      | 🟢 available | medium     | F23-S03                   |
