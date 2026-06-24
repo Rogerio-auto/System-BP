@@ -60,6 +60,8 @@ jobs:
       - name: Generate MDX API pages
         run: pnpm --filter @elemento/web docs:api
         continue-on-error: true
+      - name: Run migrations (test DB)
+        run: pnpm --filter @elemento/api db:migrate
       - run: pnpm turbo run lint typecheck test build
 
   python:

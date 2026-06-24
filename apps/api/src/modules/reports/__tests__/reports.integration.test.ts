@@ -7,10 +7,12 @@
 //   - IN-list mal-formada (aspas sem fechamento na IN-list)
 //   - MV inexistente
 //
-// Banco: postgres://test:test@localhost:5432/test (src/test/setup.ts).
-// CI: Postgres do job Node. Local: docker compose up -d postgres + db:migrate.
+// Banco: postgres://elemento:elemento@localhost:5432/elemento_test em CI
+//        (DATABASE_URL injetado pelo job Node do ci.yml; setup.ts preserva via ??=).
+//        Local sem DB: probe falha → dbAvailable=false → describe.runIf pula limpo.
+// CI: Postgres do job Node + "Run migrations (test DB)" aplica 0000..0072 antes.
 //
-// 9 describe blocks, ~36 tests.
+// 9 describe blocks, ~44 tests.
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -27,6 +29,21 @@ import {
   getOverviewLeads,
   getOverviewSimulations,
 } from '../repository.js';
+
+// ---------------------------------------------------------------------------
+// Probe de disponibilidade do DB.
+// Em CI: DATABASE_URL aponta para o Postgres real (elemento_test) provisionado
+//        pelo job Node + migration aplicada → probe passa → dbAvailable=true.
+// Local sem DB: conexão recusada → catch → dbAvailable=false → describe.runIf
+//               pula todos os blocos limpo, sem falha de suíte.
+// ---------------------------------------------------------------------------
+let dbAvailable = false;
+try {
+  await pool.query('SELECT 1');
+  dbAvailable = true;
+} catch {
+  // DB indisponível localmente — suíte vai pular via describe.runIf(dbAvailable)
+}
 
 // IDs unicos por run -- evita colisao em DB compartilhado entre workers
 const RUN_SUFFIX = String(Date.now()).slice(-10);
@@ -62,6 +79,8 @@ const DATE_RANGE = {
 // ---------------------------------------------------------------------------
 
 beforeAll(async () => {
+  // Sem DB (local): sai imediatamente — nada a semear.
+  if (!dbAvailable) return;
   // Orgs
   await db
     .insert(organizations)
@@ -230,6 +249,8 @@ beforeAll(async () => {
 }, 30_000);
 // afterAll -- limpar em ordem respeitando FKs
 afterAll(async () => {
+  // Sem DB (local): pool nunca foi conectado, nada a limpar.
+  if (!dbAvailable) return;
   try {
     await db.execute(sql`DELETE FROM messages WHERE id = ${MSG_A1_ID} OR id = ${MSG_A2_ID}`);
     await db.execute(
@@ -252,7 +273,7 @@ const scopeGlobal = { cityScopeIds: null as string[] | null };
 const scopeCityA = { cityScopeIds: [CITY_A_ID] };
 const scopeEmpty = { cityScopeIds: [] as string[] };
 
-describe('[INTEGRATION] getOverviewLeads -- SQL real', () => {
+describe.runIf(dbAvailable)('[INTEGRATION] getOverviewLeads -- SQL real', () => {
   it('executa sem erro de SQL (sanity)', async () => {
     const result = await getOverviewLeads(db, ORG_A_ID, scopeGlobal, DATE_RANGE, null);
     expect(typeof result.total).toBe('number');
@@ -313,7 +334,7 @@ describe('[INTEGRATION] getOverviewLeads -- SQL real', () => {
   });
 });
 
-describe('[INTEGRATION] getOverviewConversations -- SQL real', () => {
+describe.runIf(dbAvailable)('[INTEGRATION] getOverviewConversations -- SQL real', () => {
   it('executa sem erro de SQL', async () => {
     const result = await getOverviewConversations(db, ORG_A_ID, scopeGlobal);
     expect(typeof result.open).toBe('number');
@@ -343,7 +364,7 @@ describe('[INTEGRATION] getOverviewConversations -- SQL real', () => {
   });
 });
 
-describe('[INTEGRATION] getAttendanceTotals -- SQL real', () => {
+describe.runIf(dbAvailable)('[INTEGRATION] getAttendanceTotals -- SQL real', () => {
   it('executa sem erro de sintaxe ou coluna', async () => {
     const result = await getAttendanceTotals(db, ORG_A_ID, scopeGlobal, DATE_RANGE, null);
     expect(typeof result.conversationsOpened).toBe('number');
@@ -374,93 +395,102 @@ describe('[INTEGRATION] getAttendanceTotals -- SQL real', () => {
   });
 });
 
-describe('[INTEGRATION] getAttendanceByChannel -- BUG ch.kind vs ch.provider', () => {
-  it('CRITICO: executa sem column does not exist -- confirma ch.provider', async () => {
-    // Se a query usasse ch.kind, Postgres lancaria: ERROR: column ch.kind does not exist
-    await expect(
-      getAttendanceByChannel(db, ORG_A_ID, scopeGlobal, DATE_RANGE, null),
-    ).resolves.toBeDefined();
-  });
+describe.runIf(dbAvailable)(
+  '[INTEGRATION] getAttendanceByChannel -- BUG ch.kind vs ch.provider',
+  () => {
+    it('CRITICO: executa sem column does not exist -- confirma ch.provider', async () => {
+      // Se a query usasse ch.kind, Postgres lancaria: ERROR: column ch.kind does not exist
+      await expect(
+        getAttendanceByChannel(db, ORG_A_ID, scopeGlobal, DATE_RANGE, null),
+      ).resolves.toBeDefined();
+    });
 
-  it('retorna array tipado com campos channel, conversationCount, messageCount', async () => {
-    const result = await getAttendanceByChannel(db, ORG_A_ID, scopeGlobal, DATE_RANGE, null);
-    expect(Array.isArray(result)).toBe(true);
-    if (result.length > 0) {
-      expect(result[0]).toHaveProperty('channel');
-      expect(result[0]).toHaveProperty('conversationCount');
-      expect(result[0]).toHaveProperty('messageCount');
-    }
-  });
+    it('retorna array tipado com campos channel, conversationCount, messageCount', async () => {
+      const result = await getAttendanceByChannel(db, ORG_A_ID, scopeGlobal, DATE_RANGE, null);
+      expect(Array.isArray(result)).toBe(true);
+      if (result.length > 0) {
+        expect(result[0]).toHaveProperty('channel');
+        expect(result[0]).toHaveProperty('conversationCount');
+        expect(result[0]).toHaveProperty('messageCount');
+      }
+    });
 
-  it('filtra por provider=meta_whatsapp sem erro', async () => {
-    const result = await getAttendanceByChannel(
-      db,
-      ORG_A_ID,
-      scopeGlobal,
-      DATE_RANGE,
-      null,
-      undefined,
-      'meta_whatsapp',
-    );
-    expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBeGreaterThanOrEqual(1);
-    expect(result[0]?.channel).toBe('meta_whatsapp');
-  });
+    it('filtra por provider=meta_whatsapp sem erro', async () => {
+      const result = await getAttendanceByChannel(
+        db,
+        ORG_A_ID,
+        scopeGlobal,
+        DATE_RANGE,
+        null,
+        undefined,
+        'meta_whatsapp',
+      );
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThanOrEqual(1);
+      expect(result[0]?.channel).toBe('meta_whatsapp');
+    });
 
-  it('PARIDADE: conversationCount == SELECT COUNT DISTINCT direto', async () => {
-    const result = await getAttendanceByChannel(
-      db,
-      ORG_A_ID,
-      scopeGlobal,
-      DATE_RANGE,
-      null,
-      undefined,
-      'meta_whatsapp',
-    );
-    const rows = await db.execute(
-      sql`SELECT COUNT(DISTINCT c.id)::int AS cnt FROM conversations c JOIN channels ch ON ch.id = c.channel_id WHERE c.organization_id = ${ORG_A_ID} AND c.deleted_at IS NULL AND ch.provider = 'meta_whatsapp' AND c.created_at >= ${DATE_RANGE.from.toISOString()}::timestamptz AND c.created_at <= ${DATE_RANGE.to.toISOString()}::timestamptz`,
-    );
-    const directCnt = Number((rows.rows[0] as { cnt: string | number }).cnt ?? 0);
-    const fnCnt = result.reduce((s, r) => s + r.conversationCount, 0);
-    expect(fnCnt).toBe(directCnt);
-  });
+    it('PARIDADE: conversationCount == SELECT COUNT DISTINCT direto', async () => {
+      const result = await getAttendanceByChannel(
+        db,
+        ORG_A_ID,
+        scopeGlobal,
+        DATE_RANGE,
+        null,
+        undefined,
+        'meta_whatsapp',
+      );
+      const rows = await db.execute(
+        sql`SELECT COUNT(DISTINCT c.id)::int AS cnt FROM conversations c JOIN channels ch ON ch.id = c.channel_id WHERE c.organization_id = ${ORG_A_ID} AND c.deleted_at IS NULL AND ch.provider = 'meta_whatsapp' AND c.created_at >= ${DATE_RANGE.from.toISOString()}::timestamptz AND c.created_at <= ${DATE_RANGE.to.toISOString()}::timestamptz`,
+      );
+      const directCnt = Number((rows.rows[0] as { cnt: string | number }).cnt ?? 0);
+      const fnCnt = result.reduce((s, r) => s + r.conversationCount, 0);
+      expect(fnCnt).toBe(directCnt);
+    });
 
-  it('cityScopeIds=[] retorna [] sem chamar DB (short-circuit)', async () => {
-    const result = await getAttendanceByChannel(db, ORG_A_ID, scopeEmpty, DATE_RANGE, null);
-    expect(result).toEqual([]);
-  });
+    it('cityScopeIds=[] retorna [] sem chamar DB (short-circuit)', async () => {
+      const result = await getAttendanceByChannel(db, ORG_A_ID, scopeEmpty, DATE_RANGE, null);
+      expect(result).toEqual([]);
+    });
 
-  it('ISOLAMENTO: Org A nao ve conversations de Org B', async () => {
-    const a = await getAttendanceByChannel(db, ORG_A_ID, scopeGlobal, DATE_RANGE, null);
-    const b = await getAttendanceByChannel(db, ORG_B_ID, scopeGlobal, DATE_RANGE, null);
-    const totalA = a.reduce((s, r) => s + r.conversationCount, 0);
-    const totalB = b.reduce((s, r) => s + r.conversationCount, 0);
-    expect(totalA).toBeGreaterThan(totalB);
-  });
+    it('ISOLAMENTO: Org A nao ve conversations de Org B', async () => {
+      const a = await getAttendanceByChannel(db, ORG_A_ID, scopeGlobal, DATE_RANGE, null);
+      const b = await getAttendanceByChannel(db, ORG_B_ID, scopeGlobal, DATE_RANGE, null);
+      const totalA = a.reduce((s, r) => s + r.conversationCount, 0);
+      const totalB = b.reduce((s, r) => s + r.conversationCount, 0);
+      expect(totalA).toBeGreaterThan(totalB);
+    });
 
-  it('D3: selfUserId filtra conversas do agente', async () => {
-    const selfResult = await getAttendanceByChannel(
-      db,
-      ORG_A_ID,
-      scopeGlobal,
-      DATE_RANGE,
-      USER_A_ID,
-    );
-    const globalResult = await getAttendanceByChannel(db, ORG_A_ID, scopeGlobal, DATE_RANGE, null);
-    const selfTotal = selfResult.reduce((s, r) => s + r.conversationCount, 0);
-    const globalTotal = globalResult.reduce((s, r) => s + r.conversationCount, 0);
-    expect(selfTotal).toBeLessThanOrEqual(globalTotal);
-  });
+    it('D3: selfUserId filtra conversas do agente', async () => {
+      const selfResult = await getAttendanceByChannel(
+        db,
+        ORG_A_ID,
+        scopeGlobal,
+        DATE_RANGE,
+        USER_A_ID,
+      );
+      const globalResult = await getAttendanceByChannel(
+        db,
+        ORG_A_ID,
+        scopeGlobal,
+        DATE_RANGE,
+        null,
+      );
+      const selfTotal = selfResult.reduce((s, r) => s + r.conversationCount, 0);
+      const globalTotal = globalResult.reduce((s, r) => s + r.conversationCount, 0);
+      expect(selfTotal).toBeLessThanOrEqual(globalTotal);
+    });
 
-  it('LGPD: shape nao contem PII (channel/conversationCount/messageCount)', () => {
-    const shapeKeys = ['channel', 'conversationCount', 'messageCount'];
-    const piiFields = ['name', 'cpf', 'phone', 'email'];
-    const hasPii = shapeKeys.some((k) => piiFields.some((f) => k.toLowerCase().includes(f)));
-    expect(hasPii).toBe(false);
-  });
-});
+    it('LGPD: shape nao contem PII (channel/conversationCount/messageCount)', () => {
+      const shapeKeys = ['channel', 'conversationCount', 'messageCount'];
+      const piiFields = ['name', 'cpf', 'phone', 'email'];
+      const hasPii = shapeKeys.some((k) => piiFields.some((f) => k.toLowerCase().includes(f)));
+      expect(hasPii).toBe(false);
+    });
+  },
+);
 
-describe('[INTEGRATION] getAttendanceTimings -- BUG nested aggregate', () => {
+describe.runIf(dbAvailable)('[INTEGRATION] getAttendanceTimings -- BUG nested aggregate', () => {
   it('CRITICO: executa sem aggregate function calls cannot be nested', async () => {
     // AVG(MIN(...)) seria erro; a query usa CTE fr + AVG externo -- correto
     await expect(
@@ -495,7 +525,7 @@ describe('[INTEGRATION] getAttendanceTimings -- BUG nested aggregate', () => {
   });
 });
 
-describe('[INTEGRATION] getOverviewSimulations -- MV + BUG IN-list', () => {
+describe.runIf(dbAvailable)('[INTEGRATION] getOverviewSimulations -- MV + BUG IN-list', () => {
   it('executa sem erro de sintaxe (IN-list corrigida)', async () => {
     await expect(
       getOverviewSimulations(db, ORG_A_ID, scopeGlobal, DATE_RANGE),
@@ -521,7 +551,7 @@ describe('[INTEGRATION] getOverviewSimulations -- MV + BUG IN-list', () => {
   });
 });
 
-describe('[INTEGRATION] getOverviewContracts -- MV mv_reports_overview', () => {
+describe.runIf(dbAvailable)('[INTEGRATION] getOverviewContracts -- MV mv_reports_overview', () => {
   it('executa sem erro de sintaxe ou MV inexistente', async () => {
     await expect(
       getOverviewContracts(db, ORG_A_ID, scopeGlobal, DATE_RANGE),
@@ -542,7 +572,7 @@ describe('[INTEGRATION] getOverviewContracts -- MV mv_reports_overview', () => {
   });
 });
 
-describe('[INTEGRATION] getFunnelStages -- MV mv_reports_funnel', () => {
+describe.runIf(dbAvailable)('[INTEGRATION] getFunnelStages -- MV mv_reports_funnel', () => {
   it('executa sem erro de sintaxe (IN-list corrigida)', async () => {
     await expect(getFunnelStages(db, ORG_A_ID, scopeGlobal)).resolves.toBeDefined();
   });
@@ -576,7 +606,7 @@ describe('[INTEGRATION] getFunnelStages -- MV mv_reports_funnel', () => {
   });
 });
 
-describe('[INTEGRATION] ISOLAMENTO cross-org (CRITICO)', () => {
+describe.runIf(dbAvailable)('[INTEGRATION] ISOLAMENTO cross-org (CRITICO)', () => {
   it('getOverviewLeads: Org A e Org B retornam totais independentes', async () => {
     const a = await getOverviewLeads(db, ORG_A_ID, scopeGlobal, DATE_RANGE, null);
     const b = await getOverviewLeads(db, ORG_B_ID, scopeGlobal, DATE_RANGE, null);
