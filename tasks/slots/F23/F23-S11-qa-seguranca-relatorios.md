@@ -3,11 +3,11 @@ id: F23-S11
 title: QA & Segurança — isolamento por papel, métricas×SQL e LGPD do export
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-24T17:57:53Z
 completed_at: null
 pr_url: null
 depends_on: [F23-S07, F23-S08, F23-S10]
