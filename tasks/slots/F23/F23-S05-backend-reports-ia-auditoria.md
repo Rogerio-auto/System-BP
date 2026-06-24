@@ -3,13 +3,13 @@ id: F23-S05
 title: Backend — reports: saúde da IA/LLM e auditoria/operação
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
 claimed_at: 2026-06-24T14:19:33Z
 completed_at: 2026-06-24T15:12:42Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/360
 depends_on: [F23-S03]
 blocks: []
 labels: [backend, reports, rbac, observability]
