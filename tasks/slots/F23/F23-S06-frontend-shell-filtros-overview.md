@@ -3,13 +3,13 @@ id: F23-S06
 title: Frontend — shell de /relatorios, filtros adaptativos e Visão Geral
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-24T15:23:50Z
 completed_at: 2026-06-24T15:44:13Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/361
 depends_on: [F23-S03]
 blocks: []
 labels: [frontend, reports, rbac, design-system]
