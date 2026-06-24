@@ -173,3 +173,157 @@ export const AttendanceResponseSchema = z.object({
 });
 
 export type AttendanceResponse = z.infer<typeof AttendanceResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Credit -- 4-E (F23-S04)
+//
+// Fonte principal: mv_reports_credit (colunas por produto/cidade).
+// Zero PII: product_id e UUID opaco; city_id e UUID opaco.
+// ---------------------------------------------------------------------------
+
+export const CreditQuerySchema = CommonReportQuerySchema.extend({
+  productIds: z.array(z.string().uuid()).optional(),
+});
+export type CreditQuery = z.infer<typeof CreditQuerySchema>;
+
+// Funil de credito: simulacao -> analise -> aprovacao -> contrato
+const CreditFunnelSchema = z.object({
+  simulations: z.number().int().nonnegative(),
+  analyses: z.number().int().nonnegative(),
+  analysesApproved: z.number().int().nonnegative(),
+  analysesRefused: z.number().int().nonnegative(),
+  analysesInProgress: z.number().int().nonnegative(),
+  contracts: z.number().int().nonnegative(),
+  simToAnalysisRate: z.number().nonnegative(),
+  approvalRate: z.number().nonnegative(),
+  simToContractRate: z.number().nonnegative(),
+});
+
+const CreditAmountsSchema = z.object({
+  simulationsAmountSum: z.number().nonnegative(),
+  simulationsAmountAvg: z.number().nonnegative(),
+  simulationsTermAvg: z.number().nonnegative(),
+  analysesApprovedAmountAvg: z.number().nonnegative(),
+  contractsPrincipalSum: z.number().nonnegative(),
+});
+
+const CreditContractsByStatusSchema = z.object({
+  active: z.number().int().nonnegative(),
+  settled: z.number().int().nonnegative(),
+  defaulted: z.number().int().nonnegative(),
+  defaultRate: z.number().nonnegative(),
+});
+
+// Breakdown por produto (sem PII -- so UUID do produto)
+const CreditByProductSchema = z.object({
+  productId: z.string().uuid().nullable(),
+  simulations: z.number().int().nonnegative(),
+  analyses: z.number().int().nonnegative(),
+  analysesApproved: z.number().int().nonnegative(),
+  contracts: z.number().int().nonnegative(),
+  principalSum: z.number().nonnegative(),
+});
+
+export const CreditResponseSchema = z.object({
+  range: ReportRangeInfoSchema,
+  funnel: CreditFunnelSchema,
+  amounts: CreditAmountsSchema,
+  contractsByStatus: CreditContractsByStatusSchema,
+  byProduct: z.array(CreditByProductSchema),
+});
+
+export type CreditResponse = z.infer<typeof CreditResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Collection -- 4-F (F23-S04)
+//
+// Fonte principal: mv_reports_collection (parcelas por status/cidade).
+// Gating: billing:read (inclui gestor_regional city-scoped via F23-S02).
+// Zero PII: todos os campos sao agregados.
+// ---------------------------------------------------------------------------
+
+export const CollectionQuerySchema = CommonReportQuerySchema;
+export type CollectionQuery = z.infer<typeof CollectionQuerySchema>;
+
+// Carteira de cobranca (5 cards de status)
+const CollectionWalletSchema = z.object({
+  pending: z.number().int().nonnegative(),
+  pendingAmountSum: z.number().nonnegative(),
+  overdue: z.number().int().nonnegative(),
+  overdueAmountSum: z.number().nonnegative(),
+  paid: z.number().int().nonnegative(),
+  paidAmountSum: z.number().nonnegative(),
+  renegotiated: z.number().int().nonnegative(),
+  cancelled: z.number().int().nonnegative(),
+});
+
+const CollectionRatesSchema = z.object({
+  // Adimplencia = paid / (paid + overdue + pending)
+  adimplenciaRate: z.number().nonnegative(),
+  // Inadimplencia = overdue / (paid + overdue + pending)
+  inadimplenciaRate: z.number().nonnegative(),
+  avgDaysOverdue: z.number().nonnegative(),
+});
+
+// Eficiencia dos jobs de cobranca
+const CollectionJobsEfficiencySchema = z.object({
+  scheduled: z.number().int().nonnegative(),
+  sent: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+  paidBeforeSend: z.number().int().nonnegative(),
+  sendRate: z.number().nonnegative(),
+  failRate: z.number().nonnegative(),
+});
+
+export const CollectionResponseSchema = z.object({
+  range: ReportRangeInfoSchema,
+  wallet: CollectionWalletSchema,
+  rates: CollectionRatesSchema,
+  jobsEfficiency: CollectionJobsEfficiencySchema,
+});
+
+export type CollectionResponse = z.infer<typeof CollectionResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Productivity -- 4-G (F23-S04) -- D3
+//
+// Gating: dashboard:read_by_agent.
+// D3: self-scoped (agente) ve so o proprio registro + media anonima da equipe.
+//     Gestor recebe ranking nominal completo (agentId UUID + displayName).
+//
+// LGPD: displayName e dado de colaborador (nao PII de cidadao), OK para gestores.
+//       Para self-scoped, displayName e null nos registros de colegas (nao expostos).
+// ---------------------------------------------------------------------------
+
+export const ProductivityQuerySchema = CommonReportQuerySchema;
+export type ProductivityQuery = z.infer<typeof ProductivityQuerySchema>;
+
+// Uma linha do ranking de produtividade por agente
+const ProductivityAgentRowSchema = z.object({
+  agentId: z.string().uuid(),
+  // displayName presente para gestores (ranking nominal); null para self-scoped colegas (D3)
+  displayName: z.string().nullable(),
+  leadsClosedWon: z.number().int().nonnegative(),
+  simulationsCreated: z.number().int().nonnegative(),
+  conversationsResolved: z.number().int().nonnegative(),
+  contractsOriginated: z.number().int().nonnegative(),
+  avgFirstResponseSec: z.number().nonnegative().nullable(),
+});
+
+// Media anonima da equipe (retornada apenas em self-scoped -- D3)
+const ProductivityTeamAverageSchema = z.object({
+  leadsClosedWon: z.number().nonnegative(),
+  simulationsCreated: z.number().nonnegative(),
+  conversationsResolved: z.number().nonnegative(),
+  contractsOriginated: z.number().nonnegative(),
+});
+
+export const ProductivityResponseSchema = z.object({
+  range: ReportRangeInfoSchema,
+  // Para gestor: todos os agentes com nome. Para self-scoped: so o proprio (com nome).
+  agents: z.array(ProductivityAgentRowSchema),
+  // Presente apenas em self-scoped (D3): media agregada anonima da equipe.
+  teamAverage: ProductivityTeamAverageSchema.optional(),
+});
+
+export type ProductivityResponse = z.infer<typeof ProductivityResponseSchema>;

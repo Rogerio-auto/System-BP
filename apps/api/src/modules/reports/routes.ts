@@ -10,10 +10,16 @@
 import {
   AttendanceQuerySchema,
   AttendanceResponseSchema,
+  CollectionQuerySchema,
+  CollectionResponseSchema,
+  CreditQuerySchema,
+  CreditResponseSchema,
   FunnelQuerySchema,
   FunnelResponseSchema,
   OverviewQuerySchema,
   OverviewResponseSchema,
+  ProductivityQuerySchema,
+  ProductivityResponseSchema,
 } from '@elemento/shared-schemas';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
@@ -22,8 +28,11 @@ import { authorize } from '../auth/middlewares/authorize.js';
 
 import {
   getReportsAttendanceController,
+  getReportsCollectionController,
+  getReportsCreditController,
   getReportsFunnelController,
   getReportsOverviewController,
+  getReportsProductivityController,
 } from './controller.js';
 
 const DASHBOARD_READ_BY_AGENT: [string, ...string[]] = [
@@ -86,5 +95,58 @@ export const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: DASHBOARD_READ_BY_AGENT })],
     },
     getReportsAttendanceController,
+  );
+
+  // GET /api/reports/credit
+  app.get(
+    '/api/reports/credit',
+    {
+      schema: {
+        tags: ['Reports'],
+        summary: 'Crédito — métricas §4-E',
+        description: 'Funil simulações→análises→contratos, valores médios e breakdown por produto.',
+        security: [{ bearerAuth: [] }],
+        querystring: CreditQuerySchema,
+        response: { 200: CreditResponseSchema },
+      },
+      preHandler: [authorize({ permissions: DASHBOARD_READ_BY_AGENT })],
+    },
+    getReportsCreditController,
+  );
+
+  // GET /api/reports/collection
+  app.get(
+    '/api/reports/collection',
+    {
+      schema: {
+        tags: ['Reports'],
+        summary: 'Cobrança — carteira §4-F',
+        description:
+          'Adimplência/inadimplência, wallet por status, eficiência dos jobs de cobrança.',
+        security: [{ bearerAuth: [] }],
+        querystring: CollectionQuerySchema,
+        response: { 200: CollectionResponseSchema },
+      },
+      preHandler: [authorize({ permissions: ['billing:read'] as [string, ...string[]] })],
+    },
+    getReportsCollectionController,
+  );
+
+  // GET /api/reports/productivity
+  app.get(
+    '/api/reports/productivity',
+    {
+      schema: {
+        tags: ['Reports'],
+        summary: 'Produtividade — por agente §4-G',
+        description:
+          'Ranking de agentes. Gestor vê nomes; agente (self-scope) vê só a própria linha + média anônima da equipe (D3).',
+        security: [{ bearerAuth: [] }],
+        querystring: ProductivityQuerySchema,
+        response: { 200: ProductivityResponseSchema },
+      },
+      preHandler: [authorize({ permissions: DASHBOARD_READ_BY_AGENT })],
+    },
+    getReportsProductivityController,
   );
 };
