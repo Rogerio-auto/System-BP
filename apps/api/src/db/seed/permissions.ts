@@ -211,3 +211,34 @@ export const CONTRACTS_PERMISSIONS = [
 ] as const;
 
 export type ContractsPermissionKey = (typeof CONTRACTS_PERMISSIONS)[number]['key'];
+
+/**
+ * Permissões do módulo de relatórios & métricas (F23-S02).
+ * Corresponde ao SQL da migration 0072_seed_reports_permissions.sql.
+ *
+ * reports:export — gating de exportação de CSV/XLSX na página de relatórios.
+ *   Restrito a admin e gestor_geral: gestor_regional não exporta (D2 §10
+ *   do plano canônico; expansão futura via slot dedicado).
+ *
+ * billing:read para gestor_regional — decisão D2 (§10): gestor_regional passa
+ *   a visualizar o dashboard de cobrança filtrado pela(s) sua(s) cidade(s).
+ *   O filtro de cidade já existe no código (getCollectionDashboard propaga
+ *   cityScopeIds); apenas a permissão estava ausente. Role `cobranca` permanece
+ *   com scope = 'global' (decisão D11, intocado).
+ */
+export const REPORTS_PERMISSIONS = [
+  {
+    key: 'reports:export',
+    description:
+      'Exportação de relatórios em CSV/XLSX — gating da ação de download na página de relatórios',
+    roles: ['admin', 'gestor_geral'],
+  },
+  {
+    key: 'billing:read',
+    description:
+      'Leitura de parcelas, regras de cobrança e jobs agendados (city-scoped para roles regionais)',
+    roles: ['admin', 'gestor_geral', 'cobranca', 'gestor_regional'],
+  },
+] as const;
+
+export type ReportsPermissionKey = (typeof REPORTS_PERMISSIONS)[number]['key'];

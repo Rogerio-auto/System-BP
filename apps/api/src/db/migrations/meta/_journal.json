@@ -470,6 +470,13 @@
       "when": 1782329600000,
       "tag": "0071_reports_materialized_views",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1782416000000,
+      "tag": "0072_seed_reports_permissions",
+      "breakpoints": true
     }
   ]
 }
