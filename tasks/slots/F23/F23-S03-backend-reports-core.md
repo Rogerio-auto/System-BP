@@ -3,13 +3,13 @@ id: F23-S03
 title: Backend — módulo reports (core): schemas Zod + overview/funil/atendimentos
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-24T01:24:18Z
 completed_at: 2026-06-24T02:11:53Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/356
 depends_on: [F23-S01, F23-S02]
 blocks: []
 labels: [backend, reports, rbac, lgpd-impact, multi-tenant]
