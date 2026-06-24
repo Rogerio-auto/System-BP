@@ -34,3 +34,6 @@ export * from './users.js';
 
 // Law Firms — escritórios de advocacia parceiros (F19-S02)
 export * from './law-firms.js';
+
+// Reports — schemas Zod compartilhados (F23-S03)
+export * from './reports.js';
