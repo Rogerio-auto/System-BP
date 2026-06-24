@@ -3,11 +3,11 @@ id: F23-S13
 title: Hardening de segurança do reports — rate-limit do export, assertion de escopo, filename
 phase: F23
 task_ref: docs/sessions/2026-06-24-reports-security.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-24T21:00:38Z
 completed_at: null
 pr_url: null
 depends_on: [F23-S09]
