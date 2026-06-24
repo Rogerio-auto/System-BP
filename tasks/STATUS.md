@@ -23,7 +23,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F20  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
-| F23  | 11    | 5   | 0   | 0   | 0   | 0   | 6   |
+| F23  | 11    | 4   | 0   | 0   | 0   | 1   | 6   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -329,7 +329,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F23-S04 | Backend — reports: crédito, cobrança e produtividade                         | ✅ done      | high       | F23-S03                   |
 | F23-S05 | Backend — reports: saúde da IA/LLM e auditoria/operação                      | ✅ done      | medium     | F23-S03                   |
 | F23-S06 | Frontend — shell de /relatorios, filtros adaptativos e Visão Geral           | ✅ done      | high       | F23-S03                   |
-| F23-S07 | Frontend — seções Atendimentos, IA e Funil/CRM                               | 🟢 available | medium     | F23-S05, F23-S06          |
+| F23-S07 | Frontend — seções Atendimentos, IA e Funil/CRM                               | 🟣 review    | medium     | F23-S05, F23-S06          |
 | F23-S08 | Frontend — seções Crédito, Cobrança, Produtividade e Auditoria               | 🟢 available | medium     | F23-S04, F23-S05, F23-S06 |
 | F23-S09 | Backend — exportação de relatórios (CSV/XLSX/PDF) com RBAC e audit           | 🟢 available | medium     | F23-S04, F23-S05          |
 | F23-S10 | Frontend — UI de exportação de relatórios                                    | 🟢 available | medium     | F23-S08, F23-S09          |

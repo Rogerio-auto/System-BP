@@ -1,5 +1,5 @@
 // =============================================================================
-// features/relatorios/api.ts — Funções de API para o módulo de Relatórios (F23-S06).
+// features/relatorios/api.ts — Funções de API para o módulo de Relatórios (F23-S06/S07).
 //
 // Consome os endpoints GET /api/reports/* entregues em F23-S03/S04/S05.
 // Tipos vêm de @elemento/shared-schemas — sem drift front×API.
@@ -7,8 +7,14 @@
 // =============================================================================
 
 import {
+  AiResponseSchema,
+  AttendanceResponseSchema,
+  FunnelResponseSchema,
   OverviewResponseSchema,
+  type AiResponse,
+  type AttendanceResponse,
   type CommonReportQuery,
+  type FunnelResponse,
   type OverviewResponse,
 } from '@elemento/shared-schemas';
 
@@ -50,4 +56,38 @@ export async function fetchReportsOverview(
   const params = buildParams(query);
   const raw = await api.get<unknown>(`/api/reports/overview?${params.toString()}`);
   return OverviewResponseSchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/reports/attendance
+// ---------------------------------------------------------------------------
+
+export async function fetchReportsAttendance(
+  query: Partial<CommonReportQuery>,
+): Promise<AttendanceResponse> {
+  const params = buildParams(query);
+  const raw = await api.get<unknown>(`/api/reports/attendance?${params.toString()}`);
+  return AttendanceResponseSchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/reports/ai
+// ---------------------------------------------------------------------------
+
+export async function fetchReportsAi(query: Partial<CommonReportQuery>): Promise<AiResponse> {
+  const params = buildParams(query);
+  const raw = await api.get<unknown>(`/api/reports/ai?${params.toString()}`);
+  return AiResponseSchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/reports/funnel
+// ---------------------------------------------------------------------------
+
+export async function fetchReportsFunnel(
+  query: Partial<CommonReportQuery>,
+): Promise<FunnelResponse> {
+  const params = buildParams(query);
+  const raw = await api.get<unknown>(`/api/reports/funnel?${params.toString()}`);
+  return FunnelResponseSchema.parse(raw);
 }

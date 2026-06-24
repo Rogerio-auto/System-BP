@@ -1,0 +1,102 @@
+---
+title: "Atendimentos, IA e Funil"
+description: "Como interpretar as secoes de Atendimentos e Conversas, IA e Pre-atendimento, e Funil e CRM no modulo de Relatorios."
+section: relatorios
+---
+
+# Atendimentos, IA e Funil
+
+O modulo de Relatorios apresenta tres secoes complementares alem da Visao Geral:
+**Atendimentos e Conversas**, **IA / Pre-atendimento** e **Funil e CRM**.
+
+---
+
+## Atendimentos e Conversas
+
+Exibe o volume e a eficiencia operacional do atendimento no periodo filtrado.
+
+### Metricas principais
+
+- **Conversas abertas** - total de conversas iniciadas no periodo.
+- **Conversas resolvidas** - total encerradas com status resolvido.
+- **Mensagens trocadas** - soma de todas as mensagens enviadas e recebidas.
+- **1a resposta (medio)** - tempo medio entre a abertura de uma conversa e a primeira resposta do agente.
+- **Resolucao (medio)** - tempo medio ate o status mudar para resolvido.
+- **Taxa de resolucao** - percentual de conversas abertas que foram resolvidas.
+
+### Volume por canal
+
+Barras horizontais mostram a distribuicao de conversas entre os canais (WhatsApp, Web, Telefone, Instagram, E-mail).
+
+### Quem ve esta secao
+
+Usuarios com a permissao "dashboard:read" ou "dashboard:read_by_agent" (gestores regionais, agentes).
+Agentes veem apenas seus proprios atendimentos (escopo "self").
+
+---
+
+## IA / Pre-atendimento
+
+Mostra o desempenho da assistente virtual (Ana Clara) no pre-atendimento.
+
+### Metricas principais
+
+- **Conversas com IA** - total de conversas atendidas pela IA no periodo.
+- **Resolvidas sem handoff** - conversas que a IA resolveu sem transferir para um agente humano.
+- **Handoffs para humano** - conversas em que a IA transferiu para atendimento humano.
+- **Taxa de handoff** - percentual de conversas que resultaram em handoff.
+- **Tempo ate aceitar handoff** - tempo medio desde a solicitacao de handoff ate o agente aceitar.
+
+### Motivos de handoff
+
+Lista os motivos mais frequentes que levaram a IA a acionar um agente humano.
+
+### Distribuicao por no do grafo
+
+Tabela mostrando quantas vezes cada no do grafo LangGraph foi executado, taxa de erro e latencia media.
+
+### Custo e saude do LLM
+
+Esta subsecao e visivel **somente para administradores e gestores gerais** (perfis com escopo global).
+Gestores regionais e agentes nao tem acesso a esta informacao.
+
+Quando visivel, exibe:
+
+- Tokens de entrada e saida consumidos.
+- Custo estimado em USD (se a tarifa do modelo estiver disponivel no catalogo).
+- Latencia media e p90 das chamadas ao LLM.
+- Taxa de erro das chamadas.
+- Breakdown por modelo (chamadas, tokens, custo estimado).
+
+---
+
+## Funil e CRM
+
+Acompanha o progresso dos leads pelo funil de credito (kanban).
+
+### Metricas por estagio
+
+Cada estagio do kanban aparece como uma barra com:
+
+- Contagem de leads no estagio no momento.
+- Tempo medio de permanencia (quanto tempo os leads ficam neste estagio).
+- Taxa de conversao para o proximo estagio.
+- Leads antigos - leads sem movimentacao ha mais de X dias (indicado em laranja).
+
+### Identificacao de gargalo
+
+O estagio com o maior tempo medio de permanencia e destacado em **vermelho** como gargalo.
+Use esta informacao para priorizar acoes operacionais.
+
+### Resumo rapido
+
+No topo da secao aparecem:
+
+- Total de leads no funil.
+- Total de leads sem movimentacao (antigos).
+- Nome do estagio de gargalo.
+
+### Quem ve esta secao
+
+Usuarios com permissao "dashboard:read" ou "dashboard:read_by_agent".
+O escopo de cidade e aplicado automaticamente para gestores regionais.
