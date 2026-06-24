@@ -1,19 +1,12 @@
 // =============================================================================
-// features/relatorios/RelatoriosPage.tsx -- Shell do modulo de Relatorios (F23-S06).
+// features/relatorios/RelatoriosPage.tsx -- Modulo de Relatorios (F23-S06/S07).
 //
-// Substitui o PlaceholderPage de /relatorios.
-// Monta secoes por hasPermission; filtros adaptativos ao papel na URL.
-//
-// Secoes (F23-S06 entrega Visao Geral; S07/S08 entregam o restante):
-//   - Visao Geral:        sempre (autenticado)
-//   - Atendimentos/IA:   dashboard:read OU dashboard:read_by_agent  (placeholder S07)
-//   - Credito/Cobranca:  dashboard:read OU billing:read             (placeholder S08)
-//   - Auditoria:         audit:read                                  (placeholder S08)
-//
-// Scope por papel (plano relatorios-metricas.md s3):
-//   admin / gestor_geral: global (scopes: global + city)
-//   gestor_regional:      city   (scopes: city)
-//   agente:               self   (scopes: self)
+// Secoes (F23-S06 entrega Visao Geral; S07 entrega Atendimentos/IA/Funil; S08 o restante):
+//   - Visao Geral:            sempre (autenticado)
+//   - Atendimentos & IA:      dashboard:read OU dashboard:read_by_agent
+//   - Funil & CRM:            dashboard:read OU dashboard:read_by_agent
+//   - Credito & Cobranca:     dashboard:read OU billing:read               (S08)
+//   - Auditoria & Operacao:   audit:read                                   (S08)
 // =============================================================================
 
 import type { CommonReportQuery, ReportScope } from '@elemento/shared-schemas';
@@ -23,6 +16,9 @@ import { useCitiesList } from '../../hooks/useCitiesList';
 import { useAuth } from '../auth/useAuth';
 import { ContextualHelp } from '../help/contextual';
 
+import { AiSection } from './components/AiSection';
+import { AttendanceSection } from './components/AttendanceSection';
+import { FunnelSection } from './components/FunnelSection';
 import { OverviewSection } from './components/OverviewSection';
 import { ReportFiltersBar } from './components/ReportFiltersBar';
 import { useReportFilters } from './hooks/useReportFilters';
@@ -31,12 +27,6 @@ import { useReportFilters } from './hooks/useReportFilters';
 // Helpers de papel -> scope disponivel
 // ---------------------------------------------------------------------------
 
-/**
- * Infere os escopos disponiveis com base nas permissoes do usuario.
- * admin/gestor_geral: podem ver global + city.
- * gestor_regional: apenas city (aplyCityScope no backend restringe ao scope).
- * agente: apenas self.
- */
 function inferAvailableScopes(hasPermission: (p: string) => boolean): ReportScope[] {
   if (hasPermission('audit:read')) return ['global', 'city'];
   if (hasPermission('dashboard:read')) return ['city', 'self'];
@@ -50,7 +40,7 @@ function inferDefaultScope(hasPermission: (p: string) => boolean): ReportScope {
 }
 
 // ---------------------------------------------------------------------------
-// Placeholder para secoes futuras (S07/S08)
+// Placeholder para secoes futuras (S08)
 // ---------------------------------------------------------------------------
 
 function SectionPlaceholder({ title }: { title: string }): React.JSX.Element {
@@ -71,7 +61,6 @@ function SectionPlaceholder({ title }: { title: string }): React.JSX.Element {
     </section>
   );
 }
-
 // ---------------------------------------------------------------------------
 // Componente principal
 // ---------------------------------------------------------------------------
@@ -79,12 +68,6 @@ function SectionPlaceholder({ title }: { title: string }): React.JSX.Element {
 /**
  * Shell do modulo de Relatorios.
  * Monta secoes por hasPermission; filtros na URL (deep-link + reload-safe).
- *
- * Fluxo do scope toggle:
- *   1. Infere escopos disponiveis do papel (sem chamar backend).
- *   2. Se <=1 escopo: nao exibe o toggle (scope fixo).
- *   3. Default scope inferido do papel, persistido na URL.
- *   4. Filtros passados como Partial<CommonReportQuery> para cada secao.
  */
 export function RelatoriosPage(): React.JSX.Element {
   const { hasPermission } = useAuth();
@@ -92,7 +75,6 @@ export function RelatoriosPage(): React.JSX.Element {
 
   const availableScopes = inferAvailableScopes(hasPermission);
   const defaultScope = inferDefaultScope(hasPermission);
-
   const filters = useReportFilters(defaultScope);
 
   const canSeeAtendimentos =
@@ -101,7 +83,6 @@ export function RelatoriosPage(): React.JSX.Element {
   const canSeeAuditoria = hasPermission('audit:read');
   const showAgentFilter = hasPermission('dashboard:read_by_agent');
 
-  // Monta o query para os hooks das secoes a partir dos filtros da URL
   const query: Partial<CommonReportQuery> = {
     range: filters.range,
     cityIds: filters.cityIds.length > 0 ? filters.cityIds : undefined,
@@ -146,7 +127,7 @@ export function RelatoriosPage(): React.JSX.Element {
         availableAgents={[]}
       />
 
-      {/* Visao Geral (todos os papeis autenticados) */}
+      {/* Visao Geral */}
       <section>
         <h2
           className="font-display font-bold text-ink mb-4"
@@ -157,8 +138,44 @@ export function RelatoriosPage(): React.JSX.Element {
         <OverviewSection query={query} />
       </section>
 
-      {/* Atendimentos & IA (S07) */}
-      {canSeeAtendimentos && <SectionPlaceholder title="Atendimentos & IA" />}
+      {/* Atendimentos & Conversas (S07) */}
+      {canSeeAtendimentos && (
+        <section>
+          <h2
+            className="font-display font-bold text-ink mb-4"
+            style={{ fontSize: 'var(--text-xl)', letterSpacing: '-0.02em' }}
+          >
+            Atendimentos & Conversas
+          </h2>
+          <AttendanceSection query={query} />
+        </section>
+      )}
+
+      {/* IA / Pre-atendimento (S07) -- AiSection retorna null quando forbidden (403), sem quebrar a pagina */}
+      {canSeeAtendimentos && (
+        <section>
+          <h2
+            className="font-display font-bold text-ink mb-4"
+            style={{ fontSize: 'var(--text-xl)', letterSpacing: '-0.02em' }}
+          >
+            IA / Pre-atendimento
+          </h2>
+          <AiSection query={query} />
+        </section>
+      )}
+
+      {/* Funil & CRM (S07) */}
+      {canSeeAtendimentos && (
+        <section>
+          <h2
+            className="font-display font-bold text-ink mb-4"
+            style={{ fontSize: 'var(--text-xl)', letterSpacing: '-0.02em' }}
+          >
+            Funil & CRM
+          </h2>
+          <FunnelSection query={query} />
+        </section>
+      )}
 
       {/* Credito & Cobranca (S08) */}
       {canSeeCredito && <SectionPlaceholder title="Credito & Cobranca" />}
