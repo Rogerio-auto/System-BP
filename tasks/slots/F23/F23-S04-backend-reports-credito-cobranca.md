@@ -3,12 +3,12 @@ id: F23-S04
 title: Backend — reports: crédito, cobrança e produtividade
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-24T13:08:52Z
-completed_at: null
+completed_at: 2026-06-24T14:02:30Z
 pr_url: null
 depends_on: [F23-S03]
 blocks: []
