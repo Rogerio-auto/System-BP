@@ -3,11 +3,11 @@ id: F23-S12
 title: Auth — expõe escopo do usuário no payload + scope toggle preciso em /relatorios
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
-claimed_at: null
+claimed_at: 2026-06-24T20:22:59Z
 completed_at: null
 pr_url: null
 depends_on: [F23-S06]
