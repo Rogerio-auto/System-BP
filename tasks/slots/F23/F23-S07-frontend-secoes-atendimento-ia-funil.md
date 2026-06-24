@@ -3,13 +3,13 @@ id: F23-S07
 title: Frontend — seções Atendimentos, IA e Funil/CRM
 phase: F23
 task_ref: docs/planejamento-relatorios-metricas.md
-status: review
+status: done
 priority: medium
 estimated_size: L
 agent_id: null
 claimed_at: 2026-06-24T15:51:53Z
 completed_at: 2026-06-24T16:14:30Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/362
 depends_on: [F23-S05, F23-S06]
 blocks: []
 labels: [frontend, reports, design-system]
