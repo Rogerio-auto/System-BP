@@ -34,7 +34,6 @@
     "openapi:examples": "tsx --env-file-if-exists=../../.env scripts/generate-schema-examples.ts",
     "worker:livechat-outbound": "tsx --env-file-if-exists=../../.env src/workers/livechat-outbound.ts",
     "worker:livechat-ai": "tsx --env-file-if-exists=../../.env src/workers/livechat-ai.ts",
-    "worker:livechat-socket-relay": "tsx --env-file-if-exists=../../.env src/workers/livechat-socket-relay.ts",
     "worker:reports:refresh": "tsx --env-file-if-exists=../../.env src/workers/reports-refresh.ts",
     "worker:collection": "tsx --env-file-if-exists=../../.env src/workers/collection-scheduler.ts",
     "worker:collection:sender": "tsx --env-file-if-exists=../../.env src/workers/collection-sender.ts",
