@@ -228,7 +228,12 @@ export function MediaBubble({ message, isOutbound }: MediaBubbleProps): React.JS
           <span className="text-ink-3">{mediaIcon[type]}</span>
           <span className="text-xs text-ink-3 font-medium">{mediaLabel[type]}</span>
         </div>
-        <audio controls src={message.mediaUrl} className="w-full max-w-[240px] h-8">
+        <audio
+          controls
+          preload="metadata"
+          src={message.mediaUrl}
+          className="block w-[260px] max-w-full"
+        >
           Seu navegador não suporta reprodução de áudio.
         </audio>
         {footer}
