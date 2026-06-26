@@ -38,6 +38,7 @@ import {
 import { LEAD_QUERY_KEY, useLead, useLeadInteractions } from '../../hooks/crm/useLead';
 import { useUpdateLead } from '../../hooks/crm/useUpdateLead';
 import { useKanbanStages } from '../../hooks/kanban/useKanbanStages';
+import { useCitiesList } from '../../hooks/useCitiesList';
 import { api, ApiError } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import { useAuth } from '../auth/useAuth';
@@ -215,6 +216,7 @@ interface EditPanelProps {
   leadId: string;
   currentStatus: LeadStatus;
   currentNotes: string | null;
+  currentCityId: string | null;
   onClose: () => void;
 }
 
@@ -222,11 +224,22 @@ function EditPanel({
   leadId,
   currentStatus,
   currentNotes,
+  currentCityId,
   onClose,
 }: EditPanelProps): React.JSX.Element {
   const { toast } = useToast();
   const [status, setStatus] = React.useState<string>(currentStatus);
   const [notes, setNotes] = React.useState(currentNotes ?? '');
+  const [cityId, setCityId] = React.useState<string>(currentCityId ?? '');
+
+  const { cities, isLoading: citiesLoading } = useCitiesList();
+  const cityOptions = React.useMemo(
+    () => [
+      { value: '', label: citiesLoading ? 'Carregando cidades...' : 'Selecione a cidade...' },
+      ...cities.map((c) => ({ value: c.id, label: `${c.name} — ${c.state_uf}` })),
+    ],
+    [cities, citiesLoading],
+  );
 
   const { updateLead, isPending } = useUpdateLead(leadId, {
     onSuccess: () => {
@@ -243,6 +256,10 @@ function EditPanel({
     updateLead({
       status: status as LeadStatus,
       notes: notes || null,
+      // city_id só é enviado quando selecionado (a API aceita transferência de
+      // cidade; é o que destrava a simulação para leads sem cidade — ex.: criados
+      // pela IA). Vazio = não altera.
+      ...(cityId ? { city_id: cityId } : {}),
     });
   };
 
@@ -283,6 +300,15 @@ function EditPanel({
           options={STATUS_OPTIONS}
           value={status}
           onChange={(e) => setStatus(e.target.value)}
+        />
+
+        <Select
+          id="edit-city"
+          label="Cidade"
+          options={cityOptions}
+          value={cityId}
+          onChange={(e) => setCityId(e.target.value)}
+          hint="Necessária para simular crédito (a regra do produto é por cidade)."
         />
 
         <div className="flex flex-col gap-2">
@@ -644,6 +670,7 @@ export function CrmDetailPage(): React.JSX.Element {
                 leadId={lead.id}
                 currentStatus={lead.status}
                 currentNotes={lead.notes}
+                currentCityId={lead.city_id}
                 onClose={() => setEditOpen(false)}
               />
             )}
