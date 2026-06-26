@@ -28,7 +28,7 @@ services:
     # host.docker.internal → alcança o pooler do Supabase publicado no host (5432)
     extra_hosts:
       - 'host.docker.internal:host-gateway'
-    environment:
+    environment: &app_env
       NODE_ENV: production
       LOG_LEVEL: info
       API_HOST: 0.0.0.0
@@ -70,7 +70,6 @@ services:
         mode: host
     networks:
       - elemento_net
-      - network_public
     healthcheck:
       test:
         [
@@ -144,8 +143,67 @@ services:
         limits:
           memory: 96M
 
+  # --- Camada de background: workers via supervisor (1 grupo por serviço) ---
+  # Cada serviço roda `node dist/workers/supervisor.js` com WORKER_GROUP diferente.
+  # Reusa o env do api (âncora *app_env). Alcança Postgres/Redis/RabbitMQ via
+  # host.docker.internal (stack elemento-data publicada em 127.0.0.1 no host).
+  outbox:
+    image: elemento-api:prod
+    command: ['node', 'dist/workers/supervisor.js']
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      <<: *app_env
+      WORKER_GROUP: outbox
+    networks:
+      - elemento_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 256M
+
+  livechat:
+    image: elemento-api:prod
+    command: ['node', 'dist/workers/supervisor.js']
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      <<: *app_env
+      WORKER_GROUP: livechat
+    networks:
+      - elemento_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 384M
+
+  workers:
+    image: elemento-api:prod
+    command: ['node', 'dist/workers/supervisor.js']
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      <<: *app_env
+      WORKER_GROUP: periodic
+    networks:
+      - elemento_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+      resources:
+        limits:
+          memory: 256M
+
 networks:
   elemento_net:
     driver: overlay
-  network_public:
-    external: true

@@ -33,7 +33,16 @@
     "openapi:validate": "tsx --env-file-if-exists=../../.env scripts/validate-openapi.ts",
     "openapi:examples": "tsx --env-file-if-exists=../../.env scripts/generate-schema-examples.ts",
     "worker:livechat-outbound": "tsx --env-file-if-exists=../../.env src/workers/livechat-outbound.ts",
-    "worker:livechat-ai": "tsx --env-file-if-exists=../../.env src/workers/livechat-ai.ts"
+    "worker:livechat-ai": "tsx --env-file-if-exists=../../.env src/workers/livechat-ai.ts",
+    "worker:livechat-socket-relay": "tsx --env-file-if-exists=../../.env src/workers/livechat-socket-relay.ts",
+    "worker:reports:refresh": "tsx --env-file-if-exists=../../.env src/workers/reports-refresh.ts",
+    "worker:collection": "tsx --env-file-if-exists=../../.env src/workers/collection-scheduler.ts",
+    "worker:collection:sender": "tsx --env-file-if-exists=../../.env src/workers/collection-sender.ts",
+    "worker:followup:sender": "tsx --env-file-if-exists=../../.env src/workers/followup-sender.ts",
+    "worker:spc:scan": "tsx --env-file-if-exists=../../.env src/workers/spc-overdue-scan.ts",
+    "worker:winback": "tsx --env-file-if-exists=../../.env src/workers/winback-scan.ts",
+    "worker:cron-retention": "tsx --env-file-if-exists=../../.env src/workers/cron-retention.ts",
+    "worker:supervisor": "tsx --env-file-if-exists=../../.env src/workers/supervisor.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1068.0",
