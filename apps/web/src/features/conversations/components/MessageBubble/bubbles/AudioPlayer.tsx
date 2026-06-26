@@ -33,11 +33,8 @@ function fmt(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-/** Decodifica o áudio e reduz para `bars` picos normalizados (0.08–1). */
-async function computePeaks(url: string, bars: number): Promise<number[]> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`fetch ${res.status}`);
-  const arrayBuf = await res.arrayBuffer();
+/** Decodifica um ArrayBuffer de áudio e reduz para `bars` picos normalizados (0.08–1). */
+async function peaksFromArrayBuffer(arrayBuf: ArrayBuffer, bars: number): Promise<number[]> {
   const Ctx = window.AudioContext;
   const ctx = new Ctx();
   try {
@@ -71,19 +68,36 @@ export function AudioPlayer({ src, isOutbound }: AudioPlayerProps): React.JSX.El
   const [duration, setDuration] = React.useState(0);
   const [peaks, setPeaks] = React.useState<number[]>(FALLBACK_PEAKS);
   const [rate, setRate] = React.useState(1);
+  // src efetivo do <audio>: um Blob (mesmos bytes do fetch do waveform) para evitar
+  // o conflito de range/cache entre o fetch() e o <audio> pedindo a mesma URL
+  // (ERR_CACHE_OPERATION_NOT_SUPPORTED). Fallback = URL direta.
+  const [audioSrc, setAudioSrc] = React.useState('');
 
-  // Computa o waveform real (1x por src).
+  // Busca UMA vez: gera o waveform real + alimenta o <audio> via Blob.
   React.useEffect(() => {
     let alive = true;
-    computePeaks(src, BARS)
-      .then((p) => {
+    let objectUrl = '';
+    void (async () => {
+      try {
+        const res = await fetch(src, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`fetch ${res.status}`);
+        const buf = await res.arrayBuffer();
+        objectUrl = URL.createObjectURL(new Blob([buf]));
+        if (alive) setAudioSrc(objectUrl);
+        // decodeAudioData "detacha" o buffer — passa uma cópia.
+        const p = await peaksFromArrayBuffer(buf.slice(0), BARS);
         if (alive) setPeaks(p);
-      })
-      .catch(() => {
-        if (alive) setPeaks(FALLBACK_PEAKS);
-      });
+      } catch {
+        // Sem CORS/decoder: toca direto da URL, waveform de fallback.
+        if (alive) {
+          setAudioSrc(src);
+          setPeaks(FALLBACK_PEAKS);
+        }
+      }
+    })();
     return () => {
       alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [src]);
 
@@ -107,7 +121,7 @@ export function AudioPlayer({ src, isOutbound }: AudioPlayerProps): React.JSX.El
   function toggle(): void {
     const a = audioRef.current;
     if (!a) return;
-    if (a.paused) void a.play();
+    if (a.paused) void a.play().catch(() => undefined);
     else a.pause();
   }
 
@@ -201,7 +215,7 @@ export function AudioPlayer({ src, isOutbound }: AudioPlayerProps): React.JSX.El
 
       <audio
         ref={audioRef}
-        src={src}
+        src={audioSrc || undefined}
         preload="metadata"
         onLoadedMetadata={handleLoadedMetadata}
         onTimeUpdate={() => setCurrent(audioRef.current?.currentTime ?? 0)}
