@@ -14,6 +14,8 @@ import type { Message, MessageType } from '../../../types';
 import { StatusIcon } from '../StatusIcon';
 import { formatBubbleTime } from '../utils';
 
+import { AudioPlayer } from './AudioPlayer';
+
 interface MediaBubbleProps {
   message: Message;
   isOutbound: boolean;
@@ -224,18 +226,7 @@ export function MediaBubble({ message, isOutbound }: MediaBubbleProps): React.JS
   if (isAudio && message.mediaUrl) {
     return (
       <div className={cn(bubbleBase, 'px-3 pt-3')}>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-ink-3">{mediaIcon[type]}</span>
-          <span className="text-xs text-ink-3 font-medium">{mediaLabel[type]}</span>
-        </div>
-        <audio
-          controls
-          preload="metadata"
-          src={message.mediaUrl}
-          className="block w-[260px] max-w-full"
-        >
-          Seu navegador não suporta reprodução de áudio.
-        </audio>
+        <AudioPlayer src={message.mediaUrl} isOutbound={isOutbound} />
         {footer}
       </div>
     );
