@@ -45,6 +45,7 @@ import { LawFirmsPage } from './features/law-firms/LawFirmsPage';
 import { RelatoriosPage } from './features/relatorios/RelatoriosPage';
 import { TasksPage } from './features/tasks';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from './features/templates';
+import { ApiError } from './lib/api';
 import { AgentsPage } from './pages/admin/Agents';
 import { CanaisAdminPage } from './pages/admin/Canais';
 import { CitiesPage } from './pages/admin/Cities';
@@ -69,7 +70,13 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       refetchOnWindowFocus: false,
-      retry: 1,
+      // Não retentar erros 4xx (rate-limit/permissão/validação) — retentar no
+      // 429 amplificava o refetch storm. Só retenta falhas de rede/5xx (1x).
+      retry: (failureCount, error) => {
+        const status = error instanceof ApiError ? error.status : undefined;
+        if (status !== undefined && status >= 400 && status < 500) return false;
+        return failureCount < 1;
+      },
     },
   },
 });

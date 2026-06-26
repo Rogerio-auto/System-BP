@@ -81,6 +81,14 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
   const socket = useSocket();
   const qc = useQueryClient();
 
+  // Debounce para coalescer rajadas de conversation:updated. Sem isso, cada
+  // evento dispara 3 invalidacoes (lista + detalhe + mensagens) -> refetch storm
+  // que estoura o rate-limit (429) quando o backend emite muitos eventos em
+  // sequencia (ex.: reprocessamento apos restart). Coalescemos numa janela curta.
+  const cuFlushTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cuListDirty = React.useRef(false);
+  const cuOpenDirty = React.useRef(false);
+
   // ── message:new ─────────────────────────────────────────────────────────
   React.useEffect(() => {
     if (!socket) return;
@@ -164,26 +172,44 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
         return;
       }
 
-      // Status/atribuição/resolução mudaram. Invalida só a LISTA (reflete
-      // status/ordem) — não conversationKeys.all (que atingiria window/templates
-      // à toa). Para a conversa aberta, atualiza detalhe (status/agente) e
-      // mensagens (checkmarks de view status mudam via callbacks do provider).
-      void qc.invalidateQueries({ queryKey: ['conversations', 'list'] });
-
+      // Status/atribuição/resolução mudaram. Marca dirty e agenda o flush
+      // debounced — uma rajada de N eventos colapsa em 1 conjunto de invalidações.
+      cuListDirty.current = true;
       if (conversationId && payload.conversationId === conversationId) {
-        void qc.invalidateQueries({
-          queryKey: conversationKeys.detail(conversationId),
-        });
-        void qc.invalidateQueries({
-          queryKey: conversationKeys.messages(conversationId),
-        });
+        cuOpenDirty.current = true;
       }
+      scheduleFlush();
+    }
+
+    // Flush debounced: aplica as invalidações acumuladas de uma vez.
+    function flushConversationUpdates(): void {
+      cuFlushTimer.current = null;
+      if (cuListDirty.current) {
+        cuListDirty.current = false;
+        // Lista (reflete status/ordem) — não conversationKeys.all (atingiria
+        // window/templates à toa).
+        void qc.invalidateQueries({ queryKey: ['conversations', 'list'] });
+      }
+      if (cuOpenDirty.current && conversationId) {
+        cuOpenDirty.current = false;
+        void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
+        void qc.invalidateQueries({ queryKey: conversationKeys.messages(conversationId) });
+      }
+    }
+
+    function scheduleFlush(): void {
+      if (cuFlushTimer.current) clearTimeout(cuFlushTimer.current);
+      cuFlushTimer.current = setTimeout(flushConversationUpdates, 350);
     }
 
     socket.on('conversation:updated', handleConversationUpdated);
 
     return () => {
       socket.off('conversation:updated', handleConversationUpdated);
+      if (cuFlushTimer.current) {
+        clearTimeout(cuFlushTimer.current);
+        cuFlushTimer.current = null;
+      }
     };
   }, [socket, qc, conversationId]);
 
