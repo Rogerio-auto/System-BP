@@ -1,33 +1,35 @@
 # =============================================================================
-# docker-stack.prod.yml — Stack de produção do Elemento para Docker Swarm / Portainer.
+# docker-stack.prod.yml — Stack de produção do Elemento (Docker Swarm / Portainer).
 #
-# 3 serviços: api (Node/Fastify), web (SPA nginx), langgraph (Python).
-# Infra reutilizada da VPS (NÃO sobe aqui):
-#   - Postgres  → Supabase (host.docker.internal:5432, pooler/supavisor, DB `elemento`)
-#   - Redis     → redis_redis:6386/1  (network_public)
-#   - RabbitMQ  → rabbitmq_rabbitmq:5672  vhost `elemento`  (network_public)
+# Serviços: api (Node/Fastify), web (SPA nginx), langgraph (Python) + camada de
+#   background: outbox / livechat / workers (supervisor por WORKER_GROUP).
 #
-# Segredos: NÃO ficam neste arquivo. São injetados por ${VAR} no deploy
-#   (via `set -a; . /root/elemento-secrets/api.env; . /root/elemento-secrets/langgraph.env; set +a`)
-#   ou pelos campos de env do Portainer.
+# Rede: `elemento_net` é uma overlay ATTACHABLE EXTERNA (criada fora do stack) e
+#   COMPARTILHADA com a stack de dados `elemento-data` (Postgres/Redis/RabbitMQ).
+#   Pré-requisito do deploy:
+#     docker network create -d overlay --attachable elemento_net
+#   Os serviços alcançam o banco/redis/rmq pelos NOMES de container na overlay
+#   (elemento_pg / elemento_redis / elemento_rmq) — via DATABASE_URL/REDIS_URL/
+#   RABBITMQ_URL nos secrets.
 #
-# Portas publicadas no host (apenas o nginx do host as consome via localhost;
-#   bloqueadas externamente pelo firewall — ver bdp-firewall):
-#   - api  8181 → nginx `api.bancodopovoderondonia.org.br`
-#   - web  8082 → nginx `app.bancodopovoderondonia.org.br`
-#   - langgraph: SEM porta no host (só overlay interno).
+# Ingress: NÃO publica portas no host. O Nginx Proxy Manager (na mesma overlay)
+#   roteia os domínios com SSL:
+#     app.bancodopovoderondonia.org.br → web:8080
+#     api.bancodopovoderondonia.org.br → api:3333
+#   (firewall: só 22/80/443 públicos).
 #
-# Deploy:
+# Segredos: NÃO ficam aqui. Injetados por ${VAR} no deploy:
+#   set -a; . /root/elemento-secrets/api.env; . /root/elemento-secrets/langgraph.env; set +a
 #   docker stack deploy -c docker-stack.prod.yml elemento --with-registry-auth
+#
+# Build do web embute VITE_API_URL em build-time:
+#   docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=https://api.bancodopovoderondonia.org.br -t elemento-web:prod .
 # =============================================================================
 version: '3.9'
 
 services:
   api:
     image: elemento-api:prod
-    # host.docker.internal → alcança o pooler do Supabase publicado no host (5432)
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
     environment: &app_env
       NODE_ENV: production
       LOG_LEVEL: info
@@ -57,17 +59,12 @@ services:
       CHATWOOT_ACCOUNT_ID: ${CHATWOOT_ACCOUNT_ID}
       CHATWOOT_WEBHOOK_HMAC_SECRET: ${CHATWOOT_WEBHOOK_HMAC_SECRET}
       FX_BRL_PER_USD: ${FX_BRL_PER_USD}
-      # Storage de mídia do live chat (Supabase Storage na VPS — LGPD in-country)
+      # Storage de mídia do live chat (Supabase Storage — LGPD in-country)
       STORAGE_PROVIDER: ${STORAGE_PROVIDER}
       SUPABASE_STORAGE_URL: ${SUPABASE_STORAGE_URL}
       SUPABASE_STORAGE_PUBLIC_URL: ${SUPABASE_STORAGE_PUBLIC_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET}
-    ports:
-      - target: 3333
-        published: 8181
-        protocol: tcp
-        mode: host
     networks:
       - elemento_net
     healthcheck:
@@ -127,11 +124,6 @@ services:
 
   web:
     image: elemento-web:prod
-    ports:
-      - target: 8080
-        published: 8082
-        protocol: tcp
-        mode: host
     networks:
       - elemento_net
     deploy:
@@ -145,13 +137,11 @@ services:
 
   # --- Camada de background: workers via supervisor (1 grupo por serviço) ---
   # Cada serviço roda `node dist/workers/supervisor.js` com WORKER_GROUP diferente.
-  # Reusa o env do api (âncora *app_env). Alcança Postgres/Redis/RabbitMQ via
-  # host.docker.internal (stack elemento-data publicada em 127.0.0.1 no host).
+  # Reusa o env do api (âncora *app_env). Alcança Postgres/Redis/RabbitMQ pelos
+  # nomes de container na overlay elemento_net (elemento_pg / elemento_redis / elemento_rmq).
   outbox:
     image: elemento-api:prod
     command: ['node', 'dist/workers/supervisor.js']
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
     environment:
       <<: *app_env
       WORKER_GROUP: outbox
@@ -169,8 +159,6 @@ services:
   livechat:
     image: elemento-api:prod
     command: ['node', 'dist/workers/supervisor.js']
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
     environment:
       <<: *app_env
       WORKER_GROUP: livechat
@@ -188,8 +176,6 @@ services:
   workers:
     image: elemento-api:prod
     command: ['node', 'dist/workers/supervisor.js']
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
     environment:
       <<: *app_env
       WORKER_GROUP: periodic
@@ -206,4 +192,4 @@ services:
 
 networks:
   elemento_net:
-    driver: overlay
+    external: true
