@@ -35,12 +35,22 @@ export type ReportScope = z.infer<typeof ReportScopeEnum>;
 // Filtros comuns
 // ---------------------------------------------------------------------------
 
+// O parser de querystring do Fastify entrega `string` quando um param aparece
+// uma única vez (`?cityIds=a`) e `string[]` quando repete (`?cityIds=a&cityIds=b`).
+// `fastify-type-provider-zod` não faz coerção (ao contrário do ajv), então um
+// `z.array(...)` cru rejeita o caso de valor único com 400. Este preprocess
+// normaliza scalar→array antes da validação (vale p/ usuário com escopo de 1 cidade).
+const queryUuidArray = z.preprocess(
+  (v) => (v === undefined || v === null ? undefined : Array.isArray(v) ? v : [v]),
+  z.array(z.string().uuid()).optional(),
+);
+
 export const CommonReportQuerySchema = z.object({
   range: ReportRangeEnum.optional().default('last30d'),
   dateFrom: z.string().datetime({ offset: true }).optional(),
   dateTo: z.string().datetime({ offset: true }).optional(),
-  cityIds: z.array(z.string().uuid()).optional(),
-  agentIds: z.array(z.string().uuid()).optional(),
+  cityIds: queryUuidArray,
+  agentIds: queryUuidArray,
   channel: z.string().optional(),
   status: z.string().optional(),
   origin: z.string().optional(),
