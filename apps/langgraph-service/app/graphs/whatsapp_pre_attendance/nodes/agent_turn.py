@@ -510,6 +510,12 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
         parsed_messages: list[str] = []
         hf_tool: bool = False
         fr: str = "stop"
+        # BUGFIX (prod 2026-06-26): modelos (ex.: Claude) frequentemente emitem a
+        # mensagem ao cliente JUNTO com um tool_call e depois encerram o turno final
+        # com content VAZIO. O loop so capturava o turno final -> texto perdido ->
+        # reply.type=none -> cliente sem resposta. Guardamos o ultimo content
+        # nao-vazio de QUALQUER turno para recuperar nesse caso.
+        last_nonempty_content: str = ""
 
         while True:
             mdl = (
@@ -532,6 +538,11 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
                 conversation_id=conversation_id,
             )
             fr = resp.finish_reason or "stop"
+            # Guarda o ultimo content nao-vazio (inclui turnos com tool_calls, onde o
+            # modelo costuma escrever a mensagem ao cliente). Recuperado se o turno
+            # final vier vazio.
+            if resp.content and resp.content.strip():
+                last_nonempty_content = resp.content
             raw_ch = resp.raw.get("choices", [])
             raw_msg = raw_ch[0].get("message", {}) if raw_ch else {}
             rtcs = raw_msg.get("tool_calls") or []
@@ -614,7 +625,12 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
                         conversation_id=conversation_id,
                     )
                     # F16-S46 BUG-A: parsear {"messages":[...]} do output do modelo.
+                    if cap_resp.content and cap_resp.content.strip():
+                        last_nonempty_content = cap_resp.content
                     fin, parsed_messages = _parse_agent_output(cap_resp.content or "")
+                    if not parsed_messages and last_nonempty_content:
+                        # turno final vazio -> recupera o ultimo content nao-vazio
+                        fin, parsed_messages = _parse_agent_output(last_nonempty_content)
                     # F16-S50: persistir o reply COMPLETO no historico (todas as msgs),
                     # nao so a 1a -- senao a IA nao ve o que realmente disse e re-sauda.
                     _assistant_hist = (
@@ -629,6 +645,11 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
             else:
                 # F16-S46 BUG-A: parsear {"messages":[...]} do output do modelo.
                 fin, parsed_messages = _parse_agent_output(resp.content or "")
+                if not parsed_messages and last_nonempty_content:
+                    # BUGFIX (prod 2026-06-26): turno final vazio (Claude escreveu a
+                    # mensagem junto com um tool_call anterior) -> recupera o ultimo
+                    # content nao-vazio para nao deixar o cliente sem resposta.
+                    fin, parsed_messages = _parse_agent_output(last_nonempty_content)
                 # F16-S50: persistir o reply COMPLETO no historico (todas as msgs),
                 # nao so a 1a -- senao a IA nao ve o que realmente disse e re-sauda.
                 _assistant_hist = (
@@ -699,6 +720,18 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
             fin_is_empty=not bool(fin),
         )
 
+        # Rede de seguranca: se ainda assim a resposta veio vazia, NAO deixar o
+        # cliente sem retorno -> handoff humano (o worker dispara a msg de fallback).
+        empty_reply: bool = not reply_content.strip()
+        if empty_reply and not hf_tool:
+            log.warning(
+                "agent_turn_empty_reply_handoff",
+                conversation_id=conversation_id,
+                lead_id=lead_id,
+                tool_calls=tc_n,
+                finish_reason=fr,
+            )
+
         nm = msgs[1:]
         res: dict[str, Any] = {
             "messages": nm,
@@ -716,10 +749,12 @@ async def agent_turn(state: ConversationState) -> dict[str, Any]:
             ],
             "actions_emitted": actions_emitted,
             "errors": errors,
-            "handoff_required": hf_tool,
+            "handoff_required": hf_tool or empty_reply,
             "handoff_reason": (
                 "handoff solicitado pelo agente"
                 if hf_tool
+                else "resposta vazia do agente -- handoff de seguranca"
+                if empty_reply
                 else state.get("handoff_reason")
             ),
             # F16-S46 BUG-A: reply.content contem as msgs parseadas do JSON do modelo
