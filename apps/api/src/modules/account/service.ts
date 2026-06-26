@@ -27,11 +27,10 @@ import type {
 } from '@elemento/shared-schemas';
 import { AVATAR_EXT_BY_MIME, isAllowedAvatarMime } from '@elemento/shared-schemas';
 
-import { env } from '../../config/env.js';
 import type { Database } from '../../db/client.js';
 import { auditLog } from '../../lib/audit.js';
 import { decryptPii, encryptPii } from '../../lib/crypto/pii.js';
-import { createSignedUploadUrl } from '../../lib/storage/r2.js';
+import * as storage from '../../lib/storage/index.js';
 import {
   generateOtpauthUri,
   generateRecoveryCodes,
@@ -568,7 +567,8 @@ export async function createAvatarSignedUrl(
   // o ?? 'jpg' é fallback de tipo — inalcançável em runtime.
   const ext = (AVATAR_EXT_BY_MIME as Record<AvatarMime, string>)[body.mime] ?? 'jpg';
   const key = `avatars/${actor.organizationId}/${actor.userId}/${randomUUID()}.${ext}`;
-  const { uploadUrl, publicUrl } = await createSignedUploadUrl(key, body.mime);
+  // Fachada de storage: respeita STORAGE_PROVIDER (r2 | supabase) em runtime.
+  const { uploadUrl, publicUrl } = await storage.createSignedUploadUrl(key, body.mime);
 
   return { uploadUrl, publicUrl, key };
 }
@@ -588,10 +588,11 @@ export async function setAvatar(
   body: SetAvatarBody,
 ): Promise<ProfileResponse> {
   // Anti-SSRF / anti-spoof: rejeitar qualquer URL que não pertença ao domínio
-  // de storage configurado (env.R2_PUBLIC_URL). Impede que o cliente salve
-  // uma URL arbitrária de servidor externo.
-  const r2PublicUrl = env.R2_PUBLIC_URL;
-  if (!r2PublicUrl || !body.avatarUrl.startsWith(`${r2PublicUrl}/`)) {
+  // de storage configurado. Usa a fachada de storage (getPublicUrl com key vazia
+  // devolve o prefixo público do provider ATIVO — r2 ou supabase), impedindo que
+  // o cliente salve uma URL arbitrária de servidor externo.
+  const publicBasePrefix = storage.getPublicUrl('');
+  if (!body.avatarUrl.startsWith(publicBasePrefix)) {
     throw new ValidationError(
       [],
       'URL de avatar inválida: deve pertencer ao domínio de storage configurado.',
