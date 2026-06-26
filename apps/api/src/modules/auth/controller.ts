@@ -62,6 +62,23 @@ function csrfCookieOptions(isProduction: boolean, maxAgeSeconds: number) {
   };
 }
 
+/**
+ * Limpa variantes HOST-ONLY (sem `domain`) dos cookies de sessão.
+ *
+ * Deploys antigos (antes de COOKIE_DOMAIN existir) gravaram refresh_token/csrf_token
+ * host-only em api.* . Como o login atual grava com `domain=.bancodopovoderondonia...`,
+ * a variante host-only NÃO é sobrescrita e sobrevive. No POST /api/auth/refresh o
+ * parser de cookies pode escolher o refresh_token host-only (jti antigo) enquanto o
+ * X-CSRF-Token (lido do csrf .domain, novo) reflete a sessão nova → csrf_mismatch em
+ * TODO refresh → logout em todo reload. Emitir o delete host-only (sem domain) purga
+ * o resíduo sem tocar nos cookies .domain corretos (são cookies distintos).
+ */
+function clearStaleHostOnlyCookies(reply: FastifyReply, isProduction: boolean): void {
+  const base = { secure: isProduction, sameSite: 'strict' as const, maxAge: 0 } as const;
+  reply.setCookie(REFRESH_COOKIE, '', { ...base, httpOnly: true, path: '/api/auth' });
+  reply.setCookie(CSRF_COOKIE, '', { ...base, httpOnly: false, path: '/' });
+}
+
 // ---------------------------------------------------------------------------
 // POST /api/auth/login
 // ---------------------------------------------------------------------------
@@ -89,6 +106,8 @@ export async function loginController(
   }
 
   // Sem 2FA ou 2FA verificado: emitir cookies de sessão
+  // Purga variantes host-only stale antes de gravar os cookies .domain canônicos.
+  clearStaleHostOnlyCookies(reply, isProduction);
   reply.setCookie(
     REFRESH_COOKIE,
     result.refreshToken,
@@ -139,6 +158,7 @@ export async function verify2faController(
     request.log,
   );
 
+  clearStaleHostOnlyCookies(reply, isProduction);
   reply.setCookie(
     REFRESH_COOKIE,
     result.refreshToken,
@@ -191,6 +211,7 @@ export async function refreshController(
 
   const result = await refresh(db, { refreshToken, csrfToken, ip, userAgent }, request.log);
 
+  clearStaleHostOnlyCookies(reply, isProduction);
   reply.setCookie(
     REFRESH_COOKIE,
     result.refreshToken,
