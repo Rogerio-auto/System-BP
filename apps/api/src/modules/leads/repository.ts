@@ -111,6 +111,33 @@ export async function findCustomerIdsByLeadIds(
   return new Map(rows.map((r) => [r.leadId, r.customerId]));
 }
 
+/**
+ * Garante o registro de `customer` para um lead convertido (status closed_won).
+ *
+ * Idempotente: `primary_lead_id` é UNIQUE → onConflictDoNothing. Sem isto, marcar
+ * o lead como closed_won não cria o cliente e fica impossível criar contrato
+ * (o contrato exige customer_id). Campos de documento/SPC têm default/nullable;
+ * o documento (CPF/CNPJ) pode ser preenchido depois.
+ *
+ * Retorna o id do customer (novo ou já existente).
+ */
+export async function ensureCustomerForLead(
+  db: Database,
+  organizationId: string,
+  leadId: string,
+): Promise<string | null> {
+  await db
+    .insert(customers)
+    .values({ organizationId, primaryLeadId: leadId })
+    .onConflictDoNothing();
+  const rows = await db
+    .select({ id: customers.id })
+    .from(customers)
+    .where(eq(customers.primaryLeadId, leadId))
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Interação (timeline) — projeção mínima usada pelo service (F13-S07)
 // ---------------------------------------------------------------------------
