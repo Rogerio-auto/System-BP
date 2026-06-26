@@ -72,6 +72,7 @@ vi.mock('../service.js', async (importOriginal) => {
     updateProfile: (...args: unknown[]) => mockUpdateProfile(...args),
     changePassword: (...args: unknown[]) => mockChangePassword(...args),
     setPersonalEmail: (...args: unknown[]) => mockSetPersonalEmail(...args),
+    // avatar functions delegam ao serviço real (sem mock aqui — cobertos em avatar.routes.test.ts)
   };
 });
 
@@ -89,6 +90,8 @@ const FIXTURE_PROFILE = {
   organizationId: FIXTURE_ORG_ID,
   requiresPersonalEmail: false,
   personalEmail: null as string | null,
+  // avatarUrl adicionado após F-avatar: profileResponseSchema passou a exigir o campo.
+  avatarUrl: null as string | null,
 };
 
 // ---------------------------------------------------------------------------

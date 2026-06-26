@@ -17,46 +17,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
+import iconeUrl from '../../assets/brand/icone-bp.png';
+import logoUrl from '../../assets/brand/logo.webp';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { ApiError } from '../../lib/api';
 
 import { useAuth } from './useAuth';
-
-// ─── Marca SVG ────────────────────────────────────────────────────────────────
-
-function BrandMark({ size = 56 }: { size?: number | undefined }): React.JSX.Element {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 40 40"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-label="Logotipo Banco do Povo"
-      role="img"
-      style={{ filter: 'drop-shadow(0 2px 8px rgba(20,33,61,0.2))' }}
-    >
-      <path
-        d="M20 2 L24.5 14 L37 14.5 L27 22.5 L31 35 L20 27.5 L9 35 L13 22.5 L3 14.5 L15.5 14 Z"
-        fill="url(#loginStarGrad)"
-      />
-      <path
-        d="M20 8 L22.5 16 L31 16.3 L24 22 L26.5 30 L20 25 L13.5 30 L16 22 L9 16.3 L17.5 16 Z"
-        fill="white"
-      />
-      <defs>
-        <linearGradient id="loginStarGrad" x1="0" y1="0" x2="40" y2="40">
-          <stop offset="0%" stopColor="var(--brand-azul)" />
-          <stop offset="50%" stopColor="var(--brand-azul)" />
-          <stop offset="50%" stopColor="var(--brand-verde)" />
-          <stop offset="100%" stopColor="var(--brand-verde)" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
 
 // ─── Mensagem de erro amigável ─────────────────────────────────────────────────
 
@@ -292,16 +260,13 @@ function HeroColumn(): React.JSX.Element {
         className="flex flex-col gap-8"
         style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) both' }}
       >
-        <div className="flex items-center gap-4">
-          <BrandMark size={56} />
-          <div>
-            <p className="font-sans text-xs font-semibold uppercase tracking-[0.14em] text-verde">
-              Banco do Povo
-            </p>
-            <p className="font-sans text-xs font-medium text-ink-3 tracking-wide">
-              Rondônia · SEDEC
-            </p>
-          </div>
+        <div className="flex items-center">
+          <img
+            src={logoUrl}
+            alt="Banco do Povo de Rondônia"
+            loading="eager"
+            style={{ height: '56px', width: 'auto', objectFit: 'contain' }}
+          />
         </div>
 
         <div>
@@ -365,16 +330,13 @@ export function LoginPage(): React.JSX.Element {
             style={{ animation: 'fade-up var(--dur-slow) var(--ease-out) 0.1s both' }}
           >
             {/* Marca mobile */}
-            <div className="flex items-center gap-3 mb-8 lg:hidden">
-              <BrandMark size={40} />
-              <div>
-                <p className="font-display text-base font-bold text-ink tracking-tight">
-                  Banco do Povo
-                </p>
-                <p className="font-sans text-xs text-verde font-medium uppercase tracking-[0.12em]">
-                  Rondônia
-                </p>
-              </div>
+            <div className="flex items-center mb-8 lg:hidden">
+              <img
+                src={iconeUrl}
+                alt="Banco do Povo de Rondônia"
+                loading="eager"
+                style={{ height: '44px', width: 'auto', objectFit: 'contain' }}
+              />
             </div>
 
             {/* Card de login */}

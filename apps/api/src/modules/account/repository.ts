@@ -88,6 +88,27 @@ export async function updateUserPersonalEmail(
 }
 
 /**
+ * Atualiza (ou remove) a URL pública do avatar do usuário.
+ *
+ * Passar `null` define avatar_url = NULL no banco (remoção da foto).
+ * Espelha updateUserFullName — mesmo padrão de update + returning.
+ * Retorna o usuário atualizado ou null se não encontrado/deletado.
+ */
+export async function updateUserAvatarUrl(
+  db: Database,
+  userId: string,
+  avatarUrl: string | null,
+): Promise<User | null> {
+  const rows = await db
+    .update(users)
+    .set({ avatarUrl, updatedAt: new Date() })
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .returning();
+
+  return rows[0] ?? null;
+}
+
+/**
  * Atualiza o password_hash do próprio usuário.
  * Retorna o usuário atualizado ou null se não encontrado/deletado.
  */

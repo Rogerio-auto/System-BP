@@ -11,11 +11,18 @@
 // LGPD: recovery codes exibidos UMA VEZ — sem persistir em estado global.
 // =============================================================================
 
+import {
+  AVATAR_ACCEPT_ATTR,
+  AVATAR_MAX_BYTES,
+  formatAvatarMaxBytes,
+  isAllowedAvatarMime,
+} from '@elemento/shared-schemas';
 import QRCode from 'qrcode';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 
 import { useTheme } from '../../app/ThemeProvider';
+import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { ThemeToggle } from '../../components/ui/ThemeToggle';
@@ -26,7 +33,9 @@ import {
   useDisable2fa,
   useEnroll2fa,
   useProfile,
+  useRemoveAvatar,
   useUpdateProfile,
+  useUploadAvatar,
   type TwoFactorEnrollResponse,
 } from '../../hooks/account/useAccount';
 
@@ -476,6 +485,134 @@ function TwoFASection(): React.JSX.Element {
   );
 }
 
+// ─── Bloco de upload de foto de perfil ───────────────────────────────────────
+
+/**
+ * Bloco de upload de foto de perfil.
+ *
+ * Fluxo: escolha de arquivo → validação client-side → POST signed-url →
+ *   PUT direto no R2 (XHR com progresso) → PUT /api/account/avatar → invalida cache.
+ * Contrato de limites: AVATAR_ALLOWED_MIME / AVATAR_MAX_BYTES (@elemento/shared-schemas).
+ */
+function AvatarUploadBlock(): React.JSX.Element {
+  const { data: profile } = useProfile();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [localError, setLocalError] = React.useState<string | null>(null);
+  const { upload, progress } = useUploadAvatar();
+  const { remove, isPending: isRemoving } = useRemoveAvatar();
+
+  const avatarUrl = profile?.avatarUrl ?? null;
+  const fullName = profile?.fullName ?? '';
+  const isUploading =
+    progress.phase === 'signing' || progress.phase === 'uploading' || progress.phase === 'saving';
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLocalError(null);
+
+    if (!isAllowedAvatarMime(file.type)) {
+      setLocalError('Tipo de arquivo não suportado. Use PNG, JPG ou WebP.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setLocalError(`A imagem excede o limite de ${formatAvatarMaxBytes()}.`);
+      e.target.value = '';
+      return;
+    }
+
+    void upload(file);
+    // Limpa o input para permitir re-seleção do mesmo arquivo
+    e.target.value = '';
+  }
+
+  const errorMsg =
+    localError ?? (progress.phase === 'error' ? (progress.error ?? 'Erro ao fazer upload.') : null);
+
+  return (
+    <div className="flex items-center gap-5 py-1">
+      {/* Preview circular — foto atual ou iniciais com gradient */}
+      <Avatar name={fullName || 'U'} src={avatarUrl} size="lg" className="shrink-0" />
+
+      <div className="flex flex-col gap-2 min-w-0">
+        {/* Botões de ação */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading || isRemoving}
+          >
+            {isUploading ? 'Enviando…' : 'Alterar foto'}
+          </Button>
+
+          {avatarUrl && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setLocalError(null);
+                remove();
+              }}
+              disabled={isRemoving || isUploading}
+            >
+              {isRemoving ? 'Removendo…' : 'Remover foto'}
+            </Button>
+          )}
+        </div>
+
+        {/* Legenda de limites */}
+        <p className="font-sans text-ink-4" style={{ fontSize: 'var(--text-xs)' }}>
+          PNG, JPG ou WebP até {formatAvatarMaxBytes()}
+        </p>
+
+        {/* Barra de progresso — visível durante upload */}
+        {isUploading && (
+          <div
+            className="h-1 rounded-full overflow-hidden"
+            style={{ background: 'var(--surface-muted)', width: '160px' }}
+            role="progressbar"
+            aria-valuenow={progress.percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Progresso do upload"
+          >
+            <div
+              className="h-full rounded-full transition-all duration-200"
+              style={{
+                background: 'var(--brand-azul)',
+                width: `${progress.percent}%`,
+              }}
+            />
+          </div>
+        )}
+
+        {/* Mensagem de erro */}
+        {errorMsg && (
+          <p role="alert" className="font-sans text-danger" style={{ fontSize: 'var(--text-xs)' }}>
+            {errorMsg}
+          </p>
+        )}
+      </div>
+
+      {/* Input de arquivo — visualmente oculto, ativado via botão */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={AVATAR_ACCEPT_ATTR}
+        className="sr-only"
+        onChange={handleFileChange}
+        aria-label="Selecionar foto de perfil"
+        tabIndex={-1}
+      />
+    </div>
+  );
+}
+
 // ─── Seção Perfil ─────────────────────────────────────────────────────────────
 
 interface ProfileForm {
@@ -524,6 +661,14 @@ function PerfilSection(): React.JSX.Element {
 
   return (
     <SectionCard title="Perfil" description="Seu nome de exibição e informações da conta.">
+      <AvatarUploadBlock />
+
+      <div
+        className="border-t border-border"
+        style={{ marginTop: '4px', marginBottom: '4px' }}
+        aria-hidden="true"
+      />
+
       <form
         onSubmit={(e) => {
           void handleSubmit(onSubmit)(e);

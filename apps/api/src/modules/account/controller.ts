@@ -14,6 +14,7 @@
 // LGPD:
 //   - ip/userAgent passados ao service para audit log.
 // =============================================================================
+import type { AvatarSignedUrlBody, SetAvatarBody } from '@elemento/shared-schemas';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { decodeJwt } from 'jose';
 
@@ -29,10 +30,13 @@ import type {
 import {
   activate2fa,
   changePassword,
+  createAvatarSignedUrl,
   disable2fa,
   enroll2fa,
   get2faStatus,
   getProfile,
+  removeAvatar,
+  setAvatar,
   setPersonalEmail,
   updateProfile,
 } from './service.js';
@@ -259,4 +263,82 @@ export async function disable2faController(
   );
 
   return reply.status(204).send();
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/account/avatar/signed-url
+// ---------------------------------------------------------------------------
+
+export async function createAvatarSignedUrlController(
+  request: FastifyRequest<{ Body: AvatarSignedUrlBody }>,
+  reply: FastifyReply,
+): Promise<void> {
+  // `!` justificado: authenticate() garante que request.user está definido
+  const userId = request.user!.id;
+  const organizationId = request.user!.organizationId;
+  const sessionId = extractSessionId(request);
+
+  const result = await createAvatarSignedUrl(
+    db,
+    {
+      userId,
+      organizationId,
+      sessionId,
+      ip: request.ip,
+      userAgent: request.headers['user-agent'] ?? null,
+    },
+    request.body,
+  );
+
+  return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// PUT /api/account/avatar
+// ---------------------------------------------------------------------------
+
+export async function setAvatarController(
+  request: FastifyRequest<{ Body: SetAvatarBody }>,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = request.user!.id;
+  const organizationId = request.user!.organizationId;
+  const sessionId = extractSessionId(request);
+
+  const profile = await setAvatar(
+    db,
+    {
+      userId,
+      organizationId,
+      sessionId,
+      ip: request.ip,
+      userAgent: request.headers['user-agent'] ?? null,
+    },
+    request.body,
+  );
+
+  return reply.status(200).send(profile);
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /api/account/avatar
+// ---------------------------------------------------------------------------
+
+export async function removeAvatarController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const userId = request.user!.id;
+  const organizationId = request.user!.organizationId;
+  const sessionId = extractSessionId(request);
+
+  const profile = await removeAvatar(db, {
+    userId,
+    organizationId,
+    sessionId,
+    ip: request.ip,
+    userAgent: request.headers['user-agent'] ?? null,
+  });
+
+  return reply.status(200).send(profile);
 }

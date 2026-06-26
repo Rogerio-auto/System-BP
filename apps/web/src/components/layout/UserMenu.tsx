@@ -11,7 +11,9 @@
 
 import * as React from 'react';
 
+import { useProfile } from '../../hooks/account/useAccount';
 import { cn } from '../../lib/cn';
+import { Avatar } from '../ui/Avatar';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -19,40 +21,6 @@ interface UserMenuProps {
   fullName: string;
   email: string;
   onLogout: () => void;
-}
-
-// ─── Iniciais do nome ─────────────────────────────────────────────────────────
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
-
-// ─── Avatar ───────────────────────────────────────────────────────────────────
-
-function Avatar({ initials }: { initials: string }): React.JSX.Element {
-  return (
-    <div
-      aria-hidden="true"
-      className={cn(
-        'w-8 h-8 rounded-pill flex items-center justify-center shrink-0',
-        // Scale hover (DS §8)
-        'transition-transform duration-fast ease',
-        'group-hover:scale-105',
-      )}
-      style={{
-        // NUNCA fundo sólido — sempre --grad-* (DS anti-padrão #9)
-        background: 'var(--grad-rondonia)',
-        boxShadow: 'var(--elev-2)',
-      }}
-    >
-      <span className="font-sans text-xs font-bold text-white leading-none">{initials}</span>
-    </div>
-  );
 }
 
 // ─── Ícones ───────────────────────────────────────────────────────────────────
@@ -97,7 +65,8 @@ function IconChevron(): React.JSX.Element {
 export function UserMenu({ fullName, email, onLogout }: UserMenuProps): React.JSX.Element {
   const [open, setOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const initials = getInitials(fullName);
+  // Foto de perfil — cache já aquecido por ContaSection / bootstrap
+  const { data: profile } = useProfile();
 
   // Fecha ao clicar fora
   React.useEffect(() => {
@@ -137,7 +106,16 @@ export function UserMenu({ fullName, email, onLogout }: UserMenuProps): React.JS
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20',
         )}
       >
-        <Avatar initials={initials} />
+        <Avatar
+          name={fullName}
+          src={profile?.avatarUrl ?? null}
+          size="sm"
+          className={cn(
+            'w-8 h-8',
+            // Scale hover (DS §8)
+            'transition-transform duration-fast ease group-hover:scale-105',
+          )}
+        />
         <span className="hidden sm:block max-w-[140px] truncate">{fullName}</span>
         <IconChevron />
       </button>

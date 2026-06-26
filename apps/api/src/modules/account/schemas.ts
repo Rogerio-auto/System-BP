@@ -63,6 +63,8 @@ export const profileResponseSchema = z.object({
     .describe('Indica que o agente deve cadastrar o email pessoal antes de usar o sistema'),
   /** Email pessoal do agente (null enquanto não preenchido). LGPD: PII. */
   personalEmail: z.string().email().nullable(),
+  /** URL pública da foto de perfil (R2). null quando o usuário não enviou foto. */
+  avatarUrl: z.string().url().nullable(),
 });
 
 export type ProfileResponse = z.infer<typeof profileResponseSchema>;
