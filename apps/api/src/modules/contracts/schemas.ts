@@ -114,11 +114,17 @@ export const ContractCreateBodySchema = z
       .min(1)
       .max(64)
       .describe('Referência textual do contrato — chave de negócio, não pode ser CPF'),
-    product_id: z.string().uuid().optional().describe('UUID do produto de crédito (opcional)'),
+    product_id: z
+      .string()
+      .uuid()
+      .optional()
+      .nullable()
+      .describe('UUID do produto de crédito (opcional)'),
     rule_version_id: z
       .string()
       .uuid()
       .optional()
+      .nullable()
       .describe('UUID da versão de regra snapshot (opcional)'),
     principal_amount: z
       .string()
@@ -133,6 +139,7 @@ export const ContractCreateBodySchema = z
       .string()
       .regex(/^\d+(\.\d{1,6})?$/, 'Taxa mensal deve ser numérica com até 6 casas decimais')
       .optional()
+      .nullable()
       .describe(
         'Taxa mensal acordada, ex: "0.024500" = 2,45% a.m. (opcional para contratos legados)',
       ),
@@ -140,11 +147,13 @@ export const ContractCreateBodySchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'Deve ser data no formato YYYY-MM-DD')
       .optional()
+      .nullable()
       .describe('Data de vencimento da primeira parcela (YYYY-MM-DD)'),
     last_due_date: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'Deve ser data no formato YYYY-MM-DD')
       .optional()
+      .nullable()
       .describe('Data de vencimento da última parcela (YYYY-MM-DD)'),
     /** UUID da análise de crédito que originou este contrato (preenchido pelo handler de auto-contrato). */
     analysis_id: z.string().uuid().optional().nullable(),
