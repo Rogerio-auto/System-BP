@@ -11,6 +11,10 @@ COPY apps/web/package.json ./apps/web/
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 COPY apps/web ./apps/web
+# Central de ajuda: o Vite indexa docs/help/**/*.mdx em build-time (glob em
+# apps/web/src/features/help/search.ts → ../../../../../docs/help). Sem este COPY,
+# o índice de ajuda do Command K fica VAZIO em produção (funciona só no dev).
+COPY docs/help ./docs/help
 # VITE_API_URL é inlined em build-time pelo Vite. Em prod, passar via build-arg:
 #   docker build --build-arg VITE_API_URL=https://api.bancodopovoderondonia.org.br ...
 ARG VITE_API_URL=http://localhost:3333

@@ -31,7 +31,10 @@ coverage
 **/coverage
 .turbo
 **/.turbo
-docs
+# docs/ é excluído do contexto, EXCETO docs/help (a central de ajuda é indexada
+# em build-time pelo Vite glob do apps/web → precisa estar no contexto do build).
+docs/*
+!docs/help
 *.md
 !README.md
 LICENSE
