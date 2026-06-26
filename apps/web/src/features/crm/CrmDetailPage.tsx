@@ -17,6 +17,8 @@
 //   - Sem console.log(lead)
 // =============================================================================
 
+import type { LeadUpdate } from '@elemento/shared-schemas';
+import { validateCnpjDigits } from '@elemento/shared-schemas';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -24,8 +26,10 @@ import { Link, useParams } from 'react-router-dom';
 import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
+import { useAgents } from '../../hooks/admin/useAgents';
 import type { LeadInteraction, LeadStatus } from '../../hooks/crm/types';
 import {
   STATUS_META,
@@ -212,8 +216,64 @@ function SpotlightCard({
 
 // ─── Painel de edição (drawer inline) ────────────────────────────────────────
 
+// --- helpers locais de máscara e validação ---
+
+function maskCpf(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+function maskCnpj(value: string): string {
+  const d = value.replace(/\D/g, '').slice(0, 14);
+  if (d.length <= 2) return d;
+  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`;
+  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+  if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
+/**
+ * Valida dígitos verificadores do CPF (algoritmo oficial Receita Federal).
+ * Retorna false para CPFs com todos os dígitos iguais.
+ */
+function validateCpfDigits(cpf: string): boolean {
+  const d = cpf.replace(/\D/g, '');
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const calc = (seq: string, len: number): number => {
+    let s = 0;
+    for (let i = 0; i < len; i++) s += Number(seq[i]!) * (len + 1 - i);
+    const r = (s * 10) % 11;
+    return r >= 10 ? 0 : r;
+  };
+  return Number(d[9]!) === calc(d, 9) && Number(d[10]!) === calc(d, 10);
+}
+
+// --- sub-componente de título de seção ---
+
+function SectionTitle({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <p
+      className="font-sans font-bold uppercase text-ink-3"
+      style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+    >
+      {children}
+    </p>
+  );
+}
+
+// --- interface de props ---
+
 interface EditPanelProps {
   leadId: string;
+  currentName: string;
+  currentEmail: string | null;
+  currentPhone: string;
+  currentCnpj: string | null;
+  currentLegalName: string | null;
+  currentAgentId: string | null;
   currentStatus: LeadStatus;
   currentNotes: string | null;
   currentCityId: string | null;
@@ -222,16 +282,42 @@ interface EditPanelProps {
 
 function EditPanel({
   leadId,
+  currentName,
+  currentEmail,
+  currentPhone,
+  currentCnpj,
+  currentLegalName,
+  currentAgentId,
   currentStatus,
   currentNotes,
   currentCityId,
   onClose,
 }: EditPanelProps): React.JSX.Element {
   const { toast } = useToast();
-  const [status, setStatus] = React.useState<string>(currentStatus);
-  const [notes, setNotes] = React.useState(currentNotes ?? '');
-  const [cityId, setCityId] = React.useState<string>(currentCityId ?? '');
 
+  // ── Estado de cada campo ─────────────────────────────────────────────────
+  const [name, setName] = React.useState(currentName);
+  const [email, setEmail] = React.useState(currentEmail ?? '');
+  // CPF é write-only: começa sempre vazio (nunca pré-preenchido — LGPD)
+  const [cpfDisplay, setCpfDisplay] = React.useState('');
+  const [cnpjDisplay, setCnpjDisplay] = React.useState(currentCnpj ? maskCnpj(currentCnpj) : '');
+  const [legalName, setLegalName] = React.useState(currentLegalName ?? '');
+  const [status, setStatus] = React.useState<LeadStatus>(currentStatus);
+  const [cityId, setCityId] = React.useState(currentCityId ?? '');
+  const [agentId, setAgentId] = React.useState(currentAgentId ?? '');
+  const [notes, setNotes] = React.useState(currentNotes ?? '');
+  // Seção PJ: aberta por padrão se o lead já tiver dados PJ
+  const [showPjSection, setShowPjSection] = React.useState(
+    Boolean(currentCnpj || currentLegalName),
+  );
+
+  // ── Erros de validação inline ────────────────────────────────────────────
+  const [nameError, setNameError] = React.useState<string | null>(null);
+  const [emailError, setEmailError] = React.useState<string | null>(null);
+  const [cpfError, setCpfError] = React.useState<string | null>(null);
+  const [cnpjError, setCnpjError] = React.useState<string | null>(null);
+
+  // ── Dados externos ───────────────────────────────────────────────────────
   const { cities, isLoading: citiesLoading } = useCitiesList();
   const cityOptions = React.useMemo(
     () => [
@@ -241,6 +327,16 @@ function EditPanel({
     [cities, citiesLoading],
   );
 
+  const { data: agentsData, isLoading: agentsLoading } = useAgents({ isActive: true, limit: 100 });
+  const agentOptions = React.useMemo(
+    () => [
+      { value: '', label: agentsLoading ? 'Carregando agentes...' : 'Sem agente' },
+      ...(agentsData?.data ?? []).map((a) => ({ value: a.id, label: a.display_name })),
+    ],
+    [agentsData, agentsLoading],
+  );
+
+  // ── Mutation ─────────────────────────────────────────────────────────────
   const { updateLead, isPending } = useUpdateLead(leadId, {
     onSuccess: () => {
       toast('Lead atualizado!', 'success');
@@ -251,24 +347,100 @@ function EditPanel({
     },
   });
 
+  // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault();
-    updateLead({
-      status: status as LeadStatus,
-      notes: notes || null,
-      // city_id só é enviado quando selecionado (a API aceita transferência de
-      // cidade; é o que destrava a simulação para leads sem cidade — ex.: criados
-      // pela IA). Vazio = não altera.
-      ...(cityId ? { city_id: cityId } : {}),
-    });
+
+    // Validação inline antes de montar o payload
+    let hasError = false;
+
+    if (!name.trim()) {
+      setNameError('O nome é obrigatório.');
+      hasError = true;
+    }
+
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setEmailError('E-mail inválido.');
+      hasError = true;
+    }
+
+    const cpfDigits = cpfDisplay.replace(/\D/g, '');
+    if (cpfDigits && (cpfDigits.length !== 11 || !validateCpfDigits(cpfDigits))) {
+      setCpfError('CPF inválido — verifique os dígitos.');
+      hasError = true;
+    }
+
+    const cnpjDigits = cnpjDisplay.replace(/\D/g, '');
+    if (cnpjDigits && !validateCnpjDigits(cnpjDigits)) {
+      setCnpjError('CNPJ inválido — dígitos verificadores incorretos.');
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    // Constrói payload com apenas os campos que mudaram vs os valores atuais.
+    // Isso evita writes desnecessários e respeita a regra "pelo menos 1 campo".
+    const payload: LeadUpdate = {};
+
+    if (name.trim() !== currentName.trim()) {
+      payload.name = name.trim();
+    }
+
+    const emailNorm = email.trim() || null;
+    if (emailNorm !== (currentEmail ?? null)) {
+      payload.email = emailNorm;
+    }
+
+    // CPF é write-only: só inclui se o usuário preencheu um CPF completo e válido.
+    if (cpfDigits.length === 11) {
+      payload.cpf = cpfDisplay; // schema aceita com máscara (000.000.000-00)
+    }
+
+    const currentCnpjDigits = (currentCnpj ?? '').replace(/\D/g, '');
+    if (cnpjDigits !== currentCnpjDigits) {
+      payload.cnpj = cnpjDigits || null;
+    }
+
+    const legalNameNorm = legalName.trim() || null;
+    if (legalNameNorm !== (currentLegalName ?? null)) {
+      payload.legal_name = legalNameNorm;
+    }
+
+    if (status !== currentStatus) {
+      payload.status = status;
+    }
+
+    // city_id: a API aceita transferência; vazio = não alterar
+    if (cityId !== (currentCityId ?? '')) {
+      if (cityId) payload.city_id = cityId;
+    }
+
+    const agentIdNorm = agentId || null;
+    if (agentIdNorm !== (currentAgentId ?? null)) {
+      payload.agent_id = agentIdNorm;
+    }
+
+    const notesNorm = notes.trim() || null;
+    if (notesNorm !== (currentNotes ?? null)) {
+      payload.notes = notesNorm;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      toast('Nenhuma alteração foi detectada.', 'info');
+      return;
+    }
+
+    updateLead(payload);
   };
 
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div
       className="rounded-md border border-border bg-surface-1 p-5"
       style={{ boxShadow: 'var(--elev-3)' }}
     >
-      <div className="flex items-center justify-between mb-4">
+      {/* Cabeçalho do painel */}
+      <div className="flex items-center justify-between mb-5">
         <h3
           className="font-display font-bold text-ink"
           style={{ fontSize: 'var(--text-base)', letterSpacing: '-0.02em' }}
@@ -279,7 +451,7 @@ function EditPanel({
           type="button"
           onClick={onClose}
           aria-label="Fechar edição"
-          className="w-7 h-7 flex items-center justify-center rounded-xs text-ink-3 hover:text-ink hover:bg-surface-hover transition-all duration-fast"
+          className="w-7 h-7 flex items-center justify-center rounded-xs text-ink-3 hover:text-ink hover:bg-surface-hover transition-all duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20"
         >
           <svg
             viewBox="0 0 16 16"
@@ -293,24 +465,160 @@ function EditPanel({
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <Select
-          id="edit-status"
-          label="Status"
-          options={STATUS_OPTIONS}
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        />
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+        {/* ── 1. Contato ─────────────────────────────────────────────────── */}
+        <section className="flex flex-col gap-3" aria-label="Contato">
+          <SectionTitle>Contato</SectionTitle>
 
-        <Select
-          id="edit-city"
-          label="Cidade"
-          options={cityOptions}
-          value={cityId}
-          onChange={(e) => setCityId(e.target.value)}
-          hint="Necessária para simular crédito (a regra do produto é por cidade)."
-        />
+          <Input
+            id="edit-name"
+            label="Nome"
+            required
+            placeholder="Nome completo"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (nameError) setNameError(null);
+            }}
+            error={nameError ?? undefined}
+          />
 
+          <Input
+            id="edit-email"
+            label="E-mail"
+            type="email"
+            placeholder="email@exemplo.com"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (emailError) setEmailError(null);
+            }}
+            error={emailError ?? undefined}
+          />
+
+          {/* Telefone — imutável por design; exibido mascarado (LGPD) */}
+          <Input
+            id="edit-phone"
+            label="Telefone"
+            value={maskPhone(currentPhone)}
+            readOnly
+            disabled
+            className="font-mono"
+            hint="O telefone não pode ser alterado após a criação."
+          />
+
+          {/* CPF — write-only (LGPD: nunca exibido, apenas atualizado) */}
+          <Input
+            id="edit-cpf"
+            label="CPF"
+            inputMode="numeric"
+            placeholder="000.000.000-00"
+            value={cpfDisplay}
+            onChange={(e) => {
+              setCpfDisplay(maskCpf(e.target.value));
+              if (cpfError) setCpfError(null);
+            }}
+            error={cpfError ?? undefined}
+            hint="Nunca exibido por proteção de dados (LGPD). Preencha apenas para atualizar."
+          />
+        </section>
+
+        {/* ── 2. Empresa (PJ) ────────────────────────────────────────────── */}
+        <section className="flex flex-col gap-2" aria-label="Empresa">
+          <button
+            type="button"
+            onClick={() => setShowPjSection((v) => !v)}
+            aria-expanded={showPjSection}
+            aria-controls="edit-pj-section"
+            className={cn(
+              'flex items-center gap-1.5 w-fit',
+              'font-sans font-bold uppercase text-ink-3 hover:text-ink',
+              'transition-colors duration-fast ease',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20 rounded-sm',
+            )}
+            style={{ fontSize: '0.65rem', letterSpacing: '0.1em' }}
+          >
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              className={cn(
+                'w-3 h-3 transition-transform duration-150',
+                showPjSection && 'rotate-90',
+              )}
+              aria-hidden="true"
+            >
+              <path d="M6 4l4 4-4 4" />
+            </svg>
+            Empresa (opcional)
+          </button>
+
+          <div
+            id="edit-pj-section"
+            hidden={!showPjSection}
+            className="flex flex-col gap-3 rounded-md border border-border-subtle bg-surface-2 px-4 py-4"
+            style={{ boxShadow: 'var(--elev-1)' }}
+          >
+            <p className="font-sans text-xs text-ink-3 leading-relaxed">
+              Preencha apenas se o lead representar uma empresa. Deixe em branco para remover.
+            </p>
+
+            <Input
+              id="edit-cnpj"
+              label="CNPJ"
+              inputMode="numeric"
+              placeholder="00.000.000/0000-00"
+              value={cnpjDisplay}
+              onChange={(e) => {
+                setCnpjDisplay(maskCnpj(e.target.value));
+                if (cnpjError) setCnpjError(null);
+              }}
+              error={cnpjError ?? undefined}
+            />
+
+            <Input
+              id="edit-legal-name"
+              label="Razão social"
+              placeholder="Ex: Comercial Silva Ltda"
+              value={legalName}
+              onChange={(e) => setLegalName(e.target.value)}
+            />
+          </div>
+        </section>
+
+        {/* ── 3. Atendimento ─────────────────────────────────────────────── */}
+        <section className="flex flex-col gap-3" aria-label="Atendimento">
+          <SectionTitle>Atendimento</SectionTitle>
+
+          <Select
+            id="edit-status"
+            label="Status"
+            options={STATUS_OPTIONS}
+            value={status}
+            onChange={(e) => setStatus(e.target.value as LeadStatus)}
+          />
+
+          <Select
+            id="edit-city"
+            label="Cidade"
+            options={cityOptions}
+            value={cityId}
+            onChange={(e) => setCityId(e.target.value)}
+            hint="Necessária para simular crédito (a regra do produto é por cidade)."
+          />
+
+          <Select
+            id="edit-agent"
+            label="Agente responsável"
+            options={agentOptions}
+            value={agentId}
+            onChange={(e) => setAgentId(e.target.value)}
+            disabled={agentsLoading}
+          />
+        </section>
+
+        {/* ── 4. Notas ───────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-2">
           <label
             htmlFor="edit-notes"
@@ -323,6 +631,7 @@ function EditPanel({
             rows={4}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
+            placeholder="Observações sobre o lead..."
             className={cn(
               'w-full font-sans text-sm font-medium text-ink',
               'bg-surface-1 rounded-sm px-[14px] py-[11px]',
@@ -338,7 +647,8 @@ function EditPanel({
           />
         </div>
 
-        <div className="flex gap-2">
+        {/* ── Ações ──────────────────────────────────────────────────────── */}
+        <div className="flex gap-2 pt-1">
           <Button
             type="button"
             variant="ghost"
@@ -668,6 +978,12 @@ export function CrmDetailPage(): React.JSX.Element {
             {editOpen && lead && (
               <EditPanel
                 leadId={lead.id}
+                currentName={lead.name}
+                currentEmail={lead.email}
+                currentPhone={lead.phone_e164}
+                currentCnpj={lead.cnpj}
+                currentLegalName={lead.legal_name}
+                currentAgentId={lead.agent_id}
                 currentStatus={lead.status}
                 currentNotes={lead.notes}
                 currentCityId={lead.city_id}
