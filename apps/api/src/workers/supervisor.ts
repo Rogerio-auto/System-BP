@@ -27,13 +27,9 @@ const log = pino({ level: process.env['LOG_LEVEL'] ?? 'info', name: 'workers-sup
 
 const GROUPS: Record<string, readonly string[]> = {
   outbox: ['outbox-publisher'],
-  livechat: [
-    'livechat-inbound',
-    'livechat-media',
-    'livechat-outbound',
-    'livechat-ai',
-    'livechat-socket-relay',
-  ],
+  // NB: livechat-socket-relay NÃO entra aqui — não é worker standalone; precisa do
+  // Socket.io server e roda DENTRO do processo do api (server.ts, após app.listen()).
+  livechat: ['livechat-inbound', 'livechat-media', 'livechat-outbound', 'livechat-ai'],
   periodic: [
     'reports-refresh',
     'followup-scheduler',
@@ -75,6 +71,12 @@ function startWorker(name: string, attempt: number): void {
     children.delete(name);
     if (shuttingDown) {
       log.info({ worker: name, code, signal }, 'worker encerrado (shutdown)');
+      return;
+    }
+    // Saída limpa (code 0, sem sinal) = o worker decidiu parar (ex: gated por flag).
+    // Não reinicia — evitaria loop de restart de um worker que terminou de propósito.
+    if (code === 0 && signal === null) {
+      log.warn({ worker: name }, 'worker terminou limpo (code 0) — não reiniciando');
       return;
     }
     const ranMs = Date.now() - startedAt;
