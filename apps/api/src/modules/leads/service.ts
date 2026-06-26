@@ -46,6 +46,7 @@ import {
   findLeadByPhoneInOrg,
   findLeadByPhoneInOrgExcluding,
   findLeads,
+  ensureCustomerForLead,
   insertLead,
   isInternalEmail,
   restoreLead,
@@ -377,6 +378,11 @@ export async function createLead(
       throw err;
     }
 
+    // Lead criado já como convertido → garante o customer (idempotente).
+    if (created.status === 'closed_won') {
+      await ensureCustomerForLead(tx as unknown as Database, actor.organizationId, created.id);
+    }
+
     // Outbox event — sem PII bruta (apenas IDs opacos)
     await emit(tx as unknown as Parameters<typeof emit>[0], {
       eventName: 'leads.created',
@@ -536,6 +542,13 @@ export async function updateLeadService(
     }
 
     if (!updated) throw new NotFoundError('Lead não encontrado');
+
+    // Conversão lead → cliente: ao entrar em closed_won, garante o registro de
+    // customer (idempotente). Sem isto o lead fica "Convertido" sem customer e
+    // não é possível criar contrato (que exige customer_id).
+    if (body.status === 'closed_won' && before.status !== 'closed_won') {
+      await ensureCustomerForLead(tx as unknown as Database, actor.organizationId, leadId);
+    }
 
     // Outbox event — sem PII bruta; changedFields é lista de nomes de campo
     await emit(tx as unknown as Parameters<typeof emit>[0], {
