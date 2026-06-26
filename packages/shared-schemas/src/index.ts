@@ -37,3 +37,6 @@ export * from './law-firms.js';
 
 // Reports — schemas Zod compartilhados (F23-S03)
 export * from './reports.js';
+
+// Avatar — upload de foto de perfil do usuário (limites + signed URL)
+export * from './avatar.js';

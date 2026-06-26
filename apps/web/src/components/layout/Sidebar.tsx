@@ -19,6 +19,8 @@ import { NavLink } from 'react-router-dom';
 
 import { APP_NAV, FOOTER_NAV } from '../../app/navigation';
 import type { NavItem as NavItemMeta } from '../../app/navigation';
+import iconeUrl from '../../assets/brand/icone-bp.png';
+import logoUrl from '../../assets/brand/logo.webp';
 import { useFeatureFlags } from '../../hooks/useFeatureFlag';
 import { useAuth } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
@@ -299,34 +301,28 @@ function useFooterNav(): ResolvedNavItem[] {
 
 function SidebarBrand({ collapsed }: { collapsed: boolean }): React.JSX.Element {
   return (
-    <div className={cn('flex items-center gap-3 px-4 py-4 shrink-0', 'border-b border-border')}>
-      {/* Estrela — gradient da bandeira de Rondônia */}
-      <div
-        className="w-8 h-8 rounded-sm shrink-0 flex items-center justify-center"
-        style={{ background: 'var(--grad-rondonia)', boxShadow: 'var(--elev-2)' }}
-        aria-hidden="true"
-      >
-        <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4">
-          <path
-            d="M10 1 L12.2 7 L18.5 7.3 L13.5 11.3 L15.5 17.5 L10 13.8 L4.5 17.5 L6.5 11.3 L1.5 7.3 L7.8 7 Z"
-            fill="white"
-            opacity="0.9"
+    <div className={cn('flex items-center px-4 py-4 shrink-0', 'border-b border-border')}>
+      {collapsed ? (
+        /* Colapsado: apenas o ícone em container com sombra */
+        <div
+          className="w-8 h-8 rounded-sm shrink-0 flex items-center justify-center overflow-hidden"
+          style={{ boxShadow: 'var(--elev-2)' }}
+        >
+          <img
+            src={iconeUrl}
+            alt="Banco do Povo"
+            loading="eager"
+            className="w-full h-full object-contain"
           />
-        </svg>
-      </div>
-
-      {!collapsed && (
-        <div className="min-w-0">
-          <p
-            className="font-display font-bold text-ink leading-none"
-            style={{ letterSpacing: '-0.03em', fontSize: '0.9375rem' }}
-          >
-            Banco do Povo
-          </p>
-          <p className="font-sans text-[10px] text-verde font-semibold uppercase tracking-[0.14em] mt-0.5">
-            Rondônia
-          </p>
         </div>
+      ) : (
+        /* Expandido: logo completa */
+        <img
+          src={logoUrl}
+          alt="Banco do Povo de Rondônia"
+          loading="eager"
+          style={{ height: '32px', width: 'auto', maxWidth: '168px', objectFit: 'contain' }}
+        />
       )}
     </div>
   );

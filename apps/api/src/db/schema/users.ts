@@ -100,6 +100,14 @@ export const users = pgTable(
     personalEmail: citext('personal_email'),
 
     /**
+     * URL pública da foto de perfil do usuário no R2 (self-service).
+     * null = sem foto → frontend cai no fallback de iniciais (Avatar).
+     * Não é PII sensível (foto enviada pelo próprio usuário); a key no R2 é opaca.
+     * Migration: 0074_user_avatar_url.sql.
+     */
+    avatarUrl: text('avatar_url'),
+
+    /**
      * TOTP secret cifrado com AES-256-GCM pela camada de aplicação (F1-S24).
      * Armazenado como bytea — plaintext NUNCA é persistido.
      * Usar encryptPii/decryptPii de lib/crypto/pii.ts para read/write.

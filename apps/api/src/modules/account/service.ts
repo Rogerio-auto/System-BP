@@ -17,9 +17,21 @@
 //   - Audit log em mutações sensíveis (ativar/desativar 2FA).
 // =============================================================================
 
+import { randomUUID } from 'node:crypto';
+
+import type {
+  AvatarMime,
+  AvatarSignedUrlBody,
+  AvatarSignedUrlResponse,
+  SetAvatarBody,
+} from '@elemento/shared-schemas';
+import { AVATAR_EXT_BY_MIME, isAllowedAvatarMime } from '@elemento/shared-schemas';
+
+import { env } from '../../config/env.js';
 import type { Database } from '../../db/client.js';
 import { auditLog } from '../../lib/audit.js';
 import { decryptPii, encryptPii } from '../../lib/crypto/pii.js';
+import { createSignedUploadUrl } from '../../lib/storage/r2.js';
 import {
   generateOtpauthUri,
   generateRecoveryCodes,
@@ -28,7 +40,12 @@ import {
   matchRecoveryCode,
   verifyTotpCode,
 } from '../../lib/totp.js';
-import { ConflictError, NotFoundError, UnauthorizedError } from '../../shared/errors.js';
+import {
+  ConflictError,
+  NotFoundError,
+  UnauthorizedError,
+  ValidationError,
+} from '../../shared/errors.js';
 import { passwordHash, passwordVerify } from '../../shared/password.js';
 
 import {
@@ -42,20 +59,21 @@ import {
   markRecoveryCodeUsedAtomic,
   revokeOtherSessions,
   saveTotpSecretPending,
+  updateUserAvatarUrl,
   updateUserFullName,
   updateUserPasswordHash,
   updateUserPersonalEmail,
 } from './repository.js';
 import type {
+  ChangePasswordBody,
   ProfileResponse,
   SetPersonalEmailBody,
-  UpdateProfileBody,
-  ChangePasswordBody,
-  TwoFactorStatusResponse,
-  TwoFactorEnrollResponse,
   TwoFactorActivateBody,
   TwoFactorActivateResponse,
   TwoFactorDisableBody,
+  TwoFactorEnrollResponse,
+  TwoFactorStatusResponse,
+  UpdateProfileBody,
 } from './schemas.js';
 import { ROLES_REQUIRING_PERSONAL_EMAIL } from './schemas.js';
 
@@ -93,6 +111,7 @@ function toProfileResponse(
     fullName: string;
     organizationId: string;
     personalEmail?: string | null;
+    avatarUrl?: string | null;
   },
   role?: string,
 ): ProfileResponse {
@@ -109,6 +128,7 @@ function toProfileResponse(
     organizationId: user.organizationId,
     requiresPersonalEmail,
     personalEmail: user.personalEmail ?? null,
+    avatarUrl: user.avatarUrl ?? null,
   };
 }
 
@@ -516,4 +536,147 @@ export async function disable2fa(
       after: { twoFactorEnabled: false },
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// createAvatarSignedUrl
+//
+// Gera uma URL pré-assinada PUT (TTL 15min) para o browser enviar a foto de
+// perfil diretamente ao R2 sem passar pelo backend.
+// NÃO persiste nada — o cliente chama PUT /api/account/avatar após o upload.
+// NÃO gera audit log — geração de URL não é mutação de dado.
+//
+// Segurança:
+//   - Mime validado por schema Zod (rota) + isAllowedAvatarMime (defense-in-depth).
+//   - Key no R2 não contém PII: avatars/{orgId}/{userId}/{uuid}.{ext}.
+// ---------------------------------------------------------------------------
+
+export async function createAvatarSignedUrl(
+  _db: Database,
+  actor: AccountActorContext,
+  body: AvatarSignedUrlBody,
+): Promise<AvatarSignedUrlResponse> {
+  // Defense-in-depth: schema Zod já valida o mime na borda HTTP, mas
+  // verificamos novamente para garantir que um futuro refactor ou bypass
+  // de validação não exponha operações de storage com mime não suportado.
+  if (!isAllowedAvatarMime(body.mime)) {
+    throw new ValidationError([], `Tipo de imagem não suportado: ${body.mime}`);
+  }
+
+  // body.mime é AvatarMime após o type guard acima.
+  // noUncheckedIndexedAccess: AVATAR_EXT_BY_MIME tem entrada para todo AvatarMime;
+  // o ?? 'jpg' é fallback de tipo — inalcançável em runtime.
+  const ext = (AVATAR_EXT_BY_MIME as Record<AvatarMime, string>)[body.mime] ?? 'jpg';
+  const key = `avatars/${actor.organizationId}/${actor.userId}/${randomUUID()}.${ext}`;
+  const { uploadUrl, publicUrl } = await createSignedUploadUrl(key, body.mime);
+
+  return { uploadUrl, publicUrl, key };
+}
+
+// ---------------------------------------------------------------------------
+// setAvatar
+//
+// Persiste a URL pública do avatar após o browser ter feito upload direto ao R2.
+// Valida que a URL pertence ao domínio R2 configurado (anti-SSRF/anti-spoof).
+// Audit log account.avatar_updated (before/after como booleanos — LGPD: não
+// logamos a URL inteira, pois é desnecessário para rastreabilidade).
+// ---------------------------------------------------------------------------
+
+export async function setAvatar(
+  db: Database,
+  actor: AccountActorContext,
+  body: SetAvatarBody,
+): Promise<ProfileResponse> {
+  // Anti-SSRF / anti-spoof: rejeitar qualquer URL que não pertença ao domínio
+  // de storage configurado (env.R2_PUBLIC_URL). Impede que o cliente salve
+  // uma URL arbitrária de servidor externo.
+  const r2PublicUrl = env.R2_PUBLIC_URL;
+  if (!r2PublicUrl || !body.avatarUrl.startsWith(`${r2PublicUrl}/`)) {
+    throw new ValidationError(
+      [],
+      'URL de avatar inválida: deve pertencer ao domínio de storage configurado.',
+    );
+  }
+
+  const [before, roleKeys] = await Promise.all([
+    findUserProfileById(db, actor.userId),
+    findUserRoleKeys(db, actor.userId),
+  ]);
+  if (!before) throw new NotFoundError('Usuário não encontrado');
+
+  const primaryRole = roleKeys.find((k) => ROLES_REQUIRING_PERSONAL_EMAIL.has(k)) ?? roleKeys[0];
+
+  const after = await db.transaction(async (tx) => {
+    const updated = await updateUserAvatarUrl(
+      tx as unknown as Database,
+      actor.userId,
+      body.avatarUrl,
+    );
+    if (!updated) throw new NotFoundError('Usuário não encontrado');
+
+    // LGPD §8.5: não logamos a URL inteira do avatar (campo desnecessário para
+    // rastreabilidade de auditoria + pode ser longa). Registramos apenas a
+    // mudança de estado booleano (tinha/não tinha avatar).
+    await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
+      organizationId: actor.organizationId,
+      actor: {
+        userId: actor.userId,
+        role: 'self',
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
+      action: 'account.avatar_updated',
+      resource: { type: 'user', id: actor.userId },
+      before: { hadAvatar: before.avatarUrl !== null },
+      after: { hadAvatar: true },
+    });
+
+    return updated;
+  });
+
+  return toProfileResponse(after, primaryRole);
+}
+
+// ---------------------------------------------------------------------------
+// removeAvatar
+//
+// Remove o avatar do usuário (define avatar_url = null no banco).
+// O objeto no R2 fica órfão — limpeza eventual é aceitável para MVP.
+// Audit log account.avatar_removed.
+// ---------------------------------------------------------------------------
+
+export async function removeAvatar(
+  db: Database,
+  actor: AccountActorContext,
+): Promise<ProfileResponse> {
+  const [before, roleKeys] = await Promise.all([
+    findUserProfileById(db, actor.userId),
+    findUserRoleKeys(db, actor.userId),
+  ]);
+  if (!before) throw new NotFoundError('Usuário não encontrado');
+
+  const primaryRole = roleKeys.find((k) => ROLES_REQUIRING_PERSONAL_EMAIL.has(k)) ?? roleKeys[0];
+
+  const after = await db.transaction(async (tx) => {
+    const updated = await updateUserAvatarUrl(tx as unknown as Database, actor.userId, null);
+    if (!updated) throw new NotFoundError('Usuário não encontrado');
+
+    await auditLog(tx as unknown as Parameters<typeof auditLog>[0], {
+      organizationId: actor.organizationId,
+      actor: {
+        userId: actor.userId,
+        role: 'self',
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
+      action: 'account.avatar_removed',
+      resource: { type: 'user', id: actor.userId },
+      before: { hadAvatar: before.avatarUrl !== null },
+      after: { hadAvatar: false },
+    });
+
+    return updated;
+  });
+
+  return toProfileResponse(after, primaryRole);
 }

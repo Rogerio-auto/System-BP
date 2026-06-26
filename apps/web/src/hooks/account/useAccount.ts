@@ -9,12 +9,15 @@
 //   useEnroll2fa()      → POST /api/account/2fa/enroll
 //   useActivate2fa()    → POST /api/account/2fa/activate
 //   useDisable2fa()     → POST /api/account/2fa/disable
+//   useUploadAvatar()   → POST signed-url + PUT R2 + PUT /api/account/avatar
+//   useRemoveAvatar()   → DELETE /api/account/avatar
 //
 // Nunca useEffect+fetch. TanStack Query é o único caminho pra rede.
 // LGPD: credenciais e recovery codes nunca logados.
 // =============================================================================
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as React from 'react';
 import { z } from 'zod';
 
 import { useToast } from '../../components/ui/Toast';
@@ -29,6 +32,12 @@ export interface ProfileResponse {
   email: string;
   fullName: string;
   organizationId: string;
+  /**
+   * URL pública da foto de perfil no R2.
+   * Null quando não definida; string quando definida.
+   * Sempre presente na resposta após Zod parse (nunca undefined).
+   */
+  avatarUrl: string | null;
 }
 
 export interface UpdateProfileBody {
@@ -49,6 +58,14 @@ const ProfileResponseSchema = z.object({
   email: z.string().email(),
   fullName: z.string(),
   organizationId: z.string().uuid(),
+  // .optional() tolera respostas antigas sem o campo; .transform normaliza para null
+  // (evita undefined no tipo de saída — exigido por exactOptionalPropertyTypes).
+  avatarUrl: z
+    .string()
+    .url()
+    .nullable()
+    .optional()
+    .transform((v): string | null => v ?? null),
 });
 
 // ---------------------------------------------------------------------------
@@ -347,4 +364,200 @@ export function useDisable2fa(opts: UseDisable2faOptions = {}): {
   });
 
   return { disable: (body) => mutation.mutate(body), isPending: mutation.isPending };
+}
+
+// ---------------------------------------------------------------------------
+// Avatar upload — signed-url + PUT R2 + PUT /api/account/avatar
+// ---------------------------------------------------------------------------
+
+/** Schema de validação da resposta de signed-url (espelha AvatarSignedUrlResponseSchema). */
+const AvatarSignedUrlResultSchema = z.object({
+  uploadUrl: z.string().url(),
+  publicUrl: z.string().url(),
+  key: z.string(),
+});
+
+async function apiGetAvatarSignedUrl(body: {
+  fileName: string;
+  mime: string;
+  sizeBytes: number;
+}): Promise<{ uploadUrl: string; publicUrl: string; key: string }> {
+  const raw = await api.post('/api/account/avatar/signed-url', body);
+  return AvatarSignedUrlResultSchema.parse(raw);
+}
+
+async function apiSaveAvatar(avatarUrl: string): Promise<ProfileResponse> {
+  const raw = await api.put('/api/account/avatar', { avatarUrl });
+  return ProfileResponseSchema.parse(raw);
+}
+
+async function apiRemoveAvatar(): Promise<ProfileResponse> {
+  const raw = await api.delete('/api/account/avatar');
+  return ProfileResponseSchema.parse(raw);
+}
+
+// ─── Tipos públicos de progresso ──────────────────────────────────────────────
+
+export interface AvatarUploadProgress {
+  phase: 'idle' | 'signing' | 'uploading' | 'saving' | 'done' | 'error';
+  /** 0–100 durante 'uploading'; 100 em 'done'/'saving'. */
+  percent: number;
+  /** Mensagem de erro (somente em phase === 'error'). */
+  error?: string | undefined;
+}
+
+// ---------------------------------------------------------------------------
+// useUploadAvatar
+// ---------------------------------------------------------------------------
+
+/**
+ * Orquestra o upload de foto de perfil em 3 fases:
+ *   1. POST /api/account/avatar/signed-url → obtém uploadUrl pré-assinado.
+ *   2. PUT direto no R2 via XHR (sem Authorization) — com progresso real.
+ *   3. PUT /api/account/avatar { avatarUrl } → persiste e invalida cache.
+ *
+ * Espelha o padrão de useUploadMedia (conversas). Sem useEffect+fetch.
+ */
+export function useUploadAvatar(): {
+  upload: (file: File) => Promise<void>;
+  progress: AvatarUploadProgress;
+  abort: () => void;
+} {
+  const [progress, setProgress] = React.useState<AvatarUploadProgress>({
+    phase: 'idle',
+    percent: 0,
+  });
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const xhrRef = React.useRef<XMLHttpRequest | null>(null);
+
+  const abort = React.useCallback((): void => {
+    if (xhrRef.current) {
+      xhrRef.current.abort();
+      xhrRef.current = null;
+    }
+    setProgress({ phase: 'idle', percent: 0 });
+  }, []);
+
+  const upload = React.useCallback(
+    async (file: File): Promise<void> => {
+      const mime = file.type || 'image/jpeg';
+
+      // ── Fase 1: Obter signed-url ────────────────────────────────────────────
+      setProgress({ phase: 'signing', percent: 0 });
+
+      let uploadUrl: string;
+      let publicUrl: string;
+
+      try {
+        const res = await apiGetAvatarSignedUrl({
+          fileName: file.name,
+          mime,
+          sizeBytes: file.size,
+        });
+        uploadUrl = res.uploadUrl;
+        publicUrl = res.publicUrl;
+      } catch {
+        const msg = 'Não foi possível iniciar o upload. Tente novamente.';
+        setProgress({ phase: 'error', percent: 0, error: msg });
+        toast(msg, 'danger');
+        return;
+      }
+
+      // ── Fase 2: PUT para R2 via XHR (progresso real) ────────────────────────
+      setProgress({ phase: 'uploading', percent: 0 });
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhrRef.current = xhr;
+
+          xhr.open('PUT', uploadUrl, true);
+          // Content-Type deve casar com o que foi assinado no R2.
+          xhr.setRequestHeader('Content-Type', mime);
+          // Sem Authorization — URL pré-assinada, credencial está na query string.
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percent = Math.round((event.loaded / event.total) * 100);
+              setProgress({ phase: 'uploading', percent });
+            }
+          };
+
+          xhr.onload = () => {
+            xhrRef.current = null;
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error(`Upload falhou (HTTP ${xhr.status}).`));
+            }
+          };
+
+          xhr.onerror = () => {
+            xhrRef.current = null;
+            reject(new Error('Erro de rede durante o upload. Verifique sua conexão.'));
+          };
+
+          xhr.onabort = () => {
+            xhrRef.current = null;
+            reject(new Error('Upload cancelado.'));
+          };
+
+          xhr.send(file);
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Erro ao enviar a imagem.';
+        setProgress({ phase: 'error', percent: 0, error: msg });
+        toast(msg, 'danger');
+        return;
+      }
+
+      // ── Fase 3: Persistir URL + invalidar cache ─────────────────────────────
+      setProgress({ phase: 'saving', percent: 100 });
+
+      try {
+        const result = await apiSaveAvatar(publicUrl);
+        // Atualiza o cache do perfil diretamente (sem re-fetch)
+        queryClient.setQueryData(ACCOUNT_QUERY_KEY.profile, result);
+        setProgress({ phase: 'done', percent: 100 });
+        toast('Foto de perfil atualizada!', 'success');
+      } catch {
+        const msg = 'Não foi possível salvar a foto. Tente novamente.';
+        setProgress({ phase: 'error', percent: 0, error: msg });
+        toast(msg, 'danger');
+      }
+    },
+    [queryClient, toast],
+  );
+
+  return { upload, progress, abort };
+}
+
+// ---------------------------------------------------------------------------
+// useRemoveAvatar
+// ---------------------------------------------------------------------------
+
+/**
+ * Remove a foto de perfil (avatar_url = null no banco).
+ * Atualiza o cache do perfil via setQueryData após sucesso.
+ */
+export function useRemoveAvatar(): {
+  remove: () => void;
+  isPending: boolean;
+} {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: () => apiRemoveAvatar(),
+    onSuccess: (result) => {
+      queryClient.setQueryData(ACCOUNT_QUERY_KEY.profile, result);
+      toast('Foto de perfil removida.', 'success');
+    },
+    onError: () => {
+      toast('Não foi possível remover a foto. Tente novamente.', 'danger');
+    },
+  });
+
+  return { remove: () => mutation.mutate(), isPending: mutation.isPending };
 }

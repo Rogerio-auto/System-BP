@@ -15,6 +15,11 @@ export type AvatarVariant = 'rondonia' | 'azul' | 'verde' | 'amarelo';
 
 interface AvatarProps {
   name: string;
+  /**
+   * URL da foto de perfil. Quando fornecida, renderiza <img> em vez das iniciais.
+   * null/undefined → fallback para iniciais com gradient (comportamento original).
+   */
+  src?: string | null;
   variant?: AvatarVariant;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
@@ -52,16 +57,43 @@ function getInitials(name: string): string {
 
 /**
  * Avatar circular canônico (DS §9.10).
- * Background: gradient (nunca sólido).
- * Iniciais em Geist 700.
+ *
+ * Com `src`: renderiza foto de perfil em <img> circular com object-cover.
+ * Sem `src`: iniciais em Geist 700 sobre gradient (nunca background sólido).
+ *
+ * Manter a prop `name` sempre preenchida — usada como aria-label e como
+ * fallback de iniciais quando src é null/undefined.
  */
 export function Avatar({
   name,
+  src,
   variant = 'rondonia',
   size = 'md',
   className,
 }: AvatarProps): React.JSX.Element {
   const initials = getInitials(name);
+
+  if (src) {
+    return (
+      <span
+        role="img"
+        aria-label={name}
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center overflow-hidden',
+          'rounded-pill select-none',
+          sizes[size],
+          className,
+        )}
+        style={{
+          // Inset highlight superior + shadow-e2 (DS §9.10) — mantido com foto
+          boxShadow: 'var(--elev-2), inset 0 1px 0 rgba(255,255,255,0.15)',
+        }}
+      >
+        {/* aria-hidden: o span já tem o aria-label do usuário */}
+        <img src={src} alt="" aria-hidden="true" className="w-full h-full object-cover" />
+      </span>
+    );
+  }
 
   return (
     <span

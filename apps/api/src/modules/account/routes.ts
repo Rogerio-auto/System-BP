@@ -7,14 +7,22 @@
 //   - Operam sempre sobre request.user.id. NUNCA sobre userId de body/params.
 //
 // Rotas:
-//   GET   /api/account/profile        — perfil do próprio usuário
-//   PATCH /api/account/profile        — edita full_name (email é imutável via self-service)
-//   POST  /api/account/password       — troca de senha + revogação de outras sessões
-//   GET   /api/account/2fa/status     — status do 2FA (enabled: boolean)
-//   POST  /api/account/2fa/enroll     — gera secret pendente + URI otpauth (QR)
-//   POST  /api/account/2fa/activate   — confirma código TOTP, ativa 2FA, retorna recovery codes
-//   POST  /api/account/2fa/disable    — desativa 2FA (exige código TOTP ou recovery code)
+//   GET    /api/account/profile              — perfil do próprio usuário
+//   PATCH  /api/account/profile              — edita full_name (email imutável via self-service)
+//   POST   /api/account/password             — troca de senha + revogação de outras sessões
+//   GET    /api/account/2fa/status           — status do 2FA (enabled: boolean)
+//   POST   /api/account/2fa/enroll           — gera secret pendente + URI otpauth (QR)
+//   POST   /api/account/2fa/activate         — confirma código TOTP, ativa 2FA, recovery codes
+//   POST   /api/account/2fa/disable          — desativa 2FA (exige código TOTP ou recovery code)
+//   POST   /api/account/avatar/signed-url    — URL pré-assinada PUT para upload direto ao R2
+//   PUT    /api/account/avatar               — persiste avatar_url após upload
+//   DELETE /api/account/avatar               — remove avatar (avatar_url = null)
 // =============================================================================
+import {
+  AvatarSignedUrlBodySchema,
+  AvatarSignedUrlResponseSchema,
+  SetAvatarBodySchema,
+} from '@elemento/shared-schemas';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 import { authenticate } from '../auth/middlewares/authenticate.js';
@@ -22,10 +30,13 @@ import { authenticate } from '../auth/middlewares/authenticate.js';
 import {
   activate2faController,
   changePasswordController,
+  createAvatarSignedUrlController,
   disable2faController,
   enroll2faController,
   get2faStatusController,
   getProfileController,
+  removeAvatarController,
+  setAvatarController,
   setPersonalEmailController,
   updateProfileController,
 } from './controller.js';
@@ -229,5 +240,91 @@ export const accountRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     disable2faController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/account/avatar/signed-url — gera URL pré-assinada para upload
+  //
+  // Passo 1 do fluxo de troca de avatar (ver avatar.ts em shared-schemas):
+  //   1. POST /api/account/avatar/signed-url → { uploadUrl, publicUrl, key }
+  //   2. Browser faz PUT direto no R2 (uploadUrl) — sem passar pelo backend.
+  //   3. PUT  /api/account/avatar { avatarUrl: publicUrl } → persiste.
+  //
+  // Segurança:
+  //   - Mime e tamanho validados pelo schema (AvatarSignedUrlBodySchema).
+  //   - SVG e GIF explicitamente excluídos (XSS / animação).
+  //   - Key no R2 é LGPD-safe: avatars/{orgId}/{userId}/{uuid}.{ext}.
+  //   - NÃO persiste nada; NÃO gera audit log (geração de URL ≠ mutação de dado).
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/account/avatar/signed-url',
+    {
+      schema: {
+        tags: ['Account'],
+        summary: 'Gerar URL pré-assinada para upload de avatar',
+        description:
+          'Retorna uma URL pré-assinada PUT (TTL 15 min) para o browser enviar a foto de ' +
+          'perfil diretamente ao Cloudflare R2, sem passar pelo backend. Após o upload, ' +
+          'persistir a URL pública via PUT /api/account/avatar. ' +
+          'Tipos aceitos: image/png, image/jpeg, image/webp. Limite: 2 MB.',
+        security: [{ bearerAuth: [] }],
+        body: AvatarSignedUrlBodySchema,
+        response: {
+          200: AvatarSignedUrlResponseSchema,
+        },
+      },
+    },
+    createAvatarSignedUrlController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // PUT /api/account/avatar — persiste a URL do avatar após upload direto ao R2
+  //
+  // Passo 3 do fluxo. Valida que a URL pertence ao R2_PUBLIC_URL configurado
+  // (anti-SSRF / anti-spoof). Gera audit log account.avatar_updated.
+  // ---------------------------------------------------------------------------
+  app.put(
+    '/api/account/avatar',
+    {
+      schema: {
+        tags: ['Account'],
+        summary: 'Definir foto de perfil',
+        description:
+          'Persiste a URL pública do avatar (enviado diretamente ao R2 via signed URL). ' +
+          'A URL deve pertencer ao domínio de storage configurado — URLs arbitrárias são ' +
+          'rejeitadas (proteção anti-SSRF). Gera audit log account.avatar_updated.',
+        security: [{ bearerAuth: [] }],
+        body: SetAvatarBodySchema,
+        response: {
+          200: profileResponseSchema,
+        },
+      },
+    },
+    setAvatarController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // DELETE /api/account/avatar — remove a foto de perfil
+  //
+  // Define avatar_url = null no banco. O objeto no R2 fica órfão (limpeza
+  // eventual). Gera audit log account.avatar_removed.
+  // ---------------------------------------------------------------------------
+  app.delete(
+    '/api/account/avatar',
+    {
+      schema: {
+        tags: ['Account'],
+        summary: 'Remover foto de perfil',
+        description:
+          'Remove a foto de perfil do usuário (define avatar_url = null). ' +
+          'O objeto no R2 não é deletado imediatamente. ' +
+          'Gera audit log account.avatar_removed.',
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: profileResponseSchema,
+        },
+      },
+    },
+    removeAvatarController,
   );
 };
