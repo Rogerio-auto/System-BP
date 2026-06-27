@@ -348,6 +348,13 @@ export interface ContractCreateModalProps {
   onClose: () => void;
   /** Chamado após criação bem-sucedida com o ID do contrato criado */
   onCreated: (contractId: string) => void;
+  /**
+   * Quando fornecido, pré-seleciona o cliente e oculta o LeadAutocomplete.
+   * Usado ao abrir o modal a partir da ficha do cliente no CRM.
+   */
+  preSelectedCustomerId?: string | undefined;
+  /** Nome exibido no campo read-only quando preSelectedCustomerId está presente */
+  preSelectedCustomerName?: string | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -357,6 +364,8 @@ export interface ContractCreateModalProps {
 export function ContractCreateModal({
   onClose,
   onCreated,
+  preSelectedCustomerId,
+  preSelectedCustomerName,
 }: ContractCreateModalProps): React.JSX.Element {
   // Produtos de crédito para o select
   const [creditProducts, setCreditProducts] = React.useState<CreditProductOption[]>([]);
@@ -413,7 +422,7 @@ export function ContractCreateModal({
   } = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      customer_id: '',
+      customer_id: preSelectedCustomerId ?? '',
       contract_reference: generateReference(),
       product_id: '',
       principal_amount: '',
@@ -541,13 +550,35 @@ export function ContractCreateModal({
           noValidate
           className="flex flex-col gap-5 px-6 py-5 overflow-y-auto"
         >
-          {/* 1. Cliente — autocomplete */}
-          <LeadAutocomplete
-            value={customerField.value}
-            onChange={(id) => customerField.onChange(id)}
-            onBlur={customerField.onBlur}
-            error={errors.customer_id?.message}
-          />
+          {/* 1. Cliente — autocomplete ou read-only quando pré-selecionado na ficha do CRM */}
+          {preSelectedCustomerId !== undefined ? (
+            <div className="flex flex-col gap-2">
+              <label
+                className="font-sans font-semibold text-ink-2"
+                style={{ fontSize: 'var(--text-sm)' }}
+              >
+                Cliente
+              </label>
+              <div
+                className="w-full font-sans text-sm font-medium rounded-sm px-[14px] py-[11px] border border-border select-none"
+                style={{
+                  background: 'var(--bg-elev-2)',
+                  boxShadow: 'inset 0 1px 2px var(--border-inner-dark)',
+                  color: 'var(--text-2)',
+                }}
+                aria-label="Cliente pré-selecionado"
+              >
+                {preSelectedCustomerName ?? 'Cliente selecionado'}
+              </div>
+            </div>
+          ) : (
+            <LeadAutocomplete
+              value={customerField.value}
+              onChange={(id) => customerField.onChange(id)}
+              onBlur={customerField.onBlur}
+              error={errors.customer_id?.message}
+            />
+          )}
 
           {/* 2. Referência */}
           <Input

@@ -31,8 +31,14 @@ import { Link } from 'react-router-dom';
 
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
+import { useToast } from '../../../components/ui/Toast';
+import { useAuthStore } from '../../../lib/auth-store';
 import { cn } from '../../../lib/cn';
 import { DUE_STATUS_META } from '../../billing';
+import { MarkPaidModal } from '../../billing/components/MarkPaidModal';
+import { useMarkPaymentDuePaid, useRenegotiatePaymentDue } from '../../billing/hooks/useBilling';
+import type { PaymentDueResponse } from '../../billing/schemas';
+import { ContractCreateModal } from '../../contracts/ContractCreateModal';
 import { CONTRACT_STATUS_META } from '../../contracts/schemas';
 import { SpcActionButton } from '../../dashboard/components/SpcActionButton';
 import { SpcStatusBadge } from '../../dashboard/components/SpcStatusBadge';
@@ -314,7 +320,46 @@ function ContractCard({ contract }: { contract: ContractWithHealth }): React.JSX
 
 type RecentDue = CustomerOverviewResponse['recent_dues'][number];
 
-function RecentDueRow({ due }: { due: RecentDue }): React.JSX.Element {
+/**
+ * Mapeia um item de recent_dues para PaymentDueResponse.
+ * Campos ausentes no recent_due recebem valores seguros — nenhum é usado pelo MarkPaidModal.
+ */
+function mapRecentDue(
+  due: RecentDue,
+  customerId: string,
+  customerName: string | null,
+  organizationId: string,
+): PaymentDueResponse {
+  return {
+    id: due.id,
+    organization_id: organizationId,
+    customer_id: customerId,
+    customer_name: customerName,
+    contract_reference: due.contract_reference,
+    installment_number: due.installment_number,
+    due_date: due.due_date,
+    amount: due.amount,
+    status: due.status,
+    paid_at: due.paid_at,
+    // Campos sem equivalente em recent_dues — safe defaults; não usados pelo MarkPaidModal
+    origin: 'manual',
+    created_by: null,
+    created_at: '',
+    updated_at: '',
+    has_boleto: false,
+    boleto_filename: null,
+  };
+}
+
+function RecentDueRow({
+  due,
+  canMarkPaid,
+  onMarkPaid,
+}: {
+  due: RecentDue;
+  canMarkPaid: boolean;
+  onMarkPaid: () => void;
+}): React.JSX.Element {
   const meta = DUE_STATUS_META[due.status];
 
   return (
@@ -349,6 +394,16 @@ function RecentDueRow({ due }: { due: RecentDue }): React.JSX.Element {
           {formatBRL(due.amount)}
         </span>
         <Badge variant={meta.variant}>{meta.label}</Badge>
+        {canMarkPaid && (due.status === 'pending' || due.status === 'overdue') && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMarkPaid}
+            aria-label={`Dar baixa na parcela ${due.installment_number} do contrato ${due.contract_reference}`}
+          >
+            Dar baixa
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -372,6 +427,21 @@ export function CustomerDetailDrawer({
   const { data, isLoading, isError } = useCustomerOverview(customerId);
   const queryClient = useQueryClient();
 
+  // ── Estado dos modais ───────────────────────────────────────────────────────
+  const [contractModalOpen, setContractModalOpen] = React.useState(false);
+  const [selectedDue, setSelectedDue] = React.useState<RecentDue | null>(null);
+
+  // ── Toast + permissões ──────────────────────────────────────────────────────
+  const { toast } = useToast();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canCreateContract = hasPermission('contracts:write');
+  const canMarkPaid = hasPermission('billing:mark_paid');
+
+  // ── Mutações de cobrança ────────────────────────────────────────────────────
+  const { mutate: markPaid, isPending: isMarkingPaid } = useMarkPaymentDuePaid();
+  const { mutate: renegotiate, isPending: isRenegotiating } = useRenegotiatePaymentDue();
+  const isBillingPending = isMarkingPaid || isRenegotiating;
+
   // Invalida a query do overview forçando refetch imediato
   const handleRetry = React.useCallback(() => {
     void queryClient.invalidateQueries({
@@ -379,14 +449,17 @@ export function CustomerDetailDrawer({
     });
   }, [queryClient, customerId]);
 
-  // Fechar com Escape
+  // Fechar com Escape — guarda caso algum modal esteja aberto (cada modal trata o seu próprio Escape)
   React.useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (contractModalOpen || selectedDue !== null) return;
+        onClose();
+      }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [onClose]);
+  }, [onClose, contractModalOpen, selectedDue]);
 
   const displayName = data?.customer.name ?? customerName ?? 'Cliente';
 
@@ -468,10 +541,78 @@ export function CustomerDetailDrawer({
           ) : isError ? (
             <DrawerError onRetry={handleRetry} />
           ) : data ? (
-            <DrawerContent data={data} onClose={onClose} customerId={customerId} />
+            <DrawerContent
+              data={data}
+              onClose={onClose}
+              customerId={customerId}
+              canCreateContract={canCreateContract}
+              onOpenContractModal={() => setContractModalOpen(true)}
+              canMarkPaid={canMarkPaid}
+              onOpenMarkPaid={(due) => setSelectedDue(due)}
+            />
           ) : null}
         </div>
       </div>
+
+      {/* ── Modal: criar contrato (sibling do drawer, z-50 posterior = acima) ── */}
+      {contractModalOpen && data !== undefined && (
+        <ContractCreateModal
+          preSelectedCustomerId={customerId}
+          preSelectedCustomerName={data.customer.name ?? customerName}
+          onClose={() => setContractModalOpen(false)}
+          onCreated={(_contractId) => {
+            void queryClient.invalidateQueries({
+              queryKey: CUSTOMER_OVERVIEW_KEYS.detail(customerId),
+            });
+            toast('Contrato criado com sucesso', 'success');
+            setContractModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* ── Modal: dar baixa em parcela ─────────────────────────────────────── */}
+      {selectedDue !== null && data !== undefined && (
+        <MarkPaidModal
+          due={mapRecentDue(
+            selectedDue,
+            customerId,
+            data.customer.name ?? customerName ?? null,
+            data.customer.organization_id,
+          )}
+          isPending={isBillingPending}
+          onMarkPaid={() => {
+            markPaid(selectedDue.id, {
+              onSuccess: () => {
+                void queryClient.invalidateQueries({
+                  queryKey: CUSTOMER_OVERVIEW_KEYS.detail(customerId),
+                });
+                toast('Parcela marcada como paga', 'success');
+                setSelectedDue(null);
+              },
+              onError: (err) => {
+                toast(`Erro ao registrar pagamento: ${err.message}`, 'danger');
+                setSelectedDue(null);
+              },
+            });
+          }}
+          onRenegotiate={() => {
+            renegotiate(selectedDue.id, {
+              onSuccess: () => {
+                void queryClient.invalidateQueries({
+                  queryKey: CUSTOMER_OVERVIEW_KEYS.detail(customerId),
+                });
+                toast('Parcela marcada como renegociada', 'success');
+                setSelectedDue(null);
+              },
+              onError: (err) => {
+                toast(`Erro ao renegociar parcela: ${err.message}`, 'danger');
+                setSelectedDue(null);
+              },
+            });
+          }}
+          onCancel={() => setSelectedDue(null)}
+        />
+      )}
     </>
   );
 }
@@ -483,10 +624,18 @@ export function CustomerDetailDrawer({
 function DrawerContent({
   data,
   customerId,
+  canCreateContract,
+  onOpenContractModal,
+  canMarkPaid,
+  onOpenMarkPaid,
 }: {
   data: CustomerOverviewResponse;
   onClose: () => void;
   customerId: string;
+  canCreateContract: boolean;
+  onOpenContractModal: () => void;
+  canMarkPaid: boolean;
+  onOpenMarkPaid: (due: RecentDue) => void;
 }): React.JSX.Element {
   const { customer, contracts, recent_dues } = data;
 
@@ -548,24 +697,47 @@ function DrawerContent({
 
       {/* ── Seção 2: Contratos ──────────────────────────────────────────────── */}
       <section aria-labelledby="section-contratos">
-        <h3
-          id="section-contratos"
-          className="font-sans font-bold text-ink-3 uppercase mb-3"
-          style={{ fontSize: '0.7rem', letterSpacing: '0.12em' }}
-        >
-          Contratos
-          {contractsWithHealth.length > 0 && (
-            <span
-              className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold"
-              style={{
-                background: 'var(--brand-azul)',
-                color: '#fff',
-              }}
+        <div className="flex items-center justify-between mb-3">
+          <h3
+            id="section-contratos"
+            className="font-sans font-bold text-ink-3 uppercase"
+            style={{ fontSize: '0.7rem', letterSpacing: '0.12em' }}
+          >
+            Contratos
+            {contractsWithHealth.length > 0 && (
+              <span
+                className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold"
+                style={{
+                  background: 'var(--brand-azul)',
+                  color: '#fff',
+                }}
+              >
+                {contractsWithHealth.length}
+              </span>
+            )}
+          </h3>
+
+          {canCreateContract && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onOpenContractModal}
+              aria-label="Criar novo contrato para este cliente"
             >
-              {contractsWithHealth.length}
-            </span>
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                className="w-3.5 h-3.5 mr-1"
+                aria-hidden="true"
+              >
+                <path d="M8 2v12M2 8h12" strokeLinecap="round" />
+              </svg>
+              Criar contrato
+            </Button>
           )}
-        </h3>
+        </div>
 
         {contractsWithHealth.length === 0 ? (
           <SpotlightCard>
@@ -625,7 +797,12 @@ function DrawerContent({
           <SpotlightCard>
             <div className="px-4 py-1">
               {recent_dues.map((due) => (
-                <RecentDueRow key={due.id} due={due} />
+                <RecentDueRow
+                  key={due.id}
+                  due={due}
+                  canMarkPaid={canMarkPaid}
+                  onMarkPaid={() => onOpenMarkPaid(due)}
+                />
               ))}
             </div>
           </SpotlightCard>
