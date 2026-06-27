@@ -1,19 +1,23 @@
 // =============================================================================
-// components/ui/__tests__/CurrencyInput.test.tsx — Testes de lógica (F18-S03).
+// components/ui/__tests__/CurrencyInput.test.tsx — Testes de lógica.
 //
 // Estratégia: testa lógica pura isolada dos helpers de moeda (sem renderização React).
 // O ambiente de teste não tem JSDOM configurado — por isso não usamos @testing-library/react.
 //
-// Cobertura (DoD F18-S03):
+// Cobertura:
 //   1. formatBRL: reais → string BRL correta (sem bug ×10)
 //   2. parseBRLInput: string → reais (cenários de input do usuário)
-//   3. Round-trip: digitar "10000" → parsear → formatar → "R$ 10.000,00"
-//   4. Regressão do bug ×10: garantia que 10000 ≠ 100000 centavos
+//   3. formatLiveMask: máscara ao vivo durante digitação (separador de milhar, decimais)
+//   4. Round-trip: digitar → formatLiveMask → parseBRLInput → formatBRL
+//   5. Regressão do bug ×10: garantia que 10000 ≠ 100000 centavos
+//
+// Nota: reposicionamento de cursor (findNewCursorPos) é função interna do componente
+// e depende de DOM API (setSelectionRange) — coberto por testes visuais/manuais.
 // =============================================================================
 
 import { describe, expect, it } from 'vitest';
 
-import { formatBRL, parseBRLInput } from '../../../lib/format/money';
+import { formatBRL, formatLiveMask, parseBRLInput } from '../../../lib/format/money';
 
 // Intl insere espaço não-quebrável entre "R$" e o número em alguns ambientes.
 // Normalizamos todos os espaços para facilitar comparação portável.
@@ -131,6 +135,108 @@ describe('round-trip: digitar → parsear → formatar (regressão bug ×10)', (
     const value = 10000;
     const displayValue = formatBRL(value);
     expect(norm(displayValue)).toBe('R$ 10.000,00');
+  });
+});
+
+// ─── formatLiveMask ───────────────────────────────────────────────────────────
+
+describe('formatLiveMask — máscara ao vivo durante digitação', () => {
+  it('formatLiveMask("5000") → "5.000" (caso do relato de UX)', () => {
+    expect(formatLiveMask('5000')).toBe('5.000');
+  });
+
+  it('formatLiveMask("50000") → "50.000"', () => {
+    expect(formatLiveMask('50000')).toBe('50.000');
+  });
+
+  it('formatLiveMask("1234567") → "1.234.567" (dois separadores de milhar)', () => {
+    expect(formatLiveMask('1234567')).toBe('1.234.567');
+  });
+
+  it('formatLiveMask("5000,5") → "5.000,5" (decimal parcial)', () => {
+    expect(formatLiveMask('5000,5')).toBe('5.000,5');
+  });
+
+  it('formatLiveMask("5000,50") → "5.000,50" (decimal completo)', () => {
+    expect(formatLiveMask('5000,50')).toBe('5.000,50');
+  });
+
+  it('formatLiveMask("5000,500") → "5.000,50" (trunca a 2 casas decimais)', () => {
+    expect(formatLiveMask('5000,500')).toBe('5.000,50');
+  });
+
+  it('formatLiveMask("") → ""', () => {
+    expect(formatLiveMask('')).toBe('');
+  });
+
+  it('formatLiveMask("500") → "500" (menos de 4 dígitos, sem separador)', () => {
+    expect(formatLiveMask('500')).toBe('500');
+  });
+
+  it('formatLiveMask("1000") → "1.000"', () => {
+    expect(formatLiveMask('1000')).toBe('1.000');
+  });
+
+  it('formatLiveMask(",") → "," (vírgula inicial — campo vazio antes da vírgula)', () => {
+    expect(formatLiveMask(',')).toBe(',');
+  });
+
+  it('formatLiveMask("abc") → "" (remove caracteres inválidos)', () => {
+    expect(formatLiveMask('abc')).toBe('');
+  });
+
+  it('mantém apenas a primeira vírgula ("5000,50,99" → "5.000,50")', () => {
+    expect(formatLiveMask('5000,50,99')).toBe('5.000,50');
+  });
+
+  it('remove pontos já existentes no input ("5.000" digitado pelo usuário → "5.000")', () => {
+    // Quando o usuário tem "5.000" e digita "0", o browser entrega "5.0000";
+    // formatLiveMask strips o "." e re-aplica.
+    expect(formatLiveMask('5.0000')).toBe('50.000');
+  });
+});
+
+// ─── Round-trip live mask ─────────────────────────────────────────────────────
+
+describe('round-trip: formatLiveMask → parseBRLInput → formatBRL', () => {
+  it('"5000" → "5.000" → parseBRLInput → 5000 → "R$ 5.000,00"', () => {
+    const masked = formatLiveMask('5000');
+    expect(masked).toBe('5.000');
+    const reais = parseBRLInput(masked);
+    expect(reais).toBe(5000);
+    expect(norm(formatBRL(reais ?? 0))).toBe('R$ 5.000,00');
+  });
+
+  it('"50000" → "50.000" → parseBRLInput → 50000 → "R$ 50.000,00"', () => {
+    const masked = formatLiveMask('50000');
+    expect(masked).toBe('50.000');
+    expect(parseBRLInput(masked)).toBe(50000);
+    expect(norm(formatBRL(50000))).toBe('R$ 50.000,00');
+  });
+
+  it('"5000,50" → "5.000,50" → parseBRLInput → 5000.5 → "R$ 5.000,50"', () => {
+    const masked = formatLiveMask('5000,50');
+    expect(masked).toBe('5.000,50');
+    const reais = parseBRLInput(masked);
+    expect(reais).toBe(5000.5);
+    expect(norm(formatBRL(reais ?? 0))).toBe('R$ 5.000,50');
+  });
+
+  it('"1234567" → "1.234.567" → parseBRLInput → 1234567', () => {
+    const masked = formatLiveMask('1234567');
+    expect(masked).toBe('1.234.567');
+    expect(parseBRLInput(masked)).toBe(1234567);
+  });
+
+  // Bridge contrato: onChange do CurrencyInput(5000) → form guarda "5000.00"
+  it('bridge form: reais 5000 → toFixed(2) → "5000.00" (o que o form guarda)', () => {
+    const reais = parseBRLInput(formatLiveMask('5000')) ?? 0;
+    expect(reais.toFixed(2)).toBe('5000.00');
+  });
+
+  it('bridge form: reais 50000 → toFixed(2) → "50000.00"', () => {
+    const reais = parseBRLInput(formatLiveMask('50000')) ?? 0;
+    expect(reais.toFixed(2)).toBe('50000.00');
   });
 });
 
