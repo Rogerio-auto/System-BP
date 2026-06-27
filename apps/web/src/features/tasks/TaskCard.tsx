@@ -49,7 +49,8 @@ export function TaskCard({ task }: TaskCardProps): React.JSX.Element {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canClaim = hasPermission('tasks:claim');
   const canComplete = hasPermission('tasks:complete');
-  const canCancel = hasPermission('tasks:cancel');
+  // Backend exige tasks:write para cancelar (POST /api/tasks/:id/cancel).
+  const canCancel = hasPermission('tasks:write');
 
   const isClaimed = task.claimed_by !== null;
   const dueDateStr = formatDate(task.due_date);

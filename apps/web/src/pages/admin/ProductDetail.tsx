@@ -235,7 +235,7 @@ export function ProductDetailPage(): React.JSX.Element {
 
   const queryClient = useQueryClient();
   const hasPermission = useAuthStore((s) => s.hasPermission);
-  const canWrite = hasPermission('products:write');
+  const canWrite = hasPermission('credit_products:write');
 
   const { data: product, isLoading, isError, refetch } = useProduct(id);
   const { cities } = useCitiesList();
