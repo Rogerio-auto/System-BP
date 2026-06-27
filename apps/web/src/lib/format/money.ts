@@ -62,6 +62,46 @@ export function parseBRLInput(raw: string): number | null {
   return Math.round(n * 100) / 100;
 }
 
+// ─── Máscara ao vivo ──────────────────────────────────────────────────────────
+
+/**
+ * Aplica máscara de milhar ao texto enquanto o usuário digita.
+ * Aceita apenas dígitos e UMA vírgula decimal (máximo 2 casas).
+ * NÃO adiciona "R$" — exclusivo para o estado focado do CurrencyInput.
+ *
+ * formatLiveMask("5000")    → "5.000"
+ * formatLiveMask("50000")   → "50.000"
+ * formatLiveMask("1234567") → "1.234.567"
+ * formatLiveMask("5000,5")  → "5.000,5"
+ * formatLiveMask("5000,50") → "5.000,50"
+ * formatLiveMask("")        → ""
+ */
+export function formatLiveMask(raw: string): string {
+  // Remove tudo que não é dígito nem vírgula
+  const onlyDigitsAndComma = raw.replace(/[^\d,]/g, '');
+  const commaIdx = onlyDigitsAndComma.indexOf(',');
+
+  let intPart: string;
+  let decPart: string | undefined;
+
+  if (commaIdx >= 0) {
+    intPart = onlyDigitsAndComma.slice(0, commaIdx);
+    // Máximo 2 casas decimais; descarta vírgulas extras que porventura sobrem
+    decPart = onlyDigitsAndComma
+      .slice(commaIdx + 1)
+      .replace(/[^\d]/g, '')
+      .slice(0, 2);
+  } else {
+    intPart = onlyDigitsAndComma;
+    decPart = undefined;
+  }
+
+  // Insere pontos de milhar na parte inteira
+  const formattedInt = intPart.length > 0 ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+
+  return decPart !== undefined ? `${formattedInt},${decPart}` : formattedInt;
+}
+
 // ─── Helpers legados — mantidos por backward-compat com testes existentes ─────
 
 /**

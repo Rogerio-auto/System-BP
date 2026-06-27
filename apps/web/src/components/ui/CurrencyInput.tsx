@@ -5,9 +5,10 @@
 // Exibição: formatBRL(reais) via Intl.NumberFormat('pt-BR').
 //
 // Comportamento:
-//   - onFocus: exibe o valor editável sem máscara (ex: "10000" ou "10000,50").
-//   - onChange: parseia o texto e propaga o valor em REAIS via callback.
-//   - onBlur: formata o valor com máscara completa (ex: "R$ 10.000,00").
+//   - onChange: formata AO VIVO com separador de milhar e decimais (live mask).
+//               cursor é reposicionado após reformatação via useLayoutEffect.
+//   - onFocus:  mostra valor com live mask (sem "R$") para edição fácil.
+//   - onBlur:   formata com máscara completa "R$ x.xxx,xx".
 //
 // Props: value em REAIS (number | null), onChange(reais: number | null).
 // Formulários NÃO devem converter para centavos — o CurrencyInput é a borda.
@@ -16,7 +17,7 @@
 import * as React from 'react';
 
 import { cn } from '../../lib/cn';
-import { formatBRL, parseBRLInput } from '../../lib/format/money';
+import { formatBRL, formatLiveMask, parseBRLInput } from '../../lib/format/money';
 
 import { Label } from './Label';
 
@@ -38,18 +39,63 @@ export interface CurrencyInputProps {
   onBlur?: (() => void) | undefined;
 }
 
+// ─── Cursor — helpers puros ───────────────────────────────────────────────────
+
+/**
+ * Calcula a posição do cursor no texto formatado correspondente a `digitsNeeded`
+ * dígitos contados da esquerda. Se `afterComma` é true, o cursor deve estar após
+ * a vírgula (parte decimal).
+ *
+ * Estratégia: conta dígitos em `formatted`, inserindo o cursor logo após o
+ * N-ésimo dígito encontrado — pulando separadores de milhar (".").
+ * Quando `afterComma`, aguarda a vírgula aparecer antes de concluir a contagem.
+ */
+function findNewCursorPos(formatted: string, digitsNeeded: number, afterComma: boolean): number {
+  let digitCount = 0;
+  let commaFound = false;
+  // for...of sobre string usa o iterator protocol — cada ch é garantidamente string
+  // (não sofre com noUncheckedIndexedAccess, ao contrário de formatted[i]).
+  let i = 0;
+
+  for (const ch of formatted) {
+    if (ch === ',') {
+      commaFound = true;
+      // Cursor logo após a vírgula quando já contamos todos os dígitos inteiros
+      if (afterComma && digitCount === digitsNeeded) {
+        return i + 1;
+      }
+    } else if (/\d/.test(ch)) {
+      digitCount++;
+      // Sem vírgula: cursor depois do N-ésimo dígito
+      if (!afterComma && digitCount === digitsNeeded) {
+        return i + 1;
+      }
+      // Com vírgula e já passamos por ela: cursor depois do N-ésimo dígito total
+      if (afterComma && commaFound && digitCount === digitsNeeded) {
+        return i + 1;
+      }
+    }
+    i++;
+  }
+
+  return formatted.length;
+}
+
+// ─── Componente ───────────────────────────────────────────────────────────────
+
 /**
  * CurrencyInput — campo de moeda canônico (DS §9.2).
  *
  * Recebe e emite valores em REAIS (não centavos).
- * Digitar "10000" → exibe "R$ 10.000,00" → propaga 10000 (reais).
+ * Digitar "10000" → exibe "10.000" ao vivo → ao sair do foco: "R$ 10.000,00".
+ * Propaga: onChange(10000).
  *
  * Uso:
  *   <CurrencyInput
  *     id="amount"
  *     label="Valor"
- *     value={amount}           // number | null em REAIS
- *     onChange={(v) => setAmount(v)}  // v em REAIS
+ *     value={amount}                    // number | null em REAIS
+ *     onChange={(v) => setAmount(v)}    // v em REAIS
  *   />
  */
 export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
@@ -74,13 +120,44 @@ export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputPro
     const hasError = Boolean(error);
 
     // Estado interno do texto exibido.
-    // Quando em foco: texto bruto (editável, sem máscara).
-    // Quando fora de foco: formatado com R$ e separadores.
+    // Quando em foco: texto com live mask (ex: "5.000,50"), sem "R$".
+    // Quando fora de foco: formatado com R$ e separadores completos.
     const [focused, setFocused] = React.useState(false);
     const [editText, setEditText] = React.useState<string>('');
 
-    // Sincroniza o texto editável com o valor externo quando fora de foco.
-    // Evita sobrescrever o que o usuário está digitando.
+    // Ref interno para controlar cursor após reformatação.
+    const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+    // Posição de cursor pendente — aplicada em useLayoutEffect após re-render,
+    // garantindo que o DOM já reflete o novo value antes de mover o cursor.
+    const pendingCursorRef = React.useRef<number | null>(null);
+
+    // Merged ref: atualiza inputRef interno E o ref externo (forwardRef).
+    // O cast é o padrão canônico para diferenciar RefCallback de RefObject
+    // em runtime; não existe API sem cast no React 18 para este cenário.
+    const mergedRef = React.useCallback(
+      (node: HTMLInputElement | null) => {
+        inputRef.current = node;
+        if (typeof ref === 'function') {
+          (ref as (n: HTMLInputElement | null) => void)(node);
+        } else if (ref !== null && ref !== undefined) {
+          (ref as React.MutableRefObject<HTMLInputElement | null>).current = node;
+        }
+      },
+      [ref],
+    );
+
+    // Aplica o cursor pendente após cada render (useLayoutEffect = antes do paint).
+    // O null-check torna o efeito no-op na grande maioria dos renders.
+    React.useLayoutEffect(() => {
+      if (pendingCursorRef.current !== null && inputRef.current) {
+        const pos = pendingCursorRef.current;
+        pendingCursorRef.current = null;
+        inputRef.current.setSelectionRange(pos, pos);
+      }
+    });
+
+    // displayValue: live mask quando focado, BRL completo quando fora de foco.
     const displayValue = React.useMemo(() => {
       if (focused) return editText;
       if (value === null || value === undefined) return '';
@@ -88,13 +165,12 @@ export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputPro
     }, [focused, value, editText]);
 
     function handleFocus(): void {
-      // Ao entrar em foco, mostra o valor sem formatação para edição fácil.
+      // Ao entrar em foco, converte para live mask (sem "R$") para edição fácil.
       if (value !== null && value !== undefined) {
-        // Exibe inteiro sem casas se for número redondo, com vírgula se tiver centavos.
         const cents = Math.round(value * 100);
         const reais = cents / 100;
-        const text = Number.isInteger(reais) ? String(reais) : reais.toFixed(2).replace('.', ',');
-        setEditText(text);
+        const raw = Number.isInteger(reais) ? String(reais) : reais.toFixed(2).replace('.', ',');
+        setEditText(formatLiveMask(raw));
       } else {
         setEditText('');
       }
@@ -108,9 +184,21 @@ export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputPro
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
       const raw = e.target.value;
-      setEditText(raw);
-      const parsed = parseBRLInput(raw);
-      onChange(parsed);
+      const cursorPos = e.target.selectionStart ?? raw.length;
+
+      // Conta dígitos e presença de vírgula à esquerda do cursor no texto bruto
+      // para poder reposicionar o cursor após a reformatação.
+      const rawBeforeCursor = raw.slice(0, cursorPos);
+      const digitsBeforeCursor = (rawBeforeCursor.match(/\d/g) ?? []).length;
+      const hasCommaBeforeCursor = rawBeforeCursor.includes(',');
+
+      const masked = formatLiveMask(raw);
+      setEditText(masked);
+
+      // Agenda reposicionamento — será aplicado pelo useLayoutEffect após render.
+      pendingCursorRef.current = findNewCursorPos(masked, digitsBeforeCursor, hasCommaBeforeCursor);
+
+      onChange(parseBRLInput(masked));
     }
 
     return (
@@ -122,7 +210,7 @@ export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputPro
         )}
 
         <input
-          ref={ref}
+          ref={mergedRef}
           id={id}
           name={name}
           type="text"

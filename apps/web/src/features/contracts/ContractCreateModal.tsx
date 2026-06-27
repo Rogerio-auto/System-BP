@@ -26,10 +26,11 @@
 import type { ContractCreate } from '@elemento/shared-schemas';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
-import { useController, useForm } from 'react-hook-form';
+import { Controller, useController, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '../../components/ui/Button';
+import { CurrencyInput } from '../../components/ui/CurrencyInput';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { api } from '../../lib/api';
@@ -101,6 +102,16 @@ function percentToRate(percentStr: string): string {
   const num = parseFloat(percentStr);
   if (Number.isNaN(num)) return '';
   return parseFloat((num / 100).toFixed(8)).toString();
+}
+
+/**
+ * Converte a string decimal do form ("5000.00", "") para number | null em REAIS,
+ * bridge entre o campo RHF (string) e o CurrencyInput (number | null).
+ */
+function formAmountToReais(s: string): number | null {
+  if (s === '') return null;
+  const n = parseFloat(s);
+  return Number.isNaN(n) ? null : n;
 }
 
 /** Gera referência sugerida no formato BP-YYYY-NNNNN */
@@ -559,16 +570,27 @@ export function ContractCreateModal({
             {...register('product_id')}
           />
 
-          {/* 4. Valor principal */}
-          <Input
-            id="create-contract-principal"
-            label="Valor principal"
-            required
-            placeholder="5000.00"
-            inputMode="decimal"
-            error={errors.principal_amount?.message}
-            hint="Formato: número com até 2 casas decimais, separador ponto (ex: 5000.00)"
-            {...register('principal_amount')}
+          {/* 4. Valor principal — CurrencyInput com formatação ao vivo */}
+          <Controller
+            name="principal_amount"
+            control={control}
+            render={({ field }) => (
+              <CurrencyInput
+                ref={field.ref}
+                id="create-contract-principal"
+                name={field.name}
+                label="Valor principal"
+                required
+                placeholder="R$ 0,00"
+                error={errors.principal_amount?.message}
+                hint="Formatação aplicada automaticamente enquanto digita."
+                value={formAmountToReais(field.value)}
+                onChange={(reais) => {
+                  field.onChange(reais !== null ? reais.toFixed(2) : '');
+                }}
+                onBlur={field.onBlur}
+              />
+            )}
           />
 
           {/* 5 e 6. Prazo + Taxa — linha de 2 colunas */}
