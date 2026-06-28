@@ -29,7 +29,7 @@ import {
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 
 import { authenticate } from '../auth/middlewares/authenticate.js';
-import { authorize } from '../auth/middlewares/authorize.js';
+import { authorize, authorizeAny } from '../auth/middlewares/authorize.js';
 
 import {
   getReportsAiController,
@@ -43,6 +43,13 @@ import {
 } from './controller.js';
 import { postReportsExportController } from './export/controller.js';
 
+// Permissões ACEITAS (semântica OR via authorizeAny) para os relatórios agregados:
+//   - `dashboard:read`          → visão completa (global ou por cidade, conforme escopo)
+//   - `dashboard:read_by_agent` → visão restrita aos próprios dados do agente
+// O resolvedor de escopo em service.ts (resolveScopeAndValidate) deriva o escopo
+// efetivo a partir da permissão concedida. Usar `authorize` (AND) aqui trancava
+// agentes/operadores (que só têm read_by_agent) para fora dos relatórios e tornava
+// morto o caminho self-scoped do service.
 const DASHBOARD_READ_BY_AGENT: [string, ...string[]] = [
   'dashboard:read',
   'dashboard:read_by_agent',
@@ -64,7 +71,7 @@ export const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
         querystring: OverviewQuerySchema,
         response: { 200: OverviewResponseSchema },
       },
-      preHandler: [authorize({ permissions: DASHBOARD_READ_BY_AGENT })],
+      preHandler: [authorizeAny({ permissions: DASHBOARD_READ_BY_AGENT })],
     },
     getReportsOverviewController,
   );
@@ -82,7 +89,7 @@ export const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
         querystring: FunnelQuerySchema,
         response: { 200: FunnelResponseSchema },
       },
-      preHandler: [authorize({ permissions: DASHBOARD_READ_BY_AGENT })],
+      preHandler: [authorizeAny({ permissions: DASHBOARD_READ_BY_AGENT })],
     },
     getReportsFunnelController,
   );
@@ -100,7 +107,7 @@ export const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
         querystring: AttendanceQuerySchema,
         response: { 200: AttendanceResponseSchema },
       },
-      preHandler: [authorize({ permissions: DASHBOARD_READ_BY_AGENT })],
+      preHandler: [authorizeAny({ permissions: DASHBOARD_READ_BY_AGENT })],
     },
     getReportsAttendanceController,
   );
@@ -117,7 +124,7 @@ export const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
         querystring: CreditQuerySchema,
         response: { 200: CreditResponseSchema },
       },
-      preHandler: [authorize({ permissions: DASHBOARD_READ_BY_AGENT })],
+      preHandler: [authorizeAny({ permissions: DASHBOARD_READ_BY_AGENT })],
     },
     getReportsCreditController,
   );
@@ -153,7 +160,7 @@ export const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
         querystring: ProductivityQuerySchema,
         response: { 200: ProductivityResponseSchema },
       },
-      preHandler: [authorize({ permissions: DASHBOARD_READ_BY_AGENT })],
+      preHandler: [authorizeAny({ permissions: DASHBOARD_READ_BY_AGENT })],
     },
     getReportsProductivityController,
   );

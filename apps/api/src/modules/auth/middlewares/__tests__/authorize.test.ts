@@ -44,14 +44,13 @@ const CITY_ID = 'c3d4e5f6-a7b8-9012-cdef-123456789012';
 // App de teste
 // ---------------------------------------------------------------------------
 async function buildTestApp(): Promise<FastifyInstance> {
-  const [{ default: Fastify }, { authenticate }, { authorize }, { isAppError }] = await Promise.all(
-    [
+  const [{ default: Fastify }, { authenticate }, { authorize, authorizeAny }, { isAppError }] =
+    await Promise.all([
       import('fastify'),
       import('../authenticate.js'),
       import('../authorize.js'),
       import('../../../../shared/errors.js'),
-    ],
-  );
+    ]);
 
   const app = Fastify({ logger: false });
 
@@ -85,6 +84,18 @@ async function buildTestApp(): Promise<FastifyInstance> {
   app.get(
     '/no-auth',
     { preHandler: [authorize({ permissions: ['leads:read'] })] },
+    async (_req, reply) => reply.status(200).send({ ok: true }),
+  );
+
+  // Rota com permissões OR (authorizeAny) — basta ter uma delas
+  app.get(
+    '/reports-or',
+    {
+      preHandler: [
+        authenticate(),
+        authorizeAny({ permissions: ['dashboard:read', 'dashboard:read_by_agent'] }),
+      ],
+    },
     async (_req, reply) => reply.status(200).send({ ok: true }),
   );
 
@@ -213,5 +224,88 @@ describe('authorize() middleware', () => {
     });
 
     expect(res.statusCode).toBe(401);
+  });
+});
+
+describe('authorizeAny() middleware (semântica OR)', () => {
+  let app: FastifyInstance;
+  let validToken: string;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+    validToken = await makeValidToken();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('retorna 200 com a primeira permissão aceita (dashboard:read)', async () => {
+    mockLoadUserAuthContext.mockResolvedValue({
+      organizationId: FIXTURE_ORG_ID,
+      permissions: ['dashboard:read'],
+      cityScopeIds: [CITY_ID],
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/reports-or',
+      headers: { authorization: `Bearer ${validToken}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('retorna 200 com a segunda permissão aceita (dashboard:read_by_agent)', async () => {
+    mockLoadUserAuthContext.mockResolvedValue({
+      organizationId: FIXTURE_ORG_ID,
+      permissions: ['dashboard:read_by_agent'],
+      cityScopeIds: [CITY_ID],
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/reports-or',
+      headers: { authorization: `Bearer ${validToken}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('retorna 403 quando não tem NENHUMA das permissões aceitas', async () => {
+    mockLoadUserAuthContext.mockResolvedValue({
+      organizationId: FIXTURE_ORG_ID,
+      permissions: ['leads:read'],
+      cityScopeIds: [CITY_ID],
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/reports-or',
+      headers: { authorization: `Bearer ${validToken}` },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json<Record<string, unknown>>()['error']).toBe('FORBIDDEN');
+  });
+
+  it('retorna 200 para wildcard "*" (bypass total)', async () => {
+    mockLoadUserAuthContext.mockResolvedValue({
+      organizationId: FIXTURE_ORG_ID,
+      permissions: ['*'],
+      cityScopeIds: null,
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/reports-or',
+      headers: { authorization: `Bearer ${validToken}` },
+    });
+
+    expect(res.statusCode).toBe(200);
   });
 });

@@ -88,3 +88,54 @@ export function authorize(opts: AuthorizeOptions): preHandlerHookHandler {
     }
   };
 }
+
+/**
+ * Variante OR de {@link authorize}: autoriza se o usuário possui **ao menos uma**
+ * das permissões listadas (semântica OR — não AND).
+ *
+ * Use quando uma rota tem múltiplos "modos de acesso" mutuamente suficientes —
+ * ex.: relatórios visíveis por quem tem `dashboard:read` (visão completa) **ou**
+ * `dashboard:read_by_agent` (visão restrita aos próprios dados). A camada de
+ * service é quem resolve o escopo efetivo a partir da permissão concedida.
+ *
+ * Deve ser encadeado APÓS authenticate():
+ *   preHandler: [authenticate(), authorizeAny({ permissions: ['dashboard:read', 'dashboard:read_by_agent'] })]
+ *
+ * Lança:
+ *   - UnauthorizedError (401) se request.user não estiver definido.
+ *   - ForbiddenError (403) se o usuário não possuir NENHUMA das permissões.
+ */
+export function authorizeAny(opts: AuthorizeOptions): preHandlerHookHandler {
+  const { permissions: accepted } = opts;
+
+  return async function authorizeAnyHandler(request) {
+    if (!request.user) {
+      throw new UnauthorizedError('Não autenticado — authenticate() deve preceder authorizeAny()');
+    }
+
+    const userPerms = request.user.permissions;
+
+    // Wildcard: admin técnico com permissão total (ex: seed/CLI)
+    if (userPerms.includes('*')) return;
+
+    // Basta possuir UMA das permissões aceitas (OR).
+    const hasAny = accepted.some((perm) => userPerms.includes(perm));
+
+    if (!hasAny) {
+      request.log.warn(
+        {
+          event: 'authz.denied',
+          user_id: request.user.id,
+          org_id: request.user.organizationId,
+          accepted_permissions: accepted,
+          url: request.url,
+          method: request.method,
+        },
+        'authorization denied: none of the accepted permissions present',
+      );
+
+      // Mensagem genérica — não revela quais permissões o usuário não tem
+      throw new ForbiddenError('Acesso negado: permissões insuficientes');
+    }
+  };
+}
