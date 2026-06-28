@@ -273,6 +273,7 @@ export async function listConversations(
  * unread_count: +1
  * last_inbound_at: agora
  * last_message_at: agora
+ * status: reabre 'resolved' → 'open' (ver nota abaixo).
  */
 export async function updateConversationOnInbound(
   db: Database,
@@ -287,6 +288,13 @@ export async function updateConversationOnInbound(
       // `as` justificado: sql<unknown> é compatível com integer no contexto do
       // .set() Drizzle — não há tipo mais específico disponível na API.
       unreadCount: sql`unread_count + 1` as unknown as number,
+      // Reabre a conversa quando chega mensagem nova numa conversa já resolvida
+      // (ex.: histórico migrado do Chatwoot entra como 'resolved'). Sem isso a
+      // conversa permanece 'resolved' e some do filtro padrão da inbox ('Abertas').
+      // Toca SOMENTE 'resolved' — preserva 'open'/'pending'/'snoozed' para não
+      // interferir no roteamento IA/atendente.
+      status:
+        sql`case when ${conversations.status} = 'resolved' then 'open' else ${conversations.status} end` as unknown as Conversation['status'],
       lastInboundAt: inboundAt,
       lastMessageAt: inboundAt,
       updatedAt: inboundAt,
