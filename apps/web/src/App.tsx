@@ -22,6 +22,7 @@ import { SessionBootstrap } from './app/SessionBootstrap';
 import { ToastProvider } from './components/ui/Toast';
 import { PersonalEmailModal } from './features/account/PersonalEmailModal';
 import { usePersonalEmailGuard } from './features/account/usePersonalEmailGuard';
+import { RolesPage } from './features/admin/roles/RolesPage';
 import { LoginPage } from './features/auth/LoginPage';
 import { CollectionJobsPage, CollectionRulesPage, PaymentDuesPage } from './features/billing';
 import {
@@ -166,6 +167,7 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/admin/products" element={<ProductsPage />} />
           <Route path="/admin/products/:id" element={<ProductDetailPage />} />
           <Route path="/admin/users" element={<UsersPage />} />
+          <Route path="/admin/papeis" element={<RolesPage />} />
           <Route path="/admin/agents" element={<AgentsPage />} />
           {/* Canais de mensagem (WhatsApp Business) */}
           <Route path="/admin/canais" element={<CanaisAdminPage />} />

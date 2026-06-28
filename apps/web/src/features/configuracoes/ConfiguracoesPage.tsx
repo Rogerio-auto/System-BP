@@ -227,6 +227,23 @@ function IconTutoriais(): React.JSX.Element {
   );
 }
 
+// Papéis & Permissões: escudo com grade de checkmark
+function IconPapeis(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="M12 3l8 3v6c0 4.5-3.5 8-8 9-4.5-1-8-4.5-8-9V6l8-3Z" />
+      <path d="M8 12l2.5 2.5L16 9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // Canais de Mensagem: balão de chat com raio (conectividade)
 function IconCanais(): React.JSX.Element {
   return (
@@ -563,6 +580,17 @@ function AdminSection(): React.JSX.Element {
             description: 'Contas de usuário, papéis RBAC e controle de acesso.',
             icon: <IconUsuarios />,
             href: '/admin/users',
+          },
+        ]
+      : []),
+    // Papéis & Permissões: matrix de permissões por papel — users:assign_privileged_roles
+    ...(hasPermission('users:assign_privileged_roles')
+      ? [
+          {
+            title: 'Papéis & Permissões',
+            description: 'Defina quais permissões cada papel possui na plataforma.',
+            icon: <IconPapeis />,
+            href: '/admin/papeis',
           },
         ]
       : []),
