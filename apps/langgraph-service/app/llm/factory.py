@@ -35,8 +35,8 @@ def for_role(role: Role) -> str:
     """Retorna o ``model_id`` configurado para a role lógica informada.
 
     Os valores vêm das variáveis de ambiente:
-        - ``LLM_MODEL_CLASSIFIER`` → default ``anthropic/claude-3.5-haiku``
-        - ``LLM_MODEL_REASONER``   → default ``moonshot/kimi-k2``
+        - ``LLM_MODEL_CLASSIFIER`` → default ``anthropic/claude-haiku-4.5``
+        - ``LLM_MODEL_REASONER``   → default ``moonshotai/kimi-k2``
         - ``LLM_MODEL_FALLBACK``   → default ``anthropic/claude-sonnet-4``
 
     Args:
