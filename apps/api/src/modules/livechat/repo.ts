@@ -37,7 +37,6 @@ import { interactions } from '../../db/schema/interactions.js';
 import { messages } from '../../db/schema/messages.js';
 import type { Message, NewMessage } from '../../db/schema/messages.js';
 import { NotFoundError } from '../../shared/errors.js';
-import { cityScope } from '../../shared/scope.js';
 import type { UserScopeCtx } from '../../shared/scope.js';
 
 import type { GetMessagesFilter, ListConversationsFilter } from './schemas.js';
@@ -164,19 +163,21 @@ export async function findOrCreateConversation(
 }
 
 /**
- * Busca uma conversa pelo ID com escopo de organização e cidade.
+ * Busca uma conversa pelo ID com escopo de organização (org-wide).
  *
- * @throws NotFoundError se não encontrar (inclui casos de scope inválido
- *         para prevenir oracle de existência — doc 10 §3.5).
+ * Live chat é org-wide: o atendimento opera UM canal único da empresa, então a
+ * inbox NÃO aplica escopo de cidade (doc 10 §3.4 — city scope continua valendo
+ * para leads/relatórios, não para o live chat). `_userCtx` é mantido por compat
+ * de assinatura com os callers.
+ *
+ * @throws NotFoundError se não encontrar.
  */
 export async function findConversationById(
   db: Database,
   conversationId: string,
   organizationId: string,
-  userCtx: UserScopeCtx,
+  _userCtx: UserScopeCtx,
 ): Promise<Conversation> {
-  const scopeCondition = cityScope(userCtx, conversations.cityId);
-
   const [row] = await db
     .select()
     .from(conversations)
@@ -185,7 +186,6 @@ export async function findConversationById(
         eq(conversations.id, conversationId),
         eq(conversations.organizationId, organizationId),
         isNull(conversations.deletedAt),
-        scopeCondition,
       ),
     )
     .limit(1);
@@ -201,8 +201,10 @@ export async function findConversationById(
 export type ConversationRow = Conversation & { provider: string };
 
 /**
- * Lista conversas com filtros, escopo de cidade e paginação por cursor.
+ * Lista conversas com filtros e paginação por cursor (org-wide).
  *
+ * Live chat é org-wide: a inbox NÃO filtra por cidade (ver findConversationById).
+ * `cityScopeIds` permanece no contrato do filtro por compat, mas é ignorado aqui.
  * Ordenação: last_message_at DESC (mais recente primeiro) para o ChatList.
  * LGPD: contact_phone_enc nunca retornado nesta listagem — coluna excluída.
  * Provider: incluído via INNER JOIN com channels (channelId NOT NULL).
@@ -211,10 +213,7 @@ export async function listConversations(
   db: Database,
   filter: ListConversationsFilter,
 ): Promise<ConversationRow[]> {
-  const { organizationId, cityScopeIds, channelId, status, assignedUserId, cursor, limit } = filter;
-
-  const userCtx: UserScopeCtx = { cityScopeIds };
-  const scopeCondition = cityScope(userCtx, conversations.cityId);
+  const { organizationId, channelId, status, assignedUserId, cursor, limit } = filter;
 
   // Condições base obrigatórias
   const conditions = [
@@ -245,10 +244,6 @@ export async function listConversations(
     if (cursorRow?.lastMessageAt !== undefined && cursorRow.lastMessageAt !== null) {
       conditions.push(lt(conversations.lastMessageAt, cursorRow.lastMessageAt));
     }
-  }
-
-  if (scopeCondition !== undefined) {
-    conditions.push(scopeCondition);
   }
 
   // INNER JOIN com channels: channelId é NOT NULL, logo não perde linhas.

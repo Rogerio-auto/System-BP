@@ -302,62 +302,59 @@ describe('LGPD — PII handling', () => {
 });
 
 // ---------------------------------------------------------------------------
-// repo — listConversations com cityScope
+// repo — listConversations (org-wide: ignora escopo de cidade)
 // ---------------------------------------------------------------------------
 
-describe('listConversations — escopo de cidade', () => {
+describe('listConversations — org-wide (sem filtro de cidade)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('cityScopeIds vazio retorna lista vazia (sem acesso a cidade alguma)', async () => {
-    const { listConversations } = await import('../repo.js');
-
-    // Simula db.select().from().where().orderBy().limit() → []
-    const mockLimit = vi.fn().mockResolvedValue([]);
+  // Mock da cadeia select().from().innerJoin().where().orderBy().limit().
+  function mockDbReturning(rows: unknown[]): Database {
+    const mockLimit = vi.fn().mockResolvedValue(rows);
     const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
     const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
+    const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
     const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+    return { select: mockSelect } as unknown as Database;
+  }
 
-    const mockDb = { select: mockSelect } as unknown as Database;
+  const sampleRow = {
+    id: CONV_ID,
+    organizationId: ORG_ID,
+    channelId: CHANNEL_ID,
+    contactRemoteId: '+5569912345678',
+    status: 'open',
+    kind: 'dm',
+    unreadCount: 0,
+    lastMessageAt: new Date(),
+    cityId: CITY_ID,
+    provider: 'meta_whatsapp',
+  };
+
+  it('cityScopeIds vazio NÃO esvazia a lista (live chat é org-wide)', async () => {
+    const { listConversations } = await import('../repo.js');
+    const mockDb = mockDbReturning([sampleRow]);
 
     const result = await listConversations(mockDb, {
       organizationId: ORG_ID,
-      cityScopeIds: [], // sem cidades — WHERE 1=0
+      cityScopeIds: [], // antes virava WHERE 1=0; agora é ignorado (org-wide)
       limit: 30,
     });
 
-    expect(result).toEqual([]);
-    expect(mockSelect).toHaveBeenCalled();
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe(CONV_ID);
   });
 
-  it('cityScopeIds null (admin) aplica sem filtro de cidade', async () => {
+  it('cityScopeIds restrito ainda lista conversas (sem filtro de cidade)', async () => {
     const { listConversations } = await import('../repo.js');
-
-    const mockLimit = vi.fn().mockResolvedValue([
-      {
-        id: CONV_ID,
-        organizationId: ORG_ID,
-        channelId: CHANNEL_ID,
-        contactRemoteId: '+5569912345678',
-        status: 'open',
-        kind: 'dm',
-        unreadCount: 0,
-        lastMessageAt: new Date(),
-        cityId: CITY_ID,
-      },
-    ]);
-    const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
-    const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-    const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
-
-    const mockDb = { select: mockSelect } as unknown as Database;
+    const mockDb = mockDbReturning([sampleRow]);
 
     const result = await listConversations(mockDb, {
       organizationId: ORG_ID,
-      cityScopeIds: null, // admin — sem filtro
+      cityScopeIds: ['cidade-restrita-uuid-0001'],
       limit: 30,
     });
 
