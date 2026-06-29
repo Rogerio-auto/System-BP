@@ -1,9 +1,9 @@
 """Testes de configuração e smoke do modelo Kimi K2 como reasoner (F7-S01).
 
 Cobre:
-- for_role('reasoner') retorna 'moonshot/kimi-k2' com config default.
+- for_role('reasoner') retorna 'moonshotai/kimi-k2' com config default.
 - for_role('fallback') retorna 'anthropic/claude-sonnet-4' com config default.
-- for_role('classifier') permanece 'anthropic/claude-3.5-haiku' (não alterado).
+- for_role('classifier') permanece 'anthropic/claude-haiku-4.5' (não alterado).
 - Kimi K2 envia o model_id correto no payload ao OpenRouter.
 - Fallback: 5xx do Kimi K2 → gateway retenta conforme tenacity.
 - Smoke test real (gated por RUN_LLM_SMOKE_TESTS=1) — skipped em CI.
@@ -26,7 +26,7 @@ import respx
 
 def _openrouter_ok(
     content: str = "resposta do kimi",
-    model: str = "moonshot/kimi-k2",
+    model: str = "moonshotai/kimi-k2",
 ) -> dict[str, Any]:
     """Payload de resposta bem-sucedida simulando o OpenRouter."""
     return {
@@ -72,7 +72,7 @@ class TestKimiK2DefaultConfig:
     """Garante que os defaults de config.py e factory.py estão alinhados."""
 
     def test_for_role_reasoner_retorna_kimi_k2(self) -> None:
-        """for_role('reasoner') deve retornar 'moonshot/kimi-k2' por padrão."""
+        """for_role('reasoner') deve retornar 'moonshotai/kimi-k2' por padrão."""
         from app.config import Settings
         from app.llm.factory import for_role
 
@@ -91,13 +91,13 @@ class TestKimiK2DefaultConfig:
             openrouter_app_title="Elemento",
             anthropic_api_key=None,
             openai_api_key=None,
-            model_classifier="anthropic/claude-3.5-haiku",
-            model_reasoner="moonshot/kimi-k2",
+            model_classifier="anthropic/claude-haiku-4.5",
+            model_reasoner="moonshotai/kimi-k2",
             model_fallback="anthropic/claude-sonnet-4",
             daily_budget_usd=20.0,
             max_tokens_per_conversation=8000,
         )):
-            assert for_role("reasoner") == "moonshot/kimi-k2"
+            assert for_role("reasoner") == "moonshotai/kimi-k2"
 
     def test_for_role_fallback_retorna_claude_sonnet_4(self) -> None:
         """for_role('fallback') deve retornar 'anthropic/claude-sonnet-4'."""
@@ -118,8 +118,8 @@ class TestKimiK2DefaultConfig:
             openrouter_app_title="Elemento",
             anthropic_api_key=None,
             openai_api_key=None,
-            model_classifier="anthropic/claude-3.5-haiku",
-            model_reasoner="moonshot/kimi-k2",
+            model_classifier="anthropic/claude-haiku-4.5",
+            model_reasoner="moonshotai/kimi-k2",
             model_fallback="anthropic/claude-sonnet-4",
             daily_budget_usd=20.0,
             max_tokens_per_conversation=8000,
@@ -127,7 +127,7 @@ class TestKimiK2DefaultConfig:
             assert for_role("fallback") == "anthropic/claude-sonnet-4"
 
     def test_for_role_classifier_nao_alterado(self) -> None:
-        """for_role('classifier') deve permanecer 'anthropic/claude-3.5-haiku'."""
+        """for_role('classifier') deve permanecer 'anthropic/claude-haiku-4.5'."""
         from app.config import Settings
         from app.llm.factory import for_role
 
@@ -145,16 +145,16 @@ class TestKimiK2DefaultConfig:
             openrouter_app_title="Elemento",
             anthropic_api_key=None,
             openai_api_key=None,
-            model_classifier="anthropic/claude-3.5-haiku",
-            model_reasoner="moonshot/kimi-k2",
+            model_classifier="anthropic/claude-haiku-4.5",
+            model_reasoner="moonshotai/kimi-k2",
             model_fallback="anthropic/claude-sonnet-4",
             daily_budget_usd=20.0,
             max_tokens_per_conversation=8000,
         )):
-            assert for_role("classifier") == "anthropic/claude-3.5-haiku"
+            assert for_role("classifier") == "anthropic/claude-haiku-4.5"
 
     def test_config_defaults_sem_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Sem env vars, config.py usa moonshot/kimi-k2 como reasoner default."""
+        """Sem env vars, config.py usa moonshotai/kimi-k2 como reasoner default."""
         # Remove env vars para testar defaults hard-coded
         monkeypatch.delenv("LLM_MODEL_REASONER", raising=False)
         monkeypatch.delenv("LLM_MODEL_FALLBACK", raising=False)
@@ -177,15 +177,15 @@ class TestKimiK2DefaultConfig:
             openrouter_app_title="Elemento",
             anthropic_api_key=None,
             openai_api_key=None,
-            model_classifier="anthropic/claude-3.5-haiku",
-            model_reasoner="moonshot/kimi-k2",
+            model_classifier="anthropic/claude-haiku-4.5",
+            model_reasoner="moonshotai/kimi-k2",
             model_fallback="anthropic/claude-sonnet-4",
             daily_budget_usd=20.0,
             max_tokens_per_conversation=8000,
         )
-        assert s.model_reasoner == "moonshot/kimi-k2"
+        assert s.model_reasoner == "moonshotai/kimi-k2"
         assert s.model_fallback == "anthropic/claude-sonnet-4"
-        assert s.model_classifier == "anthropic/claude-3.5-haiku"
+        assert s.model_classifier == "anthropic/claude-haiku-4.5"
 
 
 # ---------------------------------------------------------------------------
@@ -198,19 +198,19 @@ class TestKimiK2GatewayPayload:
 
     @pytest.mark.asyncio()
     async def test_kimi_k2_model_id_no_payload(self, gateway: Any) -> None:
-        """Gateway deve enviar 'moonshot/kimi-k2' no campo 'model' do payload."""
+        """Gateway deve enviar 'moonshotai/kimi-k2' no campo 'model' do payload."""
         with respx.mock:
             route = respx.post("https://openrouter.ai/api/v1/chat/completions").mock(
                 return_value=httpx.Response(200, json=_openrouter_ok())
             )
             await gateway.complete(
-                model="moonshot/kimi-k2",
+                model="moonshotai/kimi-k2",
                 messages=[{"role": "user", "content": "Olá, qual o prazo do empréstimo?"}],
                 conversation_id="conv-kimi-001",
             )
 
         sent = json.loads(route.calls.last.request.content)
-        assert sent["model"] == "moonshot/kimi-k2"
+        assert sent["model"] == "moonshotai/kimi-k2"
 
     @pytest.mark.asyncio()
     async def test_kimi_k2_resposta_parseada_corretamente(self, gateway: Any) -> None:
@@ -220,7 +220,7 @@ class TestKimiK2GatewayPayload:
                 return_value=httpx.Response(200, json=_openrouter_ok(content="Prazo: 24 meses"))
             )
             result = await gateway.complete(
-                model="moonshot/kimi-k2",
+                model="moonshotai/kimi-k2",
                 messages=[{"role": "user", "content": "Prazo?"}],
                 conversation_id="conv-kimi-002",
             )
@@ -236,7 +236,7 @@ class TestKimiK2GatewayPayload:
                 return_value=httpx.Response(200, json=_openrouter_ok())
             )
             await gateway.complete(
-                model="moonshot/kimi-k2",
+                model="moonshotai/kimi-k2",
                 messages=[{"role": "user", "content": "CPF: 529.982.247-25, quero crédito"}],
                 conversation_id="conv-kimi-003",
             )
@@ -268,7 +268,7 @@ class TestKimiK2Fallback:
                 side_effect=responses
             )
             result = await gateway.complete(
-                model="moonshot/kimi-k2",
+                model="moonshotai/kimi-k2",
                 messages=[{"role": "user", "content": "teste fallback"}],
                 conversation_id="conv-kimi-fallback-001",
             )
@@ -288,7 +288,7 @@ class TestKimiK2Fallback:
                 side_effect=responses
             )
             result = await gateway.complete(
-                model="moonshot/kimi-k2",
+                model="moonshotai/kimi-k2",
                 messages=[{"role": "user", "content": "teste rate limit"}],
                 conversation_id="conv-kimi-fallback-002",
             )
@@ -307,7 +307,7 @@ class TestKimiK2Fallback:
     reason="Smoke test real — requer OPENROUTER_API_KEY e RUN_LLM_SMOKE_TESTS=1",
 )
 class TestKimiK2Smoke:
-    """Chamada real ao OpenRouter com moonshot/kimi-k2.
+    """Chamada real ao OpenRouter com moonshotai/kimi-k2.
 
     Skipped por padrão em CI. Ativar com:
         RUN_LLM_SMOKE_TESTS=1 uv run pytest tests/llm/test_kimi_k2_smoke.py -v -k smoke
@@ -322,7 +322,7 @@ class TestKimiK2Smoke:
         gw = get_gateway()
 
         result = await gw.complete(
-            model="moonshot/kimi-k2",
+            model="moonshotai/kimi-k2",
             messages=[
                 {
                     "role": "system",
