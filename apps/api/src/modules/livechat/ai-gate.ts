@@ -48,6 +48,12 @@ export interface ShouldAiRespondInput {
   contactRemoteId: string;
   /** Tipo da mensagem — gate so passa para 'text'. */
   messageType: string;
+  /**
+   * ID do agente humano atribuido a conversa (null/undefined = nenhum).
+   * Quando ha agente atribuido, a IA NAO responde — o humano assumiu o
+   * atendimento (evita IA e humano respondendo juntos e silencia o handoff).
+   */
+  assignedUserId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,10 +75,16 @@ export interface ShouldAiRespondInput {
  * quebrar o pipeline de inbound.
  */
 export async function shouldAiRespond(input: ShouldAiRespondInput): Promise<boolean> {
-  const { db, organizationId, contactRemoteId, messageType } = input;
+  const { db, organizationId, contactRemoteId, messageType, assignedUserId } = input;
 
   // Criterio 2: apenas mensagens de texto disparam a IA
   if (messageType !== 'text') {
+    return false;
+  }
+
+  // Criterio: humano assumiu — se a conversa tem agente atribuido, a IA cala
+  // (sem resposta e sem handoff). Atribuir = humano tomou o atendimento.
+  if (assignedUserId !== null && assignedUserId !== undefined) {
     return false;
   }
 

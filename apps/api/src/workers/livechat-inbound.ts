@@ -309,6 +309,8 @@ export async function processMessage(
           contactRemoteId: event.contactRemoteId,
           // `message.type` e o tipo real persistido (normalizado pelo schema)
           messageType: message.type,
+          // Humano assumiu? Se a conversa tem agente atribuido, a IA cala.
+          assignedUserId: conversation.assignedUserId,
         });
 
         if (aiShouldRespond) {
