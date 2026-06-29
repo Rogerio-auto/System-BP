@@ -7,7 +7,7 @@
 // LGPD: apenas IDs opacos em logs; reply.content nao logado em nivel info.
 // =============================================================================
 import type amqplib from 'amqplib';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { z, ZodError } from 'zod';
 
 import { env } from '../config/env.js';
@@ -299,12 +299,16 @@ export async function processJob(
 
   // Atualiza ai_conversation_states
   const updatedLeadId = aiResponse.lead_id ?? convRow.leadId ?? convState.leadId;
-  const updatedState: Record<string, unknown> = {
-    ...(typeof convState.state === 'object' && convState.state !== null
-      ? (convState.state as Record<string, unknown>)
-      : {}),
+
+  // CRÍTICO: NÃO sobrescrever o `state` jsonb. O persist_state do LangGraph
+  // acabou de gravá-lo NESTA execução com o histórico (messages[]) e o perfil
+  // coletado. `convState.state` é um snapshot do INÍCIO do turno (pré-LangGraph);
+  // usá-lo aqui apagava as mensagens → agente sem memória, respondendo em
+  // círculos (re-saudava a cada turno). Merge no nível do banco (jsonb `||`):
+  // lê o state ATUAL (pós-LangGraph) e só acrescenta a chave de idempotência.
+  const idempotencyPatch = JSON.stringify({
     last_processed_livechat_message_id: messageId,
-  };
+  });
 
   await db
     .update(aiConversationStates)
@@ -313,7 +317,7 @@ export async function processJob(
       currentNode: aiResponse.state.current_stage ?? convState.currentNode,
       graphVersion: aiResponse.graph_version,
       lastMessageAt: new Date(),
-      state: updatedState,
+      state: sql`COALESCE(${aiConversationStates.state}, '{}'::jsonb) || ${idempotencyPatch}::jsonb`,
       updatedAt: new Date(),
     })
     .where(eq(aiConversationStates.conversationId, convState.conversationId));
