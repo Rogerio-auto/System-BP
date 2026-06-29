@@ -26,7 +26,7 @@
 //   - Todos os métodos recebem `db: Database` para facilitar testes.
 // =============================================================================
 
-import { and, asc, desc, eq, getTableColumns, isNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, isNull, lt, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import { channels } from '../../db/schema/channels.js';
@@ -473,12 +473,20 @@ export async function listMessages(db: Database, filter: GetMessagesFilter): Pro
     }
   }
 
-  return db
+  // Carrega as ÚLTIMAS `limit` mensagens (mais recentes) — DESC + limit — e
+  // devolve em ordem cronológica (reverse) para o front. Sem isso, conversas com
+  // histórico migrado (centenas de msgs antigas de 2025) abriam mostrando o
+  // começo antigo e as mensagens recentes nunca apareciam. O cursor `before`
+  // (lt created_at) continua paginando para TRÁS no scroll-up; nextCursor =
+  // primeira msg da página (a mais antiga do lote retornado).
+  const rows = await db
     .select()
     .from(messages)
     .where(and(...conditions))
-    .orderBy(asc(messages.createdAt))
+    .orderBy(desc(messages.createdAt))
     .limit(limit);
+
+  return rows.reverse();
 }
 
 // ---------------------------------------------------------------------------
