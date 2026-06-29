@@ -603,7 +603,18 @@ async def update_lead_profile(
     if city_id is not None:
         update_fields["city_id"] = city_id
     if requested_amount is not None:
-        update_fields["requested_amount"] = requested_amount
+        # O endpoint exige número; o LLM manda string ("5000.00", "5.000,00",
+        # "R$ 5000"). Normaliza milhar/decimal e coage para float; se não for
+        # numérico, ignora o campo em vez de quebrar o turno (400).
+        raw_amount = str(requested_amount).strip().replace("R$", "").replace(" ", "")
+        if "," in raw_amount and "." in raw_amount:
+            raw_amount = raw_amount.replace(".", "").replace(",", ".")
+        elif "," in raw_amount:
+            raw_amount = raw_amount.replace(",", ".")
+        try:
+            update_fields["requested_amount"] = float(raw_amount)
+        except ValueError:
+            log.warning("update_lead_profile_amount_parse_skip", lead_id=lead_id)
     if requested_term_months is not None:
         update_fields["requested_term_months"] = requested_term_months
 
