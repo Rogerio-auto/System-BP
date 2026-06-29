@@ -107,6 +107,17 @@ def _build_tool_schemas() -> list[dict[str, Any]]:
             required=["city_text", "organization_id"],
         ),
         _tool(
+            "list_active_cities",
+            "Lista as cidades que o Banco do Povo atende ATUALMENTE (ativas). "
+            "Use sempre que o cliente perguntar quais cidades sao atendidas, ou "
+            "para informar a cobertura. Nunca invente nem assuma a lista — "
+            "consulte esta tool, pois a cobertura muda quando ativam/desativam cidades.",
+            {
+                "organization_id": _prop("string", "UUID da org"),
+            },
+            required=["organization_id"],
+        ),
+        _tool(
             "list_credit_products",
             "Lista produtos de credito ativos.",
             {
@@ -235,6 +246,14 @@ async def _dispatch_tool(
                 city_text=inp_city.city_text,
                 organization_id=inp_city.organization_id,
                 lead_id=inp_city.lead_id,
+            )
+            return _dump(result)
+
+        elif tool_name == "list_active_cities":
+            from app.tools.city_tools import list_active_cities
+
+            result = await list_active_cities(
+                organization_id=tool_args.get("organization_id") or org_id,
             )
             return _dump(result)
 

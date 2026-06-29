@@ -123,3 +123,35 @@ export const InternalIdentifyCityResponseSchema = z.object({
 });
 
 export type InternalIdentifyCityResponse = z.infer<typeof InternalIdentifyCityResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// GET /internal/cities — lista cidades ativas (cobertura atual)
+// ---------------------------------------------------------------------------
+
+/**
+ * Querystring de GET /internal/cities.
+ * Canal M2M: consumido pela tool `list_active_cities` do agente.
+ */
+export const InternalListCitiesQuerySchema = z.object({
+  organization_id: z
+    .string({ required_error: 'organization_id é obrigatório' })
+    .uuid('organization_id deve ser UUID'),
+});
+
+export type InternalListCitiesQuery = z.infer<typeof InternalListCitiesQuerySchema>;
+
+/** Cidade atendida (dado público: nome de município + UUID opaco). */
+export const InternalCitySchema = z.object({
+  city_id: z.string().uuid(),
+  city_name: z.string(),
+});
+
+/**
+ * Resposta de GET /internal/cities — apenas cidades ativas (is_active=true),
+ * não soft-deletadas, ordenadas por nome.
+ */
+export const InternalListCitiesResponseSchema = z.object({
+  cities: z.array(InternalCitySchema),
+});
+
+export type InternalListCitiesResponse = z.infer<typeof InternalListCitiesResponseSchema>;

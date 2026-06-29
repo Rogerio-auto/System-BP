@@ -106,6 +106,28 @@ export async function findCities(
 }
 
 /**
+ * Lista todas as cidades ATIVAS (is_active=true, não soft-deletadas) da org,
+ * ordenadas por nome.
+ *
+ * Canal M2M: consumida pela tool `list_active_cities` do agente (LangGraph) para
+ * informar/validar a cobertura de atendimento em tempo real — reflete
+ * ativar/desativar cidade no painel sem redeploy nem ajuste de prompt.
+ */
+export async function findActiveCities(db: Database, organizationId: string): Promise<City[]> {
+  return db
+    .select()
+    .from(cities)
+    .where(
+      and(
+        eq(cities.organizationId, organizationId),
+        eq(cities.isActive, true),
+        isNull(cities.deletedAt) as ReturnType<typeof eq>,
+      ),
+    )
+    .orderBy(cities.name);
+}
+
+/**
  * Busca cidade pelo ID dentro da organização.
  * Retorna null se não encontrada.
  */

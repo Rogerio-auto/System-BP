@@ -145,3 +145,61 @@ async def identify_city(
     )
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Tool: list_active_cities  (GET /internal/cities)
+# ---------------------------------------------------------------------------
+
+_LIST_ENDPOINT = "/internal/cities"
+
+
+class ActiveCity(BaseModel):
+    """Cidade atendida (dado público: nome de município + UUID opaco)."""
+
+    city_id: str
+    city_name: str
+
+
+class ListActiveCitiesResult(BaseModel):
+    """Resposta de ``GET /internal/cities`` — cidades ativas da org."""
+
+    cities: list[ActiveCity] = Field(default_factory=list)
+
+
+async def list_active_cities(
+    organization_id: str,
+    *,
+    client: InternalApiClient | None = None,
+) -> ListActiveCitiesResult:
+    """Lista as cidades que o Banco do Povo atende atualmente (ativas).
+
+    Chama ``GET /internal/cities`` e normaliza em ``ListActiveCitiesResult``.
+    Reflete em tempo real o que está ativo no painel (ativar/desativar cidade),
+    sem redeploy nem ajuste de prompt. Use para informar a cobertura ao cliente.
+
+    Args:
+        organization_id: UUID da organização — obrigatório (canal M2M sem JWT).
+        client:          ``InternalApiClient`` (injetado em testes).
+
+    Returns:
+        ``ListActiveCitiesResult`` com a lista de cidades ativas (ordenada por nome).
+    """
+    http_client = client or InternalApiClient()
+
+    log.info("list_active_cities_start", organization_id=organization_id)
+
+    raw = await http_client.get(
+        _LIST_ENDPOINT,
+        params={"organization_id": organization_id},
+    )
+
+    result = ListActiveCitiesResult.model_validate(raw)
+
+    log.info(
+        "list_active_cities_done",
+        organization_id=organization_id,
+        count=len(result.cities),
+    )
+
+    return result

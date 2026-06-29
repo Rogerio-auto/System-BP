@@ -44,9 +44,14 @@ import { db } from '../../../db/client.js';
 import { emit } from '../../../events/emit.js';
 import { verifyInternalToken } from '../../../lib/auth/internal-token.js';
 import { UnauthorizedError } from '../../../shared/errors.js';
-import { findCitiesByFuzzyMatch } from '../../cities/repository.js';
+import { findActiveCities, findCitiesByFuzzyMatch } from '../../cities/repository.js';
 
-import { InternalIdentifyCityBodySchema, InternalIdentifyCityResponseSchema } from './schemas.js';
+import {
+  InternalIdentifyCityBodySchema,
+  InternalIdentifyCityResponseSchema,
+  InternalListCitiesQuerySchema,
+  InternalListCitiesResponseSchema,
+} from './schemas.js';
 
 // ---------------------------------------------------------------------------
 // Limiar de confiança (doc 06 §7.2)
@@ -189,6 +194,39 @@ const internalCitiesRoutes: FastifyPluginAsyncZod = async (app) => {
         confidence: best.similarity,
         out_of_service: false,
         alternatives,
+      });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // GET / → GET /internal/cities
+  //
+  // Lista as cidades ATIVAS da org (cobertura atual de atendimento). Consumida
+  // pela tool `list_active_cities` do agente para informar a cobertura ao
+  // cliente e validar dinamicamente — reflete ativar/desativar cidade no painel
+  // em tempo real, sem redeploy nem mexer no prompt.
+  // -------------------------------------------------------------------------
+  app.get(
+    '/',
+    {
+      schema: {
+        hide: true,
+        querystring: InternalListCitiesQuerySchema,
+        response: {
+          200: InternalListCitiesResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
+        throw new UnauthorizedError('Token interno inválido ou ausente');
+      }
+
+      const { organization_id } = request.query;
+      const rows = await findActiveCities(db, organization_id);
+
+      return reply.status(200).send({
+        cities: rows.map((c) => ({ city_id: c.id, city_name: c.name })),
       });
     },
   );
