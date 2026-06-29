@@ -513,6 +513,10 @@ class UpdateLeadProfileInput(BaseModel):
     lead_id: str = Field(
         description="UUID do lead a ser atualizado.",
     )
+    organization_id: str | None = Field(
+        default=None,
+        description="UUID da organização (obrigatório no backend — canal M2M sem JWT).",
+    )
     name: str | None = Field(
         default=None,
         description="Nome completo atualizado do lead.",
@@ -571,6 +575,7 @@ _ERR_UPDATE_BACKEND_UNAVAILABLE = "BACKEND_UNAVAILABLE"
 @tool(args_schema=UpdateLeadProfileInput)
 async def update_lead_profile(
     lead_id: str,
+    organization_id: str | None = None,
     name: str | None = None,
     city_id: str | None = None,
     requested_amount: str | None = None,
@@ -611,6 +616,12 @@ async def update_lead_profile(
             ),
         )
 
+    # organization_id é OBRIGATÓRIO no body do PATCH (endpoint .strict(), canal
+    # M2M sem JWT). Vem autoritativo do estado via agent_turn — não dos update_fields.
+    request_body: dict[str, object] = {**update_fields}
+    if organization_id is not None:
+        request_body["organization_id"] = organization_id
+
     path = _UPDATE_ENDPOINT_TPL.format(lead_id=lead_id)
     idempotency_key = f"update_lead_profile_{lead_id}"
     client = InternalApiClient()
@@ -621,7 +632,7 @@ async def update_lead_profile(
         data = await client._request(  # private but intentional: shared auth/retry layer
             "PATCH",
             path,
-            json=update_fields,
+            json=request_body,
             extra_headers={"Idempotency-Key": idempotency_key},
         )
     except httpx.HTTPStatusError as exc:

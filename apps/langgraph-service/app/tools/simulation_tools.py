@@ -168,6 +168,10 @@ class GenerateCreditSimulationInput(BaseModel):
     """Parâmetros de entrada para generate_credit_simulation (doc 06 §7.3)."""
 
     lead_id: str = Field(description="UUID do lead para o qual a simulação é gerada.")
+    organization_id: str | None = Field(
+        default=None,
+        description="UUID da organização (obrigatório no backend — canal M2M sem JWT).",
+    )
     amount: float = Field(
         gt=0,
         description="Valor solicitado em reais (ex: 5000.0).",
@@ -284,6 +288,10 @@ async def generate_credit_simulation(
         "amount": input.amount,
         "termMonths": input.term_months,
     }
+    # organizationId é OBRIGATÓRIO no body (canal M2M sem JWT; camelCase no endpoint
+    # de simulações). Vem autoritativo do estado via agent_turn.
+    if input.organization_id is not None:
+        payload["organizationId"] = input.organization_id
     if input.product_id is not None:
         payload["productId"] = input.product_id
 
