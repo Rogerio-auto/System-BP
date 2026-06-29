@@ -99,6 +99,10 @@ services:
       LLM_MODEL_REASONER: ${LLM_MODEL_REASONER}
       LLM_MODEL_FALLBACK: ${LLM_MODEL_FALLBACK}
       LLM_DAILY_BUDGET_USD: ${LLM_DAILY_BUDGET_USD}
+      # Pipeline agêntica (Ana Clara LLM + tools) é o estado de produção. Default
+      # true aqui evita que um `stack deploy` reverta silenciosamente para o funil
+      # determinístico caso a var não esteja no ambiente (já aconteceu — 2026-06).
+      PRE_ATTENDANCE_AGENTIC_ENABLED: ${PRE_ATTENDANCE_AGENTIC_ENABLED:-true}
     networks:
       - elemento_net
     healthcheck:
