@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import contextlib
 import math
+import uuid
 from datetime import UTC, datetime
 from enum import StrEnum
 
@@ -283,10 +284,16 @@ async def generate_credit_simulation(
         product_id=input.product_id,
     )
 
+    # O endpoint exige idempotencyKey no BODY como UUID (não só no header
+    # Idempotency-Key). Deriva um UUID determinístico da idempotency_key textual:
+    # mesmos params no mesmo minuto → mesmo UUID → reenvio não duplica.
+    idempotency_uuid = str(uuid.uuid5(uuid.NAMESPACE_OID, idempotency_key))
+
     payload: dict[str, object] = {
         "leadId": input.lead_id,
         "amount": input.amount,
         "termMonths": input.term_months,
+        "idempotencyKey": idempotency_uuid,
     }
     # organizationId é OBRIGATÓRIO no body (canal M2M sem JWT; camelCase no endpoint
     # de simulações). Vem autoritativo do estado via agent_turn.
