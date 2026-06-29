@@ -89,6 +89,27 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
   const cuListDirty = React.useRef(false);
   const cuOpenDirty = React.useRef(false);
 
+  // Flush debounced COMPARTILHADO por message:new e conversation:updated:
+  // coalesce rajadas (ex.: bot envia N mensagens => N eventos) num único
+  // conjunto de invalidações, evitando refetch storm da infinite query (429).
+  const flushDirty = React.useCallback(() => {
+    cuFlushTimer.current = null;
+    if (cuListDirty.current) {
+      cuListDirty.current = false;
+      void qc.invalidateQueries({ queryKey: ['conversations', 'list'] });
+    }
+    if (cuOpenDirty.current && conversationId) {
+      cuOpenDirty.current = false;
+      void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
+      void qc.invalidateQueries({ queryKey: conversationKeys.messages(conversationId) });
+    }
+  }, [qc, conversationId]);
+
+  const scheduleFlush = React.useCallback(() => {
+    if (cuFlushTimer.current) clearTimeout(cuFlushTimer.current);
+    cuFlushTimer.current = setTimeout(flushDirty, 350);
+  }, [flushDirty]);
+
   // ── message:new ─────────────────────────────────────────────────────────
   React.useEffect(() => {
     if (!socket) return;
@@ -129,12 +150,12 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
         void qc.invalidateQueries({ queryKey: ['conversations', 'list'] });
       }
 
-      // 3. Conversa aberta → buscar a nova mensagem (com content). Apenas messages,
-      //    não detalhe/window/templates (não mudaram com uma nova mensagem).
+      // 3. Conversa aberta → buscar a nova mensagem (com content). DEBOUNCED no
+      //    mesmo flush do conversation:updated: a rajada do bot (N mensagens =>
+      //    N eventos) colapsa num único refetch, evitando 429 no rate-limit.
       if (isOpen) {
-        void qc.invalidateQueries({
-          queryKey: conversationKeys.messages(conversationId),
-        });
+        cuOpenDirty.current = true;
+        scheduleFlush();
       }
     }
 
@@ -143,7 +164,7 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
     return () => {
       socket.off('message:new', handleMessageNew);
     };
-  }, [socket, qc, conversationId]);
+  }, [socket, qc, conversationId, scheduleFlush]);
 
   // ── conversation:updated ─────────────────────────────────────────────────
   React.useEffect(() => {
@@ -181,27 +202,6 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
       scheduleFlush();
     }
 
-    // Flush debounced: aplica as invalidações acumuladas de uma vez.
-    function flushConversationUpdates(): void {
-      cuFlushTimer.current = null;
-      if (cuListDirty.current) {
-        cuListDirty.current = false;
-        // Lista (reflete status/ordem) — não conversationKeys.all (atingiria
-        // window/templates à toa).
-        void qc.invalidateQueries({ queryKey: ['conversations', 'list'] });
-      }
-      if (cuOpenDirty.current && conversationId) {
-        cuOpenDirty.current = false;
-        void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
-        void qc.invalidateQueries({ queryKey: conversationKeys.messages(conversationId) });
-      }
-    }
-
-    function scheduleFlush(): void {
-      if (cuFlushTimer.current) clearTimeout(cuFlushTimer.current);
-      cuFlushTimer.current = setTimeout(flushConversationUpdates, 350);
-    }
-
     socket.on('conversation:updated', handleConversationUpdated);
 
     return () => {
@@ -211,7 +211,7 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
         cuFlushTimer.current = null;
       }
     };
-  }, [socket, qc, conversationId]);
+  }, [socket, qc, conversationId, scheduleFlush]);
 
   // ── badge zero ao abrir conversa ─────────────────────────────────────────
   // Quando conversationId muda (conversa aberta), zeramos imediatamente o

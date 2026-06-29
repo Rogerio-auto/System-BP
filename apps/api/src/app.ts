@@ -258,7 +258,11 @@ export async function buildApp() {
   // fetches) — causava 429 em navegação legítima. Prod recebe um teto realista
   // mas ainda protetor; dev fica folgado para não atrapalhar o desenvolvimento.
   await app.register(rateLimit, {
-    max: env.NODE_ENV === 'production' ? 300 : 5000,
+    // 300/min era apertado para a inbox em tempo real (cada evento de socket
+    // refaz lista+detalhe+mensagens; bot envia varias msgs por turno). 1000/min
+    // por IP segue protetor para ferramenta interna. Frontend tambem debounça os
+    // refetches de socket para nao gerar rajada (useConversationSocket).
+    max: env.NODE_ENV === 'production' ? 1000 : 5000,
     timeWindow: '1 minute',
   });
   await app.register(sensible);
