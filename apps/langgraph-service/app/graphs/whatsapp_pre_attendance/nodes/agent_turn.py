@@ -184,14 +184,20 @@ async def _dispatch_tool(
 ) -> str:
     """Executa uma tool por nome e retorna o resultado como string JSON.
 
-    Importa as tools em runtime. Injeta organization_id do estado quando ausente.
+    Importa as tools em runtime. Injeta organization_id AUTORITATIVO do estado
+    (sempre sobrescreve o valor do LLM, que aluciona o UUID de exemplo).
     """
     org_id: str = state.get("organization_id", "")
     lead_id: str | None = state.get("lead_id")
     conversation_id: str = state.get("conversation_id", "")
     chatwoot_conv_id: str = state.get("chatwoot_conversation_id", "")
 
-    if not tool_args.get("organization_id"):
+    # organization_id é AUTORITATIVO do estado — igual ao telefone, NUNCA confiar
+    # no valor do LLM. O modelo não vê o UUID real (DLP redige) e tende a alucinar
+    # o UUID de exemplo `f47ac10b-58cc-4372-a567-0e02b2c3d479`, causando FK
+    # violation (fk_leads_organization) no get_or_create_lead → 500 → conversa
+    # travada. Sempre sobrescreve com o org do estado quando disponível.
+    if org_id:
         tool_args = {**tool_args, "organization_id": org_id}
 
     def _dump(res: Any) -> str:
