@@ -332,19 +332,19 @@ describe('POST /api/ai-console/prompts/:key/versions', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('retorna 422 quando body contém PII (e-mail detectado)', async () => {
+  it('retorna 422 quando body contém PII (CPF detectado)', async () => {
     const { ValidationError } = await import('../../../../shared/errors.js');
     mockCreateVersionSvc.mockRejectedValue(
       new ValidationError(
-        [{ code: 'custom', path: ['body'], message: 'Body contém pattern de e-mail' }],
-        'Body do prompt contém PII detectada — operação negada',
+        [{ code: 'custom', path: ['body'], message: 'Body contém pattern de CPF' }],
+        'Body do prompt contém CPF — operação negada',
       ),
     );
 
     const res = await app.inject({
       method: 'POST',
       url: `/api/ai-console/prompts/${FIXTURE_KEY}/versions`,
-      payload: { body: 'Contate joao@exemplo.com para mais informações.' },
+      payload: { body: 'O CPF do cliente é 123.456.789-01.' },
     });
 
     // ValidationError usa statusCode 400

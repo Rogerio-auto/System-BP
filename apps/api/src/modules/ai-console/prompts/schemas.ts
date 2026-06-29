@@ -5,7 +5,8 @@
 // Atualizado em F9-S08: adiciona temperature, max_tokens, top_p às
 // versões de prompt (parâmetros LLM opcionais por versão).
 //
-// LGPD: body do prompt NUNCA deve conter PII — validado no service com regex.
+// LGPD: body do prompt NUNCA deve conter CPF (PII de titular) — validado no service.
+// Contato institucional da org (telefone/e-mail/site públicos) é permitido.
 // Logs nunca expõem body completo — apenas key, version, content_hash.
 // =============================================================================
 import { z } from 'zod';
@@ -64,8 +65,9 @@ export const promptVersionListResponseSchema = z.array(promptVersionResponseSche
 export const createPromptVersionBodySchema = z.object({
   /**
    * Conteúdo completo do prompt.
-   * LGPD: NUNCA deve conter PII (CPF, e-mail, telefone, nome real de cliente).
-   * O service valida com regex defensiva e rejeita se PII for detectada.
+   * LGPD: NUNCA deve conter CPF (PII de titular) — o service rejeita. Contato
+   * institucional da organização (telefone/e-mail/site públicos) é PERMITIDO —
+   * é dado de negócio, não PII de titular.
    * max(50_000): limite conservador — prompts de produção raramente excedem 10k chars.
    */
   body: z.string().min(1).max(50_000),

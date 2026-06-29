@@ -112,53 +112,38 @@ interface PromptVersionActivatedPayload {
 }
 
 // ---------------------------------------------------------------------------
-// Regex de detecção de PII no body do prompt (doc 17 §3.4 + LGPD art. 5 I)
+// Detecção de PII de TITULAR no body do prompt (doc 17 §3.4 + LGPD art. 5 I)
+//
+// O prompt é um TEMPLATE autoral de admin e legitimamente contém o contato
+// INSTITUCIONAL da organização (telefone/WhatsApp/e-mail/site PÚBLICOS do
+// próprio Banco do Povo) — isso NÃO é dado pessoal de titular. Bloquear
+// telefone/e-mail aqui gerava falso-positivo e impedia salvar o prompt com os
+// canais de atendimento.
+//
+// O identificador de titular que nunca pode entrar num prompt compartilhado
+// (vai ao LLM/suboperador) é o CPF — esse permanece bloqueado.
 // ---------------------------------------------------------------------------
 
 /** CPF numérico com ou sem máscara (ex: 12345678901 ou 123.456.789-01) */
 const CPF_REGEX = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
 
-/** E-mail — padrão conservador para texto livre */
-const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-
-/** Telefone brasileiro (fixo ou celular, com ou sem DDD, com ou sem máscara) */
-const PHONE_REGEX = /\b(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?9?\d{4}[-.\s]?\d{4}\b/;
-
 /**
- * Valida que o body do prompt não contém PII detectável.
- * Lança ValidationError se algum padrão for encontrado.
+ * Valida que o body do prompt não contém CPF (PII de titular).
+ * Lança ValidationError se o padrão for encontrado.
  *
- * Nota: regex defensiva — pode ter falsos positivos em exemplos sintéticos
- * que se pareçam com CPF/telefone. Nesse caso, o operador deve reformular
- * o exemplo para evitar o pattern.
+ * Contato institucional (telefone/e-mail/site da organização) é PERMITIDO —
+ * é dado público de negócio, não PII de titular.
  */
 function assertNoPiiInBody(body: string): void {
-  const issues: { field: string; message: string }[] = [];
-
   if (CPF_REGEX.test(body)) {
-    issues.push({ field: 'body', message: 'Body contém pattern de CPF — remova dados pessoais' });
-  }
-  if (EMAIL_REGEX.test(body)) {
-    issues.push({
-      field: 'body',
-      message: 'Body contém pattern de e-mail — remova dados pessoais',
-    });
-  }
-  if (PHONE_REGEX.test(body)) {
-    issues.push({
-      field: 'body',
-      message: 'Body contém pattern de telefone — remova dados pessoais',
-    });
-  }
-
-  if (issues.length > 0) {
-    // Zod issue format para compatibilidade com ValidationError
-    const zodIssues = issues.map((issue) => ({
-      code: 'custom' as const,
-      path: [issue.field],
-      message: issue.message,
-    }));
-    throw new ValidationError(zodIssues, 'Body do prompt contém PII detectada — operação negada');
+    const zodIssues = [
+      {
+        code: 'custom' as const,
+        path: ['body'],
+        message: 'Body contém pattern de CPF — remova dados pessoais de titular',
+      },
+    ];
+    throw new ValidationError(zodIssues, 'Body do prompt contém CPF — operação negada');
   }
 }
 
