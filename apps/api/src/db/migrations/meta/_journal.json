@@ -505,6 +505,13 @@
       "when": 1782777600000,
       "tag": "0076_notification_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1782864000000,
+      "tag": "0077_seed_notifications_permissions",
+      "breakpoints": true
     }
   ]
 }
