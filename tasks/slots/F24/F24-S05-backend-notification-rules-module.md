@@ -56,6 +56,8 @@ Registrar o módulo no bootstrap (`app.ts`).
 - `apps/api/src/modules/notification-rules/recipients.ts`
 - `apps/api/src/modules/notification-rules/__tests__/notification-rules.test.ts`
 - `apps/api/src/app.ts`
+- `packages/shared-schemas/src/notification-rules.ts`
+- `packages/shared-schemas/src/index.ts`
 
 ## Arquivos proibidos
 
@@ -91,3 +93,14 @@ python scripts/slot.py validate F24-S05
 - Destinatários `by_role_city` → join `user_city_scopes`; `assignee` → `kanban_cards.assignee_user_id`;
   `managers` → admin/gestor_geral da org. Nunca cruzar org.
 - Sem `any`/`as` não justificado.
+
+### Reconciliação de contrato (apontado no security-review de F24-S04 — RESOLVER AQUI)
+
+O `notification_rules` (DB, F24-S01) e o schema Zod (F24-S04) divergem. Ajuste o schema compartilhado E o service para casar com o DB:
+
+1. **B-07 — `name` e `cooldown_hours` faltam no schema.** O DB tem `name text NOT NULL` e `cooldown_hours int NOT NULL DEFAULT 0`. Adicione `name` (obrigatório, exibido na lista do Admin) e `cooldown_hours` (opcional, default 0) aos schemas create/update/response.
+2. **B-08 — `city_scope` ↔ `filters` jsonb.** O schema expõe `city_scope` mas o DB guarda em `filters` jsonb. Mapeie no repository/service: `city_scope` (entrada/resposta) ⇄ `filters->>'city_scope'` (persistência). A resposta deve refletir o que está em `filters`.
+3. **`recipient_role` (schema) vs `recipient_roles text[]` (DB).** Reconcilie o nome/cardinalidade — o DB é array. Use o array.
+4. **`category`.** Não vem no create schema do admin: **derive do catálogo** (`TRIGGER_CATALOG[trigger_key].category`) no service e persista em `notification_rules.category` (usado depois por preferências/fan-out).
+5. **B-06 — validação de placeholders no update.** Quando `title_template`/`body_template` vierem sem `trigger_key` no payload de update, busque o `trigger_key` atual da regra no DB e re-valide os placeholders contra ele (não aceite placeholder fora do catálogo do gatilho).
+6. `enabled` no DB default false (regras nascem desligadas) — respeite o que o admin enviar.
