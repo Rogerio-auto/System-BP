@@ -3,7 +3,7 @@ id: F24-S12
 title: Frontend — preferências de notificação do usuário (categoria × canal)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/planejamento-notificacoes.md, docs/18-design-system.md]
 docs_required: true
 docs_artifacts: [docs/help/guias/notificacoes-preferencias.mdx]
 claimed_at: 2026-06-30T21:00:23Z
+completed_at: 2026-06-30T21:18:10Z
 ---
 
 # F24-S12 — Frontend: preferências do usuário
