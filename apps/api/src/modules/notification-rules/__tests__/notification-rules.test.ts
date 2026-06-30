@@ -559,6 +559,88 @@ describe('POST /api/notification-rules/:id/test', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Teste de regressão B1: replay de idempotência deve retornar response COMPLETO
+// ---------------------------------------------------------------------------
+// Antes da correção B1, checkNotificationRuleIdempotencyKey retornava o
+// responseBody parcial { rule_id: uuid } como NotificationRuleResponse —
+// o cliente recebia um objeto incompleto (sem name, trigger_key, channels, etc.).
+// Após a correção, o service busca dados frescos via findNotificationRuleById
+// e devolve toResponse(rule) — completo.
+//
+// Este teste verifica o contrato HTTP: um POST repetido com a mesma
+// Idempotency-Key deve retornar status 201 e um NotificationRuleResponse
+// completo (não apenas { rule_id }).
+// ---------------------------------------------------------------------------
+
+describe('Idempotência — replay retorna NotificationRuleResponse completo (B1)', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    // Limpar o mock antes do teste para isolar a contagem de chamadas
+    // dos testes anteriores (POST describe usa o mesmo spy global).
+    mockCreateRuleService.mockClear();
+    mockFeatureGateEnabled.mockReturnValue(true);
+  });
+
+  it('20. POST repetido com mesma idempotency-key retorna resposta completa, não objeto parcial', async () => {
+    // O service (corrigido) retorna toResponse(rule) no replay — não { rule_id } parcial.
+    const fullResponse = makeRuleResponse();
+    mockCreateRuleService.mockResolvedValue(fullResponse);
+
+    const idempotencyKey = 'replay-b1-test-key';
+
+    // Primeira chamada — cria a regra
+    const res1 = await app.inject({
+      method: 'POST',
+      url: '/api/notification-rules',
+      headers: { 'idempotency-key': idempotencyKey },
+      payload: CREATE_RULE_PAYLOAD,
+    });
+    expect(res1.statusCode).toBe(201);
+
+    // Segunda chamada (replay) — deve retornar o mesmo response completo
+    const res2 = await app.inject({
+      method: 'POST',
+      url: '/api/notification-rules',
+      headers: { 'idempotency-key': idempotencyKey },
+      payload: CREATE_RULE_PAYLOAD,
+    });
+    expect(res2.statusCode).toBe(201);
+
+    // Verificar que a resposta do replay é um NotificationRuleResponse completo.
+    // Se o bug B1 estivesse presente, body conteria apenas { rule_id: uuid }
+    // e as asserções abaixo falhariam.
+    const body = res2.json<Record<string, unknown>>();
+    expect(body['id']).toBe(FIXTURE_RULE_ID);
+    expect(body['organization_id']).toBeDefined();
+    expect(body['name']).toBeDefined();
+    expect(body['trigger_key']).toBeDefined();
+    expect(body['trigger_kind']).toBeDefined();
+    expect(body['category']).toBeDefined();
+    expect(body['recipient_mode']).toBeDefined();
+    expect(body['channels']).toBeDefined();
+    expect(body['severity']).toBeDefined();
+    expect(body['enabled']).toBeDefined();
+    // O response completo tem muito mais que 1 campo (diferentemente de { rule_id })
+    expect(Object.keys(body).length).toBeGreaterThan(5);
+
+    // Ambas as chamadas passaram o idempotency key para o service
+    expect(mockCreateRuleService).toHaveBeenCalledTimes(2);
+    const [firstCall, secondCall] = mockCreateRuleService.mock.calls;
+    expect(firstCall?.[3]).toBe(idempotencyKey);
+    expect(secondCall?.[3]).toBe(idempotencyKey);
+  });
+});
+
 describe('RBAC e feature flag', () => {
   it('15. sem auth → 403', async () => {
     const app = await buildTestApp([], false);

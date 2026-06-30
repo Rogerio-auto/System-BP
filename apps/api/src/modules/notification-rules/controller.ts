@@ -38,7 +38,9 @@ function getActorContext(request: FastifyRequest): ActorContext {
   return {
     userId: request.user.id,
     organizationId: request.user.organizationId,
-    role: 'admin',
+    // M1: role removido — request.user não expõe o campo (fastify.d.ts) e hardcodar
+    // 'admin' registraria um role incorreto na trilha de auditoria para gestor_geral.
+    // O actor_user_id é a fonte da verdade; role será 'unknown' no audit log.
     ip: request.ip,
     userAgent: request.headers['user-agent'] ?? null,
   };

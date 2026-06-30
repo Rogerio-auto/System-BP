@@ -59,7 +59,9 @@ import type {
 export interface ActorContext {
   userId: string;
   organizationId: string;
-  role: string;
+  // role é opcional: request.user não expõe o campo (fastify.d.ts).
+  // Não hardcodar um role inventado — o actor_user_id é a fonte da verdade de quem agiu.
+  role?: string;
   ip?: string | null;
   userAgent?: string | null;
 }
@@ -67,7 +69,9 @@ export interface ActorContext {
 function buildAuditActor(actor: ActorContext): AuditActor {
   return {
     userId: actor.userId,
-    role: actor.role,
+    // AuditActor.role é string (obrigatório no tipo). Quando não disponível no contexto
+    // HTTP, usamos 'unknown' — honesto e preferível a um role falso (M1).
+    role: actor.role ?? 'unknown',
     ...(actor.ip !== undefined ? { ip: actor.ip } : {}),
     ...(actor.userAgent !== undefined ? { userAgent: actor.userAgent } : {}),
   };
@@ -99,15 +103,27 @@ type ServiceTx = AuditTx & Database;
 async function checkNotificationRuleIdempotencyKey(
   db: Database,
   key: string,
+  organizationId: string,
 ): Promise<NotificationRuleResponse | null> {
   const rows = await db.select().from(idempotencyKeys).where(eq(idempotencyKeys.key, key)).limit(1);
 
   if (rows.length === 0) return null;
 
-  const cached = rows[0]?.responseBody;
-  // `as` justificado: responseBody é JSONB armazenado pelo próprio service
-  // com estrutura NotificationRuleResponse — sem PII, apenas IDs e metadados.
-  return cached as NotificationRuleResponse;
+  // responseBody armazena apenas { rule_id: uuid } — sem PII (LGPD §8.5).
+  // `as` justificado: estrutura inserida pelo próprio service com forma conhecida.
+  const stored = rows[0]?.responseBody as { rule_id?: string } | null | undefined;
+  const ruleId = stored?.rule_id;
+  if (!ruleId) return null;
+
+  // B1: buscar dados FRESCOS da regra em vez de retornar o responseBody parcial.
+  // O responseBody armazena apenas { rule_id } (sem PII); o response completo
+  // é reconstruído via toResponse(rule) para não retornar objeto parcial ao cliente.
+  const rule = await findNotificationRuleById(db, organizationId, ruleId);
+  if (rule === null) {
+    // Regra removida após criação: permite nova criação com a mesma key.
+    return null;
+  }
+  return toResponse(rule);
 }
 
 async function persistNotificationRuleIdempotencyKey(
@@ -290,9 +306,13 @@ export async function createRuleService(
   body: NotificationRuleCreate,
   idempotencyKey: string | undefined,
 ): Promise<NotificationRuleResponse> {
-  // 1. Idempotência
+  // 1. Idempotência — B1: passa organizationId para buscar dados frescos no replay
   if (idempotencyKey !== undefined) {
-    const cached = await checkNotificationRuleIdempotencyKey(db, idempotencyKey);
+    const cached = await checkNotificationRuleIdempotencyKey(
+      db,
+      idempotencyKey,
+      actor.organizationId,
+    );
     if (cached !== null) return cached;
   }
 
