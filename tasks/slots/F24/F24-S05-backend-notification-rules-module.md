@@ -3,7 +3,7 @@ id: F24-S05
 title: Backend — módulo notification-rules (CRUD admin + RBAC + test-fire)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: null
@@ -18,6 +18,7 @@ source_docs:
   ]
 docs_required: false
 claimed_at: 2026-06-30T21:03:19Z
+completed_at: 2026-06-30T21:48:18Z
 ---
 
 # F24-S05 — Backend: módulo notification-rules
