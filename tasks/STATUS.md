@@ -24,7 +24,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
-| F24  | 15    | 13  | 0   | 0   | 0   | 2   | 0   |
+| F24  | 15    | 12  | 0   | 0   | 0   | 3   | 0   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -345,7 +345,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24-S01 | DB — schema notification_rules + notification_rule_deliveries + coluna category | 🟣 review    | high       | —                                  |
 | F24-S02 | DB — seed permissão notifications:manage + feature flags notifications.\*       | 🟢 available | high       | F24-S01                            |
 | F24-S03 | Backend — provider de email Resend + senders/email.ts real (org-aware)          | 🟣 review    | high       | —                                  |
-| F24-S04 | Backend — catálogo de gatilhos + schemas Zod de regras (shared-schemas)         | 🟢 available | high       | —                                  |
+| F24-S04 | Backend — catálogo de gatilhos + schemas Zod de regras (shared-schemas)         | 🟣 review    | high       | —                                  |
 | F24-S05 | Backend — módulo notification-rules (CRUD admin + RBAC + test-fire)             | 🟢 available | high       | F24-S01, F24-S02, F24-S04          |
 | F24-S06 | Backend — fan-out rules-driven por evento + registro no outbox + dedup          | 🟢 available | high       | F24-S03, F24-S04, F24-S05, F24-S09 |
 | F24-S07 | Backend — worker notification-sla-scan (estagnação em estágios)                 | 🟢 available | high       | F24-S04, F24-S05, F24-S06          |

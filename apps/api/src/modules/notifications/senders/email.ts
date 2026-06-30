@@ -141,9 +141,9 @@ export async function sendEmail(input: EmailSenderInput, db: Database = defaultD
   // Vars obrigatórias validadas pelo refine do envSchema (boot falha se ausentes).
   // Non-null assertion justificada: env.NOTIFICATIONS_EMAIL_ENABLED=true implica
   // que RESEND_API_KEY e EMAIL_FROM são definidos (garantido pelo refine).
-   
+
   const apiKey = env.RESEND_API_KEY!;
-   
+
   const fromAddress = env.EMAIL_FROM!;
 
   try {

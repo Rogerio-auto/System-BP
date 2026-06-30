@@ -3,7 +3,7 @@ id: F24-S04
 title: Backend — catálogo de gatilhos + schemas Zod de regras (shared-schemas)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
@@ -12,6 +12,8 @@ blocks: [F24-S05, F24-S06, F24-S07]
 labels: [backend, notifications, shared-schemas]
 source_docs: [docs/planejamento-notificacoes.md, docs/04-eventos.md]
 docs_required: false
+claimed_at: 2026-06-30T17:04:45Z
+completed_at: 2026-06-30T17:19:56Z
 ---
 
 # F24-S04 — Backend: catálogo de gatilhos + schemas de regra
