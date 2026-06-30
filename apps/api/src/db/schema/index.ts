@@ -105,6 +105,10 @@ export * from './tasks.js';
 export * from './notifications.js';
 export * from './notificationPreferences.js';
 
+// Motor de regras de notificação (F24-S01)
+export * from './notificationRules.js';
+export * from './notificationRuleDeliveries.js';
+
 // Live chat multicanal (F16-S02)
 export * from './channels.js';
 export * from './channelSecrets.js';
