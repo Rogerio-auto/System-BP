@@ -3,7 +3,7 @@ id: F24-S01
 title: DB — schema notification_rules + notification_rule_deliveries + coluna category
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
@@ -14,8 +14,9 @@ source_docs:
   [docs/planejamento-notificacoes.md, docs/03-modelo-dados.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
 claimed_at: 2026-06-30T17:04:36Z
----
+completed_at: 2026-06-30T17:32:53Z
 
+---
 # F24-S01 — DB: notification_rules + deliveries + category
 
 ## Objetivo
