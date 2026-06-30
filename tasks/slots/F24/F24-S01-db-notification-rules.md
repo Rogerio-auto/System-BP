@@ -3,15 +3,17 @@ id: F24-S01
 title: DB — schema notification_rules + notification_rule_deliveries + coluna category
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
 depends_on: []
 blocks: [F24-S02, F24-S05, F24-S06, F24-S09]
 labels: [db-schema, notifications, multi-tenant, lgpd-impact]
-source_docs: [docs/planejamento-notificacoes.md, docs/03-modelo-dados.md, docs/17-lgpd-protecao-dados.md]
+source_docs:
+  [docs/planejamento-notificacoes.md, docs/03-modelo-dados.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
+claimed_at: 2026-06-30T17:04:36Z
 ---
 
 # F24-S01 — DB: notification_rules + deliveries + category
