@@ -3,7 +3,7 @@ id: F24-S10
 title: Frontend — página Admin de regras de notificação (lista + card)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/planejamento-notificacoes.md, docs/18-design-system.md]
 docs_required: true
 docs_artifacts: [docs/help/guias/admin/notificacoes.mdx]
 claimed_at: 2026-06-30T22:22:13Z
+completed_at: 2026-06-30T22:42:48Z
 ---
 
 # F24-S10 — Frontend: página Admin (lista de regras)
