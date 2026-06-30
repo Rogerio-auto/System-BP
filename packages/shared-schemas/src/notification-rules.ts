@@ -11,6 +11,12 @@
 //
 // LGPD: os placeholders expostos nos templates são IDs opacos e metadados
 // operacionais — sem PII bruta (sem CPF, telefone, nome de cidadão).
+//
+// Reconciliação de contrato (F24-S05 security-review):
+//   B-07 — `name` e `cooldown_hours` adicionados.
+//   B-08 — `city_scope` mantido na API; mapping ↔ filters jsonb feito no service.
+//   recipient_role → recipient_roles (array, espelha text[] do DB).
+//   enabled: default false (espelha DB — regras nascem desligadas).
 // =============================================================================
 import { z } from 'zod';
 
@@ -393,14 +399,24 @@ function validateTemplatePlaceholders(
 /**
  * Schema de criação de regra de notificação.
  *
+ * Reconciliação B-07: `name` e `cooldown_hours` adicionados.
+ * Reconciliação: `recipient_roles` (array) espelha `recipient_roles text[]` do DB.
+ * Reconciliação: `enabled` default false — regras nascem desligadas (DB default).
+ *
  * Validações cruzadas (superRefine):
  * 1. trigger_key deve existir no TRIGGER_CATALOG.
  * 2. threshold_hours obrigatório quando trigger_kind=stage_inactivity.
- * 3. recipient_role obrigatório quando recipient_mode=by_role_city.
+ * 3. recipient_roles não-vazio quando recipient_mode=by_role_city.
  * 4. Placeholders usados nos templates ⊆ placeholders permitidos do gatilho.
  */
 export const notificationRuleCreateSchema = z
   .object({
+    /**
+     * Nome descritivo da regra para exibição na UI de configuração.
+     * Ex: "Alerta de inatividade no kanban — Qualificação".
+     */
+    name: z.string().min(1).max(200).describe('Nome descritivo da regra (exibido na listagem)'),
+
     /** Chave do gatilho — deve existir no TRIGGER_CATALOG. */
     trigger_key: z
       .string()
@@ -411,15 +427,15 @@ export const notificationRuleCreateSchema = z
     recipient_mode: recipientModeSchema,
 
     /**
-     * Role key do destinatário.
-     * Obrigatório quando recipient_mode=by_role_city.
-     * Ex: 'agente', 'gestor_regional', 'admin'.
+     * Role keys dos destinatários (array).
+     * Obrigatório (não-vazio) quando recipient_mode=by_role_city.
+     * Ex: ['agente', 'gestor_regional'].
+     * Espelha recipient_roles text[] do DB.
      */
-    recipient_role: z
-      .string()
-      .min(1)
+    recipient_roles: z
+      .array(z.string().min(1))
       .optional()
-      .describe('Role key (obrigatório se recipient_mode=by_role_city)'),
+      .describe('Role keys (obrigatório e não-vazio se recipient_mode=by_role_city)'),
 
     /** Severidade visual e de SLA da notificação. */
     severity: notificationSeveritySchema,
@@ -458,17 +474,34 @@ export const notificationRuleCreateSchema = z
       .optional()
       .describe('Horas de inatividade (obrigatório para stage_inactivity)'),
 
-    /** true = regra ativa e será avaliada pelo worker. */
-    enabled: z.boolean().default(true),
+    /**
+     * Horas mínimas entre disparos para a mesma entidade (cooldown).
+     * 0 = sem cooldown (default). >0: o worker verifica notification_rule_deliveries.
+     * Espelha cooldown_hours int DEFAULT 0 do DB (B-07).
+     */
+    cooldown_hours: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .default(0)
+      .describe('Horas de cooldown entre disparos para a mesma entidade (0 = sem cooldown)'),
+
+    /**
+     * true = regra ativa e será avaliada pelo worker.
+     * false (default) = regra cadastrada mas INATIVA — espelha DB default false.
+     */
+    enabled: z.boolean().default(false),
 
     /**
      * UUIDs das cidades às quais a regra se aplica.
      * Omitido ou vazio = todas as cidades da organização.
+     * Persiste em filters jsonb como { city_scope: [...] } (B-08).
      */
     city_scope: z
       .array(z.string().uuid())
       .optional()
-      .describe('UUIDs de cidades (omitido = todas)'),
+      .describe('UUIDs de cidades (omitido = todas). Persiste em filters jsonb.'),
   })
   .superRefine((data, ctx) => {
     const trigger = findTrigger(data.trigger_key);
@@ -492,12 +525,15 @@ export const notificationRuleCreateSchema = z
       });
     }
 
-    // 3. recipient_role obrigatório quando by_role_city
-    if (data.recipient_mode === 'by_role_city' && data.recipient_role === undefined) {
+    // 3. recipient_roles não-vazio quando by_role_city
+    if (
+      data.recipient_mode === 'by_role_city' &&
+      (data.recipient_roles === undefined || data.recipient_roles.length === 0)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['recipient_role'],
-        message: 'recipient_role é obrigatório quando recipient_mode=by_role_city',
+        path: ['recipient_roles'],
+        message: 'recipient_roles deve ser um array não-vazio quando recipient_mode=by_role_city',
       });
     }
 
@@ -518,18 +554,27 @@ export type NotificationRuleCreate = z.infer<typeof notificationRuleCreateSchema
  *
  * Todos os campos são opcionais. Quando trigger_key está presente no payload,
  * as validações cruzadas (threshold_hours, placeholders) são re-avaliadas.
+ *
+ * B-06: Quando title_template/body_template vêm sem trigger_key, o service
+ * busca o trigger_key atual da regra no DB e re-valida os placeholders.
+ * Essa validação async não pode ser feita aqui (superRefine é síncrono).
  */
 export const notificationRuleUpdateSchema = z
   .object({
+    /** Nome descritivo (atualização). */
+    name: z.string().min(1).max(200).optional(),
     /** Nova chave de gatilho. Deve existir no TRIGGER_CATALOG se fornecida. */
     trigger_key: z.string().min(1).optional(),
     recipient_mode: recipientModeSchema.optional(),
-    recipient_role: z.string().min(1).optional(),
+    /** Role keys dos destinatários (atualização). */
+    recipient_roles: z.array(z.string().min(1)).optional(),
     severity: notificationSeveritySchema.optional(),
     channels: z.array(ruleChannelSchema).min(1).optional(),
     title_template: z.string().min(1).max(200).optional(),
     body_template: z.string().min(1).max(1000).optional(),
     threshold_hours: z.number().positive().optional(),
+    /** Cooldown em horas (atualização). */
+    cooldown_hours: z.number().int().min(0).optional(),
     enabled: z.boolean().optional(),
     city_scope: z.array(z.string().uuid()).optional(),
   })
@@ -565,12 +610,15 @@ export const notificationRuleUpdateSchema = z
       }
     }
 
-    // recipient_role obrigatório quando alterando para by_role_city
-    if (data.recipient_mode === 'by_role_city' && data.recipient_role === undefined) {
+    // recipient_roles não-vazio quando alterando para by_role_city
+    if (
+      data.recipient_mode === 'by_role_city' &&
+      (data.recipient_roles === undefined || data.recipient_roles.length === 0)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['recipient_role'],
-        message: 'recipient_role é obrigatório quando recipient_mode=by_role_city',
+        path: ['recipient_roles'],
+        message: 'recipient_roles deve ser um array não-vazio quando recipient_mode=by_role_city',
       });
     }
   });
@@ -583,6 +631,10 @@ export type NotificationRuleUpdate = z.infer<typeof notificationRuleUpdateSchema
  * Campos como trigger_kind, category e entity_type são denormalizados pelo
  * service a partir do TRIGGER_CATALOG no momento da leitura — sem necessidade
  * de persistência redundante no DB.
+ *
+ * Reconciliação B-07: `name` e `cooldown_hours` adicionados.
+ * Reconciliação: `recipient_roles` (array) espelha text[] do DB.
+ * Reconciliação B-08: `city_scope` derivado de filters jsonb no service.
  */
 export const notificationRuleResponseSchema = z.object({
   /** UUID primário da regra. */
@@ -590,6 +642,9 @@ export const notificationRuleResponseSchema = z.object({
 
   /** Organização dona da regra (multi-tenant). */
   organization_id: z.string().uuid(),
+
+  /** Nome descritivo da regra. */
+  name: z.string(),
 
   /** Chave canônica do gatilho. */
   trigger_key: z.string(),
@@ -605,8 +660,12 @@ export const notificationRuleResponseSchema = z.object({
 
   recipient_mode: recipientModeSchema,
 
-  /** null quando recipient_mode ≠ by_role_city. */
-  recipient_role: z.string().nullable(),
+  /**
+   * Role keys dos destinatários.
+   * Array vazio quando recipient_mode ≠ by_role_city.
+   * Espelha recipient_roles text[] do DB.
+   */
+  recipient_roles: z.array(z.string()),
 
   severity: notificationSeveritySchema,
 
@@ -620,10 +679,17 @@ export const notificationRuleResponseSchema = z.object({
    */
   threshold_hours: z.number().positive().nullable(),
 
+  /**
+   * Horas de cooldown entre disparos para a mesma entidade.
+   * 0 = sem cooldown.
+   */
+  cooldown_hours: z.number().int().min(0),
+
   enabled: z.boolean(),
 
   /**
    * null = aplica-se a todas as cidades da organização.
+   * Derivado de filters->>'city_scope' no service (B-08).
    */
   city_scope: z.array(z.string().uuid()).nullable(),
 
@@ -693,3 +759,26 @@ export const notificationRuleTestResponseSchema = z.object({
 });
 
 export type NotificationRuleTestResponse = z.infer<typeof notificationRuleTestResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Re-export findTrigger para uso no backend (service layer)
+// ---------------------------------------------------------------------------
+
+/**
+ * Encontra uma entrada no catálogo pelo key exato.
+ * Exportado para uso no service layer (derivar category + validar placeholders).
+ */
+export function lookupTrigger(key: string): TriggerCatalogEntry | undefined {
+  return TRIGGER_CATALOG.find((e) => e.key === key);
+}
+
+/**
+ * Extrai tokens {{placeholder}} de uma string de template.
+ * Exportado para uso no service layer (B-06: validação de placeholders no update).
+ */
+export function extractTemplatePlaceholders(template: string): string[] {
+  return [...template.matchAll(/\{\{(\w+)\}\}/g)].flatMap((m) => {
+    const group = m[1];
+    return group !== undefined ? [group] : [];
+  });
+}

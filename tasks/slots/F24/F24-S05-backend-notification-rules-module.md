@@ -3,15 +3,22 @@ id: F24-S05
 title: Backend — módulo notification-rules (CRUD admin + RBAC + test-fire)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: review
 priority: high
 estimated_size: L
 agent_id: null
 depends_on: [F24-S01, F24-S02, F24-S04]
 blocks: [F24-S06, F24-S07, F24-S10]
 labels: [backend, notifications, rbac, multi-tenant, lgpd-impact]
-source_docs: [docs/planejamento-notificacoes.md, docs/10-seguranca-permissoes.md, docs/17-lgpd-protecao-dados.md]
+source_docs:
+  [
+    docs/planejamento-notificacoes.md,
+    docs/10-seguranca-permissoes.md,
+    docs/17-lgpd-protecao-dados.md,
+  ]
 docs_required: false
+claimed_at: 2026-06-30T21:03:19Z
+completed_at: 2026-06-30T21:48:18Z
 ---
 
 # F24-S05 — Backend: módulo notification-rules
