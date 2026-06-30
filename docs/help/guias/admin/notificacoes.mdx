@@ -1,0 +1,106 @@
+---
+title: Regras de Notificação
+description: Como configurar, ativar e gerenciar as regras que disparam alertas para agentes e gestores quando eventos operacionais relevantes ocorrem na plataforma.
+order: 20
+keywords: [notificacoes, regras, alertas, gatilho, severidade, canais, in-app, email, notifications, admin]
+---
+
+# Regras de Notificação
+
+<Permission required="notifications:manage">
+  Esta seção é exclusiva para administradores com a permissão **notifications:manage**.
+  Se o menu **Regras de Notificação** não aparece em Configurações, fale com o responsável pelo sistema.
+</Permission>
+
+As regras de notificação definem automaticamente **quando** e **como** a plataforma alerta agentes e gestores sobre eventos operacionais — como um lead parado no funil, uma solicitação de handoff IA&rarr;humano não atendida, ou um contrato assinado.
+
+Cada regra conecta um **gatilho** (evento ou condição de inatividade) a um **conjunto de destinatários** e um ou mais **canais de entrega** (in-app, e-mail).
+
+## Passo a passo
+
+<Step number={1} title="Acesse a página de regras">
+  No menu lateral, vá em **Configurações**, aba **Administração**, e clique em
+  **Regras de Notificação**. Você verá a lista de todas as regras configuradas.
+</Step>
+
+<Step number={2} title="Entenda a lista">
+  Cada linha mostra:
+  - **Nome** — rótulo descritivo da regra.
+  - **Gatilho** — chave técnica do evento ou eixo de inatividade (ex.: `simulations.generated`).
+  - **Categoria** — agrupamento funcional (Crédito, Cobrança, Handoff, etc.).
+  - **Canais** — onde a notificação é entregue (In-app, E-mail ou ambos).
+  - **Severidade** — Info, Alerta ou Crítico (controla destaque visual no sino).
+  - **Ativo** — toggle que liga ou desliga a regra instantaneamente, sem precisar editar.
+</Step>
+
+<Step number={3} title="Ativar ou desativar uma regra">
+  Clique no **toggle** na coluna **Ativo** da linha da regra. A mudança é aplicada
+  imediatamente — nenhuma regra desativada gera notificações, mesmo que o gatilho ocorra.
+
+  Regras novas nascem **inativas** por padrão para evitar ruído antes de revisar o template.
+</Step>
+
+<Step number={4} title="Criar uma nova regra">
+  Clique em **Nova regra** (botão azul no topo da lista). O formulário completo de criação
+  será implementado na próxima versão (F24-S11). Por enquanto, regras podem ser criadas
+  via API ou solicitadas ao time técnico.
+</Step>
+
+<Step number={5} title="Editar uma regra existente">
+  Clique no ícone de lápis na linha da regra. A edição completa estará disponível
+  na próxima versão (F24-S11).
+</Step>
+
+<Step number={6} title="Remover uma regra">
+  Clique no ícone de lixeira na linha da regra. Uma confirmação será solicitada.
+  A remoção é permanente — crie uma nova regra se precisar reconfigurar.
+</Step>
+
+## Gatilhos disponíveis
+
+Os gatilhos são divididos em dois tipos:
+
+| Tipo | Descrição | Exemplos |
+|---|---|---|
+| **event** | Disparado uma única vez quando um evento de domínio ocorre | `simulations.generated`, `contract.signed`, `task.created` |
+| **stage_inactivity** | Disparado quando uma entidade fica parada além de um limiar de horas | `kanban_stage:*`, `handoff:requested`, `analysis:pendente` |
+
+Gatilhos do tipo `stage_inactivity` exigem que a regra defina `threshold_hours` — quantas horas de inatividade antes de notificar.
+
+## Severidades
+
+| Nível | Uso recomendado |
+|---|---|
+| **Info** | Atualizações de status sem urgência (contrato assinado, simulação gerada) |
+| **Alerta** | Situações que precisam de atenção em breve (lead parado, inadimplência) |
+| **Crítico** | Requer ação imediata (handoff não atendido, inclusão SPC iminente) |
+
+<Callout type="info" title="Cooldown entre disparos">
+  Cada regra pode ter um **cooldown** em horas: o número mínimo de horas entre dois
+  disparos para a mesma entidade. Útil para evitar flood de notificações em regras
+  de inatividade que escaneiam periodicamente.
+  Cooldown 0 significa sem limite — a regra dispara toda vez que a condição for satisfeita.
+</Callout>
+
+## Canais de entrega
+
+- **In-app**: notificação aparece no sino dentro da plataforma, com link para a entidade.
+- **E-mail**: mensagem enviada para o e-mail cadastrado do destinatário.
+
+<Callout type="warn" title="WhatsApp não é canal de regra">
+  O WhatsApp é usado para comunicação com os **clientes** via templates aprovados pelo Meta,
+  não para notificações internas de gestão. Use In-app ou E-mail para alertas operacionais.
+</Callout>
+
+## Erros comuns
+
+| Problema | Causa | Correção |
+|---|---|---|
+| Toggle não salva | Sem permissão `notifications:manage` ou perda de sessão | Recarregue a página e tente novamente |
+| Regra ativa mas sem notificação | Feature flag `notifications.rules.enabled` desativada | Verifique em **Configurações** > **Feature Flags** |
+| Destinatários errados | `recipient_mode=by_role_city` sem `recipient_roles` definido | Edite a regra e selecione ao menos um papel |
+
+## Veja também
+
+- [Feature Flags](/ajuda/guias/admin/feature-flags) — como ativar o módulo de notificações.
+- [Usuários e Papéis](/ajuda/guias/admin/usuarios) — como atribuir a permissão `notifications:manage`.
