@@ -15,8 +15,8 @@ source_docs:
 docs_required: false
 claimed_at: 2026-06-30T17:04:36Z
 completed_at: 2026-06-30T17:32:53Z
-
 ---
+
 # F24-S01 — DB: notification_rules + deliveries + category
 
 ## Objetivo

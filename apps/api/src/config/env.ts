@@ -264,6 +264,32 @@ const envSchema = z
     SUPABASE_STORAGE_PUBLIC_URL: z.string().url().optional(),
     SUPABASE_SERVICE_KEY: z.string().min(1).optional(),
     SUPABASE_STORAGE_BUCKET: z.string().min(1).optional(),
+
+    // ---- Email via Resend (F24-S03) -----------------------------------------
+    // Liga/desliga o envio de emails de notificação transacional.
+    // Default false: no-op seguro até as credenciais estarem configuradas.
+    // Em produção, definir true somente após verificar o domínio no Resend.
+    NOTIFICATIONS_EMAIL_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
+
+    // Chave de API do Resend (re:send.com).
+    // Obrigatória quando NOTIFICATIONS_EMAIL_ENABLED=true.
+    // Gerar em: https://resend.com/api-keys
+    // LGPD: credencial sensível — nunca logar, nunca expor no frontend.
+    RESEND_API_KEY: z.string().min(1).optional(),
+
+    // Endereço remetente no formato "Nome <email@domínio.com>".
+    // Deve ser um domínio verificado no Resend (Resend → Domains).
+    // Ex: "Banco do Povo <noreply@bancodopovoderondonia.org.br>"
+    // Obrigatório quando NOTIFICATIONS_EMAIL_ENABLED=true.
+    EMAIL_FROM: z.string().min(1).optional(),
+
+    // Endereço de Reply-To opcional.
+    // Quando ausente, Reply-To não é enviado no header do email.
+    // Ex: "suporte@bancodopovoderondonia.org.br"
+    EMAIL_REPLY_TO: z.string().email().optional(),
   })
   .refine(
     (data) => {
@@ -283,6 +309,20 @@ const envSchema = z
         'STORAGE_PROVIDER=supabase exige as variáveis: ' +
         'SUPABASE_STORAGE_URL, SUPABASE_STORAGE_PUBLIC_URL, ' +
         'SUPABASE_SERVICE_KEY e SUPABASE_STORAGE_BUCKET. ' +
+        'Ver .env.example para detalhes.',
+    },
+  )
+  .refine(
+    (data) => {
+      // Guard: NOTIFICATIONS_EMAIL_ENABLED=true exige RESEND_API_KEY e EMAIL_FROM
+      if (data.NOTIFICATIONS_EMAIL_ENABLED) {
+        return data.RESEND_API_KEY !== undefined && data.EMAIL_FROM !== undefined;
+      }
+      return true;
+    },
+    {
+      message:
+        'NOTIFICATIONS_EMAIL_ENABLED=true exige RESEND_API_KEY e EMAIL_FROM configurados. ' +
         'Ver .env.example para detalhes.',
     },
   );
