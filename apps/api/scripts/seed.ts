@@ -196,6 +196,12 @@ const PERMISSIONS = [
     key: 'users:assign_privileged_roles',
     description: 'Atribuir os papéis privilegiados (admin, gestor_geral) a usuários — admin-only',
   },
+  // notificações — F24-S02 (migration 0077)
+  {
+    key: 'notifications:manage',
+    description:
+      'Gerenciar regras e entregas de notificações do sistema (notification_rules, notification_deliveries)',
+  },
 ] as const;
 
 /**
@@ -289,6 +295,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'credit_analyses:decide',
     // relatórios & métricas — F23-S02
     'reports:export',
+    // notificações — F24-S02
+    'notifications:manage',
   ],
   gestor_regional: [
     'leads:read',

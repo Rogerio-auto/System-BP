@@ -279,6 +279,43 @@ const FLAGS: SeedFlag[] = [
       'Habilita o agente LangGraph para responder automaticamente a mensagens do live chat',
     audience: {},
   },
+  // Notificações — F24 (todas disabled; gate explícito por canal/funcionalidade)
+  {
+    key: 'notifications.rules.enabled',
+    status: 'disabled',
+    visible: true,
+    uiLabel: 'Disponível na Fase 24',
+    description:
+      'Motor de regras de notificação — avalia notification_rules e gera notification_deliveries',
+    audience: {},
+  },
+  {
+    key: 'notifications.sla.enabled',
+    status: 'disabled',
+    visible: true,
+    uiLabel: 'Disponível na Fase 24',
+    description:
+      'Notificações de violação de SLA — dispara alertas quando leads ultrapassam tempo limite por stage',
+    audience: {},
+  },
+  {
+    key: 'notifications.email.enabled',
+    status: 'disabled',
+    visible: true,
+    uiLabel: 'Disponível na Fase 24',
+    description:
+      'Canal e-mail para entrega de notificações — habilitar somente após configurar SMTP/SendGrid',
+    audience: {},
+  },
+  {
+    key: 'notifications.realtime.enabled',
+    status: 'disabled',
+    visible: true,
+    uiLabel: 'Disponível na Fase 24',
+    description:
+      'Entrega realtime de notificações via SSE/WebSocket — requer notifications.rules.enabled',
+    audience: {},
+  },
   // Live chat — vínculo automático de contato ao CRM (F16-S22)
   {
     key: 'livechat.auto_lead.enabled',
