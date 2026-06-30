@@ -6,6 +6,10 @@
 //   - Marcar uma ou todas as notificações como lidas.
 //   - Ler e atualizar preferências de canal.
 //
+// F24-S09: updatePreferencesService delega ao repositório atualizado que suporta
+//   category × canal. Tipos fluem naturalmente via NotificationPreferencesBatchUpdate
+//   (agora com category opcional por item).
+//
 // RBAC verificado nas rotas — não aqui.
 // LGPD §8.5: title/body não são logados; apenas IDs opacos nos audit logs.
 // =============================================================================
@@ -63,7 +67,10 @@ export async function markAllNotificationsReadService(
 }
 
 /**
- * Retorna preferências de canal do usuário.
+ * Retorna a matriz de preferências de notificação do usuário.
+ *
+ * F24-S09: resposta inclui tanto os defaults de canal (category=null)
+ * quanto os overrides de categoria configurados.
  * Canais não configurados têm enabled=true (opt-out model).
  */
 export async function getPreferencesService(
@@ -76,6 +83,11 @@ export async function getPreferencesService(
 
 /**
  * Atualiza preferências de canal do usuário.
+ *
+ * F24-S09: aceita items com `category` opcional.
+ *   - Sem category (ou null) → atualiza o default do canal (retrocompat).
+ *   - Com category          → atualiza o override de categoria específica.
+ *
  * Upsert idempotente: re-enviar o mesmo payload é no-op.
  */
 export async function updatePreferencesService(

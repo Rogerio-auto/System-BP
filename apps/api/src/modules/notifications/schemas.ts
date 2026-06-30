@@ -3,9 +3,15 @@
 //
 // Re-exporta schemas públicos de @elemento/shared-schemas e define schemas
 // locais de query/param para uso interno nas rotas.
+//
+// F24-S09: estende preferências de canal para "por categoria × canal".
+//   - notificationCategorySchema / NotificationCategory re-exportados do shared-schemas.
+//   - NotificationPreferencesBatchUpdateSchema aceita `category` opcional por item.
+//   - NotificationPreferencesListSchema inclui `category` na resposta.
 // =============================================================================
 import 'zod-openapi/extend';
 
+import { notificationCategorySchema } from '@elemento/shared-schemas';
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
@@ -17,6 +23,8 @@ export {
   NotificationListResponseSchema,
   NotificationPreferenceSchema,
   NotificationPreferenceUpdateSchema,
+  // F24-S09: enum de categorias — reutilizado pelo worker de fan-out
+  notificationCategorySchema,
 } from '@elemento/shared-schemas';
 
 export type {
@@ -25,6 +33,8 @@ export type {
   NotificationListResponse,
   NotificationPreference,
   NotificationPreferenceUpdate,
+  // F24-S09
+  NotificationCategory,
 } from '@elemento/shared-schemas';
 
 // ---------------------------------------------------------------------------
@@ -54,7 +64,12 @@ export type NotificationListQuery = z.infer<typeof NotificationListQuerySchema>;
 
 // ---------------------------------------------------------------------------
 // Body — PUT /api/notifications/preferences
-// (lista de preferências para upsert em batch)
+//
+// F24-S09: cada item aceita agora `category` opcional.
+//   - Ausente / null  → preferência genérica do canal (retrocompat).
+//   - Valor de enum   → preferência específica para aquela categoria.
+//
+// max(21) = 3 canais × (1 genérica + 6 categorias)
 // ---------------------------------------------------------------------------
 
 export const NotificationPreferencesBatchUpdateSchema = z
@@ -64,18 +79,30 @@ export const NotificationPreferencesBatchUpdateSchema = z
         z.object({
           channel: z.enum(['in_app', 'email', 'whatsapp']).describe('Canal de entrega'),
           enabled: z.boolean().describe('true = ativo; false = silenciado'),
+          category: notificationCategorySchema
+            .nullable()
+            .optional()
+            .describe(
+              'Categoria de notificação. Omitir ou null = preferência global do canal (retrocompat); ' +
+                'fornecer um valor = preferência específica para aquela categoria.',
+            ),
         }),
       )
       .min(1)
-      .max(3)
-      .describe('Lista de preferências a atualizar (max 3 — um por canal)'),
+      .max(21)
+      .describe(
+        'Lista de preferências a atualizar. ' +
+          'max 21: 3 canais × (1 global + 6 categorias). ' +
+          'Items sem category sobrescrevem o default global do canal.',
+      ),
   })
   .openapi({
     example: {
       preferences: [
         { channel: 'in_app', enabled: true },
         { channel: 'email', enabled: false },
-        { channel: 'whatsapp', enabled: true },
+        { channel: 'in_app', enabled: false, category: 'billing' },
+        { channel: 'email', enabled: true, category: 'billing' },
       ],
     },
   });
@@ -85,7 +112,13 @@ export type NotificationPreferencesBatchUpdate = z.infer<
 >;
 
 // ---------------------------------------------------------------------------
-// Response — lista de preferências
+// Response — lista/matriz de preferências
+//
+// F24-S09: cada item inclui `category` (opcional para retrocompat com clientes
+// existentes que não enviam o campo).
+//
+//   category = null/ausente → preferência global do canal (default do canal).
+//   category = string       → preferência específica para aquela categoria.
 // ---------------------------------------------------------------------------
 
 export const NotificationPreferencesListSchema = z
@@ -94,15 +127,23 @@ export const NotificationPreferencesListSchema = z
       z.object({
         channel: z.enum(['in_app', 'email', 'whatsapp']),
         enabled: z.boolean(),
+        category: notificationCategorySchema
+          .nullable()
+          .optional()
+          .describe(
+            'Categoria desta preferência. null = default genérico do canal; ' +
+              'string = preferência específica por categoria.',
+          ),
       }),
     ),
   })
   .openapi({
     example: {
       data: [
-        { channel: 'in_app', enabled: true },
-        { channel: 'email', enabled: false },
-        { channel: 'whatsapp', enabled: true },
+        { channel: 'in_app', enabled: true, category: null },
+        { channel: 'email', enabled: false, category: null },
+        { channel: 'whatsapp', enabled: true, category: null },
+        { channel: 'in_app', enabled: false, category: 'billing' },
       ],
     },
   });

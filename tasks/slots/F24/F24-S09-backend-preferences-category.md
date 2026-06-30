@@ -3,7 +3,7 @@ id: F24-S09
 title: Backend — preferências de notificação por categoria
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,8 @@ blocks: [F24-S06, F24-S12]
 labels: [backend, notifications, lgpd-impact]
 source_docs: [docs/planejamento-notificacoes.md]
 docs_required: false
+claimed_at: 2026-06-30T20:01:56Z
+completed_at: 2026-06-30T20:46:37Z
 ---
 
 # F24-S09 — Backend: preferências por categoria
@@ -24,8 +26,9 @@ mantendo o modelo opt-out, e expor a resolução `isCategoryChannelEnabled` para
 ## Contexto
 
 Planejamento §4.5. Coluna `category` já criada em F24-S01. Resolução: override de categoria
+
 > default do canal (category NULL) > habilitado (default). API atual em `modules/notifications/routes.ts`
-(`GET/PUT /notifications/preferences`, perm `notifications:read`).
+> (`GET/PUT /notifications/preferences`, perm `notifications:read`).
 
 ## Escopo (faz)
 
