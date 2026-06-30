@@ -3,7 +3,7 @@ id: F24-S02
 title: DB — seed permissão notifications:manage + feature flags notifications.*
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: null
@@ -14,6 +14,7 @@ source_docs:
   [docs/planejamento-notificacoes.md, docs/09-feature-flags.md, docs/10-seguranca-permissoes.md]
 docs_required: false
 claimed_at: 2026-06-30T20:01:53Z
+completed_at: 2026-06-30T20:18:44Z
 ---
 
 # F24-S02 — DB: seed de permissão + feature flags
