@@ -3,7 +3,7 @@ id: F24-S02
 title: DB — seed permissão notifications:manage + feature flags notifications.*
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
@@ -15,8 +15,9 @@ source_docs:
 docs_required: false
 claimed_at: 2026-06-30T20:01:53Z
 completed_at: 2026-06-30T20:18:44Z
----
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/395
 
+---
 # F24-S02 — DB: seed de permissão + feature flags
 
 ## Objetivo

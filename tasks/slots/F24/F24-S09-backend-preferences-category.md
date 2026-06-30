@@ -3,7 +3,7 @@ id: F24-S09
 title: Backend — preferências de notificação por categoria
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
@@ -14,8 +14,9 @@ source_docs: [docs/planejamento-notificacoes.md]
 docs_required: false
 claimed_at: 2026-06-30T20:01:56Z
 completed_at: 2026-06-30T20:46:37Z
----
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/396
 
+---
 # F24-S09 — Backend: preferências por categoria
 
 ## Objetivo
