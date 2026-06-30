@@ -40,3 +40,6 @@ export * from './reports.js';
 
 // Avatar — upload de foto de perfil do usuário (limites + signed URL)
 export * from './avatar.js';
+
+// Notification rules — catálogo de gatilhos + schemas de regras (F24-S04)
+export * from './notification-rules.js';
