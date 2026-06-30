@@ -22,10 +22,15 @@ const ORG_ID = '00000000-0000-0000-0000-000000000001';
 const RULE_ID = '00000000-0000-0000-0000-000000000002';
 const USER_ID = '00000000-0000-0000-0000-000000000003';
 
+// F24-S05 reconciliação:
+// - name: campo obrigatório adicionado (B-07).
+// - recipient_roles: array que espelha recipient_roles text[] do DB (substituiu recipient_role).
+// - enabled default mudou para false (espelha DB default false).
 const BASE_CREATE = {
+  name: 'Alerta de simulação gerada',
   trigger_key: 'simulations.generated',
   recipient_mode: 'by_role_city',
-  recipient_role: 'agente',
+  recipient_roles: ['agente'],
   severity: 'info',
   channels: ['in_app'],
   title_template: 'Nova simulação gerada',
@@ -200,11 +205,19 @@ describe('notificationRuleCreateSchema — casos válidos', () => {
   it('aceita regra de evento completa e válida', () => {
     const result = notificationRuleCreateSchema.parse(BASE_CREATE);
     expect(result.trigger_key).toBe('simulations.generated');
-    expect(result.enabled).toBe(true); // default
+    // F24-S05: enabled default é false (espelha DB default — regras nascem desligadas)
+    expect(result.enabled).toBe(false);
+    // F24-S05: name é obrigatório
+    expect(result.name).toBe('Alerta de simulação gerada');
+    // F24-S05: recipient_roles é array
+    expect(result.recipient_roles).toEqual(['agente']);
+    // F24-S05: cooldown_hours default é 0
+    expect(result.cooldown_hours).toBe(0);
   });
 
   it('aceita regra com trigger de inatividade + threshold_hours', () => {
     const result = notificationRuleCreateSchema.parse({
+      name: 'Lead parado no kanban',
       trigger_key: 'kanban_stage:*',
       recipient_mode: 'assignee',
       severity: 'warning',
@@ -217,21 +230,21 @@ describe('notificationRuleCreateSchema — casos válidos', () => {
     expect(result.threshold_hours).toBe(48);
   });
 
-  it('aceita regra com recipient_mode=managers (sem recipient_role)', () => {
+  it('aceita regra com recipient_mode=managers (sem recipient_roles)', () => {
     const result = notificationRuleCreateSchema.parse({
       ...BASE_CREATE,
       recipient_mode: 'managers',
-      recipient_role: undefined,
+      recipient_roles: undefined,
     });
     expect(result.recipient_mode).toBe('managers');
-    expect(result.recipient_role).toBeUndefined();
+    expect(result.recipient_roles).toBeUndefined();
   });
 
-  it('aceita regra com recipient_mode=assignee (sem recipient_role)', () => {
+  it('aceita regra com recipient_mode=assignee (sem recipient_roles)', () => {
     const result = notificationRuleCreateSchema.parse({
       ...BASE_CREATE,
       recipient_mode: 'assignee',
-      recipient_role: undefined,
+      recipient_roles: undefined,
     });
     expect(result.recipient_mode).toBe('assignee');
   });
@@ -253,8 +266,9 @@ describe('notificationRuleCreateSchema — casos válidos', () => {
     expect(result.city_scope).toHaveLength(2);
   });
 
-  it('aplica default enabled=true quando omitido', () => {
+  it('aplica default enabled=false quando omitido (espelha DB)', () => {
     const result = notificationRuleCreateSchema.parse({
+      name: 'Nova tarefa criada',
       trigger_key: 'task.created',
       recipient_mode: 'managers',
       severity: 'critical',
@@ -262,11 +276,12 @@ describe('notificationRuleCreateSchema — casos válidos', () => {
       title_template: 'Nova tarefa: {{type}}',
       body_template: 'Tarefa {{task_id}} criada para role {{assignee_role}} na cidade {{city_id}}.',
     });
-    expect(result.enabled).toBe(true);
+    expect(result.enabled).toBe(false);
   });
 
   it('aceita handoff:requested com threshold_hours', () => {
     const result = notificationRuleCreateSchema.parse({
+      name: 'Handoff sem aceite',
       trigger_key: 'handoff:requested',
       recipient_mode: 'managers',
       severity: 'critical',
@@ -276,6 +291,25 @@ describe('notificationRuleCreateSchema — casos válidos', () => {
       threshold_hours: 2,
     });
     expect(result.threshold_hours).toBe(2);
+  });
+
+  it('aceita cooldown_hours positivo', () => {
+    const result = notificationRuleCreateSchema.parse({
+      ...BASE_CREATE,
+      cooldown_hours: 24,
+    });
+    expect(result.cooldown_hours).toBe(24);
+  });
+});
+
+describe('notificationRuleCreateSchema — validação: name', () => {
+  it('rejeita regra sem name', () => {
+    const { name: _, ...noName } = BASE_CREATE;
+    expect(() => notificationRuleCreateSchema.parse(noName)).toThrow();
+  });
+
+  it('rejeita name vazio', () => {
+    expect(() => notificationRuleCreateSchema.parse({ ...BASE_CREATE, name: '' })).toThrow();
   });
 });
 
@@ -337,25 +371,33 @@ describe('notificationRuleCreateSchema — validação: threshold_hours', () => 
   });
 });
 
-describe('notificationRuleCreateSchema — validação: recipient_role', () => {
-  it('rejeita by_role_city sem recipient_role', () => {
+describe('notificationRuleCreateSchema — validação: recipient_roles', () => {
+  it('rejeita by_role_city sem recipient_roles', () => {
     expect(() =>
       notificationRuleCreateSchema.parse({
         ...BASE_CREATE,
         recipient_mode: 'by_role_city',
-        recipient_role: undefined,
+        recipient_roles: undefined,
       }),
-    ).toThrow(/recipient_role/);
+    ).toThrow(/recipient_roles/);
   });
 
-  it('rejeita recipient_role vazio', () => {
+  it('rejeita recipient_roles array vazio com by_role_city', () => {
     expect(() =>
       notificationRuleCreateSchema.parse({
         ...BASE_CREATE,
         recipient_mode: 'by_role_city',
-        recipient_role: '',
+        recipient_roles: [],
       }),
-    ).toThrow();
+    ).toThrow(/recipient_roles/);
+  });
+
+  it('aceita múltiplos roles', () => {
+    const result = notificationRuleCreateSchema.parse({
+      ...BASE_CREATE,
+      recipient_roles: ['agente', 'gestor_regional'],
+    });
+    expect(result.recipient_roles).toEqual(['agente', 'gestor_regional']);
   });
 });
 
@@ -383,6 +425,7 @@ describe('notificationRuleCreateSchema — validação: placeholders', () => {
   it('aceita todos os placeholders declarados pelo gatilho', () => {
     expect(() =>
       notificationRuleCreateSchema.parse({
+        name: 'Análise de crédito alterada',
         trigger_key: 'credit_analysis.status_changed',
         recipient_mode: 'assignee',
         severity: 'warning',
@@ -435,6 +478,23 @@ describe('notificationRuleUpdateSchema — casos válidos', () => {
     const result = notificationRuleUpdateSchema.parse({});
     expect(result).toEqual({});
   });
+
+  it('aceita patch de name', () => {
+    const result = notificationRuleUpdateSchema.parse({ name: 'Novo nome' });
+    expect(result.name).toBe('Novo nome');
+  });
+
+  it('aceita patch de cooldown_hours', () => {
+    const result = notificationRuleUpdateSchema.parse({ cooldown_hours: 48 });
+    expect(result.cooldown_hours).toBe(48);
+  });
+
+  it('aceita patch de recipient_roles (array)', () => {
+    const result = notificationRuleUpdateSchema.parse({
+      recipient_roles: ['agente', 'gestor_regional'],
+    });
+    expect(result.recipient_roles).toEqual(['agente', 'gestor_regional']);
+  });
 });
 
 describe('notificationRuleUpdateSchema — validação', () => {
@@ -465,13 +525,22 @@ describe('notificationRuleUpdateSchema — validação', () => {
     ).toThrow(/placeholder.*lead_id/);
   });
 
-  it('rejeita by_role_city sem recipient_role no update', () => {
+  it('rejeita by_role_city sem recipient_roles no update', () => {
     expect(() =>
       notificationRuleUpdateSchema.parse({
         recipient_mode: 'by_role_city',
-        // recipient_role ausente
+        // recipient_roles ausente
       }),
-    ).toThrow(/recipient_role/);
+    ).toThrow(/recipient_roles/);
+  });
+
+  it('rejeita by_role_city com recipient_roles vazio no update', () => {
+    expect(() =>
+      notificationRuleUpdateSchema.parse({
+        recipient_mode: 'by_role_city',
+        recipient_roles: [],
+      }),
+    ).toThrow(/recipient_roles/);
   });
 });
 
@@ -480,20 +549,23 @@ describe('notificationRuleUpdateSchema — validação', () => {
 // ---------------------------------------------------------------------------
 
 describe('notificationRuleResponseSchema', () => {
+  // F24-S05: response agora inclui name, cooldown_hours e recipient_roles (array)
   const BASE_RESPONSE = {
     id: RULE_ID,
     organization_id: ORG_ID,
+    name: 'Alerta de simulação gerada',
     trigger_key: 'simulations.generated',
     trigger_kind: 'event',
     category: 'credit',
     entity_type: 'simulation',
     recipient_mode: 'by_role_city',
-    recipient_role: 'agente',
+    recipient_roles: ['agente'],
     severity: 'info',
     channels: ['in_app'],
     title_template: 'Nova simulação gerada',
     body_template: 'Simulação {{simulation_id}} criada.',
     threshold_hours: null,
+    cooldown_hours: 0,
     enabled: true,
     city_scope: null,
     created_by: USER_ID,
@@ -507,7 +579,11 @@ describe('notificationRuleResponseSchema', () => {
     expect(result.trigger_kind).toBe('event');
     expect(result.threshold_hours).toBeNull();
     expect(result.city_scope).toBeNull();
-    expect(result.recipient_role).toBe('agente');
+    // F24-S05: recipient_roles é array
+    expect(result.recipient_roles).toEqual(['agente']);
+    // F24-S05: name e cooldown_hours presentes
+    expect(result.name).toBe('Alerta de simulação gerada');
+    expect(result.cooldown_hours).toBe(0);
   });
 
   it('aceita response com threshold_hours e city_scope preenchidos', () => {
@@ -518,11 +594,13 @@ describe('notificationRuleResponseSchema', () => {
       category: 'lifecycle_stalled',
       entity_type: 'kanban_card',
       threshold_hours: 48,
+      cooldown_hours: 24,
       city_scope: [ORG_ID],
-      recipient_role: null,
+      recipient_roles: [],
     });
     expect(result.threshold_hours).toBe(48);
     expect(result.city_scope).toHaveLength(1);
+    expect(result.cooldown_hours).toBe(24);
   });
 
   it('rejeita response sem id', () => {
@@ -534,6 +612,11 @@ describe('notificationRuleResponseSchema', () => {
     expect(() =>
       notificationRuleResponseSchema.parse({ ...BASE_RESPONSE, id: 'nao-uuid' }),
     ).toThrow();
+  });
+
+  it('rejeita response sem name', () => {
+    const { name: _, ...rest } = BASE_RESPONSE;
+    expect(() => notificationRuleResponseSchema.parse(rest)).toThrow();
   });
 });
 

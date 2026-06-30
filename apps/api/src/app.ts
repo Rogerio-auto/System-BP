@@ -45,6 +45,7 @@ import internalPlugin from './modules/internal/index.js';
 import { kanbanRoutes } from './modules/kanban/routes.js';
 import { lawFirmsRoutes } from './modules/law-firms/routes.js';
 import { leadsRoutes } from './modules/leads/routes.js';
+import { notificationRulesRoutes } from './modules/notification-rules/routes.js';
 import { notificationsRoutes } from './modules/notifications/index.js';
 import { reportsRoutes } from './modules/reports/routes.js';
 import { rolesRoutes } from './modules/roles/routes.js';
@@ -355,6 +356,8 @@ export async function buildApp() {
   await app.register(tasksRoutes);
   // Módulo de notificações in-app + preferências de canal (F15-S06)
   await app.register(notificationsRoutes);
+  // Motor de regras de notificação — CRUD admin + test-fire (F24-S05)
+  await app.register(notificationRulesRoutes);
   // Módulo de contratos — CRUD + ciclo de vida de assinatura (F17-S03)
   await app.register(channelsRoutes);
 
