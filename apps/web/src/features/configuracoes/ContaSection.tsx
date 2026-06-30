@@ -38,6 +38,7 @@ import {
   useUploadAvatar,
   type TwoFactorEnrollResponse,
 } from '../../hooks/account/useAccount';
+import { PreferencesMatrix } from '../notifications/preferences/PreferencesMatrix';
 
 // ─── Helpers de layout ────────────────────────────────────────────────────────
 
@@ -841,6 +842,23 @@ function AparenciaSection(): React.JSX.Element {
   );
 }
 
+// ─── Seção Notificações (F24-S12) ─────────────────────────────────────────────
+
+/**
+ * Matriz categoria × canal de preferências de notificação.
+ * Consome GET/PUT /api/notifications/preferences via PreferencesMatrix.
+ */
+function NotificacoesSection(): React.JSX.Element {
+  return (
+    <SectionCard
+      title="Notificações"
+      description="Escolha quais notificações receber e por quais canais."
+    >
+      <PreferencesMatrix />
+    </SectionCard>
+  );
+}
+
 // ─── ContaSection (pública) ───────────────────────────────────────────────────
 
 /**
@@ -855,6 +873,7 @@ export function ContaSection(): React.JSX.Element {
       <PerfilSection />
       <SegurancaSection />
       <AparenciaSection />
+      <NotificacoesSection />
     </div>
   );
 }
