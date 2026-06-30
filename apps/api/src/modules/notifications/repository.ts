@@ -8,13 +8,22 @@
 //   - Ler e fazer upsert de preferências de canal.
 //   - Resolver destinatários por assignee_role + city_id (para fan-out).
 //
+// F24-S09 — Preferências por categoria × canal:
+//   - getNotificationPreferences: retorna matriz (channel, category).
+//   - upsertNotificationPreferences: upsert via partial indexes (category IS NULL /
+//     category IS NOT NULL) conforme schema F24-S01.
+//   - isCategoryChannelEnabled: resolve habilitação com fallback
+//       override de categoria > default do canal (NULL) > true.
+//   - isChannelEnabled: mantido para retrocompat com fanout-notification.ts.
+//
 // City scope: as notificações já são por user_id — o escopo de tenant é
 //   garantido por organization_id. Não há applyCityScope aqui porque
 //   notificações são pessoais (já filtradas por user_id).
 //
 // LGPD §8.5: title/body podem ter PII indireta — não logar sem redact.
 // =============================================================================
-import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm';
+import type { NotificationCategory } from '@elemento/shared-schemas';
+import { and, count, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import {
@@ -83,6 +92,21 @@ export interface CreateNotificationInput {
 export interface RecipientUser {
   id: string;
   organizationId: string;
+}
+
+/** Item de atualização de preferência de notificação. F24-S09: inclui category opcional. */
+export interface NotificationPreferenceUpdateItem {
+  channel: 'in_app' | 'email' | 'whatsapp';
+  enabled: boolean;
+  /**
+   * Categoria da preferência.
+   * - Ausente / undefined / null → preferência genérica do canal (retrocompat, category=NULL no DB).
+   * - string → preferência específica para aquela categoria.
+   *
+   * `| undefined` necessário para compatibilidade com exactOptionalPropertyTypes:
+   * Zod's .optional() infere `T | null | undefined` que inclui undefined no value type.
+   */
+  category?: NotificationCategory | null | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,8 +270,17 @@ export async function createNotification(
 }
 
 /**
- * Retorna preferências de canal do usuário.
- * Canais não configurados são considerados enabled=true (opt-out model).
+ * Retorna preferências de canal do usuário — matriz (channel × category).
+ *
+ * F24-S09: Inclui tanto as preferências genéricas de canal (category=NULL,
+ * sempre presentes — padrão habilitado) quanto as preferências específicas
+ * por categoria configuradas pelo usuário.
+ *
+ * Estrutura da resposta:
+ *   - 3 itens com category=null (um por canal — default do canal).
+ *   - 0..N itens com category preenchida (overrides de categoria).
+ *
+ * Canais sem registro configurado têm enabled=true (opt-out model).
  */
 export async function getNotificationPreferences(
   db: Database,
@@ -264,52 +297,164 @@ export async function getNotificationPreferences(
         eq(notificationPreferences.organizationId, organizationId),
         eq(notificationPreferences.userId, userId),
       ),
-    );
+    )
+    .orderBy(notificationPreferences.channel, notificationPreferences.category);
 
-  // Mescla com defaults (canais não configurados = enabled)
-  const data = CHANNELS.map((channel) => {
-    const found = rows.find((r) => r.channel === channel);
-    return { channel, enabled: found?.enabled ?? true };
-  });
+  // Separa: defaults de canal (category=null) vs overrides de categoria
+  const channelDefaultMap = new Map<string, boolean>();
+  const categoryItems: Array<{ channel: string; enabled: boolean; category: string }> = [];
 
-  return { data };
+  for (const row of rows) {
+    const cat = row.category;
+    if (cat === null) {
+      channelDefaultMap.set(row.channel, row.enabled);
+    } else {
+      categoryItems.push({ channel: row.channel, enabled: row.enabled, category: cat });
+    }
+  }
+
+  // Defaults de canal: sempre 1 por canal, habilitado se não configurado
+  const channelDefaults = CHANNELS.map((ch) => ({
+    channel: ch,
+    enabled: channelDefaultMap.get(ch) ?? true,
+    category: null as null,
+  }));
+
+  // Overrides de categoria: `as NotificationCategory` justificado —
+  // os valores são escritos apenas via `upsertNotificationPreferences`
+  // que valida a categoria via Zod antes de persisti-la.
+  const categoryOverrides = categoryItems.map((item) => ({
+    channel: item.channel as 'in_app' | 'email' | 'whatsapp',
+    enabled: item.enabled,
+    category: item.category as NotificationCategory,
+  }));
+
+  return { data: [...channelDefaults, ...categoryOverrides] };
 }
 
 /**
- * Faz upsert de preferências de canal (um registro por canal por usuário).
- * Usa ON CONFLICT DO UPDATE via unique index (user_id, channel).
+ * Faz upsert de preferências de canal (F24-S09: suporte a category).
+ *
+ * Usa dois partial unique indexes distintos (schema F24-S01):
+ *   - category IS NULL     → uq_notification_preferences_user_channel_null_cat
+ *                            target: (user_id, channel)
+ *   - category IS NOT NULL → uq_notification_preferences_user_channel_cat
+ *                            target: (user_id, channel, category)
+ *
+ * Item sem category (ou category=null) → atualiza/insere o default do canal.
+ * Item com category → atualiza/insere override de categoria.
+ *
+ * Idempotente: re-enviar o mesmo payload é no-op.
  */
 export async function upsertNotificationPreferences(
   db: Database,
   organizationId: string,
   userId: string,
-  updates: Array<{ channel: 'in_app' | 'email' | 'whatsapp'; enabled: boolean }>,
+  updates: NotificationPreferenceUpdateItem[],
 ): Promise<NotificationPreferencesList> {
   const now = new Date();
 
   for (const update of updates) {
-    await db
-      .insert(notificationPreferences)
-      .values({
-        organizationId,
-        userId,
-        channel: update.channel,
-        enabled: update.enabled,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: [notificationPreferences.userId, notificationPreferences.channel],
-        set: { enabled: update.enabled, updatedAt: now },
-      });
+    // Normaliza undefined/null → null (preferência genérica de canal)
+    const categoryValue = update.category ?? null;
+
+    if (categoryValue === null) {
+      // Caminho: preferência genérica de canal (category=NULL)
+      // Conflito detectado pelo índice parcial WHERE category IS NULL
+      await db
+        .insert(notificationPreferences)
+        .values({
+          organizationId,
+          userId,
+          channel: update.channel,
+          category: null,
+          enabled: update.enabled,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [notificationPreferences.userId, notificationPreferences.channel],
+          targetWhere: sql`${notificationPreferences.category} IS NULL`,
+          set: { enabled: update.enabled, updatedAt: now },
+        });
+    } else {
+      // Caminho: override de categoria específica (category IS NOT NULL)
+      // Conflito detectado pelo índice parcial WHERE category IS NOT NULL
+      await db
+        .insert(notificationPreferences)
+        .values({
+          organizationId,
+          userId,
+          channel: update.channel,
+          category: categoryValue,
+          enabled: update.enabled,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [
+            notificationPreferences.userId,
+            notificationPreferences.channel,
+            notificationPreferences.category,
+          ],
+          targetWhere: sql`${notificationPreferences.category} IS NOT NULL`,
+          set: { enabled: update.enabled, updatedAt: now },
+        });
+    }
   }
 
   return getNotificationPreferences(db, organizationId, userId);
 }
 
 /**
- * Retorna se um canal está habilitado para o usuário.
- * Default: true (opt-out model — sem registro = habilitado).
+ * Resolve se o canal está habilitado para o usuário levando em conta a categoria.
+ *
+ * F24-S09 — Lógica de fallback (opt-out model):
+ *   1. Override de categoria (user_id, channel, category IS NOT NULL) — mais específico.
+ *   2. Default do canal    (user_id, channel, category IS NULL)       — fallback.
+ *   3. true (habilitado)                                               — sem registro.
+ *
+ * Busca ambos em uma única query ordenando por especificidade:
+ *   ORDER BY (category IS NULL) ASC
+ *   → category=valor (específico, IS NULL=false=0) vem antes de category=NULL (genérico, IS NULL=true=1).
+ *   LIMIT 1 → retorna o mais específico disponível.
+ *
+ * Usado pelo worker de fan-out (F24-S10+) e pelo serviço de notificações.
+ */
+export async function isCategoryChannelEnabled(
+  db: Database,
+  organizationId: string,
+  userId: string,
+  channel: 'in_app' | 'email' | 'whatsapp',
+  category: NotificationCategory,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ enabled: notificationPreferences.enabled })
+    .from(notificationPreferences)
+    .where(
+      and(
+        eq(notificationPreferences.organizationId, organizationId),
+        eq(notificationPreferences.userId, userId),
+        eq(notificationPreferences.channel, channel),
+        or(
+          eq(notificationPreferences.category, category),
+          isNull(notificationPreferences.category),
+        ),
+      ),
+    )
+    // ORDER BY (category IS NULL) ASC: IS NULL=false(0)=específico, IS NULL=true(1)=genérico
+    // Specific override vem primeiro → LIMIT 1 já devolve o override se existir.
+    .orderBy(sql`(${notificationPreferences.category} IS NULL) ASC`)
+    .limit(1);
+
+  // Sem registro = canal habilitado (opt-out model)
+  return row?.enabled ?? true;
+}
+
+/**
+ * Retorna se um canal está habilitado para o usuário (sem levar em conta categoria).
+ * Mantido para retrocompat com fanout-notification.ts (F15-S06).
+ * @deprecated Prefer isCategoryChannelEnabled for category-aware resolution.
  */
 export async function isChannelEnabled(
   db: Database,
@@ -325,6 +470,7 @@ export async function isChannelEnabled(
         eq(notificationPreferences.organizationId, organizationId),
         eq(notificationPreferences.userId, userId),
         eq(notificationPreferences.channel, channel),
+        isNull(notificationPreferences.category),
       ),
     )
     .limit(1);

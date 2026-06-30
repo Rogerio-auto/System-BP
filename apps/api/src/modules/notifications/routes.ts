@@ -125,8 +125,9 @@ export const notificationsRoutes: FastifyPluginAsyncZod = async (app) => {
   // ---------------------------------------------------------------------------
   // GET /api/notifications/preferences
   //
-  // Retorna as preferências de canal do usuário.
-  // Canais não configurados têm enabled=true (opt-out model).
+  // Retorna a matriz (channel × category) de preferências do usuário.
+  // Sempre inclui 3 itens com category=null (default por canal) e 0..N
+  // overrides específicos por categoria configurados pelo usuário.
   // ---------------------------------------------------------------------------
   app.get(
     '/api/notifications/preferences',
@@ -135,9 +136,11 @@ export const notificationsRoutes: FastifyPluginAsyncZod = async (app) => {
         tags: ['Notifications'],
         summary: 'Ver preferências de notificação',
         description:
-          'Retorna as preferências de canal de notificação do usuário autenticado. ' +
-          'Canais sem configuração explícita são retornados com `enabled: true` (modelo opt-out). ' +
-          'Canais disponíveis: `in_app` (sino), `email`, `whatsapp`.',
+          'Retorna a matriz de preferências de notificação do usuário autenticado. ' +
+          'A resposta inclui sempre os defaults de canal (`category: null`, `enabled: true` se não configurado) ' +
+          'e os overrides de categoria configurados pelo usuário. ' +
+          'Canais disponíveis: `in_app` (sino), `email`, `whatsapp`. ' +
+          'Categorias disponíveis: `lifecycle_stalled`, `assignment`, `credit`, `billing`, `handoff`, `system`.',
         security: [{ bearerAuth: [] }],
         response: {
           200: NotificationPreferencesListSchema,
@@ -151,7 +154,8 @@ export const notificationsRoutes: FastifyPluginAsyncZod = async (app) => {
   // ---------------------------------------------------------------------------
   // PUT /api/notifications/preferences
   //
-  // Atualiza preferências de canal em batch.
+  // Atualiza preferências de canal e/ou por categoria em batch.
+  // Suporta items sem category (default do canal) e com category (override).
   // Upsert idempotente: re-enviar o mesmo payload é no-op.
   // ---------------------------------------------------------------------------
   app.put(
@@ -161,8 +165,11 @@ export const notificationsRoutes: FastifyPluginAsyncZod = async (app) => {
         tags: ['Notifications'],
         summary: 'Atualizar preferências de notificação',
         description:
-          'Atualiza as preferências de canal do usuário autenticado via upsert. ' +
-          'Envia apenas os canais que deseja alterar — canais omitidos não são alterados. ' +
+          'Atualiza as preferências de notificação do usuário autenticado via upsert. ' +
+          'Cada item do array pode ter `category` opcional: ' +
+          'sem category (ou `null`) → atualiza o default global do canal; ' +
+          'com category → atualiza o override para aquela categoria específica. ' +
+          'Canais omitidos não são alterados. ' +
           'Idempotente: re-enviar o mesmo payload não tem efeito colateral.',
         security: [{ bearerAuth: [] }],
         body: NotificationPreferencesBatchUpdateSchema,
