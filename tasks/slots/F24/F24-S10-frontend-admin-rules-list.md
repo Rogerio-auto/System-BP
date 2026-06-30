@@ -3,7 +3,7 @@ id: F24-S10
 title: Frontend — página Admin de regras de notificação (lista + card)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
@@ -13,6 +13,7 @@ labels: [frontend, notifications, admin, design-system]
 source_docs: [docs/planejamento-notificacoes.md, docs/18-design-system.md]
 docs_required: true
 docs_artifacts: [docs/help/guias/admin/notificacoes.mdx]
+claimed_at: 2026-06-30T22:22:13Z
 ---
 
 # F24-S10 — Frontend: página Admin (lista de regras)
@@ -25,9 +26,10 @@ Criar a página `/admin/notificacoes` com a lista de regras de notificação e o
 ## Contexto
 
 Planejamento §5.1. Padrão de página admin = `pages/admin/FeatureFlags.tsx` / `pages/admin/Products.tsx`
-+ `features/admin/products/*`. Rota nova entra em `App.tsx` (roteador real). Card entra em
-`ConfiguracoesPage.tsx` (grupo Administração técnica) gated por `hasPermission('notifications:manage')`.
-Consome a API de F24-S05 com schema de `@elemento/shared-schemas`.
+
+- `features/admin/products/*`. Rota nova entra em `App.tsx` (roteador real). Card entra em
+  `ConfiguracoesPage.tsx` (grupo Administração técnica) gated por `hasPermission('notifications:manage')`.
+  Consome a API de F24-S05 com schema de `@elemento/shared-schemas`.
 
 ## Escopo (faz)
 
