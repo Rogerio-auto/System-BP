@@ -24,6 +24,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
+| F24  | 15    | 14  | 0   | 0   | 1   | 0   | 0   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -336,6 +337,26 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F23-S11 | QA & Segurança — isolamento por papel, métricas×SQL e LGPD do export                    | ✅ done | high       | F23-S07, F23-S08, F23-S10 |
 | F23-S12 | Auth — expõe escopo do usuário no payload + scope toggle preciso em /relatorios         | ✅ done | medium     | F23-S06                   |
 | F23-S13 | Hardening de segurança do reports — rate-limit do export, assertion de escopo, filename | ✅ done | medium     | F23-S09                   |
+
+## Fase 24 —
+
+| ID      | Título                                                                          | Status         | Prioridade | Depende de                         |
+| ------- | ------------------------------------------------------------------------------- | -------------- | ---------- | ---------------------------------- |
+| F24-S01 | DB — schema notification_rules + notification_rule_deliveries + coluna category | 🟢 available   | high       | —                                  |
+| F24-S02 | DB — seed permissão notifications:manage + feature flags notifications.\*       | 🟢 available   | high       | F24-S01                            |
+| F24-S03 | Backend — provider de email Resend + senders/email.ts real (org-aware)          | 🔵 in-progress | high       | —                                  |
+| F24-S04 | Backend — catálogo de gatilhos + schemas Zod de regras (shared-schemas)         | 🟢 available   | high       | —                                  |
+| F24-S05 | Backend — módulo notification-rules (CRUD admin + RBAC + test-fire)             | 🟢 available   | high       | F24-S01, F24-S02, F24-S04          |
+| F24-S06 | Backend — fan-out rules-driven por evento + registro no outbox + dedup          | 🟢 available   | high       | F24-S03, F24-S04, F24-S05, F24-S09 |
+| F24-S07 | Backend — worker notification-sla-scan (estagnação em estágios)                 | 🟢 available   | high       | F24-S04, F24-S05, F24-S06          |
+| F24-S08 | Backend — push em tempo real (sala user + publish notification.new)             | 🟢 available   | medium     | F24-S06                            |
+| F24-S09 | Backend — preferências de notificação por categoria                             | 🟢 available   | medium     | F24-S01                            |
+| F24-S10 | Frontend — página Admin de regras de notificação (lista + card)                 | 🟢 available   | high       | F24-S05                            |
+| F24-S11 | Frontend — drawer criar/editar regra + test-fire (preview)                      | 🟢 available   | high       | F24-S05, F24-S10                   |
+| F24-S12 | Frontend — preferências de notificação do usuário (categoria × canal)           | 🟢 available   | medium     | F24-S09                            |
+| F24-S13 | Frontend — sino de notificações em tempo real (socket + toast + badge)          | 🟢 available   | medium     | F24-S08                            |
+| F24-S14 | QA — testes de integração do sistema de notificações                            | 🟢 available   | high       | F24-S06, F24-S07, F24-S08, F24-S09 |
+| F24-S15 | Docs — doc canônico de notificações + flags + runbook go-live                   | 🟢 available   | medium     | F24-S05, F24-S07, F24-S12          |
 
 ## Fase 3 — Agentes IA
 
