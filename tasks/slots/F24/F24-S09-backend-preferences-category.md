@@ -3,7 +3,7 @@ id: F24-S09
 title: Backend — preferências de notificação por categoria
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
@@ -13,6 +13,7 @@ labels: [backend, notifications, lgpd-impact]
 source_docs: [docs/planejamento-notificacoes.md]
 docs_required: false
 claimed_at: 2026-06-30T20:01:56Z
+completed_at: 2026-06-30T20:46:37Z
 ---
 
 # F24-S09 — Backend: preferências por categoria
