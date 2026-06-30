@@ -3,7 +3,7 @@ id: F24-S04
 title: Backend — catálogo de gatilhos + schemas Zod de regras (shared-schemas)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
@@ -14,8 +14,9 @@ source_docs: [docs/planejamento-notificacoes.md, docs/04-eventos.md]
 docs_required: false
 claimed_at: 2026-06-30T17:04:45Z
 completed_at: 2026-06-30T17:19:56Z
----
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/394
 
+---
 # F24-S04 — Backend: catálogo de gatilhos + schemas de regra
 
 ## Objetivo

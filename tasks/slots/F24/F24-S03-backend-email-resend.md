@@ -3,7 +3,7 @@ id: F24-S03
 title: Backend — provider de email Resend + senders/email.ts real (org-aware)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
@@ -14,8 +14,9 @@ source_docs: [docs/planejamento-notificacoes.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
 claimed_at: 2026-06-30T17:04:34Z
 completed_at: 2026-06-30T17:35:02Z
----
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/393
 
+---
 # F24-S03 — Backend: provider Resend + email sender real
 
 ## Objetivo
