@@ -37,7 +37,7 @@ import { AppError, ConflictError } from '../../shared/errors.js';
 import type { UserScopeCtx } from '../../shared/scope.js';
 import { getOrCreateLead } from '../leads/service.js';
 import type { ConversationRow } from '../livechat/repo.js';
-import { linkConversationLead } from '../livechat/repo.js';
+import { countConversationsByStatus, linkConversationLead } from '../livechat/repo.js';
 import type { ComposerState } from '../livechat/schemas.js';
 import {
   findChannel,
@@ -48,6 +48,8 @@ import {
 } from '../livechat/service.js';
 
 import type {
+  ConversationCountsQuery,
+  ConversationCountsResponse,
   ConversationDetail,
   ConversationListResponse,
   ConversationListQuery,
@@ -181,8 +183,10 @@ export async function listConversationsService(
   const rows = await repoListConversations(db, {
     organizationId,
     cityScopeIds,
-    // Default status = 'open' quando não especificado
-    status: status ?? 'open',
+    // status omitido = TODOS os status (aba "Todas" do inbox). O repo só aplica
+    // o filtro eq(status) quando definido. O front envia 'open' por default;
+    // apenas a aba "Todas" omite o param.
+    status,
     channelId,
     assignedUserId,
     cursor,
@@ -197,6 +201,42 @@ export async function listConversationsService(
     data: rows.map(toConversationDto),
     nextCursor,
   };
+}
+
+// ---------------------------------------------------------------------------
+// countConversationsService
+// ---------------------------------------------------------------------------
+
+/**
+ * Contagem de conversas por status no escopo da organização.
+ *
+ * Live chat é org-wide (mesmo escopo de `listConversationsService`): city scope
+ * não é aplicado ao inbox — apenas organizationId é usado como filtro obrigatório.
+ *
+ * Filtros opcionais caçam com os filtros da rota GET /conversations para
+ * consistência visual (os badges de contagem refletem o filtro ativo na lista).
+ *
+ * @param db    Instância do banco
+ * @param actor Contexto do ator (organizationId obrigatório)
+ * @param query Filtros opcionais: channelId, assignedUserId
+ * @returns Objeto com contagem por status + total
+ */
+export async function countConversationsService(
+  db: Database,
+  actor: ActorContext,
+  query: ConversationCountsQuery,
+): Promise<ConversationCountsResponse> {
+  const { organizationId } = actor;
+  const { channelId, assignedUserId } = query;
+
+  log.debug(
+    { organizationId, channelId, assignedUserId },
+    'conversations.service: countConversations',
+  );
+
+  // ConversationCounts (repo) e ConversationCountsResponse (schema) têm a
+  // mesma shape — TypeScript aceita via compatibilidade estrutural sem cast.
+  return countConversationsByStatus(db, { organizationId, channelId, assignedUserId });
 }
 
 // ---------------------------------------------------------------------------

@@ -546,6 +546,88 @@ export async function insertInteractionBridge(
 }
 
 // ---------------------------------------------------------------------------
+// counts — contagem de conversas por status para o badge do inbox
+// ---------------------------------------------------------------------------
+
+/** Resultado da contagem agrupada por status. */
+export interface ConversationCounts {
+  open: number;
+  pending: number;
+  resolved: number;
+  snoozed: number;
+  total: number;
+}
+
+/** Filtros aceitos pela contagem (subconjunto de ListConversationsFilter, sem status). */
+export interface CountConversationsFilter {
+  organizationId: string;
+  /** undefined = sem filtro de canal. */
+  channelId: string | undefined;
+  /** undefined = sem filtro de agente. */
+  assignedUserId: string | undefined;
+}
+
+/**
+ * Conta conversas agrupadas por status (GROUP BY) no escopo da organização.
+ *
+ * Live chat é org-wide (mesma decisão de `listConversations`): city scope não é
+ * aplicado ao inbox — `cityScopeIds` é omitido deliberadamente aqui.
+ *
+ * Usa o índice `conversations_org_status_idx (organization_id, status)` —
+ * a query é eficiente mesmo com milhares de conversas.
+ *
+ * Status ausentes na query (ex: nenhuma conversa snoozed) recebem valor 0.
+ *
+ * @param db     Instância Drizzle (ou transação).
+ * @param filter Filtros opcionais de canal e agente.
+ * @returns Objeto com contagem por status + total.
+ */
+export async function countConversationsByStatus(
+  db: Database,
+  filter: CountConversationsFilter,
+): Promise<ConversationCounts> {
+  const { organizationId, channelId, assignedUserId } = filter;
+
+  const conditions = [
+    eq(conversations.organizationId, organizationId),
+    isNull(conversations.deletedAt),
+  ];
+
+  if (channelId !== undefined) {
+    conditions.push(eq(conversations.channelId, channelId));
+  }
+  if (assignedUserId !== undefined) {
+    conditions.push(eq(conversations.assignedUserId, assignedUserId));
+  }
+
+  // sql<number>`count(*)::int` — casting explícito de bigint → int para receber
+  // um number JavaScript (não string). `::int` é seguro para qualquer inbox
+  // razoável (MAX_INT ≈ 2 bilhões de conversas por status).
+  const rows = await db
+    .select({
+      status: conversations.status,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(conversations)
+    .where(and(...conditions))
+    .groupBy(conversations.status);
+
+  const result: ConversationCounts = { open: 0, pending: 0, resolved: 0, snoozed: 0, total: 0 };
+
+  for (const row of rows) {
+    if (row.status === 'open') result.open = row.n;
+    else if (row.status === 'pending') result.pending = row.n;
+    else if (row.status === 'resolved') result.resolved = row.n;
+    else if (row.status === 'snoozed') result.snoozed = row.n;
+    // status desconhecido ignorado (defensive — CHECK no DB previne isso)
+  }
+
+  result.total = result.open + result.pending + result.resolved + result.snoozed;
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // lead link — set idempotente de conversations.lead_id (F16-S22)
 // ---------------------------------------------------------------------------
 

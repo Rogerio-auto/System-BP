@@ -56,6 +56,8 @@ import type {
   ResolveResponse,
   SendMessageBody,
   SendMessageResponse,
+  SetStatusBody,
+  SetStatusResponse,
   SignedUrlBody,
   SignedUrlResponse,
 } from './send.schema.js';
@@ -559,6 +561,112 @@ export async function resolveConversation(
   return {
     conversationId,
     status: 'resolved',
+    updatedAt: updatedAt.toISOString(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// setConversationStatus
+// ---------------------------------------------------------------------------
+
+/**
+ * Troca o status de uma conversa para qualquer um dos 4 status canônicos.
+ *
+ * Complemento genérico ao /resolve fixo: permite abrir (→ 'open'), colocar em
+ * pendência (→ 'pending'), adiar (→ 'snoozed') ou resolver (→ 'resolved').
+ *
+ * Idempotente: enviar o mesmo status que já está gravado retorna 200 sem erro.
+ *
+ * Pipeline:
+ *   1. Verifica que a conversa existe e pertence à org (NotFoundError se não).
+ *   2. Transação: db.update (status + updatedAt) + auditLog atomic.
+ *   3. Socket relay conversation:updated (sem PII).
+ *
+ * LGPD: auditLog after contém apenas { status } — sem PII.
+ *
+ * @param db           Instância do banco
+ * @param actor        Contexto do ator autenticado (JWT — userId nunca null em produção)
+ * @param conversationId UUID da conversa (path param)
+ * @param body         { status: ConversationStatus }
+ */
+export async function setConversationStatus(
+  db: Database,
+  actor: SendActorContext,
+  conversationId: string,
+  body: SetStatusBody,
+): Promise<SetStatusResponse> {
+  const { status } = body;
+
+  log.debug(
+    { organizationId: actor.organizationId, conversationId, status },
+    'send.service: setConversationStatus',
+  );
+
+  // 1. Verifica que a conversa existe e pertence à org (com city scope)
+  await getConversation(db, conversationId, actor.organizationId, {
+    cityScopeIds: actor.cityScopeIds,
+  });
+
+  const updatedAt = new Date();
+
+  // 2. Transação: update + audit log atômicos (CLAUDE.md regra inegociável)
+  await db.transaction(async (tx) => {
+    // `as unknown as Database` justificado: Drizzle não exporta tipo público para
+    // PgTransaction; a interface estrutural mínima (update/insert) é compatível.
+    const txDb = tx as unknown as Database;
+
+    await txDb
+      .update(conversations)
+      .set({ status, updatedAt })
+      .where(
+        and(
+          eq(conversations.id, conversationId),
+          eq(conversations.organizationId, actor.organizationId),
+          isNull(conversations.deletedAt),
+        ),
+      );
+
+    // `as unknown as AuditTx` justificado: mesma razão — interface estrutural mínima (insert).
+    await auditLog(tx as unknown as AuditTx, {
+      organizationId: actor.organizationId,
+      // Rota JWT → ator humano; userId não é null em produção.
+      // AuditActor aceita userId: string | null — passagem direta é type-safe.
+      actor: {
+        userId: actor.userId,
+        role: actor.role,
+        ip: actor.ip ?? null,
+        userAgent: actor.userAgent ?? null,
+      },
+      action: 'livechat.conversation.status_changed',
+      resource: { type: 'conversation', id: conversationId },
+      // LGPD: after contém apenas o status — sem PII
+      after: { status },
+    });
+  });
+
+  // 3. Socket relay — conversation:updated (sem PII)
+  await publish(
+    QUEUES.socketRelay,
+    makeEnvelope(QUEUES.socketRelay, actor.organizationId, {
+      room: `workspace:${actor.organizationId}`,
+      event: 'conversation:updated',
+      data: {
+        conversationId,
+        status,
+        organizationId: actor.organizationId,
+        updatedAt: updatedAt.toISOString(),
+      },
+    }),
+  );
+
+  log.info(
+    { organizationId: actor.organizationId, conversationId, status },
+    'send.service: conversation status changed',
+  );
+
+  return {
+    conversationId,
+    status,
     updatedAt: updatedAt.toISOString(),
   };
 }
