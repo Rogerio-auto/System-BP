@@ -57,12 +57,18 @@ export interface DrizzleTx {
  * @param event Evento tipado (ver AppEvent em types.ts).
  * @returns UUID do evento inserido em event_outbox.
  *
+ * @param opts.onConflictDoNothing Quando `true`, a violação de idempotency_key
+ *        vira NO-OP silencioso (dedup) em vez de erro. Use para emissores com
+ *        chave DETERMINÍSTICA que podem reemitir a mesma chave (ex.: cities.identified).
+ *
  * @throws Postgres unique constraint error se idempotency_key já existir para
  *         esta organização — a transação do caller capturará e fará rollback.
+ *         NÃO lança quando `opts.onConflictDoNothing === true`.
  */
 export async function emit<K extends AppEventName>(
   tx: DrizzleTx,
   event: AppEvent<K>,
+  opts?: { onConflictDoNothing?: boolean },
 ): Promise<string> {
   const eventId = randomUUID();
   const occurredAt = new Date().toISOString();
@@ -84,7 +90,7 @@ export async function emit<K extends AppEventName>(
     ...(event.metadata !== undefined ? { metadata: event.metadata } : {}),
   };
 
-  await tx.insert(eventOutbox).values({
+  const insert = tx.insert(eventOutbox).values({
     id: eventId,
     organizationId: event.organizationId,
     eventName: event.eventName,
@@ -99,6 +105,21 @@ export async function emit<K extends AppEventName>(
     processedAt: null,
     failedAt: null,
   });
+
+  // Emissores com idempotency_key determinística (ex.: cities.identified =
+  // city_identify_<lead>_<city>) podem reemitir a mesma chave. Nesse caso a
+  // reemissão deve ser NO-OP silencioso (dedup), não erro: sem isso, a violação
+  // de uq_event_outbox_idempotency derruba a transação do caller (500 em prod).
+  if (opts?.onConflictDoNothing === true) {
+    // `as` justificado: DrizzleTx é um tipo estrutural mínimo (values(): Promise)
+    // deliberadamente enxuto para manter compatibilidade com os `tx` dos callers.
+    // Em runtime, `insert` é o query builder real do Drizzle, que expõe
+    // onConflictDoNothing(). Não alargamos a interface pública para não quebrar
+    // callers estruturais (ex.: anonymize.ts) — o cast fica isolado aqui.
+    await (insert as unknown as { onConflictDoNothing(): Promise<unknown> }).onConflictDoNothing();
+  } else {
+    await insert;
+  }
 
   return eventId;
 }

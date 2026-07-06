@@ -348,6 +348,10 @@ describe('POST /internal/cities/identify', () => {
           source_text: 'porto velho',
         }),
       }),
+      // Regressão (prod 2026-07-06): chave determinística city_identify_<lead>_<city>
+      // — reidentificar a mesma cidade deve ser NO-OP (dedup), não 500 por
+      // uq_event_outbox_idempotency. O route DEVE passar onConflictDoNothing.
+      { onConflictDoNothing: true },
     );
   });
 

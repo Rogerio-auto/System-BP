@@ -146,23 +146,30 @@ const internalCitiesRoutes: FastifyPluginAsyncZod = async (app) => {
         // Emitir cities.identified via outbox se lead_id presente
         if (lead_id !== undefined) {
           await db.transaction(async (tx) => {
-            await emit(tx, {
-              eventName: 'cities.identified',
-              aggregateType: 'city',
-              aggregateId: best.id,
-              organizationId: organization_id,
-              actor: { kind: 'ai', id: null, ip: null },
-              // Chave determinística: mesma combinação lead+city → mesmo evento no outbox.
-              // Elimina duplicatas quando o LangGraph reemite identify_city em retry (F3-S05).
-              idempotencyKey: `city_identify_${lead_id}_${best.id}`,
-              data: {
-                lead_id,
-                city_id: best.id,
-                confidence: best.similarity,
-                // source_text: dado de localização público — não PII (doc 17 §8.5)
-                source_text: city_text,
+            await emit(
+              tx,
+              {
+                eventName: 'cities.identified',
+                aggregateType: 'city',
+                aggregateId: best.id,
+                organizationId: organization_id,
+                actor: { kind: 'ai', id: null, ip: null },
+                // Chave determinística: mesma combinação lead+city → mesmo evento no outbox.
+                // Reemissão (o LangGraph reidentifica a mesma cidade — comportamento
+                // reforçado no prompt v6) é NO-OP via onConflictDoNothing abaixo. Antes
+                // derrubava a transação com 500 (uq_event_outbox_idempotency). F3-S05 +
+                // fix prod 2026-07-06.
+                idempotencyKey: `city_identify_${lead_id}_${best.id}`,
+                data: {
+                  lead_id,
+                  city_id: best.id,
+                  confidence: best.similarity,
+                  // source_text: dado de localização público — não PII (doc 17 §8.5)
+                  source_text: city_text,
+                },
               },
-            });
+              { onConflictDoNothing: true },
+            );
           });
         }
 
