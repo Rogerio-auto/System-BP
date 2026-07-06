@@ -126,7 +126,10 @@ export interface CreateSimulationOptions {
 
 function buildAuditActor(actor: SimulationActorContext): AuditActor {
   return {
-    userId: actor.userId,
+    // origin='ai' passa userId='' (sentinela — IA não tem usuário). audit_logs.
+    // actor_user_id é uuid FK e rejeita ''; normaliza para null (actor_role='ai'
+    // já identifica o ator de sistema). Ver feedback_system_actor_audit_uuid.
+    userId: actor.userId || null,
     role: actor.role,
     ...(actor.ip !== undefined ? { ip: actor.ip } : {}),
     ...(actor.userAgent !== undefined ? { userAgent: actor.userAgent } : {}),

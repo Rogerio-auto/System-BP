@@ -159,6 +159,18 @@ describe('auditLog()', () => {
     expect(row['userAgent']).toBeNull();
   });
 
+  it('coage actorUserId de string vazia para null (ator de sistema/IA — sentinela userId="")', async () => {
+    // Regressão: origin='ai' monta o ator com userId='' (IA não tem usuário).
+    // audit_logs.actor_user_id é uuid FK e rejeita '' ("invalid input syntax for
+    // type uuid"), derrubando a transação da simulação (500). Deve virar null.
+    const tx = makeTx();
+    await auditLog(tx, makeParams({ actor: { userId: '', role: 'ai' } }));
+
+    const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row['actorUserId']).toBeNull();
+    expect(row['actorRole']).toBe('ai');
+  });
+
   it('propaga ip e user_agent do ator', async () => {
     const tx = makeTx();
     await auditLog(
