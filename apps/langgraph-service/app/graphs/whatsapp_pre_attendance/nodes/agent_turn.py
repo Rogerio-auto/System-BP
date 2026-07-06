@@ -406,6 +406,33 @@ def _build_state_context(state: ConversationState) -> str:
 # Regex para extrair bloco JSON de um bloco de codigo markdown (```json ... ```)
 _MD_JSON_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
 
+# Salvamento tolerante do envelope {"messages": [...]} quando json.loads falha
+# (o modelo as vezes quebra a sintaxe: esquece aspa/virgula ou poe newline solto
+# dentro da string). NUNCA vazar o JSON cru como mensagem pro cliente.
+_MESSAGES_ARRAY_RE = re.compile(r'"messages"\s*:\s*\[(.*)', re.DOTALL)
+_QUOTED_ITEM_RE = re.compile(r'"((?:[^"\\]|\\.)*)"', re.DOTALL)
+
+
+def _salvage_messages_envelope(text: str) -> list[str]:
+    """Best-effort: extrai as strings de um envelope {"messages": [...]} quando o
+    json.loads estrito falhou por JSON malformado do modelo. Retorna [] se o texto
+    nao parecer o envelope. Evita que '{"messages": [' vaze como mensagem."""
+    m = _MESSAGES_ARRAY_RE.search(text)
+    if not m:
+        return []
+    body = m.group(1)
+    # Corta o fechamento do array (e do objeto), se presente.
+    end = body.rfind("]")
+    if end != -1:
+        body = body[:end]
+    # So itens com conteudo real (descarta lixo de fronteira como uma virgula
+    # solta capturada quando falta uma aspa de fechamento).
+    return [
+        s.strip()
+        for s in _QUOTED_ITEM_RE.findall(body)
+        if s.strip() and re.search(r"[0-9A-Za-zÀ-ɏ]", s)
+    ]
+
 
 def _parse_agent_output(raw: str) -> tuple[str, list[str]]:
     """Extrai texto e lista de mensagens do output bruto do LLM (F16-S46 BUG-A).
@@ -460,10 +487,24 @@ def _parse_agent_output(raw: str) -> tuple[str, list[str]]:
                 parsed_keys=_parsed_keys,
             )
     except (json.JSONDecodeError, ValueError):
-        # Nao e JSON -- path de texto puro (fallback ou modelo que nao seguiu o prompt)
+        # JSON malformado (o modelo as vezes quebra a sintaxe: aspa/virgula
+        # faltando, newline solto dentro da string). Cai no salvamento abaixo.
         pass
 
-    # Fallback: texto puro -- retorna como mensagem unica
+    # Salvamento tolerante do envelope {"messages": [...]}: quando o parse estrito
+    # falha (ou nao ha messages[] utilizavel), extrai as strings via regex para
+    # NUNCA vazar o JSON cru ('{"messages": [') como mensagem pro cliente.
+    # F16 hardening (prod 2026-07-06 -- o envelope estava vazando no WhatsApp).
+    if '"messages"' in text:
+        salvaged = _salvage_messages_envelope(text)
+        if salvaged:
+            log.warning(
+                "agent_turn_output_salvaged",
+                salvaged_count=len(salvaged),
+            )
+            return salvaged[0], salvaged
+
+    # Fallback final: texto puro (modelo respondeu sem o envelope JSON).
     return text, [text]
 
 
