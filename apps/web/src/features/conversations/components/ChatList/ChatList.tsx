@@ -20,7 +20,7 @@ import {
   useConversationSocket,
   type UseConversationSocketOptions,
 } from '../../hooks/useConversationSocket';
-import { useConversations } from '../../queries';
+import { useConversationCounts, useConversations } from '../../queries';
 import type { Conversation, ConversationsQueryParams, ConversationStatus } from '../../types';
 
 import type { StatusFilter } from './ChatListFilters';
@@ -198,6 +198,12 @@ export function ChatList({
 
   const { data, isLoading, isError, refetch } = useConversations(queryParams);
 
+  // Contagens por status — usadas nas abas de filtro.
+  // Sem params por enquanto (não há filtro por canal/agente no ChatList ainda).
+  // TanStack Query compara queryKeys por valor profundo, então chamar com {}
+  // sem memoização é correto — a query não re-executa desnecessariamente.
+  const { data: countsData, isLoading: countsLoading } = useConversationCounts();
+
   // Mapa channelId → nome do canal para exibir no item da lista
   const { channels } = useChannels();
   const channelNameMap = React.useMemo(() => {
@@ -288,6 +294,8 @@ export function ChatList({
         onSearchChange={setSearchRaw}
         status={statusFilter}
         onStatusChange={handleStatusChange}
+        counts={countsData}
+        countsLoading={countsLoading}
       />
 
       {/* Lista de conversas */}

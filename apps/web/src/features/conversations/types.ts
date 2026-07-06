@@ -216,6 +216,52 @@ export interface MessagesQueryParams {
 }
 
 // ---------------------------------------------------------------------------
+// Counts — GET /api/conversations/counts
+// ---------------------------------------------------------------------------
+
+/**
+ * Parâmetros opcionais para filtrar os counts (espelham os filtros da lista).
+ * cursor/limit não se aplicam — counts são sempre aggregados.
+ */
+export interface ConversationCountsParams {
+  readonly channelId?: string;
+  readonly assignedUserId?: string;
+}
+
+/**
+ * Resposta de GET /api/conversations/counts.
+ *
+ * Sempre retorna os 5 campos; campos ausentes = 0.
+ */
+export interface ConversationCountsResponse {
+  readonly open: number;
+  readonly pending: number;
+  readonly resolved: number;
+  readonly snoozed: number;
+  readonly total: number;
+}
+
+// ---------------------------------------------------------------------------
+// Set status — PATCH /api/conversations/:id/status
+// ---------------------------------------------------------------------------
+
+/**
+ * Body do PATCH /api/conversations/:id/status.
+ */
+export interface SetStatusBody {
+  readonly status: ConversationStatus;
+}
+
+/**
+ * Resposta do PATCH /api/conversations/:id/status.
+ */
+export interface SetStatusResponse {
+  readonly conversationId: string;
+  readonly status: ConversationStatus;
+  readonly updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // Link Lead — espelha LinkLeadBodySchema / LinkLeadResponseSchema de F16-S23
 // (apps/api/src/modules/conversations/schemas.ts)
 // ---------------------------------------------------------------------------

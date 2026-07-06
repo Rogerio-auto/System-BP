@@ -3,17 +3,22 @@
 //
 // Controles:
 //   - Input de busca com debounce 300ms (filtra por contactName no cliente)
-//   - Select de status: all / open / pending / resolved
+//   - SegmentedTabs de status com contador (substitui o Select anterior)
 //
-// DS: tokens de cor, sem hex hardcoded, inset shadow no input via Input canônico.
+// Abas na ordem: Todas · Abertas · Pendentes · Resolvidas · Adiadas
+// Cada aba exibe o rótulo + contagem em tempo real.
+//
+// DS: tokens de cor, sem hex hardcoded (exceto cores de status sem token DS),
+//     SegmentedTabs respeita var(--bg-inset), --elev-1, --radius-sm, --dur-fast.
 //
 // LGPD (doc 17 §8.1): contactName não é logado.
 // =============================================================================
 
 import * as React from 'react';
 
-import { Select } from '../../../../components/ui/Select';
-import type { ConversationStatus } from '../../types';
+import { SegmentedTabs } from '../../../../components/ui/SegmentedTabs';
+import { STATUS_CONFIG } from '../../statusConfig';
+import type { ConversationCountsResponse, ConversationStatus } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -26,18 +31,53 @@ export interface ChatListFiltersProps {
   readonly onSearchChange: (value: string) => void;
   readonly status: StatusFilter;
   readonly onStatusChange: (value: StatusFilter) => void;
+  /**
+   * Contagens vindas de GET /api/conversations/counts.
+   * undefined = ainda carregando ou erro silencioso (tabs exibem sem contador).
+   * Aceita undefined explicitamente (exactOptionalPropertyTypes).
+   */
+  readonly counts?: ConversationCountsResponse | undefined;
+  readonly countsLoading?: boolean | undefined;
 }
 
 // ---------------------------------------------------------------------------
-// Opções de status
+// Definição das abas (ordem canônica)
 // ---------------------------------------------------------------------------
 
-const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
-  { value: 'all', label: 'Todas' },
-  { value: 'open', label: 'Abertas' },
-  { value: 'pending', label: 'Pendentes' },
-  { value: 'resolved', label: 'Resolvidas' },
-];
+function buildTabs(counts?: ConversationCountsResponse) {
+  return [
+    {
+      value: 'all' as StatusFilter,
+      label: 'Todas',
+      count: counts?.total,
+      activeColor: 'var(--brand-azul)',
+    },
+    {
+      value: 'open' as StatusFilter,
+      label: STATUS_CONFIG.open.label,
+      count: counts?.open,
+      activeColor: STATUS_CONFIG.open.color,
+    },
+    {
+      value: 'pending' as StatusFilter,
+      label: STATUS_CONFIG.pending.label,
+      count: counts?.pending,
+      activeColor: STATUS_CONFIG.pending.color,
+    },
+    {
+      value: 'resolved' as StatusFilter,
+      label: STATUS_CONFIG.resolved.label,
+      count: counts?.resolved,
+      activeColor: STATUS_CONFIG.resolved.color,
+    },
+    {
+      value: 'snoozed' as StatusFilter,
+      label: STATUS_CONFIG.snoozed.label,
+      count: counts?.snoozed,
+      activeColor: STATUS_CONFIG.snoozed.color,
+    },
+  ];
+}
 
 // ---------------------------------------------------------------------------
 // Componente
@@ -55,10 +95,13 @@ export function ChatListFilters({
   onSearchChange,
   status,
   onStatusChange,
+  counts,
 }: ChatListFiltersProps): React.JSX.Element {
+  const tabs = buildTabs(counts);
+
   return (
     <div
-      className="flex flex-col gap-3 p-4"
+      className="flex flex-col gap-3 p-3"
       style={{
         borderBottom: '1px solid var(--border-subtle)',
         background: 'var(--bg-elev-1)',
@@ -105,14 +148,12 @@ export function ChatListFilters({
         />
       </div>
 
-      {/* Filtro de status */}
-      <Select
-        id="chat-status-filter"
-        aria-label="Filtrar por status"
+      {/* Abas de status com contador */}
+      <SegmentedTabs<StatusFilter>
+        tabs={tabs}
         value={status}
-        options={STATUS_OPTIONS}
-        onChange={(e) => onStatusChange(e.target.value as StatusFilter)}
-        wrapperClassName="w-full"
+        onChange={onStatusChange}
+        aria-label="Filtrar conversas por status"
       />
     </div>
   );

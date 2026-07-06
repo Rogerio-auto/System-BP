@@ -22,6 +22,8 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api } from '../../lib/api';
 
 import type {
+  ConversationCountsParams,
+  ConversationCountsResponse,
   ConversationDetailResponse,
   ConversationListResponse,
   ConversationsQueryParams,
@@ -29,6 +31,8 @@ import type {
   LinkLeadResponse,
   MessageListResponse,
   MessagesQueryParams,
+  SetStatusBody,
+  SetStatusResponse,
 } from './types';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +49,11 @@ export const conversationKeys = {
   /** Lista de mensagens infinita (cursor backward). */
   messages: (conversationId: string, params: MessagesQueryParams = {}) =>
     ['conversations', 'messages', conversationId, params] as const,
+  /**
+   * Counts agregados por status.
+   * Invalidado após mutations de status/resolve/assign e quando a lista é invalidada.
+   */
+  counts: (params: ConversationCountsParams = {}) => ['conversations', 'counts', params] as const,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -148,6 +157,47 @@ export function useMessages(conversationId: string, params: MessagesQueryParams 
 }
 
 // ---------------------------------------------------------------------------
+// Fetcher de counts
+// ---------------------------------------------------------------------------
+
+async function fetchConversationCounts(
+  params: ConversationCountsParams,
+): Promise<ConversationCountsResponse> {
+  const qs = new URLSearchParams();
+  if (params.channelId) qs.set('channelId', params.channelId);
+  if (params.assignedUserId) qs.set('assignedUserId', params.assignedUserId);
+  const query = qs.toString();
+  return api.get<ConversationCountsResponse>(
+    `/api/conversations/counts${query ? `?${query}` : ''}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Hook de counts
+// ---------------------------------------------------------------------------
+
+/**
+ * useConversationCounts — agrega contagens por status.
+ *
+ * GET /api/conversations/counts?channelId=&assignedUserId=
+ * Retorna { open, pending, resolved, snoozed, total }.
+ *
+ * Revalidado em foco de janela (windowFocus = true, default do TanStack).
+ * Invalidado manualmente nas mutations de status/resolve/assign.
+ *
+ * @param params Filtros opcionais (channelId, assignedUserId) — manter
+ *               consistente com os params da lista do inbox.
+ */
+export function useConversationCounts(params: ConversationCountsParams = {}) {
+  return useQuery({
+    queryKey: conversationKeys.counts(params),
+    queryFn: () => fetchConversationCounts(params),
+    // Counts podem divergir por ±1 por alguns segundos — staleTime curto.
+    staleTime: 15 * 1000,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Tipos auxiliares para mutations
 // ---------------------------------------------------------------------------
 
@@ -207,7 +257,7 @@ export function useAgentUsers() {
  * Body: { agentId: string | null }
  * Requer `livechat:conversation:manage`.
  *
- * Invalida o detalhe da conversa e a lista ao suceder.
+ * Invalida o detalhe da conversa, a lista e os counts ao suceder.
  */
 export function useAssignConversation(conversationId: string) {
   const qc = useQueryClient();
@@ -219,6 +269,8 @@ export function useAssignConversation(conversationId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
       void qc.invalidateQueries({ queryKey: conversationKeys.all });
+      // Counts podem mudar se a aba filtrar por assignedUserId
+      void qc.invalidateQueries({ queryKey: ['conversations', 'counts'] });
     },
   });
 }
@@ -229,7 +281,7 @@ export function useAssignConversation(conversationId: string) {
  * PATCH /api/conversations/:id/resolve
  * Requer `livechat:conversation:manage`.
  *
- * Invalida o detalhe e a lista (conversa sai do inbox 'open').
+ * Invalida o detalhe, a lista e os counts (conversa sai do inbox 'open').
  */
 export function useResolveConversation(conversationId: string) {
   const qc = useQueryClient();
@@ -239,6 +291,32 @@ export function useResolveConversation(conversationId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
       void qc.invalidateQueries({ queryKey: conversationKeys.all });
+      void qc.invalidateQueries({ queryKey: ['conversations', 'counts'] });
+    },
+  });
+}
+
+/**
+ * useSetConversationStatus — define qualquer um dos 4 status canônicos.
+ *
+ * PATCH /api/conversations/:id/status
+ * Body: { status: 'open' | 'pending' | 'resolved' | 'snoozed' }
+ * Requer `livechat:conversation:manage`. Idempotente.
+ *
+ * Invalida detalhe + lista + counts em caso de sucesso.
+ */
+export function useSetConversationStatus(conversationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SetStatusBody) =>
+      api.patch<SetStatusResponse>(
+        `/api/conversations/${encodeURIComponent(conversationId)}/status`,
+        body,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
+      void qc.invalidateQueries({ queryKey: conversationKeys.all });
+      void qc.invalidateQueries({ queryKey: ['conversations', 'counts'] });
     },
   });
 }
