@@ -3,7 +3,7 @@ id: F6-S05
 title: DB/Seed — ai_assistant:use + flag ai.internal_assistant.enabled + tabela assistant_queries
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
@@ -13,6 +13,7 @@ labels: [db-schema, rbac, feature-flags, ai-assistant]
 source_docs:
   [docs/22-agente-interno-acoes.md, docs/09-feature-flags.md, docs/10-seguranca-permissoes.md]
 docs_required: false
+claimed_at: 2026-07-06T23:51:42Z
 ---
 
 # F6-S05 — DB/Seed: fundação do copiloto interno
