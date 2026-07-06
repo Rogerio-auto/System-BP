@@ -1,27 +1,22 @@
 // =============================================================================
-// ChatList/ChatListFilters.tsx — Filtros da caixa de entrada (F16-S16).
+// ChatList/ChatListFilters.tsx — Barra de busca do inbox (F16-S16, redesign F24).
 //
-// Controles:
-//   - Input de busca com debounce 300ms (filtra por contactName no cliente)
-//   - SegmentedTabs de status com contador (substitui o Select anterior)
+// Após o redesign do filtro de status (menu lateral StatusSideMenu), este
+// componente mantém apenas o campo de busca.
 //
-// Abas na ordem: Todas · Abertas · Pendentes · Resolvidas · Adiadas
-// Cada aba exibe o rótulo + contagem em tempo real.
-//
-// DS: tokens de cor, sem hex hardcoded (exceto cores de status sem token DS),
-//     SegmentedTabs respeita var(--bg-inset), --elev-1, --radius-sm, --dur-fast.
+// O estado de statusFilter e contagens foram hoistados para ConversationsLayout,
+// que monta o <StatusSideMenu> como primeira coluna à esquerda do ChatList.
 //
 // LGPD (doc 17 §8.1): contactName não é logado.
 // =============================================================================
 
 import * as React from 'react';
 
-import { SegmentedTabs } from '../../../../components/ui/SegmentedTabs';
-import { STATUS_CONFIG } from '../../statusConfig';
-import type { ConversationCountsResponse, ConversationStatus } from '../../types';
+import type { ConversationStatus } from '../../types';
 
 // ---------------------------------------------------------------------------
-// Tipos
+// Tipos públicos — StatusFilter ainda é exportado pois é usado por ChatList e
+// outros, mas as props de status saíram deste componente.
 // ---------------------------------------------------------------------------
 
 export type StatusFilter = ConversationStatus | 'all';
@@ -29,54 +24,6 @@ export type StatusFilter = ConversationStatus | 'all';
 export interface ChatListFiltersProps {
   readonly search: string;
   readonly onSearchChange: (value: string) => void;
-  readonly status: StatusFilter;
-  readonly onStatusChange: (value: StatusFilter) => void;
-  /**
-   * Contagens vindas de GET /api/conversations/counts.
-   * undefined = ainda carregando ou erro silencioso (tabs exibem sem contador).
-   * Aceita undefined explicitamente (exactOptionalPropertyTypes).
-   */
-  readonly counts?: ConversationCountsResponse | undefined;
-  readonly countsLoading?: boolean | undefined;
-}
-
-// ---------------------------------------------------------------------------
-// Definição das abas (ordem canônica)
-// ---------------------------------------------------------------------------
-
-function buildTabs(counts?: ConversationCountsResponse) {
-  return [
-    {
-      value: 'all' as StatusFilter,
-      label: 'Todas',
-      count: counts?.total,
-      activeColor: 'var(--brand-azul)',
-    },
-    {
-      value: 'open' as StatusFilter,
-      label: STATUS_CONFIG.open.label,
-      count: counts?.open,
-      activeColor: STATUS_CONFIG.open.color,
-    },
-    {
-      value: 'pending' as StatusFilter,
-      label: STATUS_CONFIG.pending.label,
-      count: counts?.pending,
-      activeColor: STATUS_CONFIG.pending.color,
-    },
-    {
-      value: 'resolved' as StatusFilter,
-      label: STATUS_CONFIG.resolved.label,
-      count: counts?.resolved,
-      activeColor: STATUS_CONFIG.resolved.color,
-    },
-    {
-      value: 'snoozed' as StatusFilter,
-      label: STATUS_CONFIG.snoozed.label,
-      count: counts?.snoozed,
-      activeColor: STATUS_CONFIG.snoozed.color,
-    },
-  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -84,24 +31,18 @@ function buildTabs(counts?: ConversationCountsResponse) {
 // ---------------------------------------------------------------------------
 
 /**
- * ChatListFilters — barra de filtros do inbox.
+ * ChatListFilters — campo de busca do inbox.
  *
- * Debounce externo: o pai passa `onSearchChange` já com debounce ou
- * o componente pode receber diretamente (sem debounce interno para evitar
- * double-debounce). O debounce de 300ms fica no hook pai via useDebounce.
+ * O filtro de status migrou para StatusSideMenu (menu lateral vertical).
+ * O debounce de 300ms fica no hook pai (ChatList) via useDebounce.
  */
 export function ChatListFilters({
   search,
   onSearchChange,
-  status,
-  onStatusChange,
-  counts,
 }: ChatListFiltersProps): React.JSX.Element {
-  const tabs = buildTabs(counts);
-
   return (
     <div
-      className="flex flex-col gap-3 p-3"
+      className="flex flex-col p-3"
       style={{
         borderBottom: '1px solid var(--border-subtle)',
         background: 'var(--bg-elev-1)',
@@ -147,14 +88,6 @@ export function ChatListFilters({
           style={{ color: 'var(--text)' }}
         />
       </div>
-
-      {/* Abas de status com contador */}
-      <SegmentedTabs<StatusFilter>
-        tabs={tabs}
-        value={status}
-        onChange={onStatusChange}
-        aria-label="Filtrar conversas por status"
-      />
     </div>
   );
 }
