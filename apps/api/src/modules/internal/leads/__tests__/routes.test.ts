@@ -997,6 +997,11 @@ describe('PATCH /internal/leads/:id', () => {
         actor: expect.objectContaining({ kind: 'system', id: 'langgraph' }),
         data: expect.objectContaining({ lead_id: FIXTURE_LEAD_ID }),
       }),
+      // Regressão (prod 2026-07-06): chave determinística lead_update_<lead>_<hash
+      // dos campos> — reemitir o mesmo conjunto (ex.: requested_amount null→null)
+      // deve dedupar (NO-OP), não 500 por uq_event_outbox_idempotency (que travava
+      // o agente → handoff). O route DEVE passar onConflictDoNothing.
+      { onConflictDoNothing: true },
     );
   });
 

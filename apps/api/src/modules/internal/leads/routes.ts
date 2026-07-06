@@ -403,6 +403,12 @@ const internalLeadsRoutes: FastifyPluginAsyncZod = async (app) => {
               })),
             },
           },
+          // Chave determinística (lead_update_<lead>_<hash dos campos>): reemitir o
+          // MESMO conjunto de campos (ex.: o LangGraph reenvia update_lead_profile
+          // com requested_amount null→null) colide em uq_event_outbox_idempotency.
+          // Dedup como NO-OP em vez de 500 (que travava o agente → handoff). Igual
+          // ao cities/identify. Fix prod 2026-07-06.
+          { onConflictDoNothing: true },
         );
 
         // 4d. Buscar stage atual (após update, dentro da transação).
