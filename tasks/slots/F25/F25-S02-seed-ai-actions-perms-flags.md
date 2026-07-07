@@ -3,16 +3,18 @@ id: F25-S02
 title: Seed — permissões ai_actions:* + role_permissions + flags + MODULE_PREFIX_MAP
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: review
 priority: high
 estimated_size: S
-agent_id: null
+agent_id: db-schema-engineer
+claimed_at: 2026-07-07T21:50:05Z
 depends_on: [F25-S01]
 blocks: [F25-S03, F25-S05, F25-S06]
 labels: [db-schema, rbac, feature-flags]
 source_docs:
   [docs/22-agente-interno-acoes.md, docs/09-feature-flags.md, docs/10-seguranca-permissoes.md]
 docs_required: false
+completed_at: 2026-07-07T22:40:25Z
 ---
 
 # F25-S02 — Seed: permissões ai_actions:\* + flags do agente no funil

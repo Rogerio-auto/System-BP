@@ -118,8 +118,15 @@ const FLAGS: SeedFlag[] = [
     key: 'internal_assistant.actions.enabled',
     status: 'disabled',
     visible: true,
-    uiLabel: 'Em desenvolvimento',
-    description: 'Ações automatizadas via assistente interno',
+    uiLabel: 'Ações Autônomas do Agente de IA',
+    // Gate das ações autônomas do agente de IA no funil (F25-S02, doc 22 §8.A/§8.B).
+    // Habilitar SOMENTE após validação completa das ações e supervisão humana configurada.
+    // Pré-requisitos: ai_actions:read concedido a todos os operadores; ai_actions:revert
+    // a supervisores; ai_actions:manage a gestores. Sem esses papéis, habilitar aqui não
+    // garante visibilidade nem controle das ações.
+    description:
+      'Habilita as ações autônomas do agente de IA no funil (qualificação, kanban, housekeeping). ' +
+      'Requer supervisão humana via permissões ai_actions:* (doc 22 §8.A/§8.B). Default OFF.',
     audience: {},
   },
   {

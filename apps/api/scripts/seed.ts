@@ -209,6 +209,19 @@ const PERMISSIONS = [
       'Conversar com o copiloto interno — acesso à interface de consulta em linguagem natural. ' +
       'Não concede leitura de dados: cada consulta ainda exige a permissão do domínio (§12.3 doc 22).',
   },
+  // ações do agente de IA no funil — F25-S02 (migration 0084)
+  {
+    key: 'ai_actions:read',
+    description: 'Ver o registro e o painel de ações do agente de IA no funil',
+  },
+  {
+    key: 'ai_actions:revert',
+    description: 'Reverter uma ação autônoma do agente de IA',
+  },
+  {
+    key: 'ai_actions:manage',
+    description: 'Configurar o agente de IA no funil (habilitar ações, limiares)',
+  },
 ] as const;
 
 /**
@@ -263,6 +276,10 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports:export',
     // copiloto interno — F6-S05
     'ai_assistant:use',
+    // ações do agente de IA — F25-S02 (migration 0084)
+    'ai_actions:read',
+    'ai_actions:revert',
+    'ai_actions:manage',
   ],
   gestor_geral: [
     'leads:read',
@@ -308,6 +325,10 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'notifications:manage',
     // copiloto interno — F6-S05
     'ai_assistant:use',
+    // ações do agente de IA — F25-S02 (migration 0084)
+    'ai_actions:read',
+    'ai_actions:revert',
+    'ai_actions:manage',
   ],
   gestor_regional: [
     'leads:read',
@@ -343,6 +364,9 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports:export',
     // copiloto interno — F6-S05
     'ai_assistant:use',
+    // ações do agente de IA — F25-S02 (migration 0084)
+    'ai_actions:read',
+    'ai_actions:revert',
   ],
   agente: [
     'leads:read',
@@ -361,6 +385,9 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'credit_analyses:request_review',
     // copiloto interno — F6-S05
     'ai_assistant:use',
+    // ações do agente de IA — F25-S02 (migration 0084)
+    'ai_actions:read',
+    'ai_actions:revert',
   ],
   operador: [
     'leads:read',
@@ -372,6 +399,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'dashboard:read_by_agent',
     // copiloto interno — F6-S05
     'ai_assistant:use',
+    // ações do agente de IA — F25-S02 (migration 0084)
+    'ai_actions:read',
   ],
   leitura: [
     'leads:read',
@@ -381,6 +410,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'dashboard:read',
     // copiloto interno — F6-S05
     'ai_assistant:use',
+    // ações do agente de IA — F25-S02 (migration 0084)
+    'ai_actions:read',
   ],
 };
 
