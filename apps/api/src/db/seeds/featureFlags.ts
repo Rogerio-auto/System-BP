@@ -104,8 +104,14 @@ const FLAGS: SeedFlag[] = [
     key: 'ai.internal_assistant.enabled',
     status: 'disabled',
     visible: true,
-    uiLabel: 'Disponível na Fase 6',
-    description: 'Assistente interno IA para agentes',
+    uiLabel: 'Copiloto interno',
+    // Guarda-chuva do copiloto interno (doc 22 §12 / F6-S05).
+    // Responde consultas da equipe em linguagem natural, respeitando o RBAC e
+    // o escopo de cidade de cada usuário. Default OFF em produção — habilitar
+    // apenas após validação completa (§12.7 doc 22).
+    description:
+      'Copiloto interno de IA — responde consultas da equipe sobre métricas e dados, ' +
+      'respeitando as permissões e o escopo de cidade de cada usuário (doc 22 §12).',
     audience: {},
   },
   {
