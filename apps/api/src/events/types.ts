@@ -119,6 +119,87 @@ export interface LeadsRestoredData {
   restored_by_user_id: string;
 }
 
+// F25-S01: eventos do ciclo de vida do funil — sem PII bruta (LGPD §8.5)
+// Payload: IDs opacos + metadados operacionais do funil. O consumidor hidrata
+// via GET /internal/leads/:id com escopo correto quando precisar de dados do titular.
+
+/**
+ * Emitido quando um lead avança para um stage canônico relevante no funil.
+ * Permite que workers e o agente de crédito reajam à qualificação (ex.:
+ * enviar simulação automaticamente ao entrar em 'simulacao').
+ *
+ * LGPD §8.5: sem PII bruta. lead_id e card_id são IDs opacos.
+ */
+export interface LeadsQualifiedData {
+  /** UUID opaco do lead — não é PII direta. */
+  lead_id: string;
+  /** UUID da organização — contexto multi-tenant. */
+  organization_id: string;
+  /**
+   * Role canônica para a qual o lead avançou.
+   * Um dos valores de KANBAN_CANONICAL_ROLES (kanbanStages.ts).
+   */
+  canonical_role: string;
+  /** UUID do stage kanban de destino. */
+  stage_id: string;
+  /** UUID do kanban card do lead. */
+  card_id: string;
+}
+
+/**
+ * Emitido quando um lead fica parado em um stage por mais de X dias sem
+ * progressão detectada (configurável por org). Gatilho para ações de
+ * re-engajamento pelo agente ou alertas para o gestor.
+ *
+ * LGPD §8.5: sem PII bruta. IDs opacos + dados operacionais do funil.
+ */
+export interface LeadsStagnantData {
+  /** UUID opaco do lead — não é PII direta. */
+  lead_id: string;
+  /** UUID da organização — contexto multi-tenant. */
+  organization_id: string;
+  /**
+   * Role canônica do stage onde o lead está parado.
+   * Um dos valores de KANBAN_CANONICAL_ROLES.
+   */
+  canonical_role: string;
+  /** UUID do stage kanban atual. */
+  stage_id: string;
+  /** UUID do kanban card do lead. */
+  card_id: string;
+  /**
+   * Número de dias corridos sem progressão de stage.
+   * Dado operacional de funil — sem PII.
+   */
+  stagnant_days: number;
+}
+
+/**
+ * Emitido quando um lead é considerado perdido/abandonado — atingiu um stage
+ * terminal de perda, foi inativo por tempo excessivo, ou foi explicitamente
+ * descartado. Permite registro de auditoria e cleanup de jobs pendentes.
+ *
+ * LGPD §8.5: sem PII bruta. reason é classificação operacional, não dado pessoal.
+ */
+export interface LeadsAbandonedData {
+  /** UUID opaco do lead — não é PII direta. */
+  lead_id: string;
+  /** UUID da organização — contexto multi-tenant. */
+  organization_id: string;
+  /**
+   * Motivo do abandono:
+   *   'terminal_lost'  — Lead movido para stage concluido_perdido.
+   *   'no_progress'    — Sem progressão por tempo excessivo (acima do threshold da org).
+   *   'manual'         — Descarte manual por operador ou gestor.
+   */
+  reason: 'terminal_lost' | 'no_progress' | 'manual';
+  /**
+   * UUID do kanban card, null se o lead nunca teve card criado
+   * (ex: abandonado antes de entrar no funil).
+   */
+  card_id: string | null;
+}
+
 // --- Domínio: cities ---
 
 export interface CitiesIdentifiedData {
@@ -935,6 +1016,10 @@ export interface AppEventDataMap {
   'leads.merged': LeadsMergedData;
   'leads.deleted': LeadsDeletedData;
   'leads.restored': LeadsRestoredData;
+  // F25-S01: ciclo de vida do funil (sem PII — LGPD §8.5)
+  'leads.qualified': LeadsQualifiedData;
+  'leads.stagnant': LeadsStagnantData;
+  'leads.abandoned': LeadsAbandonedData;
   'cities.identified': CitiesIdentifiedData;
   'cities.created': CityCreatedData;
   'cities.updated': CityUpdatedData;

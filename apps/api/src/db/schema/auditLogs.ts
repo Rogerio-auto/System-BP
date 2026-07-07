@@ -1,5 +1,5 @@
 // =============================================================================
-// auditLogs.ts — Schema Drizzle para a tabela audit_logs (F1-S16).
+// auditLogs.ts — Schema Drizzle para a tabela audit_logs (F1-S16 / F25-S01).
 //
 // Tabela append-only. Nenhuma linha deve ser atualizada ou deletada.
 // O helper auditLog() em src/lib/audit.ts é a única forma de inserir aqui.
@@ -9,6 +9,7 @@
 //   organization_id — FK multi-tenant → organizations(id).
 //   actor_user_id   — FK nullable → users(id) ON DELETE set null.
 //   actor_role      — Snapshot da role no momento da ação.
+//   actor_type      — Tipo do ator: 'user' | 'system' | 'ai'. Default 'user'.
 //   action          — Formato "<dominio>.<verbo>". Ex: "leads.created".
 //   resource_type   — Tipo do recurso. Ex: "lead", "user".
 //   resource_id     — UUID (como text) do recurso afetado.
@@ -18,6 +19,14 @@
 //   user_agent      — User-Agent truncado. Nullable.
 //   correlation_id  — Propagado do request/evento de origem. Nullable.
 //   created_at      — Imutável. Nunca atualizado.
+//
+// actor_type (F25-S01 / LGPD Art. 20):
+//   'user'   — Ação executada diretamente por usuário humano autenticado.
+//   'system' — Ação executada por worker, job ou integração interna sem IA.
+//   'ai'     — Ação executada pelo agente LangGraph (Ana Clara).
+//              Exigido pelo Art. 20 da LGPD para rastreabilidade de decisões
+//              automatizadas que afetam titulares. Linhas existentes foram
+//              criadas como 'user' (default retroativo — ver 0078_funnel_state_machine.sql).
 //
 // LGPD §8.5 / docs/10 §5.2:
 //   Os campos `before` e `after` PODEM conter PII. O caller é responsável
@@ -31,7 +40,19 @@
 // FK definida via SQL puro para clareza e controle.
 // =============================================================================
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { check, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+
+// ---------------------------------------------------------------------------
+// Enum textual para actor_type (F25-S01)
+// ---------------------------------------------------------------------------
+
+export const AUDIT_ACTOR_TYPES = ['user', 'system', 'ai'] as const;
+
+/**
+ * Tipo do ator que originou uma entrada de auditoria.
+ * 'ai' obrigatório pelo Art. 20 LGPD (rastreabilidade de decisões automatizadas).
+ */
+export type AuditActorType = (typeof AUDIT_ACTOR_TYPES)[number];
 
 export const auditLogs = pgTable(
   'audit_logs',
@@ -59,6 +80,23 @@ export const auditLogs = pgTable(
      * Armazenado aqui porque a role do usuário pode mudar após a ação.
      */
     actorRole: text('actor_role'),
+
+    /**
+     * Tipo do ator que executou a ação (F25-S01).
+     *
+     * 'user'   — Usuário humano autenticado (HTTP request com JWT).
+     * 'system' — Worker, job, integração interna (sem IA).
+     * 'ai'     — Agente LangGraph (Ana Clara / agente de crédito).
+     *
+     * Default 'user' para compatibilidade retroativa: linhas criadas antes desta
+     * coluna recebem 'user' como default, que é conservador (maioria das ações
+     * auditadas era de usuários humanos). Linhas de sistema que deviam ter
+     * 'system' são minoria e não afetam compliance LGPD Art. 20 —
+     * o relevante é que novas linhas de IA sejam marcadas como 'ai'.
+     *
+     * Verificado via check constraint chk_audit_logs_actor_type.
+     */
+    actorType: text('actor_type').notNull().default('user'),
 
     /**
      * Ação executada. Formato: "<dominio>.<verbo>".
@@ -127,6 +165,24 @@ export const auditLogs = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
+    // -------------------------------------------------------------------------
+    // Check Constraints
+    // -------------------------------------------------------------------------
+
+    /**
+     * actor_type deve ser um dos valores válidos do enum textual.
+     * Garante que novas entradas de auditoria sejam classificadas corretamente,
+     * especialmente para ações de IA (LGPD Art. 20 rastreabilidade).
+     */
+    chkActorType: check(
+      'chk_audit_logs_actor_type',
+      sql`${table.actorType} IN ('user', 'system', 'ai')`,
+    ),
+
+    // -------------------------------------------------------------------------
+    // Índices
+    // -------------------------------------------------------------------------
+
     // Índice principal: filtro por organização + período (mais comum na tela /admin/audit)
     // DESC em created_at: retorna mais recente primeiro sem sort adicional
     idxOrgCreated: index('idx_audit_logs_org_created').on(table.organizationId, table.createdAt),
