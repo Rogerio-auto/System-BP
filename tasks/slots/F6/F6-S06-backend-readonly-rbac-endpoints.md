@@ -3,7 +3,7 @@ id: F6-S06
 title: Backend — endpoints de leitura RBAC-bound do copiloto (principal do usuário + city scope)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: backend-engineer
@@ -14,6 +14,7 @@ labels: [backend, ai-assistant, rbac, lgpd, dlp]
 source_docs:
   [docs/22-agente-interno-acoes.md, docs/10-seguranca-permissoes.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
+completed_at: 2026-07-07T22:40:39Z
 ---
 
 # F6-S06 — Backend: superfície de leitura do copiloto (RBAC-bound)
