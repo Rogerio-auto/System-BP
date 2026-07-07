@@ -25,7 +25,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
 | F24  | 15    | 8   | 0   | 0   | 0   | 0   | 7   |
-| F25  | 9     | 9   | 0   | 0   | 0   | 0   | 0   |
+| F25  | 9     | 8   | 0   | 0   | 0   | 1   | 0   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -364,7 +364,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID      | Título                                                                                   | Status       | Prioridade | Depende de                |
 | ------- | ---------------------------------------------------------------------------------------- | ------------ | ---------- | ------------------------- |
-| F25-S01 | DB — canonical_role em kanban_stages + ator 'ai' no audit + event types do funil         | 🟢 available | high       | —                         |
+| F25-S01 | DB — canonical_role em kanban_stages + ator 'ai' no audit + event types do funil         | 🟣 review    | high       | —                         |
 | F25-S02 | Seed — permissões ai_actions:\* + role_permissions + flags + MODULE_PREFIX_MAP           | 🟢 available | high       | F25-S01                   |
 | F25-S03 | Backend — /internal qualify_lead + evento leads.qualified + workers por canonical_role   | 🟢 available | high       | F25-S01, F25-S02          |
 | F25-S04 | Python — tool qualify_lead no agente + fiação no agent_turn + prompt                     | 🟢 available | high       | F25-S03                   |
