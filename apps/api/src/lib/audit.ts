@@ -186,7 +186,11 @@ export async function auditLog(tx: AuditTx, params: AuditLogParams): Promise<str
   await tx.insert(auditLogs).values({
     id,
     organizationId: params.organizationId,
-    actorUserId: params.actor?.userId ?? null,
+    // Coage string vazia -> null: atores de sistema (worker/bot/IA) podem chegar
+    // com userId '' (sentinela). actor_user_id é uuid FK; '' dá "invalid input
+    // syntax for type uuid". `|| null` mantém uuid válido (sempre truthy) e
+    // normaliza ''/undefined/null para NULL. Ver feedback_system_actor_audit_uuid.
+    actorUserId: params.actor?.userId || null,
     actorRole: params.actor?.role ?? null,
     action: params.action,
     resourceType: params.resource.type,

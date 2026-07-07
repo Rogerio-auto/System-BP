@@ -512,6 +512,20 @@
       "when": 1782864000000,
       "tag": "0077_seed_notifications_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1783382400000,
+      "tag": "0078_funnel_state_machine",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1783036800000,
+      "tag": "0083_assistant_queries_and_perm",
+      "breakpoints": true
     }
   ]
 }

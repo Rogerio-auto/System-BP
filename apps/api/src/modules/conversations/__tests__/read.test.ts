@@ -74,12 +74,14 @@ const mockListConversationsService = vi.fn();
 const mockGetConversationDetailService = vi.fn();
 const mockGetMessagesService = vi.fn();
 const mockGetWindowService = vi.fn();
+const mockCountConversationsService = vi.fn();
 
 vi.mock('../service.js', () => ({
   listConversationsService: (...args: unknown[]) => mockListConversationsService(...args),
   getConversationDetailService: (...args: unknown[]) => mockGetConversationDetailService(...args),
   getMessagesService: (...args: unknown[]) => mockGetMessagesService(...args),
   getWindowService: (...args: unknown[]) => mockGetWindowService(...args),
+  countConversationsService: (...args: unknown[]) => mockCountConversationsService(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -112,6 +114,9 @@ const SAMPLE_CONVERSATION = {
   lastInboundAt: NOW,
   lastMessageAt: NOW,
   kind: 'dm' as const,
+  // `provider` é obrigatório em ConversationSchema (vem do INNER JOIN com channels).
+  // Adicionado ao fixture para evitar erro de serialização Zod (500 → 200 correto).
+  provider: 'meta_whatsapp' as const,
   unreadCount: 2,
   createdAt: OLDER,
   updatedAt: NOW,
@@ -588,5 +593,121 @@ describe('GET /api/conversations/:id/window — estado da janela', () => {
 
     expect(response.statusCode).toBe(403);
     await appNoPerms.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/conversations/counts — contagem por status
+// ---------------------------------------------------------------------------
+
+describe('GET /api/conversations/counts — contagem por status', () => {
+  let app: FastifyInstance;
+
+  const SAMPLE_COUNTS = {
+    open: 12,
+    pending: 3,
+    resolved: 45,
+    snoozed: 1,
+    total: 61,
+  };
+
+  beforeAll(async () => {
+    app = await buildTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('200 — retorna contagem correta por status com total', async () => {
+    mockCountConversationsService.mockResolvedValueOnce(SAMPLE_COUNTS);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/conversations/counts',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as typeof SAMPLE_COUNTS;
+    expect(body.open).toBe(12);
+    expect(body.pending).toBe(3);
+    expect(body.resolved).toBe(45);
+    expect(body.snoozed).toBe(1);
+    expect(body.total).toBe(61);
+  });
+
+  it('200 — retorna zeros para org sem conversas', async () => {
+    mockCountConversationsService.mockResolvedValueOnce({
+      open: 0,
+      pending: 0,
+      resolved: 0,
+      snoozed: 0,
+      total: 0,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/conversations/counts',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as typeof SAMPLE_COUNTS;
+    expect(body.total).toBe(0);
+  });
+
+  it('200 — repassa filtros channelId e assignedUserId ao service', async () => {
+    mockCountConversationsService.mockResolvedValueOnce(SAMPLE_COUNTS);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/conversations/counts?channelId=${CHANNEL_ID}&assignedUserId=${USER_ID}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockCountConversationsService).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ organizationId: ORG_ID }),
+      expect.objectContaining({ channelId: CHANNEL_ID, assignedUserId: USER_ID }),
+    );
+  });
+
+  it('400 — channelId inválido (não é UUID)', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/conversations/counts?channelId=nao-e-uuid',
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('403 — sem permissão livechat:conversation:read', async () => {
+    const appNoPerms = await buildTestApp([]);
+
+    const response = await appNoPerms.inject({
+      method: 'GET',
+      url: '/api/conversations/counts',
+    });
+
+    expect(response.statusCode).toBe(403);
+    await appNoPerms.close();
+  });
+
+  it('/counts NÃO é casado como /:id — retorna 200 com forma correta', async () => {
+    // Garante que "counts" não é tratado como conversationId pelo router.
+    mockCountConversationsService.mockResolvedValueOnce(SAMPLE_COUNTS);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/conversations/counts',
+    });
+
+    // Se Fastify cometesse o erro de casar /counts como /:id, o service de
+    // detalhe seria chamado e mockCountConversationsService não teria sido chamado.
+    expect(response.statusCode).toBe(200);
+    expect(mockCountConversationsService).toHaveBeenCalledTimes(1);
   });
 });

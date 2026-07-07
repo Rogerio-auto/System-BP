@@ -21,6 +21,8 @@ import {
 import type { MessageTypeSchema } from '@elemento/shared-schemas';
 import { z } from 'zod';
 
+import { ConversationStatusSchema } from './schemas.js';
+
 // ---------------------------------------------------------------------------
 // SendMessageBody — discriminated union por tipo de mensagem
 //
@@ -209,3 +211,34 @@ export const SignedUrlResponseSchema = z.object({
 });
 
 export type SignedUrlResponse = z.infer<typeof SignedUrlResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// SetStatusBody — corpo do PATCH /conversations/:id/status
+// ---------------------------------------------------------------------------
+
+/**
+ * Body do PATCH /api/conversations/:id/status.
+ *
+ * Aceita qualquer um dos 4 status canônicos. Idempotente:
+ * enviar o mesmo status que já está gravado retorna 200 sem erro.
+ */
+export const SetStatusBodySchema = z.object({
+  status: ConversationStatusSchema.describe(
+    'Novo status da conversa: open | pending | resolved | snoozed.',
+  ),
+});
+
+export type SetStatusBody = z.infer<typeof SetStatusBodySchema>;
+
+/**
+ * Resposta do PATCH /api/conversations/:id/status.
+ *
+ * Padrão dos outros PATCH do módulo (assign/resolve): IDs opacos + timestamp.
+ */
+export const SetStatusResponseSchema = z.object({
+  conversationId: z.string().uuid().describe('UUID da conversa alterada.'),
+  status: ConversationStatusSchema.describe('Status atual da conversa após a alteração.'),
+  updatedAt: z.string().datetime().describe('Timestamp da última atualização.'),
+});
+
+export type SetStatusResponse = z.infer<typeof SetStatusResponseSchema>;

@@ -367,6 +367,55 @@ export const MessageListResponseSchema = z
 export type MessageListResponse = z.infer<typeof MessageListResponseSchema>;
 
 // ---------------------------------------------------------------------------
+// GET /api/conversations/counts — contagem por status
+// ---------------------------------------------------------------------------
+
+/**
+ * Query para contagem de conversas por status.
+ * Subconjunto dos filtros de listagem — sem cursor nem limit (é agregação).
+ */
+export const ConversationCountsQuerySchema = z
+  .object({
+    /** Filtrar por canal específico. */
+    channelId: z.string().uuid().optional().describe('UUID do canal para filtrar (opcional).'),
+    /** Filtrar por agente responsável. */
+    assignedUserId: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('UUID do agente para filtrar (opcional).'),
+  })
+  .openapi({
+    example: { channelId: '550e8400-e29b-41d4-a716-446655440002' },
+  });
+export type ConversationCountsQuery = z.infer<typeof ConversationCountsQuerySchema>;
+
+/**
+ * Resposta do GET /api/conversations/counts.
+ *
+ * `total` = open + pending + resolved + snoozed (soma calculada no service).
+ * Todos os campos começam em 0 para status ausentes no escopo atual.
+ */
+export const ConversationCountsResponseSchema = z
+  .object({
+    open: z.number().int().min(0).describe('Conversas em aberto (aguardando agente).'),
+    pending: z.number().int().min(0).describe('Conversas pendentes (aguardando contato).'),
+    resolved: z.number().int().min(0).describe('Conversas resolvidas/encerradas.'),
+    snoozed: z.number().int().min(0).describe('Conversas adiadas/em pausa.'),
+    total: z.number().int().min(0).describe('Total de conversas no escopo (soma dos 4 status).'),
+  })
+  .openapi({
+    example: {
+      open: 12,
+      pending: 3,
+      resolved: 45,
+      snoozed: 1,
+      total: 61,
+    },
+  });
+export type ConversationCountsResponse = z.infer<typeof ConversationCountsResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // F16-S23 — PATCH /api/conversations/:id/lead
 // ---------------------------------------------------------------------------
 

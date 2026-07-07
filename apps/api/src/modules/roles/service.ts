@@ -77,6 +77,10 @@ const MODULE_PREFIX_MAP: ReadonlyArray<readonly [prefix: string, label: string]>
   ['tasks:', 'Tarefas & Notificações'],
   ['notifications:', 'Tarefas & Notificações'],
   // IA
+  // ai_assistant: antes de ai_ para evitar que o prefixo curto engula a chave longa.
+  ['ai_assistant:', 'Agente de IA'],
+  // ai_actions: reservado para F25 (superfície A — ações do agente no funil).
+  ['ai_actions:', 'Agente de IA'],
   ['ai_', 'IA'],
   ['assistant:', 'IA'],
   // Relatórios & Dashboard

@@ -39,12 +39,15 @@ import { authenticate } from '../auth/middlewares/authenticate.js';
 import { authorize } from '../auth/middlewares/authorize.js';
 
 import type {
+  ConversationCountsQuery,
   ConversationIdParam,
   ConversationListQuery,
   MessageListQuery,
   LinkLeadBody,
 } from './schemas.js';
 import {
+  ConversationCountsQuerySchema,
+  ConversationCountsResponseSchema,
   ConversationDetailResponseSchema,
   ConversationIdParamSchema,
   ConversationListQuerySchema,
@@ -55,13 +58,15 @@ import {
   MessageListResponseSchema,
   WindowStateSchema,
 } from './schemas.js';
-import type { AssignBody, SendMessageBody, SignedUrlBody } from './send.schema.js';
+import type { AssignBody, SendMessageBody, SetStatusBody, SignedUrlBody } from './send.schema.js';
 import {
   AssignBodySchema,
   AssignResponseSchema,
   ResolveResponseSchema,
   SendMessageBodySchema,
   SendMessageResponseSchema,
+  SetStatusBodySchema,
+  SetStatusResponseSchema,
   SignedUrlBodySchema,
   SignedUrlResponseSchema,
 } from './send.schema.js';
@@ -71,9 +76,11 @@ import {
   generateUploadSignedUrl,
   resolveConversation,
   sendMessage,
+  setConversationStatus,
 } from './send.service.js';
 import type { ActorContext } from './service.js';
 import {
+  countConversationsService,
   getConversationDetailService,
   getConversationTemplatesService,
   getMessagesService,
@@ -157,6 +164,44 @@ export const conversationsRoutes: FastifyPluginAsyncZod = async (app) => {
       const actor = getReadActor(request);
       const query = typedQuery<ConversationListQuery>(request);
       const result = await listConversationsService(db, actor, query);
+      return reply.status(200).send(result);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /api/conversations/counts — contagem por status
+  // IMPORTANTE: registrado ANTES de /:id para evitar colisão de path.
+  // -------------------------------------------------------------------------
+  app.get(
+    '/api/conversations/counts',
+    {
+      schema: {
+        tags: ['Live Chat'],
+        summary: 'Contar conversas por status',
+        description:
+          'Retorna a contagem de conversas agrupada pelos 4 status canônicos ' +
+          '(open, pending, resolved, snoozed) e o total. ' +
+          '\n\n' +
+          'Aceita os mesmos filtros opcionais da listagem (`channelId`, `assignedUserId`) ' +
+          'para que os badges de contagem reflitam o filtro ativo na inbox. ' +
+          '\n\n' +
+          'Status ausentes no escopo atual retornam 0 (não omitidos). ' +
+          'Aplica org scope automático baseado no usuário autenticado. ' +
+          '\n\n' +
+          '**Performance:** usa o índice `conversations_org_status_idx` — ' +
+          'eficiente mesmo com grandes volumes de conversas.',
+        security: [{ bearerAuth: [] }],
+        querystring: ConversationCountsQuerySchema,
+        response: {
+          200: ConversationCountsResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['livechat:conversation:read'] })],
+    },
+    async (request: FastifyRequest, reply): Promise<void> => {
+      const actor = getReadActor(request);
+      const query = typedQuery<ConversationCountsQuery>(request);
+      const result = await countConversationsService(db, actor, query);
       return reply.status(200).send(result);
     },
   );
@@ -457,6 +502,48 @@ export const conversationsRoutes: FastifyPluginAsyncZod = async (app) => {
       const actor = getWriteActor(request);
       const { id: conversationId } = typedParams<{ id: string }>(request);
       const result = await resolveConversation(db, actor, conversationId);
+      return reply.status(200).send(result);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // PATCH /api/conversations/:id/status — troca genérica de status
+  // -------------------------------------------------------------------------
+  app.patch(
+    '/api/conversations/:id/status',
+    {
+      schema: {
+        tags: ['Live Chat'],
+        summary: 'Alterar status da conversa',
+        description:
+          'Altera o status de uma conversa para qualquer um dos 4 status canônicos: ' +
+          '`open` (em aberto), `pending` (aguardando contato), ' +
+          '`resolved` (encerrada) ou `snoozed` (em pausa). ' +
+          '\n\n' +
+          'Complemento genérico ao `/resolve` fixo — permite reverter uma resolução ' +
+          '(`resolved → open`), colocar em pendência (`open → pending`) ou adiar ' +
+          '(`open → snoozed`) sem precisar de um endpoint dedicado por transição. ' +
+          '\n\n' +
+          '**Idempotente:** enviar o mesmo status que já está gravado retorna 200 sem erro. ' +
+          '\n\n' +
+          '**Audit log:** toda alteração é registrada em `audit_logs` com o ator, ' +
+          'o status anterior (via snapshot no before) e o status novo. ' +
+          '\n\n' +
+          'Publica evento `conversation:updated` no socket relay para atualização em tempo real.',
+        security: [{ bearerAuth: [] }],
+        params: ConversationIdParamSchema,
+        body: SetStatusBodySchema,
+        response: {
+          200: SetStatusResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['livechat:conversation:manage'] })],
+    },
+    async (request, reply) => {
+      const actor = getWriteActor(request);
+      const { id: conversationId } = typedParams<ConversationIdParam>(request);
+      const body = typedBody<SetStatusBody>(request);
+      const result = await setConversationStatus(db, actor, conversationId, body);
       return reply.status(200).send(result);
     },
   );

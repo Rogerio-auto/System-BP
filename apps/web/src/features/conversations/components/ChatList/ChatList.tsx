@@ -3,11 +3,14 @@
 //
 // Funcionalidades:
 //   - Busca debounced 300ms (filtra por contactName no cliente)
-//   - Filtro de status (all / open / pending / resolved)
+//   - Filtro de status recebido via prop (estado hoistado em ConversationsLayout)
 //   - Scroll infinito com IntersectionObserver + cursor acumulado
 //   - Realtime via useConversationSocket (invalida cache em message:new)
 //   - Estados explícitos: loading (skeletons), empty, error
 //   - Acessível: aria-label, lista semântica
+//
+// Redesign (F24): statusFilter e useConversationCounts foram hoistados para
+// ConversationsLayout, que gerencia o StatusSideMenu (menu lateral vertical).
 //
 // LGPD (doc 17 §8.1): contactName e contactRemoteId não são logados.
 // =============================================================================
@@ -42,6 +45,12 @@ export interface ChatListProps {
   readonly selectedConversationId: string | null;
   /** Callback quando o usuário seleciona uma conversa */
   readonly onSelectConversation: (id: string) => void;
+  /**
+   * Filtro de status atual — hoistado em ConversationsLayout.
+   * Alterado pelo StatusSideMenu; o ChatList reage via useEffect interno
+   * que reseta cursor e accumulated quando o valor muda.
+   */
+  readonly statusFilter: StatusFilter;
 }
 
 // ---------------------------------------------------------------------------
@@ -162,22 +171,19 @@ function ErrorState({ onRetry }: ErrorStateProps): React.JSX.Element {
 // ---------------------------------------------------------------------------
 
 /**
- * ChatList — painel esquerdo do inbox.
+ * ChatList — painel central do inbox (col 2 do layout de 4 colunas após redesign).
  *
- * Integra filtros, busca debounced, scroll infinito e realtime.
+ * O statusFilter vem de fora (hoistado em ConversationsLayout).
+ * Integra busca debounced, scroll infinito e realtime.
  * O SocketProvider deve estar montado acima na árvore.
- *
- * Paginação: cursor-based. `nextCursor` da resposta é passado para a
- * próxima query quando o sentinel entra na viewport. Os resultados são
- * acumulados em `accumulatedConversations` para exibição contínua.
  */
 export function ChatList({
   selectedConversationId,
   onSelectConversation,
+  statusFilter,
 }: ChatListProps): React.JSX.Element {
-  // ── Estado local dos filtros ─────────────────────────────────────────────
+  // ── Estado local da busca ────────────────────────────────────────────────
   const [searchRaw, setSearchRaw] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('open');
   const searchDebounced = useDebounce(searchRaw, 300);
 
   // ── Cursor de paginação ──────────────────────────────────────────────────
@@ -192,7 +198,6 @@ export function ChatList({
       statusFilter !== 'all'
         ? { limit: LIMIT, status: statusFilter as ConversationStatus }
         : { limit: LIMIT };
-    // cursor: só inclui quando definido (exactOptionalPropertyTypes)
     return cursor !== undefined ? { ...base, cursor } : base;
   }, [statusFilter, cursor]);
 
@@ -210,10 +215,8 @@ export function ChatList({
   React.useEffect(() => {
     if (!data) return;
     if (cursor === undefined) {
-      // Primeira página ou reset de filtro — substitui tudo
       setAccumulated(data.data);
     } else {
-      // Página seguinte — acumula (dedup por id)
       setAccumulated((prev) => {
         const existingIds = new Set(prev.map((c) => c.id));
         const newItems = data.data.filter((c) => !existingIds.has(c.id));
@@ -222,23 +225,17 @@ export function ChatList({
     }
   }, [data, cursor]);
 
-  // Reset ao mudar o filtro de status
-  const handleStatusChange = React.useCallback((v: StatusFilter) => {
-    setStatusFilter(v);
+  // Reset ao mudar o filtro de status (prop vinda de fora)
+  React.useEffect(() => {
     setCursor(undefined);
     setAccumulated([]);
-  }, []);
+  }, [statusFilter]);
 
-  // ── Realtime: invalida cache ao receber message:new ──────────────────────
-  // exactOptionalPropertyTypes: só passa conversationId quando definido
+  // ── Realtime ─────────────────────────────────────────────────────────────
   const socketOptions: UseConversationSocketOptions =
     selectedConversationId !== null ? { conversationId: selectedConversationId } : {};
   useConversationSocket(socketOptions);
 
-  // Ao receber um evento de nova mensagem, reseta o cursor para a primeira
-  // página para que a lista reflita novidades que chegaram no topo (ex: nova
-  // conversa que não estava na página atual). O useConversationSocket já
-  // invalida o cache — este efeito garante que o re-fetch parte da pág. 1.
   const socket = useSocket();
   React.useEffect(() => {
     if (!socket) return;
@@ -258,7 +255,7 @@ export function ChatList({
     return accumulated.filter((c) => (c.contactName ?? '').toLowerCase().includes(q));
   }, [accumulated, searchDebounced]);
 
-  // ── Scroll infinito via IntersectionObserver ─────────────────────────────
+  // ── Scroll infinito ──────────────────────────────────────────────────────
   const hasNextPage = data !== null && data !== undefined && data.nextCursor !== null;
 
   React.useEffect(() => {
@@ -282,13 +279,8 @@ export function ChatList({
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--bg-elev-1)' }}>
-      {/* Filtros no topo */}
-      <ChatListFilters
-        search={searchRaw}
-        onSearchChange={setSearchRaw}
-        status={statusFilter}
-        onStatusChange={handleStatusChange}
-      />
+      {/* Barra de busca (apenas) */}
+      <ChatListFilters search={searchRaw} onSearchChange={setSearchRaw} />
 
       {/* Lista de conversas */}
       <div

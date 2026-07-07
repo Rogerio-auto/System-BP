@@ -1,22 +1,22 @@
 // =============================================================================
-// ChatList/ChatListFilters.tsx — Filtros da caixa de entrada (F16-S16).
+// ChatList/ChatListFilters.tsx — Barra de busca do inbox (F16-S16, redesign F24).
 //
-// Controles:
-//   - Input de busca com debounce 300ms (filtra por contactName no cliente)
-//   - Select de status: all / open / pending / resolved
+// Após o redesign do filtro de status (menu lateral StatusSideMenu), este
+// componente mantém apenas o campo de busca.
 //
-// DS: tokens de cor, sem hex hardcoded, inset shadow no input via Input canônico.
+// O estado de statusFilter e contagens foram hoistados para ConversationsLayout,
+// que monta o <StatusSideMenu> como primeira coluna à esquerda do ChatList.
 //
 // LGPD (doc 17 §8.1): contactName não é logado.
 // =============================================================================
 
 import * as React from 'react';
 
-import { Select } from '../../../../components/ui/Select';
 import type { ConversationStatus } from '../../types';
 
 // ---------------------------------------------------------------------------
-// Tipos
+// Tipos públicos — StatusFilter ainda é exportado pois é usado por ChatList e
+// outros, mas as props de status saíram deste componente.
 // ---------------------------------------------------------------------------
 
 export type StatusFilter = ConversationStatus | 'all';
@@ -24,41 +24,25 @@ export type StatusFilter = ConversationStatus | 'all';
 export interface ChatListFiltersProps {
   readonly search: string;
   readonly onSearchChange: (value: string) => void;
-  readonly status: StatusFilter;
-  readonly onStatusChange: (value: StatusFilter) => void;
 }
-
-// ---------------------------------------------------------------------------
-// Opções de status
-// ---------------------------------------------------------------------------
-
-const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
-  { value: 'all', label: 'Todas' },
-  { value: 'open', label: 'Abertas' },
-  { value: 'pending', label: 'Pendentes' },
-  { value: 'resolved', label: 'Resolvidas' },
-];
 
 // ---------------------------------------------------------------------------
 // Componente
 // ---------------------------------------------------------------------------
 
 /**
- * ChatListFilters — barra de filtros do inbox.
+ * ChatListFilters — campo de busca do inbox.
  *
- * Debounce externo: o pai passa `onSearchChange` já com debounce ou
- * o componente pode receber diretamente (sem debounce interno para evitar
- * double-debounce). O debounce de 300ms fica no hook pai via useDebounce.
+ * O filtro de status migrou para StatusSideMenu (menu lateral vertical).
+ * O debounce de 300ms fica no hook pai (ChatList) via useDebounce.
  */
 export function ChatListFilters({
   search,
   onSearchChange,
-  status,
-  onStatusChange,
 }: ChatListFiltersProps): React.JSX.Element {
   return (
     <div
-      className="flex flex-col gap-3 p-4"
+      className="flex flex-col p-3"
       style={{
         borderBottom: '1px solid var(--border-subtle)',
         background: 'var(--bg-elev-1)',
@@ -104,16 +88,6 @@ export function ChatListFilters({
           style={{ color: 'var(--text)' }}
         />
       </div>
-
-      {/* Filtro de status */}
-      <Select
-        id="chat-status-filter"
-        aria-label="Filtrar por status"
-        value={status}
-        options={STATUS_OPTIONS}
-        onChange={(e) => onStatusChange(e.target.value as StatusFilter)}
-        wrapperClassName="w-full"
-      />
     </div>
   );
 }

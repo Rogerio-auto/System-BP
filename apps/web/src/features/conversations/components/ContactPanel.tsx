@@ -23,14 +23,16 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 
 import { CityCombobox } from '../../../components/comboboxes/CityCombobox';
+import { useToast } from '../../../components/ui/Toast';
 import { useAuth } from '../../../lib/auth-store';
 import {
   useAgentUsers,
   useAssignConversation,
   useConversation,
   useLinkLead,
-  useResolveConversation,
+  useSetConversationStatus,
 } from '../queries';
+import { STATUS_CONFIG } from '../statusConfig';
 import type { ChannelProvider, ConversationStatus } from '../types';
 
 // ─── Helpers de formatação ────────────────────────────────────────────────────
@@ -52,14 +54,7 @@ function avatarInitial(name: string | null | undefined): string {
   return name.charAt(0).toUpperCase();
 }
 
-// ─── Paleta de status ────────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<ConversationStatus, { label: string; color: string }> = {
-  open: { label: 'Aberta', color: '#16a34a' },
-  pending: { label: 'Pendente', color: '#d97706' },
-  resolved: { label: 'Resolvida', color: 'var(--brand-azul)' },
-  snoozed: { label: 'Adiada', color: '#7c3aed' },
-};
+// STATUS_CONFIG importado de '../statusConfig' — fonte única de verdade.
 
 // ─── Micro-componentes ────────────────────────────────────────────────────────
 
@@ -572,9 +567,10 @@ export function ContactPanel({ conversationId }: ContactPanelProps): React.JSX.E
   const { data, isLoading, isError, refetch } = useConversation(conversationId);
   const { data: usersData } = useAgentUsers();
   const { hasPermission } = useAuth();
+  const { toast } = useToast();
 
   const assign = useAssignConversation(conversationId);
-  const resolve = useResolveConversation(conversationId);
+  const setStatus = useSetConversationStatus(conversationId);
 
   const canManage = hasPermission('livechat:conversation:manage');
 
@@ -763,8 +759,7 @@ export function ContactPanel({ conversationId }: ContactPanelProps): React.JSX.E
       <div
         style={{
           padding: '16px',
-          borderBottom:
-            canManage && conv.status !== 'resolved' ? '1px solid var(--border-subtle)' : undefined,
+          borderBottom: canManage ? '1px solid var(--border-subtle)' : undefined,
           display: 'flex',
           flexDirection: 'column',
           gap: 10,
@@ -873,25 +868,38 @@ export function ContactPanel({ conversationId }: ContactPanelProps): React.JSX.E
       </div>
 
       {/* ── Ações ──────────────────────────────────────────────────────────── */}
-      {canManage && conv.status !== 'resolved' && (
+      {canManage && (
         <div
           style={{
             padding: '16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 8,
+            gap: 10,
           }}
         >
-          <SectionHeader>Ações</SectionHeader>
+          <SectionHeader>Status da conversa</SectionHeader>
 
-          <ActionButton
-            onClick={() => resolve.mutate()}
-            loading={resolve.isPending}
-            disabled={resolve.isPending}
-          >
-            Resolver conversa
-          </ActionButton>
+          {/* Seletor de status — 4 opções coloridas em grid 2×2 */}
+          <StatusSelector
+            current={conv.status}
+            loading={setStatus.isPending}
+            onSelect={(status) => {
+              setStatus.mutate(
+                { status },
+                {
+                  onSuccess: () => {
+                    const label = STATUS_CONFIG[status]?.label ?? status;
+                    toast(`Status alterado para "${label}"`, 'success');
+                  },
+                  onError: () => {
+                    toast('Falha ao alterar status. Tente novamente.', 'danger');
+                  },
+                },
+              );
+            }}
+          />
 
+          {/* Liberar para inbox — só visível se há agente atribuído */}
           {conv.assignedUserId !== null && (
             <ActionButton
               variant="ghost"
@@ -902,73 +910,121 @@ export function ContactPanel({ conversationId }: ContactPanelProps): React.JSX.E
               Liberar para inbox
             </ActionButton>
           )}
-
-          {resolve.isError && (
-            <p
-              style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: 10,
-                color: '#dc2626',
-                margin: 0,
-                textAlign: 'center',
-              }}
-            >
-              Falha ao resolver. Tente novamente.
-            </p>
-          )}
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Estado resolvido */}
-      {conv.status === 'resolved' && (
-        <div
-          style={{
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 6,
-            marginTop: 'auto',
-          }}
-        >
-          <span
+// ─── StatusSelector ───────────────────────────────────────────────────────────
+
+/**
+ * StatusSelector — grade 2×2 com os 4 status canônicos.
+ *
+ * O status atual é destacado. Ao clicar em outro, dispara onSelect.
+ * Clicar no status atual não faz nada (idempotente pela UI).
+ */
+const STATUS_ORDER: ConversationStatus[] = ['open', 'pending', 'resolved', 'snoozed'];
+
+function StatusSelector({
+  current,
+  loading,
+  onSelect,
+}: {
+  current: ConversationStatus;
+  loading: boolean;
+  onSelect: (status: ConversationStatus) => void;
+}): React.JSX.Element {
+  return (
+    <div
+      role="group"
+      aria-label="Selecionar status da conversa"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 6,
+      }}
+    >
+      {STATUS_ORDER.map((s) => {
+        const { label, color } = STATUS_CONFIG[s];
+        const isActive = s === current;
+
+        return (
+          <button
+            key={s}
+            type="button"
+            aria-pressed={isActive}
+            aria-label={`Definir status como ${label}`}
+            disabled={loading || isActive}
+            onClick={() => !isActive && onSelect(s)}
             style={{
-              display: 'inline-flex',
+              display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              background: `color-mix(in srgb, var(--brand-azul) 12%, transparent)`,
-              color: 'var(--brand-azul)',
-            }}
-          >
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.8}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ width: 18, height: 18 }}
-              aria-hidden="true"
-            >
-              <path d="M4 10l4 4 8-8" />
-            </svg>
-          </span>
-          <p
-            style={{
+              gap: 6,
+              padding: '7px 10px',
+              borderRadius: 'var(--radius-sm)',
               fontFamily: 'var(--font-sans)',
               fontSize: 'var(--text-xs)',
-              color: 'var(--text-3)',
-              textAlign: 'center',
-              margin: 0,
+              fontWeight: isActive ? 600 : 500,
+              cursor: loading || isActive ? 'default' : 'pointer',
+              opacity: loading && !isActive ? 0.5 : 1,
+              transition: `all var(--dur-fast) var(--ease)`,
+              // Ativo: fundo colorido + borda + elev-1 (levantado)
+              background: isActive
+                ? `color-mix(in srgb, ${color} 14%, var(--bg-elev-1))`
+                : 'var(--bg-inset)',
+              color: isActive ? color : 'var(--text-2)',
+              border: isActive
+                ? `1px solid color-mix(in srgb, ${color} 30%, transparent)`
+                : '1px solid var(--border-subtle)',
+              boxShadow: isActive ? 'var(--elev-1)' : 'none',
+              outline: 'none',
+              // Focus visível
+              WebkitTapHighlightColor: 'transparent',
+            }}
+            onMouseEnter={(e) => {
+              if (!isActive && !loading) {
+                (e.currentTarget as HTMLButtonElement).style.background =
+                  `color-mix(in srgb, ${color} 8%, var(--bg-elev-1))`;
+                (e.currentTarget as HTMLButtonElement).style.color = color;
+                (e.currentTarget as HTMLButtonElement).style.borderColor =
+                  `color-mix(in srgb, ${color} 20%, transparent)`;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) {
+                (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-inset)';
+                (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)';
+                (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-subtle)';
+              }
+            }}
+            onFocus={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                `0 0 0 2px color-mix(in srgb, ${color} 35%, transparent)`;
+            }}
+            onBlur={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = isActive
+                ? 'var(--elev-1)'
+                : 'none';
             }}
           >
-            Conversa resolvida
-          </p>
-        </div>
-      )}
+            {/* Dot indicador de cor */}
+            <span
+              aria-hidden="true"
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: color,
+                flexShrink: 0,
+                boxShadow: isActive ? `0 0 5px ${color}` : 'none',
+                transition: `box-shadow var(--dur-fast) var(--ease)`,
+              }}
+            />
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }

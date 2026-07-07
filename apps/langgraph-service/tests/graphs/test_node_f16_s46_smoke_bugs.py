@@ -150,6 +150,29 @@ class TestParseAgentOutput:
         assert fin == raw
         assert msgs == [raw]
 
+    def test_malformed_json_unescaped_newline_nao_vaza_envelope(self) -> None:
+        """Regressao (prod 2026-07-06): modelo poe newline solto dentro da string
+        -> json.loads falha. O envelope cru '{"messages": [' NUNCA deve vazar pro
+        cliente; salva o texto limpo via regex."""
+        raw = '{"messages": ["Entendi! Temos a linha X.\nEssa exige garantia.\nQual seu nome?"]}'
+        fin, msgs = _parse_agent_output(raw)
+        assert msgs, "deveria salvar ao menos 1 mensagem"
+        joined = "\n".join(msgs)
+        assert '"messages":' not in joined and '{"messages"' not in joined
+        assert "Entendi" in joined
+
+    def test_malformed_json_aspa_faltando_nao_vaza_e_filtra_lixo(self) -> None:
+        """Regressao: aspa de fechamento faltando -> json.loads falha. Nao vaza o
+        envelope e descarta lixo de fronteira (virgula solta capturada)."""
+        raw = '{"messages": ["Garantia Real., "Essa exige garantia.", "Qual seu nome?"]}'
+        fin, msgs = _parse_agent_output(raw)
+        joined = " ".join(msgs)
+        assert '{"messages"' not in joined and '"messages":' not in joined
+        assert all(
+            any(c.isalnum() for c in m) for m in msgs
+        ), "itens so-pontuacao devem ser filtrados"
+        assert "garantia" in joined.lower()
+
     def test_empty_content(self) -> None:
         """Content vazio retorna (fin='', messages=[])."""
         fin, msgs = _parse_agent_output("")

@@ -118,3 +118,6 @@ export * from './webhookEvents.js';
 
 // Advocacia — escritórios parceiros + encaminhamentos (F19-S01)
 export * from './law-firms.js';
+
+// Copiloto interno — log de auditoria de consultas (F6-S05)
+export * from './assistantQueries.js';

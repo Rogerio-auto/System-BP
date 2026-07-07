@@ -1,28 +1,37 @@
 // =============================================================================
-// ConversationsLayout.tsx — Shell de 3 colunas do inbox live chat (F16-S16).
+// ConversationsLayout.tsx — Shell do inbox live chat (F16-S16, redesign F24).
 //
-// Estrutura:
-//   Col 1 (280px, fixa): ChatList — lista de conversas
-//   Col 2 (flex-1):      Painel da conversa (placeholder — S17 implementa)
-//   Col 3 (240px, collapsible): Dados do contato (placeholder — S17+)
+// Estrutura após redesign do filtro de status (F24):
+//   Col 1 (~60-188px): StatusSideMenu — menu vertical colapsável de status
+//   Col 2 (280px, fixa): ChatList — lista de conversas
+//   Col 3 (flex-1):      Painel da conversa
+//   Col 4 (240px, collapsible): Dados do contato
 //
 // Responsivo:
-//   - < 768px (mobile): exibe lista OU detalhe, nunca ambos.
-//   - >= 768px: layout 3 colunas completo.
+//   - < 768px (mobile): StatusSideMenu forçado colapsado (60px ícones),
+//     ChatList ocupa o restante. Ao selecionar conversa, exibe só o detalhe.
+//   - >= 768px: layout completo.
 //
-// DS: light-first, tokens sem hex hardcoded, separadores var(--border-subtle).
+// Estado hoistado aqui:
+//   - selectedId (conversa selecionada)
+//   - statusFilter (StatusSideMenu ↔ ChatList)
+//   - useConversationCounts() — passado para StatusSideMenu
 //
-// O SocketProvider é montado no ConversasPage (acima desta árvore).
+// DS: light-first, tokens sem hex hardcoded.
 // =============================================================================
 
 import * as React from 'react';
 
+import { useConversationCounts } from '../queries';
+
 import { ChatList } from './ChatList';
+import type { StatusFilter } from './ChatList/ChatListFilters';
 import { ContactPanel } from './ContactPanel';
 import { ConversationPanel } from './ConversationPanel';
+import { StatusSideMenu } from './StatusSideMenu';
 
 // ---------------------------------------------------------------------------
-// Placeholder da coluna de conversa (S17 vai substituir)
+// Placeholder da coluna de conversa
 // ---------------------------------------------------------------------------
 
 function ConversationPlaceholder(): React.JSX.Element {
@@ -31,7 +40,6 @@ function ConversationPlaceholder(): React.JSX.Element {
       className="flex-1 flex flex-col items-center justify-center gap-3"
       style={{ background: 'var(--bg)', color: 'var(--text-3)' }}
     >
-      {/* Ícone decorativo */}
       <span
         className="inline-flex items-center justify-center rounded-full"
         style={{
@@ -61,16 +69,6 @@ function ConversationPlaceholder(): React.JSX.Element {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Layout
-// ---------------------------------------------------------------------------
-
-/**
- * ConversationsLayout — shell de 3 colunas do inbox.
- *
- * Gerencia o estado de qual conversa está selecionada (selectedId).
- * Em mobile exibe lista ou detalhe conforme selectedId.
- */
 // ---------------------------------------------------------------------------
 // Toggle button do ContactPanel
 // ---------------------------------------------------------------------------
@@ -126,11 +124,27 @@ function ContactToggleButton({ isOpen, onClick }: ContactToggleButtonProps): Rea
   );
 }
 
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+
+/**
+ * ConversationsLayout — shell do inbox com menu lateral de status.
+ *
+ * Gerencia: selectedId, statusFilter, contactOpen.
+ * Delega: contagens ao StatusSideMenu, lista filtrada ao ChatList.
+ */
 export function ConversationsLayout(): React.JSX.Element {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [isMobile, setIsMobile] = React.useState(false);
   const [isLarge, setIsLarge] = React.useState(false);
   const [contactOpen, setContactOpen] = React.useState(true);
+
+  // Estado de filtro hoistado — compartilhado entre StatusSideMenu e ChatList
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('open');
+
+  // Contagens hoistadas — passadas ao StatusSideMenu
+  const { data: countsData, isLoading: countsLoading } = useConversationCounts();
 
   React.useEffect(() => {
     const mqMobile = window.matchMedia('(max-width: 767px)');
@@ -161,14 +175,26 @@ export function ConversationsLayout(): React.JSX.Element {
       className="flex h-full overflow-hidden"
       style={{ background: 'var(--bg)', position: 'relative' }}
     >
-      {/* ── Coluna 1: ChatList ─────────────────────────────────────────── */}
+      {/* ── Col 1: StatusSideMenu ────────────────────────────────────────── */}
+      {showList && (
+        <StatusSideMenu
+          value={statusFilter}
+          onChange={setStatusFilter}
+          counts={countsData}
+          countsLoading={countsLoading}
+          forceCollapsed={isMobile}
+        />
+      )}
+
+      {/* ── Col 2: ChatList ──────────────────────────────────────────────── */}
       {showList && (
         <aside
           className="flex flex-col h-full overflow-hidden flex-shrink-0"
           style={{
-            width: isMobile ? '100%' : '280px',
+            width: isMobile ? undefined : '280px',
             minWidth: isMobile ? undefined : '280px',
-            borderRight: isMobile ? 'none' : '1px solid var(--border-subtle)',
+            flex: isMobile ? '1 1 0' : undefined,
+            borderRight: '1px solid var(--border-subtle)',
             boxShadow: 'var(--elev-1)',
             background: 'var(--bg-elev-1)',
           }}
@@ -177,11 +203,12 @@ export function ConversationsLayout(): React.JSX.Element {
           <ChatList
             selectedConversationId={selectedId}
             onSelectConversation={(id) => setSelectedId(id)}
+            statusFilter={statusFilter}
           />
         </aside>
       )}
 
-      {/* ── Coluna 2: Conversa ────────────────────────────────────────── */}
+      {/* ── Col 3: Conversa ──────────────────────────────────────────────── */}
       {showDetail && (
         <main
           className="flex-1 flex flex-col h-full overflow-hidden"
@@ -237,7 +264,7 @@ export function ConversationsLayout(): React.JSX.Element {
         </main>
       )}
 
-      {/* Col 3: Contato inline (>= 1024px) */}
+      {/* Col 4: Contato inline (>= 1024px) */}
       {showContactInline && (
         <aside
           className="flex-shrink-0 h-full overflow-y-auto"
@@ -253,7 +280,7 @@ export function ConversationsLayout(): React.JSX.Element {
         </aside>
       )}
 
-      {/* Col 3: Contato overlay (768-1023px) */}
+      {/* Col 4: Contato overlay (768-1023px) */}
       {showContactOverlay && (
         <>
           <div

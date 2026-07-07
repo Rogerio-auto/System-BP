@@ -190,7 +190,6 @@ async def _dispatch_tool(
     org_id: str = state.get("organization_id", "")
     lead_id: str | None = state.get("lead_id")
     conversation_id: str = state.get("conversation_id", "")
-    chatwoot_conv_id: str = state.get("chatwoot_conversation_id", "")
 
     # organization_id é AUTORITATIVO do estado — igual ao telefone, NUNCA confiar
     # no valor do LLM. O modelo não vê o UUID real (DLP redige) e tende a alucinar
@@ -282,21 +281,27 @@ async def _dispatch_tool(
             return _dump(result)
 
         elif tool_name == "request_handoff":
-            from app.tools.chatwoot_tools import (
-                HandoffInput,
-                request_handoff,
+            # Live chat próprio: o handoff REAL é executado pelo worker Node
+            # (triggerLivechatHandoff em livechat/ai-handoff.ts) a partir da flag
+            # handoff_required — usando o UUID nativo de conversations.id, enviando
+            # mensagem ao cliente ("um atendente vai te responder"), marcando
+            # status=pending, socket e audit. O agent_turn seta hf_tool=True pelo
+            # NOME desta tool (ver abaixo), então o handoff dispara pela flag.
+            #
+            # Esta tool é apenas SINALIZAÇÃO: NÃO chamar POST /internal/handoffs.
+            # Aquele endpoint é legado Chatwoot (conversationId = z.coerce.number();
+            # int("0")/UUID -> 400) e no live chat próprio sempre falhava sem efeito
+            # útil. Chamá-lo só gerava ruído (ValueError/400) e confundia o LLM com
+            # um resultado de tool "failed". Ver chatwoot_tools.py:147.
+            _hf_reason = tool_args.get("reason") or "cliente_solicitou_atendente"
+            log.info(
+                "request_handoff_signaled",
+                conversation_id=conversation_id,
+                lead_id=lead_id,
+                reason=_hf_reason,
             )
-            if not tool_args.get("chatwoot_conversation_id"):
-                tool_args = {
-                    **tool_args,
-                    "chatwoot_conversation_id": chatwoot_conv_id,
-                }
-            if not tool_args.get("lead_id") and lead_id:
-                tool_args = {**tool_args, "lead_id": lead_id}
-            inp_hf: HandoffInput = HandoffInput(**tool_args)
-            result = await request_handoff(inp_hf)
             return json.dumps(
-                result.model_dump() if hasattr(result, "model_dump") else {"ok": True}
+                {"ok": True, "status": "handoff_requested", "reason": _hf_reason}
             )
 
         elif tool_name == "log_ai_decision":
@@ -401,6 +406,33 @@ def _build_state_context(state: ConversationState) -> str:
 # Regex para extrair bloco JSON de um bloco de codigo markdown (```json ... ```)
 _MD_JSON_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
 
+# Salvamento tolerante do envelope {"messages": [...]} quando json.loads falha
+# (o modelo as vezes quebra a sintaxe: esquece aspa/virgula ou poe newline solto
+# dentro da string). NUNCA vazar o JSON cru como mensagem pro cliente.
+_MESSAGES_ARRAY_RE = re.compile(r'"messages"\s*:\s*\[(.*)', re.DOTALL)
+_QUOTED_ITEM_RE = re.compile(r'"((?:[^"\\]|\\.)*)"', re.DOTALL)
+
+
+def _salvage_messages_envelope(text: str) -> list[str]:
+    """Best-effort: extrai as strings de um envelope {"messages": [...]} quando o
+    json.loads estrito falhou por JSON malformado do modelo. Retorna [] se o texto
+    nao parecer o envelope. Evita que '{"messages": [' vaze como mensagem."""
+    m = _MESSAGES_ARRAY_RE.search(text)
+    if not m:
+        return []
+    body = m.group(1)
+    # Corta o fechamento do array (e do objeto), se presente.
+    end = body.rfind("]")
+    if end != -1:
+        body = body[:end]
+    # So itens com conteudo real (descarta lixo de fronteira como uma virgula
+    # solta capturada quando falta uma aspa de fechamento).
+    return [
+        s.strip()
+        for s in _QUOTED_ITEM_RE.findall(body)
+        if s.strip() and re.search(r"[0-9A-Za-zÀ-ɏ]", s)
+    ]
+
 
 def _parse_agent_output(raw: str) -> tuple[str, list[str]]:
     """Extrai texto e lista de mensagens do output bruto do LLM (F16-S46 BUG-A).
@@ -455,10 +487,24 @@ def _parse_agent_output(raw: str) -> tuple[str, list[str]]:
                 parsed_keys=_parsed_keys,
             )
     except (json.JSONDecodeError, ValueError):
-        # Nao e JSON -- path de texto puro (fallback ou modelo que nao seguiu o prompt)
+        # JSON malformado (o modelo as vezes quebra a sintaxe: aspa/virgula
+        # faltando, newline solto dentro da string). Cai no salvamento abaixo.
         pass
 
-    # Fallback: texto puro -- retorna como mensagem unica
+    # Salvamento tolerante do envelope {"messages": [...]}: quando o parse estrito
+    # falha (ou nao ha messages[] utilizavel), extrai as strings via regex para
+    # NUNCA vazar o JSON cru ('{"messages": [') como mensagem pro cliente.
+    # F16 hardening (prod 2026-07-06 -- o envelope estava vazando no WhatsApp).
+    if '"messages"' in text:
+        salvaged = _salvage_messages_envelope(text)
+        if salvaged:
+            log.warning(
+                "agent_turn_output_salvaged",
+                salvaged_count=len(salvaged),
+            )
+            return salvaged[0], salvaged
+
+    # Fallback final: texto puro (modelo respondeu sem o envelope JSON).
     return text, [text]
 
 

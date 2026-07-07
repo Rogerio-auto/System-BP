@@ -328,3 +328,36 @@ async def test_agent_turn_empty_org_id_triggers_handoff_without_gateway():
     errors = result.get("errors", [])
     assert any(e.get("error") == "MISSING_ORG_ID" for e in errors)
 
+
+@pytest.mark.asyncio
+async def test_request_handoff_dispatch_signals_without_backend_call():
+    """Regressão (prod 2026-07-06): no live chat próprio, request_handoff é apenas
+    SINALIZAÇÃO — o handoff real é feito pelo worker Node (triggerLivechatHandoff)
+    a partir da flag handoff_required. O dispatch NÃO deve chamar o legado
+    POST /internal/handoffs (chatwoot_tools.request_handoff), cujo
+    conversationId=int('0'/UUID) dava 400/ValueError e gerava ruído.
+    """
+    import json as _json
+
+    from app.graphs.whatsapp_pre_attendance.nodes.agent_turn import _dispatch_tool
+
+    state = _make_state()
+    with patch(
+        "app.tools.chatwoot_tools.request_handoff", new=AsyncMock()
+    ) as mock_backend:
+        out = await _dispatch_tool(
+            "request_handoff",
+            {"reason": "cliente_solicitou_atendente", "summary": "quer atendente"},
+            state,
+        )
+
+    # A tool legada do Chatwoot NUNCA deve ser chamada
+    mock_backend.assert_not_awaited()
+
+    data = _json.loads(out)
+    assert data["ok"] is True
+    assert data["status"] == "handoff_requested"
+    assert data["reason"] == "cliente_solicitou_atendente"
+    # E não deve devolver o JSON de erro de tool ("tool execution failed")
+    assert "error" not in data
+
