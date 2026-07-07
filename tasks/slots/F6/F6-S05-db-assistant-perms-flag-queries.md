@@ -3,7 +3,7 @@ id: F6-S05
 title: DB/Seed — ai_assistant:use + flag ai.internal_assistant.enabled + tabela assistant_queries
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
@@ -15,6 +15,7 @@ source_docs:
 docs_required: false
 claimed_at: 2026-07-06T23:51:42Z
 completed_at: 2026-07-07T00:37:38Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/400
 ---
 
 # F6-S05 — DB/Seed: fundação do copiloto interno

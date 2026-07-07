@@ -87,3 +87,18 @@ python scripts/slot.py validate F25-S03
 - Espelhar `kanban-on-simulation.ts` (transação + histórico + emit + audit) como referência de estilo.
 - Idempotência de `emit`: usar `onConflictDoNothing` p/ chave determinística (ver histórico de bug do outbox).
 - Nunca repassar PII em payload de evento. `qualify` não recebe nem loga CPF.
+
+## ⚠️ Herança do security review de F25-S01 (PR #399, mergeado)
+
+Dois achados MEDIUM do review de F25-S01 tocam esta frente:
+
+- **M-1 — índice de `canonical_role` NÃO é único.** F25-S01 criou `(organization_id, canonical_role)`
+  como `index`, não `uniqueIndex`: o DB permite dois stages da mesma org com o mesmo `canonical_role`,
+  e o lookup determinístico do refactor de workers pode retornar >1 linha. **O fix (partial
+  `uniqueIndex ... WHERE canonical_role IS NOT NULL`) é schema/migration — fora do `files_allowed`
+  deste slot.** Abrir num slot de schema (F25-S02 ou corretivo) ANTES de confiar em lookup 1-linha.
+  Enquanto não existir o constraint, resolver stage com `.limit(1)` + **log de aviso** se a query
+  trouxer mais de uma linha (não quebrar silenciosamente).
+- **M-2 — `LeadsAbandonedData` incompleto** (falta `stage_id`/`canonical_role`, nullable). Pertence
+  ao emissor real (F25-S05, worker de estagnação/abandono), não a este slot — registrado aqui só
+  para não se perder.

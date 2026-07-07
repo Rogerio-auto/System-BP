@@ -75,3 +75,14 @@ python scripts/slot.py validate F6-S08
 
 - O escopo é sempre do `request.user`. Se o corpo tentar mandar city/permissions, ignorar.
 - Registrar rota em `app.ts` (roteador vivo).
+
+## ⚠️ Herança do security review de F6-S05 (PR #400, mergeado)
+
+- **M-2 — DLP é 100% responsabilidade deste endpoint.** `assistant_queries.question_redacted` é
+  `text NOT NULL` **sem CHECK no DB**: nada na camada de dados impede persistir a pergunta bruta.
+  Aplicar `dlp_filter()` ANTES de gravar e **provar em teste** que a string persistida é a versão
+  pós-DLP (jamais CPF/telefone/nome). O DoD já exige "sem PII bruta" — este teste é obrigatório.
+- **L-1 — `user_id` sempre do principal.** A coluna é nullable no schema; aqui deve vir SEMPRE do
+  `request.user`, nunca do corpo. Ignorar/rejeitar qualquer `user_id` do payload.
+- **L-2 — JSONB `tools_called`/`city_scope_snapshot`.** Persistir só IDs de entidade e agregados;
+  validar via Zod antes de gravar — nada de PII em `args`.

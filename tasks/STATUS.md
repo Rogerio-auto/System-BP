@@ -25,11 +25,11 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
 | F24  | 15    | 8   | 0   | 0   | 0   | 0   | 7   |
-| F25  | 9     | 8   | 0   | 0   | 0   | 1   | 0   |
+| F25  | 9     | 8   | 0   | 0   | 0   | 0   | 1   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 7     | 6   | 0   | 0   | 0   | 1   | 0   |
+| F6   | 7     | 6   | 0   | 0   | 0   | 0   | 1   |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -364,7 +364,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID      | Título                                                                                   | Status       | Prioridade | Depende de                |
 | ------- | ---------------------------------------------------------------------------------------- | ------------ | ---------- | ------------------------- |
-| F25-S01 | DB — canonical_role em kanban_stages + ator 'ai' no audit + event types do funil         | 🟣 review    | high       | —                         |
+| F25-S01 | DB — canonical_role em kanban_stages + ator 'ai' no audit + event types do funil         | ✅ done      | high       | —                         |
 | F25-S02 | Seed — permissões ai_actions:\* + role_permissions + flags + MODULE_PREFIX_MAP           | 🟢 available | high       | F25-S01                   |
 | F25-S03 | Backend — /internal qualify_lead + evento leads.qualified + workers por canonical_role   | 🟢 available | high       | F25-S01, F25-S02          |
 | F25-S04 | Python — tool qualify_lead no agente + fiação no agent_turn + prompt                     | 🟢 available | high       | F25-S03                   |
@@ -454,7 +454,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID     | Título                                                                                     | Status       | Prioridade | Depende de     |
 | ------ | ------------------------------------------------------------------------------------------ | ------------ | ---------- | -------------- |
-| F6-S05 | DB/Seed — ai_assistant:use + flag ai.internal_assistant.enabled + tabela assistant_queries | 🟣 review    | high       | —              |
+| F6-S05 | DB/Seed — ai_assistant:use + flag ai.internal_assistant.enabled + tabela assistant_queries | ✅ done      | high       | —              |
 | F6-S06 | Backend — endpoints de leitura RBAC-bound do copiloto (principal do usuário + city scope)  | 🟢 available | high       | F6-S05         |
 | F6-S07 | Python — grafo internal_assistant + tools de leitura + prompt (sem escrita)                | 🟢 available | high       | F6-S06         |
 | F6-S08 | Backend — POST /api/internal-assistant/query (injeta principal → grafo) + guard + log      | 🟢 available | high       | F6-S05, F6-S07 |
