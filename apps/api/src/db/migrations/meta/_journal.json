@@ -526,6 +526,13 @@
       "when": 1783036800000,
       "tag": "0083_assistant_queries_and_perm",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1783987200000,
+      "tag": "0084_seed_ai_actions_permissions",
+      "breakpoints": true
     }
   ]
 }
