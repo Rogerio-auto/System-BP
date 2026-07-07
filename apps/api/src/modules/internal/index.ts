@@ -114,8 +114,11 @@ const internalPlugin: FastifyPluginAsync = async (fastify) => {
     const { default: internalPromptsRoutes } = await import('./prompts/routes.js');
     // F19-S03: encaminhamento advocacia + status de elegibilidade para LangGraph
     const { default: internalLawFirmStatusRoutes } = await import('./law-firm-status/routes.js');
+    // F6-S06: copiloto interno -- endpoints de leitura RBAC-bound
+    const { default: internalAssistantRoutes } = await import('./assistant/routes.js');
 
     await fastify.register(internalAiRoutes, { prefix: '/ai' });
+    await fastify.register(internalAssistantRoutes, { prefix: '/assistant' });
     await fastify.register(internalChatwootRoutes, { prefix: '/chatwoot' });
     await fastify.register(internalCitiesRoutes, { prefix: '/cities' });
     await fastify.register(internalConversationsRoutes, { prefix: '/conversations' });
