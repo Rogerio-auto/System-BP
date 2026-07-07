@@ -3,7 +3,7 @@ id: F25-S01
 title: DB — canonical_role em kanban_stages + ator 'ai' no audit + event types do funil
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
@@ -13,6 +13,7 @@ labels: [db-schema, ai-agent, multi-tenant]
 source_docs: [docs/22-agente-interno-acoes.md, docs/03-modelo-dados.md, docs/04-eventos.md]
 docs_required: false
 claimed_at: 2026-07-06T23:48:50Z
+completed_at: 2026-07-07T00:40:26Z
 ---
 
 # F25-S01 — DB: máquina de estados canônica do funil + ator de IA no audit
