@@ -202,6 +202,13 @@ const PERMISSIONS = [
     description:
       'Gerenciar regras e entregas de notificações do sistema (notification_rules, notification_deliveries)',
   },
+  // copiloto interno — F6-S05 (migration 0083)
+  {
+    key: 'ai_assistant:use',
+    description:
+      'Conversar com o copiloto interno — acesso à interface de consulta em linguagem natural. ' +
+      'Não concede leitura de dados: cada consulta ainda exige a permissão do domínio (§12.3 doc 22).',
+  },
 ] as const;
 
 /**
@@ -254,6 +261,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'credit_analyses:request_review',
     // relatórios & métricas — F23-S02
     'reports:export',
+    // copiloto interno — F6-S05
+    'ai_assistant:use',
   ],
   gestor_geral: [
     'leads:read',
@@ -297,6 +306,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports:export',
     // notificações — F24-S02
     'notifications:manage',
+    // copiloto interno — F6-S05
+    'ai_assistant:use',
   ],
   gestor_regional: [
     'leads:read',
@@ -330,6 +341,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     // relatórios & métricas — F23-S02 (billing city-scoped via cityScopeIds no código)
     'billing:read',
     'reports:export',
+    // copiloto interno — F6-S05
+    'ai_assistant:use',
   ],
   agente: [
     'leads:read',
@@ -346,6 +359,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     // credit-analyses — F8 (migration 0033)
     'credit_analyses:read',
     'credit_analyses:request_review',
+    // copiloto interno — F6-S05
+    'ai_assistant:use',
   ],
   operador: [
     'leads:read',
@@ -355,8 +370,18 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'simulations:read',
     'analyses:read',
     'dashboard:read_by_agent',
+    // copiloto interno — F6-S05
+    'ai_assistant:use',
   ],
-  leitura: ['leads:read', 'customers:read', 'simulations:read', 'analyses:read', 'dashboard:read'],
+  leitura: [
+    'leads:read',
+    'customers:read',
+    'simulations:read',
+    'analyses:read',
+    'dashboard:read',
+    // copiloto interno — F6-S05
+    'ai_assistant:use',
+  ],
 };
 
 // ---------------------------------------------------------------------------
