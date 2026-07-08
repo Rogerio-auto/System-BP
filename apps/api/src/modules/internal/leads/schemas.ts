@@ -246,3 +246,52 @@ export const InternalLeadErrorResponseSchema = z.object({
   message: z.string(),
   details: z.unknown().optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Schemas para POST /internal/leads/:id/qualify (F25-S03)
+// ---------------------------------------------------------------------------
+
+/**
+ * Params do POST /internal/leads/:id/qualify.
+ * LGPD: id é UUID opaco — não é PII.
+ */
+export const InternalQualifyLeadParamsSchema = z.object({
+  id: z.string().uuid('id deve ser UUID'),
+});
+
+export type InternalQualifyLeadParams = z.infer<typeof InternalQualifyLeadParamsSchema>;
+
+/**
+ * Body do POST /internal/leads/:id/qualify.
+ * organization_id obrigatório — não há JWT para derivar contexto de org.
+ */
+export const InternalQualifyLeadBodySchema = z.object({
+  organization_id: z
+    .string({ required_error: 'organization_id é obrigatório' })
+    .uuid('organization_id deve ser UUID'),
+});
+
+export type InternalQualifyLeadBody = z.infer<typeof InternalQualifyLeadBodySchema>;
+
+/**
+ * Resposta de POST /internal/leads/:id/qualify.
+ *
+ * LGPD: retorna apenas IDs opacos e campos não-PII.
+ * Idempotente: se lead já estava em qualifying+, retorna current_status sem erro.
+ */
+export const InternalQualifyLeadResponseSchema = z.object({
+  /** UUID do lead qualificado. */
+  lead_id: z.string().uuid(),
+  /** Status anterior à qualificação (ex: 'new'). */
+  previous_status: z.string(),
+  /** Status após a qualificação (ex: 'qualifying'). No-op se já qualifying+. */
+  current_status: z.string(),
+  /** UUID do kanban card do lead, ou null se o card não existir. */
+  card_id: z.string().uuid().nullable(),
+  /** UUID do stage kanban atual do card, ou null. */
+  stage_id: z.string().uuid().nullable(),
+  /** Role canônica do stage atual (ex: 'pre_atendimento'), ou null. */
+  canonical_role: z.string().nullable(),
+});
+
+export type InternalQualifyLeadResponse = z.infer<typeof InternalQualifyLeadResponseSchema>;

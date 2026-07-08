@@ -78,16 +78,7 @@ const baseLogger = pino({
 });
 
 // ---------------------------------------------------------------------------
-// Índices de stage canônicos (doc 01 §72 + seed.ts)
-// ---------------------------------------------------------------------------
-
-/** orderIndex do stage inicial "Pré-atendimento". */
-const ORDER_PRE_ATENDIMENTO = 0;
-
-/** orderIndex do stage "Simulação" (destino desta transição automática). */
-const ORDER_SIMULACAO = 1;
-
-// ---------------------------------------------------------------------------
+// Índices de stage canônicos (doc 01 §72 + seed.ts)// ---------------------------------------------------------------------------
 // Queries locais
 // (kanban/repository.ts não está em files_allowed; duplicamos o mínimo necessário)
 // ---------------------------------------------------------------------------
@@ -105,19 +96,34 @@ async function findCardByLeadId(
   return row;
 }
 
-async function findStageByOrderIndex(
+/**
+ * Busca stage por canonical_role (F25-S03).
+ *
+ * Heranca M-1 (security review F25-S01): o index (organization_id, canonical_role)
+ * NAO e unique. Usa limit(2) e emite warn se houver mais de uma linha.
+ */
+async function findStageByCanonicalRole(
   database: Database,
-  orderIndex: number,
+  canonicalRole: string,
   organizationId: string,
 ): Promise<KanbanStage | undefined> {
-  const [row] = await database
+  const rows = await database
     .select()
     .from(kanbanStages)
     .where(
-      and(eq(kanbanStages.orderIndex, orderIndex), eq(kanbanStages.organizationId, organizationId)),
+      and(
+        eq(kanbanStages.canonicalRole, canonicalRole),
+        eq(kanbanStages.organizationId, organizationId),
+      ),
     )
-    .limit(1);
-  return row;
+    .limit(2);
+  if (rows.length > 1) {
+    baseLogger.warn(
+      { organizationId, canonicalRole, count: rows.length },
+      'findStageByCanonicalRole: multiplos stages com o mesmo canonical_role (M-1); usando o primeiro',
+    );
+  }
+  return rows[0];
 }
 
 async function findStageById(
@@ -216,16 +222,16 @@ export async function handleSimulationGenerated(
   // 5. Verificar se o card está em Pré-atendimento (orderIndex = 0)
   //    Sem regressão: se já avançou, encerra.
   // -------------------------------------------------------------------------
-  const preAtendimentoStage = await findStageByOrderIndex(
+  const preAtendimentoStage = await findStageByCanonicalRole(
     database,
-    ORDER_PRE_ATENDIMENTO,
+    'pre_atendimento',
     organizationId,
   );
 
   if (!preAtendimentoStage) {
     logger.warn(
       { eventId: event.id, organizationId },
-      'stage Pré-atendimento (orderIndex=0) não encontrado na org; skip',
+      'stage pre_atendimento (canonical_role) nao encontrado na org; skip',
     );
     return;
   }
@@ -241,12 +247,12 @@ export async function handleSimulationGenerated(
   // -------------------------------------------------------------------------
   // 6. Carregar stage destino "Simulação" (orderIndex = 1)
   // -------------------------------------------------------------------------
-  const simulacaoStage = await findStageByOrderIndex(database, ORDER_SIMULACAO, organizationId);
+  const simulacaoStage = await findStageByCanonicalRole(database, 'simulacao', organizationId);
 
   if (!simulacaoStage) {
     logger.warn(
       { eventId: event.id, organizationId },
-      'stage Simulação (orderIndex=1) não encontrado na org; skip',
+      'stage simulacao (canonical_role) nao encontrado na org; skip',
     );
     return;
   }

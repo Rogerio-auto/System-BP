@@ -29,6 +29,7 @@ import { buildAutoContractFromAnalysisHandler } from '../handlers/auto-contract-
 import { buildCancelFollowupsOnReplyHandler } from '../handlers/cancel-followups-on-inbound-message.js';
 
 import { buildKanbanOnAnalysisHandler } from './kanban-on-analysis.js';
+import { buildKanbanOnQualificationHandler } from './kanban-on-qualification.js';
 import { buildKanbanOnSimulationHandler } from './kanban-on-simulation.js';
 
 // F5-S02: worker periódico de agendamento de follow-ups.
@@ -87,6 +88,13 @@ export { runReportsRefreshTick } from './reports-refresh.js';
  * Handlers são self-contained: importam db e logger internamente.
  */
 export function setupWorkerHandlers(): void {
+  // F25-S03: leads.qualified -> eleva priority do card (sem mover stage)
+  registerHandler(
+    'leads.qualified',
+    'kanban.on_lead_qualified',
+    buildKanbanOnQualificationHandler(),
+  );
+
   // F2-S09: simulations.generated → move card para "Simulação" se em "Pré-atendimento"
   registerHandler(
     'simulations.generated',

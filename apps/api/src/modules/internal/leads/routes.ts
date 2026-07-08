@@ -42,12 +42,15 @@ import { auditLog } from '../../../lib/audit.js';
 import { verifyInternalToken } from '../../../lib/auth/internal-token.js';
 import { NotFoundError, UnauthorizedError } from '../../../shared/errors.js';
 import { findLeadById, updateLead } from '../../leads/repository.js';
-import { getOrCreateLead } from '../../leads/service.js';
+import { getOrCreateLead, qualifyLead } from '../../leads/service.js';
 
 import {
   InternalGetOrCreateLeadBodySchema,
   InternalGetOrCreateLeadResponseSchema,
   InternalLeadParamsSchema,
+  InternalQualifyLeadBodySchema,
+  InternalQualifyLeadParamsSchema,
+  InternalQualifyLeadResponseSchema,
   InternalUpdateLeadBodySchema,
   InternalUpdateLeadResponseSchema,
 } from './schemas.js';
@@ -427,6 +430,63 @@ const internalLeadsRoutes: FastifyPluginAsyncZod = async (app) => {
         };
       });
 
+      return reply.status(200).send(result);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /:id/qualify — qualify_lead (F25-S03)
+  //
+  // Path final (com prefixo do autoload): POST /internal/leads/:id/qualify
+  //
+  // Pipeline:
+  //   1. Verificar X-Internal-Token → 401 se ausente/inválido.
+  //   2. Validar body via Zod (Fastify aplica automaticamente).
+  //   3. Chamar qualifyLead() em leads/service.ts.
+  //   4. Retornar 200 com resultado (idempotente).
+  //
+  // Idempotência:
+  //   Se o lead já estiver em qualifying+, retorna o estado atual sem modificar.
+  //
+  // LGPD §8.5:
+  //   Resposta retorna apenas IDs opacos e campos de status — sem PII.
+  //   CPF, nome, telefone nunca são retornados neste endpoint.
+  // -------------------------------------------------------------------------
+  app.post(
+    '/:id/qualify',
+    {
+      schema: {
+        hide: true,
+        params: InternalQualifyLeadParamsSchema,
+        body: InternalQualifyLeadBodySchema,
+        response: {
+          200: InternalQualifyLeadResponseSchema,
+        },
+      },
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute',
+          errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
+            const err = Object.assign(
+              new Error('Rate limit excedido: máximo 60 requisições por minuto.'),
+              { statusCode: context.statusCode, code: 'RATE_LIMITED' },
+            );
+            return err;
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      // 1. Verificar X-Internal-Token (timing-safe — previne timing oracle, doc 10 §2.3).
+      if (!verifyInternalToken(request.headers['x-internal-token'], env.LANGGRAPH_INTERNAL_TOKEN)) {
+        throw new UnauthorizedError('Token interno inválido ou ausente');
+      }
+
+      const { id: leadId } = request.params;
+      const { organization_id: organizationId } = request.body;
+
+      const result = await qualifyLead(db, leadId, organizationId);
       return reply.status(200).send(result);
     },
   );

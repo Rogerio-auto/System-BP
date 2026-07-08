@@ -42,7 +42,7 @@
 //   Handler manipula apenas IDs opacos + status de negócio.
 //   Nenhum PII é lido ou logado. correlationId nos logs = event.id.
 // =============================================================================
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import pino from 'pino';
 
 import { env } from '../config/env.js';
@@ -167,19 +167,42 @@ async function findTerminalLostStage(
 }
 
 /**
- * Localiza o stage "Análise de Crédito" da org, usado na reabertura.
+ * Localiza o stage "analise_credito" da org, usado na reabertura.
  *
- * Estratégia de lookup (em ordem de preferência):
- *   1. Stage não-terminal com orderIndex = 3 (posição canônica no pipeline BdP).
- *      Isso é robusto a renomeações acidentais do stage.
- *   2. Stage com nome case-insensitive contendo "analise" e "credito".
- *   Se nenhum encontrado → retorna undefined (handler faz skip + warn).
+ * Estrategia de lookup (F25-S03, em ordem de preferencia):
+ *   1. Stage com canonical_role = 'analise_credito' (F25-S01 / semantica declarativa).
+ *   2. Fallback: orderIndex = 3 (posicao canonica no pipeline BdP, para orgs
+ *      sem canonical_role configurado).
+ *   Se nenhum encontrado -> retorna undefined (handler faz skip + warn).
+ *
+ * Heranca M-1 (review F25-S01): canonical_role NAO e unique. Usa limit(2)
+ * e emite warn se houver mais de uma linha.
  */
 async function findAnaliseCreditorStage(
   database: Database,
   organizationId: string,
 ): Promise<KanbanStage | undefined> {
-  // Tentativa 1: orderIndex canônico
+  // Tentativa 1: canonical_role (semantica declarativa -- F25-S01)
+  const byCanonical = await database
+    .select()
+    .from(kanbanStages)
+    .where(
+      and(
+        eq(kanbanStages.organizationId, organizationId),
+        eq(kanbanStages.canonicalRole, 'analise_credito'),
+      ),
+    )
+    .limit(2);
+
+  if (byCanonical.length > 1) {
+    baseLogger.warn(
+      { organizationId, canonicalRole: 'analise_credito', count: byCanonical.length },
+      'findAnaliseCreditorStage: multiplos stages com canonical_role analise_credito (M-1); usando o primeiro',
+    );
+  }
+  if (byCanonical.length > 0) return byCanonical[0];
+
+  // Tentativa 2: fallback por orderIndex = 3 (pipeline canonico BdP)
   const [byOrder] = await database
     .select()
     .from(kanbanStages)
@@ -191,25 +214,16 @@ async function findAnaliseCreditorStage(
     )
     .limit(1);
 
-  if (byOrder) return byOrder;
+  if (byOrder) {
+    baseLogger.warn(
+      { organizationId },
+      'findAnaliseCreditorStage: fallback para orderIndex=3 (canonical_role nao configurado)',
+    );
+    return byOrder;
+  }
 
-  // Tentativa 2: fallback por tipo (não-terminal) — nomes podem variar
-  // Retorna qualquer stage normal com orderIndex > 2 (pós-documentação)
-  // que seja não-terminal. Melhor que falhar silenciosamente.
-  const [byFallback] = await database
-    .select()
-    .from(kanbanStages)
-    .where(
-      and(
-        eq(kanbanStages.organizationId, organizationId),
-        or(eq(kanbanStages.isTerminalWon, false), eq(kanbanStages.isTerminalLost, false)),
-      ),
-    )
-    .limit(1);
-
-  return byFallback;
+  return undefined;
 }
-
 // ---------------------------------------------------------------------------
 // Handler principal — exportado para testes
 // ---------------------------------------------------------------------------
