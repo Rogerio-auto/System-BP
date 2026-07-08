@@ -3,7 +3,7 @@ id: F24-S10
 title: Frontend — página Admin de regras de notificação (lista + card)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
@@ -15,6 +15,7 @@ docs_required: true
 docs_artifacts: [docs/help/guias/admin/notificacoes.mdx]
 claimed_at: 2026-06-30T22:22:13Z
 completed_at: 2026-06-30T22:42:48Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/403
 ---
 
 # F24-S10 — Frontend: página Admin (lista de regras)
