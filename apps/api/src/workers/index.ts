@@ -27,6 +27,7 @@ export { processJob } from './livechat-ai.js';
 import { registerHandler } from '../events/handlers.js';
 import { buildAutoContractFromAnalysisHandler } from '../handlers/auto-contract-from-analysis.js';
 import { buildCancelFollowupsOnReplyHandler } from '../handlers/cancel-followups-on-inbound-message.js';
+import { buildFanoutNotificationHandler } from '../handlers/fanout-notification.js';
 
 import { buildKanbanOnAnalysisHandler } from './kanban-on-analysis.js';
 import { buildKanbanOnQualificationHandler } from './kanban-on-qualification.js';
@@ -122,4 +123,32 @@ export function setupWorkerHandlers(): void {
     'contracts.on_analysis_status_changed',
     buildAutoContractFromAnalysisHandler(),
   );
+
+  // F24-S06: fan-out rules-driven — registrar para todos os eventos do TRIGGER_CATALOG (kind='event').
+  // O handler é idempotente (bucket=event_id) e verifica a flag notifications.rules.enabled.
+  // Um único builder é criado e compartilhado para todos os eventos do catálogo.
+  const fanoutHandler = buildFanoutNotificationHandler();
+
+  // Eventos catalogados com kind='event' (TRIGGER_CATALOG em packages/shared-schemas).
+  // O handler lê notification_rules do DB por trigger_key = event_name, portanto
+  // registrar para todos os eventos do catálogo é seguro — sem regras = no-op.
+  const FANOUT_EVENT_NAMES = [
+    'simulations.generated',
+    'credit_analysis.status_changed',
+    'chatwoot.handoff_requested',
+    'contract.signed',
+    'contract.near_end',
+    'payment_due.overdue_15d',
+    'billing.collection_sent',
+    'task.created',
+    'customer.law_firm_referred',
+  ] as const;
+
+  for (const eventName of FANOUT_EVENT_NAMES) {
+    registerHandler(
+      eventName,
+      `notifications.fanout.on_${eventName.replace(/\./g, '_')}`,
+      fanoutHandler,
+    );
+  }
 }
