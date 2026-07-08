@@ -3,7 +3,7 @@ id: F6-S07
 title: Python — grafo internal_assistant + tools de leitura + prompt (sem escrita)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: null
@@ -13,6 +13,7 @@ labels: [python, langgraph, ai-assistant, dlp]
 source_docs: [docs/22-agente-interno-acoes.md, docs/06-langgraph-agentes.md]
 docs_required: false
 claimed_at: 2026-07-08T02:26:04Z
+completed_at: 2026-07-08T03:06:55Z
 ---
 
 # F6-S07 — Python: grafo internal_assistant
