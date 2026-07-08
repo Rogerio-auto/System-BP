@@ -26,12 +26,15 @@
 //   - Outbox leads.created apenas quando created=true (mesma transação).
 //   - LGPD: resposta retorna apenas IDs opacos — sem PII.
 // =============================================================================
-import { eq } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+
+import { and, eq } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
-import { kanbanCards, kanbanStages } from '../../db/schema/index.js';
+import { auditLogs, kanbanCards, kanbanStages, leadHistory, leads } from '../../db/schema/index.js';
 import type { Lead } from '../../db/schema/leads.js';
 import { emit } from '../../events/emit.js';
+import type { DrizzleTx } from '../../events/emit.js';
 import { auditLog } from '../../lib/audit.js';
 import { hashDocument } from '../../lib/crypto/pii.js';
 import { AppError, NotFoundError } from '../../shared/errors.js';
@@ -1054,4 +1057,188 @@ function isUniqueViolation(err: unknown, constraint?: string): boolean {
   if (e.code !== '23505') return false;
   if (constraint !== undefined && e.constraint !== constraint) return false;
   return true;
+}
+
+// =============================================================================
+// F25-S03: qualifyLead — Ação de negócio "qualificar lead" para o agente interno
+// =============================================================================
+
+/**
+ * Resultado da operação de qualificação de um lead.
+ * LGPD: apenas IDs opacos e campos de status — sem PII.
+ */
+export interface QualifyLeadResult {
+  lead_id: string;
+  previous_status: string;
+  current_status: string;
+  card_id: string | null;
+  stage_id: string | null;
+  canonical_role: string | null;
+}
+
+/**
+ * Qualifica um lead: transição de status `new` → `qualifying`.
+ *
+ * Idempotente: se o lead já estiver em `qualifying` ou além, retorna o estado
+ * atual sem modificar nada.
+ *
+ * Fluxo (quando lead está em `new`):
+ *   1. Verificar existência do lead na org (pré-voo).
+ *   2. Buscar kanban card e stage atual.
+ *   3. Em transação:
+ *      a. Atualizar leads.status → 'qualifying'.
+ *      b. Inserir lead_history (actor_user_id null = IA).
+ *      c. Inserir audit_logs com actor_type='ai' (F25-S01).
+ *      d. Emitir leads.qualified no outbox (idempotente via onConflictDoNothing).
+ *
+ * LGPD §8.5: nenhum PII é incluído no evento ou nos logs de auditoria.
+ *
+ * @param database      Instância Drizzle.
+ * @param leadId        UUID do lead a qualificar.
+ * @param organizationId UUID da organização (multi-tenant safety).
+ * @param correlationId  Correlation ID opcional para rastreamento distribuído.
+ */
+export async function qualifyLead(
+  database: Database,
+  leadId: string,
+  organizationId: string,
+  correlationId?: string,
+): Promise<QualifyLeadResult> {
+  // -------------------------------------------------------------------------
+  // 1. Verificar existência do lead (pré-voo, sem transação)
+  //    cityScopeIds null: IA tem visibilidade global dentro da org.
+  // -------------------------------------------------------------------------
+  const existing = await findLeadById(database, leadId, organizationId, null);
+  if (!existing) {
+    throw new NotFoundError('Lead não encontrado');
+  }
+
+  const previousStatus = existing.status;
+
+  // -------------------------------------------------------------------------
+  // 2. Buscar card e stage atuais (para incluir no evento e na resposta)
+  //    Fora da transação: leitura otimista — dados consistentes com o estado
+  //    actual antes da mutação.
+  // -------------------------------------------------------------------------
+  const [cardRow] = await database
+    .select()
+    .from(kanbanCards)
+    .where(and(eq(kanbanCards.leadId, leadId), eq(kanbanCards.organizationId, organizationId)))
+    .limit(1);
+
+  const [stageRow] = cardRow
+    ? await database
+        .select({ id: kanbanStages.id, canonicalRole: kanbanStages.canonicalRole })
+        .from(kanbanStages)
+        .where(eq(kanbanStages.id, cardRow.stageId))
+        .limit(1)
+    : [];
+
+  const cardId = cardRow?.id ?? null;
+  const stageId = stageRow?.id ?? null;
+  const canonicalRole = stageRow?.canonicalRole ?? null;
+
+  // -------------------------------------------------------------------------
+  // 3. Idempotência: se já qualifying ou além, retornar sem modificar
+  //    Statuses "além de qualifying": simulation, closed_won, closed_lost, archived.
+  // -------------------------------------------------------------------------
+  const alreadyQualifiedStatuses = [
+    'qualifying',
+    'simulation',
+    'closed_won',
+    'closed_lost',
+    'archived',
+  ];
+  if (alreadyQualifiedStatuses.includes(previousStatus)) {
+    return {
+      lead_id: leadId,
+      previous_status: previousStatus,
+      current_status: previousStatus,
+      card_id: cardId,
+      stage_id: stageId,
+      canonical_role: canonicalRole,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // 4. Transação: update lead + lead_history + audit_logs + outbox
+  // -------------------------------------------------------------------------
+  await database.transaction(async (tx) => {
+    const txDb = tx as unknown as Database;
+    const txForEmit = tx as unknown as DrizzleTx;
+    const now = new Date();
+
+    // 4a. Atualizar status do lead para 'qualifying'
+    await txDb
+      .update(leads)
+      .set({ status: 'qualifying', updatedAt: now })
+      .where(and(eq(leads.id, leadId), eq(leads.organizationId, organizationId)));
+
+    // 4b. lead_history — append-only (LGPD §8.5)
+    //     actor_user_id null = ação de sistema/IA (não há usuário humano).
+    //     before/after: apenas campo status — sem PII.
+    await txDb.insert(leadHistory).values({
+      leadId,
+      action: 'qualified_by_ai',
+      before: { status: previousStatus },
+      after: { status: 'qualifying' },
+      actorUserId: null,
+      metadata: {
+        actor_type: 'ai',
+        ...(correlationId ? { correlation_id: correlationId } : {}),
+      },
+    });
+
+    // 4c. audit_logs com actor_type='ai' (F25-S01 / LGPD Art. 20)
+    //     Inserção direta pois auditLog() helper não expõe actor_type
+    //     (lib/audit.ts fora de files_allowed deste slot).
+    //     before/after: apenas campo status — sem PII.
+    await txDb.insert(auditLogs).values({
+      id: randomUUID(),
+      organizationId,
+      actorUserId: null,
+      actorRole: null,
+      actorType: 'ai',
+      action: 'leads.qualified',
+      resourceType: 'lead',
+      resourceId: leadId,
+      before: { status: previousStatus },
+      after: { status: 'qualifying' },
+      ip: null,
+      userAgent: null,
+      correlationId: correlationId ?? null,
+    });
+
+    // 4d. Evento leads.qualified no outbox
+    //     LGPD §8.5: apenas IDs opacos — sem PII bruta.
+    //     onConflictDoNothing: chave determinística evita 500 em retry do LangGraph.
+    await emit(
+      txForEmit,
+      {
+        eventName: 'leads.qualified',
+        aggregateType: 'lead',
+        aggregateId: leadId,
+        organizationId,
+        actor: { kind: 'system', id: 'langgraph:qualify_lead', ip: null },
+        idempotencyKey: `leads.qualified:${leadId}`,
+        data: {
+          lead_id: leadId,
+          organization_id: organizationId,
+          canonical_role: canonicalRole ?? 'pre_atendimento',
+          stage_id: cardRow?.stageId ?? '',
+          card_id: cardId ?? '',
+        },
+      },
+      { onConflictDoNothing: true },
+    );
+  });
+
+  return {
+    lead_id: leadId,
+    previous_status: previousStatus,
+    current_status: 'qualifying',
+    card_id: cardId,
+    stage_id: stageId,
+    canonical_role: canonicalRole,
+  };
 }
