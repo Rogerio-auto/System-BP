@@ -3,7 +3,7 @@ id: F25-S04
 title: Python — tool qualify_lead no agente + fiação no agent_turn + prompt
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
