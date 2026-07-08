@@ -3,7 +3,7 @@ id: F25-S03
 title: Backend — /internal qualify_lead + evento leads.qualified + workers por canonical_role
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/22-agente-interno-acoes.md, docs/06-langgraph-agentes.md, doc
 docs_required: false
 claimed_at: 2026-07-08T01:57:13Z
 completed_at: 2026-07-08T02:25:21Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/404
 ---
 
 # F25-S03 — Backend: qualify_lead (/internal) + worker de qualificação + refactor canonical_role
