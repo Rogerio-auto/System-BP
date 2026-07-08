@@ -29,7 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 7     | 6   | 0   | 0   | 0   | 0   | 1   |
+| F6   | 7     | 5   | 0   | 0   | 0   | 1   | 1   |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -455,7 +455,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ID     | Título                                                                                     | Status       | Prioridade | Depende de     |
 | ------ | ------------------------------------------------------------------------------------------ | ------------ | ---------- | -------------- |
 | F6-S05 | DB/Seed — ai_assistant:use + flag ai.internal_assistant.enabled + tabela assistant_queries | ✅ done      | high       | —              |
-| F6-S06 | Backend — endpoints de leitura RBAC-bound do copiloto (principal do usuário + city scope)  | 🟢 available | high       | F6-S05         |
+| F6-S06 | Backend — endpoints de leitura RBAC-bound do copiloto (principal do usuário + city scope)  | 🟣 review    | high       | F6-S05         |
 | F6-S07 | Python — grafo internal_assistant + tools de leitura + prompt (sem escrita)                | 🟢 available | high       | F6-S06         |
 | F6-S08 | Backend — POST /api/internal-assistant/query (injeta principal → grafo) + guard + log      | 🟢 available | high       | F6-S05, F6-S07 |
 | F6-S09 | Frontend — tela de chat do copiloto (substitui o teaser do InternalAssistantButton)        | 🟢 available | medium     | F6-S08         |
