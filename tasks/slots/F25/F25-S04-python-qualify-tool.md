@@ -3,7 +3,7 @@ id: F25-S04
 title: Python — tool qualify_lead no agente + fiação no agent_turn + prompt
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: M
 agent_id: null
@@ -12,8 +12,9 @@ blocks: []
 labels: [python, langgraph, ai-agent, dlp]
 source_docs: [docs/22-agente-interno-acoes.md, docs/06-langgraph-agentes.md]
 docs_required: false
----
+completed_at: 2026-07-08T18:40:24Z
 
+---
 # F25-S04 — Python: tool qualify_lead (Ana Clara)
 
 ## Objetivo
