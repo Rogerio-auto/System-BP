@@ -3,7 +3,7 @@ id: F24-S11
 title: Frontend — drawer criar/editar regra + test-fire (preview)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: in-progress
 priority: high
 estimated_size: L
 agent_id: null
@@ -12,6 +12,7 @@ blocks: []
 labels: [frontend, notifications, admin, design-system]
 source_docs: [docs/planejamento-notificacoes.md, docs/18-design-system.md]
 docs_required: false
+claimed_at: 2026-07-08T18:27:08Z
 ---
 
 # F24-S11 — Frontend: drawer de regra + preview
@@ -25,7 +26,8 @@ Criar o drawer de criação/edição de regra com formulário contextual ao gati
 
 Planejamento §5.1. Padrão de drawer = `features/admin/products/ProductDrawer.tsx`. Dropdown carrega
 `GET /api/notification-rules/catalog`. Validação client com os schemas de `@elemento/shared-schemas`
-+ React Hook Form. `POST /:id/test` para o preview.
+
+- React Hook Form. `POST /:id/test` para o preview.
 
 ## Escopo (faz)
 
