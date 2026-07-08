@@ -12,7 +12,6 @@
 // DS: profundidade elev-1 nos cards, hover de linha no table, tokens canônicos.
 // =============================================================================
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import type { ListRulesParams } from '../../features/admin/notification-rules/api';
 import { useNotificationRules } from '../../features/admin/notification-rules/hooks';
@@ -28,8 +27,6 @@ import { cn } from '../../lib/cn';
  * RBAC: notifications:manage (verificado pelo backend em cada request).
  */
 export function NotificacoesPage(): React.JSX.Element {
-  const navigate = useNavigate();
-
   const [search, setSearch] = React.useState('');
   const [searchDebounced, setSearchDebounced] = React.useState('');
   const [enabledFilter, setEnabledFilter] = React.useState<'all' | 'true' | 'false'>('all');
@@ -64,10 +61,10 @@ export function NotificacoesPage(): React.JSX.Element {
   const rules = data?.data ?? [];
 
   const handleNewRule = React.useCallback((): void => {
-    // F24-S11 implementará o drawer/formulário completo.
-    // Por ora, navega para a rota futura (placeholder).
-    void navigate('/admin/notificacoes/nova');
-  }, [navigate]);
+    // F24-S11 implementará o drawer/formulário de criação.
+    // Botão desabilitado no RuleList enquanto a rota não existe — este handler
+    // não deve ser chamado; está aqui apenas para satisfazer a interface de prop.
+  }, []);
 
   return (
     <div className="flex flex-col gap-6 pb-12">

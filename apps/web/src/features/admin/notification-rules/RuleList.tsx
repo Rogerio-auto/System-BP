@@ -12,7 +12,6 @@ import type {
   NotificationSeverity,
 } from '@elemento/shared-schemas';
 import * as React from 'react';
-import { Link } from 'react-router-dom';
 
 import { Badge } from '../../../components/ui/Badge';
 import type { BadgeVariant } from '../../../components/ui/Badge';
@@ -109,6 +108,7 @@ function RuleRow({ rule }: RuleRowProps): React.JSX.Element {
   };
 
   const handleDelete = (): void => {
+    // TODO(F24-S11): trocar window.confirm por modal de confirmação do DS
     if (!window.confirm(`Remover a regra "${rule.name}"? Esta ação não pode ser desfeita.`)) return;
     remove(rule.id, {
       onSuccess: () => {
@@ -185,17 +185,18 @@ function RuleRow({ rule }: RuleRowProps): React.JSX.Element {
       {/* Ações */}
       <td className="px-4 py-3.5 whitespace-nowrap">
         <div className="flex items-center gap-2">
-          {/* Editar — drawer F24-S11 ainda não existe; link placeholder */}
-          <Link
-            to={`/admin/notificacoes/${rule.id}/editar`}
+          {/* Editar — F24-S11 ainda não existe; botão desabilitado até lá */}
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            aria-label="Editar regra"
+            title="Disponível na próxima versão"
             className={cn(
               'inline-flex items-center justify-center h-7 w-7 rounded-sm',
-              'text-ink-3 transition-colors duration-[150ms]',
-              'hover:text-azul hover:bg-[var(--surface-hover)]',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(27,58,140,0.2)]',
+              'text-ink-4 opacity-40 cursor-not-allowed',
+              'focus-visible:outline-none',
             )}
-            aria-label="Editar regra"
-            title="Editar regra"
           >
             <svg
               viewBox="0 0 16 16"
@@ -207,7 +208,7 @@ function RuleRow({ rule }: RuleRowProps): React.JSX.Element {
             >
               <path d="M11.5 2.5a1.5 1.5 0 0 1 2 2l-8 8-3 .5.5-3 8-7.5Z" strokeLinejoin="round" />
             </svg>
-          </Link>
+          </button>
           {/* Remover */}
           <button
             type="button"
@@ -299,6 +300,8 @@ export function RuleList({
           size="sm"
           variant="primary"
           onClick={onNewRule}
+          disabled
+          title="Disponível na próxima versão"
           leftIcon={
             <svg
               viewBox="0 0 16 16"
@@ -364,7 +367,13 @@ export function RuleList({
                   <p className="font-sans text-sm text-ink-3 mb-3">
                     Nenhuma regra de notificação configurada.
                   </p>
-                  <Button variant="primary" size="sm" onClick={onNewRule}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={onNewRule}
+                    disabled
+                    title="Disponível na próxima versão"
+                  >
                     Criar primeira regra
                   </Button>
                 </td>
