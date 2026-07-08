@@ -150,22 +150,30 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
             answer = resp.content or ""
             messages.append({"role": "assistant", "content": answer})
             break
-        messages.append({
-            "role": "assistant",
-            "content": resp.content or None,
-            "tool_calls": tool_calls,
-        })
+        # Cap de operacoes: checado ANTES de appender a mensagem com tool_calls.
+        # Assim o historico nunca termina com tool_calls pendentes (estado invalido
+        # no formato OpenAI/OpenRouter), e devolvemos uma resposta graciosa em vez de
+        # string vazia (o provider retorna content=None quando finish_reason=tool_calls).
         if tool_call_count >= MAX_TOOL_CALLS_PER_TURN:
             log.warning(
                 "internal_assistant_max_tool_calls",
                 count=tool_call_count,
                 organization_id=organization_id,
             )
-            answer = resp.content or ""
+            answer = resp.content or (
+                "Nao consegui concluir a consulta agora (limite de operacoes atingido). "
+                "Tente reformular a pergunta de forma mais especifica."
+            )
+            messages.append({"role": "assistant", "content": answer})
             break
+        messages.append({
+            "role": "assistant",
+            "content": resp.content or None,
+            "tool_calls": tool_calls,
+        })
+        # Executa TODAS as tools deste batch (o cap gateia turnos de LLM, nao tools
+        # dentro de um mesmo turno) -> toda tool_calls appendada recebe seu tool result.
         for tc in tool_calls:
-            if tool_call_count >= MAX_TOOL_CALLS_PER_TURN:
-                break
             tool_name: str = tc.get("function", {}).get("name", "")
             tool_args_raw: str = tc.get("function", {}).get("arguments", "{}")
             tool_call_id: str = tc.get("id", f"call_{tool_call_count}")
