@@ -4,70 +4,60 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('pg', () => {
   const mockQuery = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
-  const MockPool = vi
-    .fn()
-    .mockImplementation(() => ({
-      query: mockQuery,
-      connect: vi.fn().mockResolvedValue({ query: mockQuery, release: vi.fn() }),
-      end: vi.fn().mockResolvedValue(undefined),
-      on: vi.fn(),
-    }));
+  const MockPool = vi.fn().mockImplementation(() => ({
+    query: mockQuery,
+    connect: vi.fn().mockResolvedValue({ query: mockQuery, release: vi.fn() }),
+    end: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+  }));
   return { Pool: MockPool, default: { Pool: MockPool } };
 });
 
 // Token matches LANGGRAPH_INTERNAL_TOKEN from vitest globalSetup (src/test/setup.ts)
 const VALID_TOKEN = 'test-langgraph-token-vitest-only-00';
 vi.mock('../../../reports/repository.js', () => ({
-  getFunnelStages: vi
-    .fn()
-    .mockResolvedValue([
-      {
-        stageId: 's1',
-        stageName: 'Novo',
-        stageOrder: 1,
-        cardCount: 10,
-        staleCardCount: 2,
-        avgDwellHours: 24,
-        medianDwellHours: 20,
-      },
-    ]),
-  getOverviewLeads: vi
-    .fn()
-    .mockResolvedValue({
-      total: 100,
-      newInPeriod: 10,
-      closedWon: 5,
-      closedLost: 3,
-      conversionRate: 62.5,
-    }),
-  getCollectionWallet: vi
-    .fn()
-    .mockResolvedValue({
-      pending: 5,
-      pendingAmountSum: 15000,
-      overdue: 3,
-      overdueAmountSum: 9000,
-      paid: 10,
-      paidAmountSum: 30000,
-      renegotiated: 1,
-      cancelled: 0,
-      avgDaysOverdue: 5,
-    }),
+  getFunnelStages: vi.fn().mockResolvedValue([
+    {
+      stageId: 's1',
+      stageName: 'Novo',
+      stageOrder: 1,
+      cardCount: 10,
+      staleCardCount: 2,
+      avgDwellHours: 24,
+      medianDwellHours: 20,
+    },
+  ]),
+  getOverviewLeads: vi.fn().mockResolvedValue({
+    total: 100,
+    newInPeriod: 10,
+    closedWon: 5,
+    closedLost: 3,
+    conversionRate: 62.5,
+  }),
+  getCollectionWallet: vi.fn().mockResolvedValue({
+    pending: 5,
+    pendingAmountSum: 15000,
+    overdue: 3,
+    overdueAmountSum: 9000,
+    paid: 10,
+    paidAmountSum: 30000,
+    renegotiated: 1,
+    cancelled: 0,
+    avgDaysOverdue: 5,
+  }),
 }));
 vi.mock('../../../credit-analyses/repository.js', () => ({
-  findAnalysesByLeadId: vi
-    .fn()
-    .mockResolvedValue({
-      data: [
-        {
-          id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-          status: 'em_analise',
-          approvedAmount: null,
-          createdAt: new Date('2026-07-01T00:00:00Z'),
-        },
-      ],
-      total: 1,
-    }),
+  findAnalysesByLeadId: vi.fn().mockResolvedValue({
+    data: [
+      {
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        status: 'em_analise',
+        approvedAmount: null,
+        createdAt: new Date('2026-07-01T00:00:00Z'),
+      },
+    ],
+    total: 1,
+  }),
 }));
 vi.mock('../../../../db/client.js', () => ({
   db: { execute: vi.fn().mockResolvedValue({ rows: [{ name: 'Joao da Silva' }] }) },
@@ -220,18 +210,21 @@ describe('POST /internal/assistant/analysis-status', () => {
   });
 });
 describe('POST /internal/assistant/billing-upcoming', () => {
-  it('200 caminho feliz', async () => {
+  it('200 caminho feliz (snapshot da carteira, sem range)', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/internal/assistant/billing-upcoming',
       headers: { 'x-internal-token': VALID_TOKEN },
-      payload: { principal: PRINCIPAL_FULL, query: QUERY },
+      // Billing não aceita range: é snapshot de estado atual (review F6-S06 M-1).
+      payload: { principal: PRINCIPAL_FULL, query: {} },
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.source).toBe('assistant.billing-upcoming');
     expect(body.overdueCount).toBe(3);
     expect(body.upcomingCount).toBe(5);
+    expect(body.snapshotLabel).toBe('Carteira atual');
+    expect(body.rangeLabel).toBeUndefined();
     expect(res.payload).not.toMatch(/cpf|telefone/i);
   });
   it('401 sem token', async () => {

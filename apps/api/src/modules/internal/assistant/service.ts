@@ -2,7 +2,7 @@
 import { sql } from 'drizzle-orm';
 
 import type { Database } from '../../../db/client.js';
-import { ForbiddenError, NotFoundError } from '../../../shared/errors.js';
+import { AppError, ForbiddenError, NotFoundError } from '../../../shared/errors.js';
 import type { UserScopeCtx } from '../../../shared/scope.js';
 import { findAnalysesByLeadId } from '../../credit-analyses/repository.js';
 import {
@@ -48,14 +48,17 @@ function computeRange(q: {
       label: 'Mes anterior',
     };
   if (q.range === 'custom') {
-    if (!q.dateFrom || !q.dateTo) throw new ForbiddenError('dateFrom/dateTo requeridos');
+    // MEDIUM-2 fix: ausência/invalidade de datas é erro de input (400), não falta de permissão (403).
+    if (!q.dateFrom || !q.dateTo)
+      throw new AppError(400, 'VALIDATION_ERROR', 'dateFrom/dateTo requeridos para range custom');
     const from = new Date(q.dateFrom);
     const to = new Date(q.dateTo);
     if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to)
-      throw new ForbiddenError('dateFrom/dateTo invalidos');
+      throw new AppError(400, 'VALIDATION_ERROR', 'dateFrom/dateTo invalidos ou ordem incorreta');
     return { from, to, label: 'Periodo customizado' };
   }
-  throw new ForbiddenError('range invalido: ' + q.range);
+  // Código morto (range é enum Zod), mas corrigido por consistência (MEDIUM-2).
+  throw new AppError(400, 'VALIDATION_ERROR', 'range invalido: ' + q.range);
 }
 
 function principalToScopeCtx(p: Principal): UserScopeCtx {
@@ -190,18 +193,21 @@ export async function getAnalysisStatus(
 export async function getBillingUpcoming(
   db: Database,
   principal: Principal,
-  query: { range: string; dateFrom?: string | undefined; dateTo?: string | undefined },
+  query?: { cityIds?: string[] | undefined },
 ): Promise<BillingUpcomingResponse> {
   assertPermission(principal, 'billing:read');
   const scopeCtx = principalToScopeCtx(principal);
-  const range = computeRange(query);
-  const wallet = await getCollectionWallet(db, principal.organization_id, scopeCtx);
+  // MEDIUM-1 fix: a carteira de cobrança (mv_reports_collection) é um SNAPSHOT de estado
+  // atual — não tem dimensão temporal. Não aplicamos range aqui: relatar números all-time
+  // sob um label de período ("últimos 7 dias") induziria o copiloto ao erro. O único filtro
+  // honesto suportado pela fonte é o de cidade (opcional), que repassamos abaixo.
+  const wallet = await getCollectionWallet(db, principal.organization_id, scopeCtx, query?.cityIds);
   return {
     source: 'assistant.billing-upcoming',
     totalDues: wallet.pending + wallet.overdue,
     overdueCount: wallet.overdue,
     upcomingCount: wallet.pending,
     totalAmountBrl: wallet.pendingAmountSum + wallet.overdueAmountSum,
-    rangeLabel: range.label,
+    snapshotLabel: 'Carteira atual',
   };
 }

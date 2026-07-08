@@ -135,7 +135,10 @@ export type AnalysisStatusResponse = z.infer<typeof AnalysisStatusResponseSchema
 // ---------------------------------------------------------------------------
 export const BillingUpcomingBodySchema = z.object({
   principal: PrincipalSchema,
-  query: DateRangeQuerySchema,
+  // A carteira de cobrança é um snapshot de estado atual (mv_reports_collection não tem
+  // dimensão temporal) — por isso NÃO aceita range/datas: prometer um filtro que não é
+  // honrado induziria o copiloto ao erro (review F6-S06 M-1). O único filtro suportado é cidade.
+  query: z.object({ cityIds: z.array(z.string().uuid()).optional() }).optional(),
 });
 export type BillingUpcomingBody = z.infer<typeof BillingUpcomingBodySchema>;
 
@@ -145,6 +148,7 @@ export const BillingUpcomingResponseSchema = z.object({
   overdueCount: z.number().int(),
   upcomingCount: z.number().int(),
   totalAmountBrl: z.number(),
-  rangeLabel: z.string(),
+  /** Snapshot atual da carteira — não é um período de tempo (review F6-S06 M-1). */
+  snapshotLabel: z.string(),
 });
 export type BillingUpcomingResponse = z.infer<typeof BillingUpcomingResponseSchema>;
