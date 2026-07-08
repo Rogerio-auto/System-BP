@@ -174,6 +174,26 @@ def _build_tool_schemas() -> list[dict[str, Any]]:
                 "correlation_id",
             ],
         ),
+        # F25-S04: qualificacao de lead pela IA (doc 22 sec6.1)
+        # lead_id e organization_id sao autoritativos do state -- nao expostos ao LLM.
+        _tool(
+            "qualify_lead",
+            (
+                "Qualifica o lead apos coleta do dossie minimo "
+                "(nome completo + cidade valida no escopo + atividade + intencao de credito). "
+                "Chame APENAS quando tiver coletado os 4 dados. "
+                "Nao decide stage nem credito -- apenas sinaliza o fato. "
+                "Requer flag internal_assistant.actions.enabled."
+            ),
+            {
+                "reason": _prop(
+                    "string",
+                    "Motivo textual sem PII"
+                    " (ex.: dossie coletado: nome, cidade, atividade, intencao).",
+                ),
+            },
+            required=[],
+        ),
     ]
 
 
@@ -318,6 +338,27 @@ async def _dispatch_tool(
             return json.dumps(
                 result.model_dump() if hasattr(result, "model_dump") else {"ok": True}
             )
+
+        elif tool_name == "qualify_lead":
+            # F25-S04: qualificacao de lead (doc 22 sec6.1)
+            # lead_id e organization_id autoritativos do state -- nunca do LLM.
+            from app.tools.leads_tools import (
+                QualifyLeadInput,
+                qualify_lead,
+            )
+            if not lead_id:
+                log.warning("agent_turn_qualify_lead_no_lead_id", conversation_id=conversation_id)
+                import json as _json
+                return _json.dumps({
+                    "ok": False,
+                    "error_code": "MISSING_LEAD_ID",
+                    "message": "lead_id ausente no estado -- qualificacao impossivel.",
+                })
+            # Injetar autoritativos: lead_id e organization_id do state
+            tool_args = {**tool_args, "lead_id": lead_id, "organization_id": org_id or None}
+            inp_qualify = QualifyLeadInput(**tool_args)
+            result = await qualify_lead.ainvoke(inp_qualify.model_dump())
+            return _dump(result)
 
         else:
             log.warning("agent_turn_unknown_tool", tool_name=tool_name)
