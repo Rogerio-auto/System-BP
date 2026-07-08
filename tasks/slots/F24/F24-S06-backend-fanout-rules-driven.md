@@ -3,7 +3,7 @@ id: F24-S06
 title: Backend — fan-out rules-driven por evento + registro no outbox + dedup
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: in-progress
 priority: high
 estimated_size: L
 agent_id: null
@@ -12,6 +12,7 @@ blocks: [F24-S07, F24-S08, F24-S14]
 labels: [backend, notifications, outbox, multi-tenant, lgpd-impact]
 source_docs: [docs/planejamento-notificacoes.md, docs/04-eventos.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
+claimed_at: 2026-07-08T18:24:44Z
 ---
 
 # F24-S06 — Backend: fan-out rules-driven + wiring no outbox
