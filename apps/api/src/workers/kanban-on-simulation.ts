@@ -78,7 +78,6 @@ const baseLogger = pino({
 });
 
 // ---------------------------------------------------------------------------
-// Índices de stage canônicos (doc 01 §72 + seed.ts)// ---------------------------------------------------------------------------
 // Queries locais
 // (kanban/repository.ts não está em files_allowed; duplicamos o mínimo necessário)
 // ---------------------------------------------------------------------------
@@ -101,11 +100,16 @@ async function findCardByLeadId(
  *
  * Heranca M-1 (security review F25-S01): o index (organization_id, canonical_role)
  * NAO e unique. Usa limit(2) e emite warn se houver mais de uma linha.
+ *
+ * Fallback (paridade com kanban-on-analysis + DoD do slot): se a org nao tiver o
+ * canonical_role (sem backfill de F25-S01), cai para o orderIndex canonico do
+ * pipeline BdP e emite warn — evita parar o funil silenciosamente.
  */
 async function findStageByCanonicalRole(
   database: Database,
   canonicalRole: string,
   organizationId: string,
+  fallbackOrderIndex: number,
 ): Promise<KanbanStage | undefined> {
   const rows = await database
     .select()
@@ -123,7 +127,26 @@ async function findStageByCanonicalRole(
       'findStageByCanonicalRole: multiplos stages com o mesmo canonical_role (M-1); usando o primeiro',
     );
   }
-  return rows[0];
+  if (rows[0]) return rows[0];
+
+  // Fallback: org sem canonical_role configurado -> posicao canonica do pipeline.
+  const [byOrder] = await database
+    .select()
+    .from(kanbanStages)
+    .where(
+      and(
+        eq(kanbanStages.orderIndex, fallbackOrderIndex),
+        eq(kanbanStages.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  if (byOrder) {
+    baseLogger.warn(
+      { organizationId, canonicalRole, fallbackOrderIndex },
+      'findStageByCanonicalRole: fallback para orderIndex (canonical_role nao configurado)',
+    );
+  }
+  return byOrder;
 }
 
 async function findStageById(
@@ -226,6 +249,7 @@ export async function handleSimulationGenerated(
     database,
     'pre_atendimento',
     organizationId,
+    0,
   );
 
   if (!preAtendimentoStage) {
@@ -247,7 +271,7 @@ export async function handleSimulationGenerated(
   // -------------------------------------------------------------------------
   // 6. Carregar stage destino "Simulação" (orderIndex = 1)
   // -------------------------------------------------------------------------
-  const simulacaoStage = await findStageByCanonicalRole(database, 'simulacao', organizationId);
+  const simulacaoStage = await findStageByCanonicalRole(database, 'simulacao', organizationId, 1);
 
   if (!simulacaoStage) {
     logger.warn(
