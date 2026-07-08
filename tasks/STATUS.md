@@ -24,7 +24,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
-| F24  | 15    | 8   | 0   | 0   | 0   | 0   | 7   |
+| F24  | 15    | 7   | 0   | 0   | 0   | 1   | 7   |
 | F25  | 9     | 7   | 0   | 0   | 0   | 1   | 1   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -353,7 +353,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24-S07 | Backend — worker notification-sla-scan (estagnação em estágios)                 | 🟢 available | high       | F24-S04, F24-S05, F24-S06          |
 | F24-S08 | Backend — push em tempo real (sala user + publish notification.new)             | 🟢 available | medium     | F24-S06                            |
 | F24-S09 | Backend — preferências de notificação por categoria                             | ✅ done      | medium     | F24-S01                            |
-| F24-S10 | Frontend — página Admin de regras de notificação (lista + card)                 | 🟢 available | high       | F24-S05                            |
+| F24-S10 | Frontend — página Admin de regras de notificação (lista + card)                 | 🟣 review    | high       | F24-S05                            |
 | F24-S11 | Frontend — drawer criar/editar regra + test-fire (preview)                      | 🟢 available | high       | F24-S05, F24-S10                   |
 | F24-S12 | Frontend — preferências de notificação do usuário (categoria × canal)           | ✅ done      | medium     | F24-S09                            |
 | F24-S13 | Frontend — sino de notificações em tempo real (socket + toast + badge)          | 🟢 available | medium     | F24-S08                            |

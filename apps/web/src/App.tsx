@@ -51,6 +51,7 @@ import { AgentsPage } from './pages/admin/Agents';
 import { CanaisAdminPage } from './pages/admin/Canais';
 import { CitiesPage } from './pages/admin/Cities';
 import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
+import { NotificacoesPage } from './pages/admin/Notificacoes';
 import { ProductDetailPage } from './pages/admin/ProductDetail';
 import { ProductsPage } from './pages/admin/Products';
 import { TutoriaisPage } from './pages/admin/Tutoriais';
@@ -173,6 +174,8 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/admin/canais" element={<CanaisAdminPage />} />
           {/* F12-S10: Tutoriais em vídeo */}
           <Route path="/admin/tutoriais" element={<TutoriaisPage />} />
+          {/* F24-S10: Regras de notificação */}
+          <Route path="/admin/notificacoes" element={<NotificacoesPage />} />
           {/* F5-S05: Follow-up — réguas e jobs */}
           <Route path="/admin/followup/rules" element={<FollowupRulesPage />} />
           <Route path="/admin/followup/jobs" element={<FollowupJobsPage />} />

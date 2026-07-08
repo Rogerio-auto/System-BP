@@ -279,6 +279,29 @@ function IconTemplates(): React.JSX.Element {
   );
 }
 
+// Regras de Notificação: sino com engrenagem
+function IconNotificacoes(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <path
+        d="M15 17H20L18.6 15.6A1.926 1.926 0 0 1 18 14.4V11A6 6 0 0 0 7 7.3L7 14.4A1.926 1.926 0 0 1 6.4 15.6L5 17H10"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M10 17v1a2 2 0 0 0 4 0v-1" strokeLinecap="round" />
+      <circle cx="18" cy="6" r="3" stroke="currentColor" strokeWidth={1.5} />
+      <path d="M17.5 5.5l1 1" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // Advocacia: balança da justiça
 function IconAdvocacia(): React.JSX.Element {
   return (
@@ -612,6 +635,18 @@ function AdminSection(): React.JSX.Element {
             description: 'Gerencie tutoriais em vídeo exibidos na Central de Ajuda da plataforma.',
             icon: <IconTutoriais />,
             href: '/admin/tutoriais',
+          },
+        ]
+      : []),
+    // Regras de Notificação: notifications:manage (F24-S10)
+    ...(hasPermission('notifications:manage')
+      ? [
+          {
+            title: 'Regras de Notificação',
+            description:
+              'Configure quando e como a plataforma notifica agentes e gestores sobre eventos operacionais.',
+            icon: <IconNotificacoes />,
+            href: '/admin/notificacoes',
           },
         ]
       : []),
