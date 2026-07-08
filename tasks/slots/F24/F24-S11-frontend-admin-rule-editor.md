@@ -3,7 +3,7 @@ id: F24-S11
 title: Frontend — drawer criar/editar regra + test-fire (preview)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: null
@@ -13,6 +13,7 @@ labels: [frontend, notifications, admin, design-system]
 source_docs: [docs/planejamento-notificacoes.md, docs/18-design-system.md]
 docs_required: false
 claimed_at: 2026-07-08T18:27:08Z
+completed_at: 2026-07-08T21:57:33Z
 ---
 
 # F24-S11 — Frontend: drawer de regra + preview
