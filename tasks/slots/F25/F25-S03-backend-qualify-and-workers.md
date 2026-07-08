@@ -3,7 +3,7 @@ id: F25-S03
 title: Backend — /internal qualify_lead + evento leads.qualified + workers por canonical_role
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: null
@@ -13,6 +13,7 @@ labels: [backend, ai-agent, outbox, rbac, idempotency]
 source_docs: [docs/22-agente-interno-acoes.md, docs/06-langgraph-agentes.md, docs/04-eventos.md]
 docs_required: false
 claimed_at: 2026-07-08T01:57:13Z
+completed_at: 2026-07-08T02:25:21Z
 ---
 
 # F25-S03 — Backend: qualify_lead (/internal) + worker de qualificação + refactor canonical_role
