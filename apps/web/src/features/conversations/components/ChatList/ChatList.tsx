@@ -15,15 +15,22 @@
 // LGPD (doc 17 §8.1): contactName e contactRemoteId não são logados.
 // =============================================================================
 
+import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
+
 
 import { useChannels } from '../../../configuracoes/canais/useChannels';
 import {
   useConversationSocket,
   type UseConversationSocketOptions,
 } from '../../hooks/useConversationSocket';
-import { useConversations } from '../../queries';
-import type { Conversation, ConversationsQueryParams, ConversationStatus } from '../../types';
+import { conversationKeys, useConversations } from '../../queries';
+import type {
+  Conversation,
+  ConversationListResponse,
+  ConversationsQueryParams,
+  ConversationStatus,
+} from '../../types';
 
 import type { StatusFilter } from './ChatListFilters';
 import { ChatListFilters } from './ChatListFilters';
@@ -186,9 +193,21 @@ export function ChatList({
   const searchDebounced = useDebounce(searchRaw, 300);
 
   // ── Cursor de paginação ──────────────────────────────────────────────────
+  const qc = useQueryClient();
   const [cursor, setCursor] = React.useState<string | undefined>(undefined);
-  // Acumula conversas de múltiplas páginas
-  const [accumulated, setAccumulated] = React.useState<Conversation[]>([]);
+
+  // Inicializa accumulated a partir do cache TanStack para que o primeiro
+  // render já tenha dados disponíveis — impede EmptyState ao voltar de uma
+  // aba sem conversas (ex.: Adiadas) para uma aba com conversas em cache.
+  const [accumulated, setAccumulated] = React.useState<Conversation[]>(() => {
+    const params: ConversationsQueryParams =
+      statusFilter !== 'all'
+        ? { limit: LIMIT, status: statusFilter as ConversationStatus }
+        : { limit: LIMIT };
+    const cached = qc.getQueryData<ConversationListResponse>(conversationKeys.list(params));
+    return cached?.data ?? [];
+  });
+
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
 
   // ── Query params ─────────────────────────────────────────────────────────
