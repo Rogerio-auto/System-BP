@@ -349,7 +349,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24-S03 | Backend — provider de email Resend + senders/email.ts real (org-aware)          | ✅ done      | high       | —                                  |
 | F24-S04 | Backend — catálogo de gatilhos + schemas Zod de regras (shared-schemas)         | ✅ done      | high       | —                                  |
 | F24-S05 | Backend — módulo notification-rules (CRUD admin + RBAC + test-fire)             | ✅ done      | high       | F24-S01, F24-S02, F24-S04          |
-| F24-S06 | Backend — fan-out rules-driven por evento + registro no outbox + dedup          | 🟢 available | high       | F24-S03, F24-S04, F24-S05, F24-S09 |
+| F24-S06 | Backend — fan-out rules-driven por evento + registro no outbox + dedup          | 🟣 review    | high       | F24-S03, F24-S04, F24-S05, F24-S09 |
 | F24-S07 | Backend — worker notification-sla-scan (estagnação em estágios)                 | 🟢 available | high       | F24-S04, F24-S05, F24-S06          |
 | F24-S08 | Backend — push em tempo real (sala user + publish notification.new)             | 🟢 available | medium     | F24-S06                            |
 | F24-S09 | Backend — preferências de notificação por categoria                             | ✅ done      | medium     | F24-S01                            |

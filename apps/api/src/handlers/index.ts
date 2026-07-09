@@ -14,8 +14,8 @@ export {
   buildCancelFollowupsOnReplyHandler,
 } from './cancel-followups-on-inbound-message.js';
 
-// F15-S06: fan-out de notificações por evento (task.created, contract.signed)
-export { handleFanoutNotification } from './fanout-notification.js';
+// F24-S06: fan-out rules-driven por notification_rules (todos os eventos do catálogo)
+export { handleFanoutNotification, buildFanoutNotificationHandler } from './fanout-notification.js';
 
 // F17-S13: auto-contrato por análise aprovada/recusada
 export {
