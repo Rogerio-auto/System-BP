@@ -36,6 +36,7 @@ import {
   deleteTemplateService,
   getTemplateService,
   listTemplatesService,
+  pullFromMetaService,
   syncAllService,
   syncTemplateService,
   updateTemplateService,
@@ -311,5 +312,18 @@ export async function syncAllController(
 ): Promise<void> {
   const actor = getActorContext(request);
   const result = await syncAllService(actor);
+  return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/templates/pull-from-meta
+// ---------------------------------------------------------------------------
+
+export async function pullFromMetaController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const result = await pullFromMetaService(actor);
   return reply.status(200).send(result);
 }

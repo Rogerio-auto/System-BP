@@ -39,7 +39,7 @@ import {
   NotFoundError,
 } from '../../shared/errors.js';
 
-import type { MetaTemplateComponent } from './metaClient.js';
+import type { MetaTemplateComponent, MetaTemplateRecord } from './metaClient.js';
 import { MetaTemplatesClient } from './metaClient.js';
 import {
   getAllTemplates,
@@ -49,6 +49,7 @@ import {
   softDeleteTemplate,
   updateTemplateContent,
   updateTemplateStatus,
+  upsertTemplateFromMeta,
 } from './repository.js';
 import type {
   TemplateCreate,
@@ -620,6 +621,54 @@ export async function syncTemplateService(
 }
 
 // ---------------------------------------------------------------------------
+// Helpers para pull-from-meta
+// ---------------------------------------------------------------------------
+
+/** Extrai o texto do componente BODY da lista de componentes Meta. */
+function parseBodyFromComponents(components: MetaTemplateComponent[]): string | null {
+  const body = components.find((c) => c.type === 'BODY');
+  return body?.text ?? null;
+}
+
+/** Infere headerType e headerText dos componentes Meta. */
+function parseHeaderFromComponents(components: MetaTemplateComponent[]): {
+  headerType: 'none' | 'text' | 'document' | 'image';
+  headerText: string | null;
+} {
+  const header = components.find((c) => c.type === 'HEADER');
+  if (!header) return { headerType: 'none', headerText: null };
+
+  const fmt = (header.format ?? '').toUpperCase();
+  if (fmt === 'TEXT') return { headerType: 'text', headerText: header.text ?? null };
+  if (fmt === 'DOCUMENT') return { headerType: 'document', headerText: null };
+  if (fmt === 'IMAGE') return { headerType: 'image', headerText: null };
+  return { headerType: 'none', headerText: null };
+}
+
+/** Mapeia category Meta (uppercase) → local (lowercase). */
+function mapMetaCategory(raw: string): 'utility' | 'marketing' | 'authentication' {
+  const map: Record<string, 'utility' | 'marketing' | 'authentication'> = {
+    UTILITY: 'utility',
+    MARKETING: 'marketing',
+    AUTHENTICATION: 'authentication',
+  };
+  return map[raw.toUpperCase()] ?? 'utility';
+}
+
+/** Extrai nomes semânticos de variáveis do body ('var1', 'var2'...) baseado em {{N}}. */
+function extractVariables(body: string): string[] {
+  const matches = body.matchAll(/\{\{(\d+)\}\}/g);
+  const indices = new Set<number>();
+  for (const m of matches) {
+    const n = parseInt(m[1] ?? '0', 10);
+    if (n > 0) indices.add(n);
+  }
+  return Array.from(indices)
+    .sort((a, b) => a - b)
+    .map((n) => `var${n}`);
+}
+
+// ---------------------------------------------------------------------------
 // syncAll
 // ---------------------------------------------------------------------------
 
@@ -699,4 +748,113 @@ export async function syncAllService(
   }
 
   return { synced, unchanged, errors };
+}
+
+// ---------------------------------------------------------------------------
+// pullFromMeta — importa/sincroniza templates diretamente da WABA Meta
+// ---------------------------------------------------------------------------
+
+export async function pullFromMetaService(
+  actor: ActorContext,
+): Promise<{ imported: number; updated: number; unchanged: number; errors: number }> {
+  const metaClient = await buildMetaTemplatesClient(actor.organizationId);
+  const metaTemplates: MetaTemplateRecord[] = await metaClient.listTemplates();
+
+  let imported = 0;
+  let updated = 0;
+  let unchanged = 0;
+  let errors = 0;
+
+  const CONCURRENCY = 3;
+  const chunks: MetaTemplateRecord[][] = [];
+  for (let i = 0; i < metaTemplates.length; i += CONCURRENCY) {
+    chunks.push(metaTemplates.slice(i, i + CONCURRENCY));
+  }
+
+  for (const chunk of chunks) {
+    await Promise.all(
+      chunk.map(async (metaTmpl) => {
+        try {
+          const body = parseBodyFromComponents(metaTmpl.components ?? []);
+          if (body === null) {
+            errors++;
+            return;
+          }
+
+          const { headerType, headerText } = parseHeaderFromComponents(metaTmpl.components ?? []);
+          const category = mapMetaCategory(metaTmpl.category);
+          const status = mapMetaStatus(metaTmpl.status);
+          const variables = extractVariables(body);
+
+          const { created, statusChanged, row } = await upsertTemplateFromMeta(
+            db,
+            actor.organizationId,
+            metaTmpl.id,
+            {
+              name: metaTmpl.name,
+              category,
+              language: metaTmpl.language,
+              body,
+              variables,
+              status,
+              headerType,
+              headerText,
+            },
+          );
+
+          if (created) {
+            await auditLog(db, {
+              actor: {
+                userId: actor.userId,
+                role: actor.role,
+                ip: actor.ip ?? null,
+                userAgent: actor.userAgent ?? null,
+              },
+              action: 'template.created',
+              resource: { type: 'whatsapp_template', id: row.id },
+              organizationId: actor.organizationId,
+              before: null,
+              after: {
+                name: metaTmpl.name,
+                category,
+                language: metaTmpl.language,
+                status,
+                header_type: headerType,
+                metaTemplateId: metaTmpl.id,
+                source: 'pull-from-meta',
+              },
+              correlationId: null,
+            });
+            imported++;
+          } else if (statusChanged) {
+            await auditLog(db, {
+              actor: {
+                userId: actor.userId,
+                role: actor.role,
+                ip: actor.ip ?? null,
+                userAgent: actor.userAgent ?? null,
+              },
+              action: 'template.synced',
+              resource: { type: 'whatsapp_template', id: row.id },
+              organizationId: actor.organizationId,
+              before: { status: row.status },
+              after: { status },
+              correlationId: null,
+            });
+            updated++;
+          } else {
+            unchanged++;
+          }
+        } catch (err) {
+          logger.error(
+            { metaTemplateId: metaTmpl.id, templateName: metaTmpl.name, err },
+            'pullFromMeta: falha ao importar template',
+          );
+          errors++;
+        }
+      }),
+    );
+  }
+
+  return { imported, updated, unchanged, errors };
 }

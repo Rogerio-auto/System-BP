@@ -246,3 +246,89 @@ export async function getAllTemplates(
     .from(whatsappTemplates)
     .where(eq(whatsappTemplates.organizationId, organizationId));
 }
+
+// ---------------------------------------------------------------------------
+// upsertTemplateFromMeta (pull-from-meta)
+// ---------------------------------------------------------------------------
+
+export interface UpsertFromMetaData {
+  name: string;
+  category: 'utility' | 'marketing' | 'authentication';
+  language: string;
+  body: string;
+  variables: string[];
+  status: 'pending' | 'approved' | 'rejected' | 'paused';
+  headerType: 'none' | 'text' | 'document' | 'image';
+  headerText: string | null;
+}
+
+export interface UpsertFromMetaResult {
+  row: typeof whatsappTemplates.$inferSelect;
+  created: boolean;
+  statusChanged: boolean;
+}
+
+/**
+ * Insere ou atualiza um template importado da Meta API.
+ * Diferente de insertTemplate: aceita status real (não hardcoda 'pending')
+ * e não requer amostra de mídia (header_handle permanece null).
+ */
+export async function upsertTemplateFromMeta(
+  db: Database,
+  organizationId: string,
+  metaTemplateId: string,
+  data: UpsertFromMetaData,
+): Promise<UpsertFromMetaResult> {
+  const existing = await db
+    .select()
+    .from(whatsappTemplates)
+    .where(
+      and(
+        eq(whatsappTemplates.metaTemplateId, metaTemplateId),
+        eq(whatsappTemplates.organizationId, organizationId),
+      ),
+    )
+    .limit(1)
+    .then((rows) => rows[0]);
+
+  if (!existing) {
+    const inserted = await db
+      .insert(whatsappTemplates)
+      .values({
+        organizationId,
+        metaTemplateId,
+        name: data.name,
+        category: data.category,
+        language: data.language,
+        body: data.body,
+        variables: data.variables,
+        status: data.status,
+        headerType: data.headerType,
+        headerText: data.headerText,
+        headerHandle: null,
+      })
+      .returning();
+
+    const row = inserted[0];
+    if (!row) throw new Error('INSERT whatsapp_templates (pull-from-meta) retornou vazio');
+    return { row, created: true, statusChanged: false };
+  }
+
+  if (existing.status !== data.status) {
+    const updated = await db
+      .update(whatsappTemplates)
+      .set({ status: data.status, updatedAt: new Date() })
+      .where(
+        and(
+          eq(whatsappTemplates.id, existing.id),
+          eq(whatsappTemplates.organizationId, organizationId),
+        ),
+      )
+      .returning();
+
+    const row = updated[0] ?? existing;
+    return { row, created: false, statusChanged: true };
+  }
+
+  return { row: existing, created: false, statusChanged: false };
+}

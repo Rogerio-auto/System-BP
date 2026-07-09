@@ -38,6 +38,7 @@ import {
   deleteTemplateController,
   getTemplateController,
   listTemplatesController,
+  pullFromMetaController,
   syncAllController,
   syncTemplateController,
   updateTemplateController,
@@ -168,6 +169,35 @@ export const templatesRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: DELETE_PERMS })],
     },
     deleteTemplateController,
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /api/templates/pull-from-meta — importa templates da WABA Meta
+  // Registrado ANTES das rotas dinâmicas /:id para evitar conflito de parse.
+  // -------------------------------------------------------------------------
+  app.post(
+    '/api/templates/pull-from-meta',
+    {
+      schema: {
+        tags: ['Templates'],
+        summary: 'Importar templates da Meta',
+        description:
+          'Busca todos os templates aprovados no WABA Meta e faz upsert no banco local. ' +
+          'Templates novos são importados; templates existentes têm o status sincronizado. ' +
+          'Use para popular o sistema com templates criados diretamente no Meta Business Manager.',
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: z.object({
+            imported: z.number().int().nonnegative(),
+            updated: z.number().int().nonnegative(),
+            unchanged: z.number().int().nonnegative(),
+            errors: z.number().int().nonnegative(),
+          }),
+        },
+      },
+      preHandler: [authorize({ permissions: SYNC_PERMS })],
+    },
+    pullFromMetaController,
   );
 
   // -------------------------------------------------------------------------
