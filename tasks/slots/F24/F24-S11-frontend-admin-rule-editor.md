@@ -3,7 +3,7 @@ id: F24-S11
 title: Frontend — drawer criar/editar regra + test-fire (preview)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/planejamento-notificacoes.md, docs/18-design-system.md]
 docs_required: false
 claimed_at: 2026-07-08T18:27:08Z
 completed_at: 2026-07-08T21:57:33Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/407
 ---
 
 # F24-S11 — Frontend: drawer de regra + preview
