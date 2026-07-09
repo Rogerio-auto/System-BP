@@ -3,7 +3,7 @@ id: F6-S10
 title: QA — testes RBAC-bound do copiloto (por role/cidade, negação sem vazar, DLP, flag)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
@@ -12,6 +12,8 @@ blocks: []
 labels: [qa, ai-assistant, rbac, lgpd]
 source_docs: [docs/22-agente-interno-acoes.md, docs/13-criterios-aceite.md]
 docs_required: false
+claimed_at: 2026-07-09T19:03:29Z
+completed_at: 2026-07-09T20:19:32Z
 ---
 
 # F6-S10 — QA: RBAC-bound do copiloto

@@ -29,7 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 7     | 3   | 0   | 0   | 0   | 0   | 4   |
+| F6   | 7     | 2   | 0   | 0   | 0   | 1   | 4   |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -459,7 +459,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F6-S07 | Python — grafo internal_assistant + tools de leitura + prompt (sem escrita)                | ✅ done      | high       | F6-S06         |
 | F6-S08 | Backend — POST /api/internal-assistant/query (injeta principal → grafo) + guard + log      | ✅ done      | high       | F6-S05, F6-S07 |
 | F6-S09 | Frontend — tela de chat do copiloto (substitui o teaser do InternalAssistantButton)        | 🟢 available | medium     | F6-S08         |
-| F6-S10 | QA — testes RBAC-bound do copiloto (por role/cidade, negação sem vazar, DLP, flag)         | 🟢 available | high       | F6-S06, F6-S08 |
+| F6-S10 | QA — testes RBAC-bound do copiloto (por role/cidade, negação sem vazar, DLP, flag)         | 🟣 review    | high       | F6-S06, F6-S08 |
 | F6-S11 | Docs — Central de Ajuda do copiloto interno (perguntar sobre seus dados / RBAC)            | 🟢 available | medium     | F6-S09         |
 
 ## Fase 7 — Hardening final
