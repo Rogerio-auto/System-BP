@@ -3,7 +3,7 @@ id: F6-S08
 title: Backend — POST /api/internal-assistant/query (injeta principal → grafo) + guard + log
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
