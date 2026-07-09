@@ -41,6 +41,7 @@
     "worker:spc:scan": "tsx --env-file-if-exists=../../.env src/workers/spc-overdue-scan.ts",
     "worker:winback": "tsx --env-file-if-exists=../../.env src/workers/winback-scan.ts",
     "worker:cron-retention": "tsx --env-file-if-exists=../../.env src/workers/cron-retention.ts",
+    "worker:notification-sla": "tsx --env-file-if-exists=../../.env src/workers/notification-sla-scan.ts",
     "worker:supervisor": "tsx --env-file-if-exists=../../.env src/workers/supervisor.ts"
   },
   "dependencies": {
