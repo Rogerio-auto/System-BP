@@ -1,6 +1,6 @@
-"""Bootstrap FastAPI do serviço LangGraph.
+"""Bootstrap FastAPI do servico LangGraph.
 
-Mantém este arquivo enxuto. Endpoints de domínio vão em `app/api/`,
+Mantem este arquivo enxuto. Endpoints de dominio vao em `app/api/`,
 grafos em `app/graphs/` e tools em `app/tools/`.
 """
 from __future__ import annotations
@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from app.api.graph_viz import router as graph_viz_router
 from app.api.health import router as health_router
+from app.api.internal_assistant import router as internal_assistant_router
 from app.api.playground import router as playground_router
 from app.api.process import router as process_router
 from app.config import settings
@@ -43,8 +44,9 @@ def create_app() -> FastAPI:
     )
     app.include_router(health_router)
     app.include_router(process_router)
+    app.include_router(internal_assistant_router)
     app.include_router(playground_router)
-    # Dev-only: visualizador do grafo em /graph (sem auth — localhost only).
+    # Dev-only: visualizador do grafo em /graph (sem auth -- localhost only).
     if settings.environment != "production":
         app.include_router(graph_viz_router)
     return app

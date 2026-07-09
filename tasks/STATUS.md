@@ -24,8 +24,8 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
-| F24  | 15    | 6   | 0   | 0   | 0   | 1   | 8   |
-| F25  | 9     | 6   | 0   | 0   | 0   | 0   | 3   |
+| F24  | 15    | 7   | 0   | 0   | 0   | 0   | 8   |
+| F25  | 9     | 5   | 0   | 0   | 0   | 1   | 3   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -367,7 +367,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F25-S01 | DB — canonical_role em kanban_stages + ator 'ai' no audit + event types do funil         | ✅ done      | high       | —                         |
 | F25-S02 | Seed — permissões ai_actions:\* + role_permissions + flags + MODULE_PREFIX_MAP           | ✅ done      | high       | F25-S01                   |
 | F25-S03 | Backend — /internal qualify_lead + evento leads.qualified + workers por canonical_role   | ✅ done      | high       | F25-S01, F25-S02          |
-| F25-S04 | Python — tool qualify_lead no agente + fiação no agent_turn + prompt                     | 🟢 available | high       | F25-S03                   |
+| F25-S04 | Python — tool qualify_lead no agente + fiação no agent_turn + prompt                     | 🟣 review    | high       | F25-S03                   |
 | F25-S05 | Backend — worker proativo de estagnação + abandono reversível (config por org)           | 🟢 available | high       | F25-S01, F25-S02          |
 | F25-S06 | Backend — reversão de ação da IA + endpoint do painel "IA nas últimas 24h"               | 🟢 available | medium     | F25-S02, F25-S03, F25-S05 |
 | F25-S07 | Frontend — painel "IA no funil (24h)" + reverter + config de limiares (gated)            | 🟢 available | medium     | F25-S06                   |
