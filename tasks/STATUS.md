@@ -24,12 +24,12 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
-| F24  | 15    | 5   | 0   | 0   | 0   | 0   | 10  |
-| F25  | 9     | 4   | 0   | 0   | 0   | 1   | 4   |
+| F24  | 15    | 4   | 0   | 0   | 0   | 0   | 11  |
+| F25  | 9     | 4   | 0   | 0   | 0   | 0   | 5   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 7     | 2   | 0   | 0   | 0   | 1   | 4   |
+| F6   | 7     | 2   | 0   | 0   | 0   | 0   | 5   |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -350,7 +350,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24-S04 | Backend — catálogo de gatilhos + schemas Zod de regras (shared-schemas)         | ✅ done      | high       | —                                  |
 | F24-S05 | Backend — módulo notification-rules (CRUD admin + RBAC + test-fire)             | ✅ done      | high       | F24-S01, F24-S02, F24-S04          |
 | F24-S06 | Backend — fan-out rules-driven por evento + registro no outbox + dedup          | ✅ done      | high       | F24-S03, F24-S04, F24-S05, F24-S09 |
-| F24-S07 | Backend — worker notification-sla-scan (estagnação em estágios)                 | 🟣 review    | high       | F24-S04, F24-S05, F24-S06          |
+| F24-S07 | Backend — worker notification-sla-scan (estagnação em estágios)                 | ✅ done      | high       | F24-S04, F24-S05, F24-S06          |
 | F24-S08 | Backend — push em tempo real (sala user + publish notification.new)             | 🟢 available | medium     | F24-S06                            |
 | F24-S09 | Backend — preferências de notificação por categoria                             | ✅ done      | medium     | F24-S01                            |
 | F24-S10 | Frontend — página Admin de regras de notificação (lista + card)                 | ✅ done      | high       | F24-S05                            |
@@ -368,7 +368,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F25-S02 | Seed — permissões ai_actions:\* + role_permissions + flags + MODULE_PREFIX_MAP           | ✅ done      | high       | F25-S01                   |
 | F25-S03 | Backend — /internal qualify_lead + evento leads.qualified + workers por canonical_role   | ✅ done      | high       | F25-S01, F25-S02          |
 | F25-S04 | Python — tool qualify_lead no agente + fiação no agent_turn + prompt                     | ✅ done      | high       | F25-S03                   |
-| F25-S05 | Backend — worker proativo de estagnação + abandono reversível (config por org)           | 🟣 review    | high       | F25-S01, F25-S02          |
+| F25-S05 | Backend — worker proativo de estagnação + abandono reversível (config por org)           | ✅ done      | high       | F25-S01, F25-S02          |
 | F25-S06 | Backend — reversão de ação da IA + endpoint do painel "IA nas últimas 24h"               | 🟢 available | medium     | F25-S02, F25-S03, F25-S05 |
 | F25-S07 | Frontend — painel "IA no funil (24h)" + reverter + config de limiares (gated)            | 🟢 available | medium     | F25-S06                   |
 | F25-S08 | QA — testes de integração da fronteira IA↔humano (escopo, idempotência, reversão, flag) | 🟢 available | medium     | F25-S03, F25-S05, F25-S06 |
@@ -459,7 +459,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F6-S07 | Python — grafo internal_assistant + tools de leitura + prompt (sem escrita)                | ✅ done      | high       | F6-S06         |
 | F6-S08 | Backend — POST /api/internal-assistant/query (injeta principal → grafo) + guard + log      | ✅ done      | high       | F6-S05, F6-S07 |
 | F6-S09 | Frontend — tela de chat do copiloto (substitui o teaser do InternalAssistantButton)        | 🟢 available | medium     | F6-S08         |
-| F6-S10 | QA — testes RBAC-bound do copiloto (por role/cidade, negação sem vazar, DLP, flag)         | 🟣 review    | high       | F6-S06, F6-S08 |
+| F6-S10 | QA — testes RBAC-bound do copiloto (por role/cidade, negação sem vazar, DLP, flag)         | ✅ done      | high       | F6-S06, F6-S08 |
 | F6-S11 | Docs — Central de Ajuda do copiloto interno (perguntar sobre seus dados / RBAC)            | 🟢 available | medium     | F6-S09         |
 
 ## Fase 7 — Hardening final

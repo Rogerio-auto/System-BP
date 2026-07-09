@@ -3,7 +3,7 @@ id: F25-S05
 title: Backend — worker proativo de estagnação + abandono reversível (config por org)
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/22-agente-interno-acoes.md, docs/04-eventos.md, docs/09-featu
 docs_required: false
 claimed_at: 2026-07-09T19:03:25Z
 completed_at: 2026-07-09T20:18:39Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/410
 ---
 
 # F25-S05 — Backend: agente proativo (housekeeping do funil)
