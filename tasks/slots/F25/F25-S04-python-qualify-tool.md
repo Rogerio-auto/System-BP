@@ -12,7 +12,8 @@ blocks: []
 labels: [python, langgraph, ai-agent, dlp]
 source_docs: [docs/22-agente-interno-acoes.md, docs/06-langgraph-agentes.md]
 docs_required: false
-completed_at: 2026-07-08T18:40:24Z
+completed_at: 2026-07-08T21:56:13Z
+---
 
 ---
 # F25-S04 — Python: tool qualify_lead (Ana Clara)
