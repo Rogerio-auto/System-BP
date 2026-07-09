@@ -717,3 +717,128 @@ async def update_lead_profile(
         current_stage=result.current_stage,
     )
     return result
+
+
+# ===========================================================================
+# Tool: qualify_lead (F25-S04)
+# Chama POST /internal/leads/:id/qualify no backend Node.
+# A IA NUNCA decide staging -- apenas afirma que coletou as infos.
+# LGPD: reason sem PII bruta.
+# ===========================================================================
+
+_QUALIFY_ENDPOINT_TPL = "/internal/leads/{lead_id}/qualify"
+_FLAG_CHECK_ENDPOINT = "/internal/feature-flags/check"
+_QUALIFY_FLAG_KEY = "internal_assistant.actions.enabled"
+
+
+class QualifyLeadInput(BaseModel):
+    reason: str | None = Field(default=None, description="Motivo da qualificacao (sem PII).")
+    lead_id: str = Field(default="", description="UUID do lead (autoritativo do state).")
+    organization_id: str | None = Field(
+        default=None, description="UUID da org (autoritativo do state)."
+    )
+
+
+class QualifyLeadSuccess(BaseModel):
+    ok: Literal[True] = True
+    lead_id: str
+    previous_status: str
+    current_status: str
+    canonical_role: str | None
+
+
+class QualifyLeadError(BaseModel):
+    ok: Literal[False] = False
+    error_code: str
+    message: str
+
+
+QualifyLeadResult = QualifyLeadSuccess | QualifyLeadError
+
+_ERR_QUALIFY_FEATURE_DISABLED = "FEATURE_DISABLED"
+_ERR_QUALIFY_MISSING_LEAD_ID = "MISSING_LEAD_ID"
+_ERR_QUALIFY_NOT_FOUND = "LEAD_NOT_FOUND"
+_ERR_QUALIFY_BACKEND_UNAVAILABLE = "BACKEND_UNAVAILABLE"
+
+
+@tool(args_schema=QualifyLeadInput)
+async def qualify_lead(
+    reason: str | None = None,
+    lead_id: str = "",
+    organization_id: str | None = None,
+) -> QualifyLeadResult:
+    """Qualifica o lead apos coleta do dossie minimo (doc 22 sec6.1).
+
+    Idempotente -- no-op se lead ja estiver em qualifying ou estagio superior.
+    Requer flag internal_assistant.actions.enabled. lead_id SEMPRE do state.
+    """
+    import httpx
+
+    client = InternalApiClient()
+
+    # 1. Feature flag check (fail-closed)
+    try:
+        flag_data = await client.post(_FLAG_CHECK_ENDPOINT, json={"key": _QUALIFY_FLAG_KEY})
+        if not flag_data.get("enabled", False):
+            log.info("qualify_lead_feature_disabled", lead_id=lead_id or "MISSING")
+            return QualifyLeadError(error_code=_ERR_QUALIFY_FEATURE_DISABLED,
+                                    message="Acao de qualificacao desabilitada pela feature flag.")
+    except Exception as _flag_exc:
+        log.warning("qualify_lead_flag_check_failed", lead_id=lead_id or "MISSING",
+                    error_type=type(_flag_exc).__name__)
+        return QualifyLeadError(error_code=_ERR_QUALIFY_FEATURE_DISABLED,
+                                message="Flag check falhou -- acao de qualificacao bloqueada.")
+
+    # 2. lead_id obrigatorio do state
+    if not lead_id:
+        log.warning("qualify_lead_missing_lead_id")
+        return QualifyLeadError(error_code=_ERR_QUALIFY_MISSING_LEAD_ID,
+                                message="lead_id ausente no estado -- qualificacao impossivel.")
+
+    # 3. Chamar POST /internal/leads/:id/qualify
+    path = _QUALIFY_ENDPOINT_TPL.format(lead_id=lead_id)
+    payload: dict[str, object] = {}
+    if organization_id is not None:
+        payload["organization_id"] = organization_id
+
+    log.info("qualify_lead_calling", lead_id=lead_id, has_reason=bool(reason))
+
+    try:
+        data = await client.post(path, json=payload, idempotency_key=f"qualify_lead_{lead_id}")
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        if status == 404:
+            log.warning("qualify_lead_not_found", lead_id=lead_id, http_status=status)
+            return QualifyLeadError(error_code=_ERR_QUALIFY_NOT_FOUND,
+                                    message=f"Lead nao encontrado: {lead_id}.")
+        if status in (400, 422):
+            try:
+                body: dict[str, object] = exc.response.json()
+            except Exception:
+                body = {}
+            log.warning("qualify_lead_validation_error", lead_id=lead_id, http_status=status)
+            return QualifyLeadError(error_code="INVALID_INPUT",
+                                    message=str(body.get("message", exc.response.text)))
+        log.error("qualify_lead_backend_error", lead_id=lead_id, http_status=status)
+        return QualifyLeadError(error_code=_ERR_QUALIFY_BACKEND_UNAVAILABLE,
+                                message=f"Backend respondeu com status {status}.")
+    except httpx.TimeoutException:
+        log.error("qualify_lead_timeout", lead_id=lead_id)
+        return QualifyLeadError(error_code=_ERR_QUALIFY_BACKEND_UNAVAILABLE,
+                                message="Timeout ao contactar o backend.")
+
+    # 4. Deserializar
+    try:
+        result = QualifyLeadSuccess(
+            lead_id=str(data["lead_id"]),
+            previous_status=str(data.get("previous_status", "")),
+            current_status=str(data.get("current_status", "")),
+            canonical_role=str(data["canonical_role"]) if data.get("canonical_role") else None,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        log.error("qualify_lead_parse_error", lead_id=lead_id, error=str(exc))
+        return QualifyLeadError(error_code=_ERR_QUALIFY_BACKEND_UNAVAILABLE,
+                                message=f"Resposta inesperada do backend: {exc}")
+
+    log.info("qualify_lead_ok", lead_id=result.lead_id, current_status=result.current_status)
+    return result
