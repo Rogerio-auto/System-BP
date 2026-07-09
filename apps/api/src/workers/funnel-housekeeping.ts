@@ -61,7 +61,7 @@ async function processStagnant(db: Database, lead: StagnantLead, dayBucket: stri
         aggregateId: lead.leadId,
         organizationId: lead.orgId,
         idempotencyKey,
-        actor: { kind: 'worker', id: 'funnel-housekeeping' },
+        actor: { kind: 'worker', id: 'funnel-housekeeping', ip: null },
         data: {
           lead_id: lead.leadId,
           organization_id: lead.orgId,
@@ -111,7 +111,7 @@ async function processAbandon(db: Database, lead: StagnantLead, dayBucket: strin
         aggregateId: lead.leadId,
         organizationId: lead.orgId,
         idempotencyKey,
-        actor: { kind: 'worker', id: 'funnel-housekeeping' },
+        actor: { kind: 'worker', id: 'funnel-housekeeping', ip: null },
         data: {
           lead_id: lead.leadId,
           organization_id: lead.orgId,

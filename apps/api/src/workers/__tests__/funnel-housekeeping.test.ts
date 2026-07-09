@@ -1,6 +1,12 @@
 // funnel-housekeeping.test.ts -- F25-S05
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { Database } from '../../db/client.js';
+import { runFunnelHousekeepingTick } from '../funnel-housekeeping.js';
+
+// ---------------------------------------------------------------------------
+// Mocks de modulos
+// ---------------------------------------------------------------------------
 vi.mock('../../config/env.js', () => ({
   env: {
     NODE_ENV: 'test',
@@ -24,13 +30,11 @@ vi.mock('../../config/env.js', () => ({
   },
 }));
 vi.mock('pg', () => {
-  const M = vi
-    .fn()
-    .mockImplementation(() => ({
-      query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
-      end: vi.fn().mockResolvedValue(undefined),
-      on: vi.fn(),
-    }));
+  const M = vi.fn().mockImplementation(() => ({
+    query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+    end: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+  }));
   return { Pool: M, default: { Pool: M } };
 });
 vi.mock('drizzle-orm', async (importOriginal) => {
@@ -47,23 +51,22 @@ vi.mock('drizzle-orm', async (importOriginal) => {
 });
 
 const mockEmit = vi.fn();
-vi.mock('../../events/emit.js', () => ({ emit: (...a) => mockEmit(...a) }));
+vi.mock('../../events/emit.js', () => ({ emit: (...a: unknown[]) => mockEmit(...a) }));
 const mockAuditLog = vi.fn();
-vi.mock('../../lib/audit.js', () => ({ auditLog: (...a) => mockAuditLog(...a) }));
+vi.mock('../../lib/audit.js', () => ({ auditLog: (...a: unknown[]) => mockAuditLog(...a) }));
 
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
 const mockUpdate = vi.fn();
 const mockTransaction = vi.fn();
+// as justificado: mock parcial — NodePgDatabase requer muitos metodos; so usamos 4.
 const mockDb = {
   select: mockSelect,
   insert: mockInsert,
   update: mockUpdate,
   transaction: mockTransaction,
-};
+} as unknown as Database;
 vi.mock('../../db/client.js', () => ({ db: {}, pool: {} }));
-
-import { runFunnelHousekeepingTick } from '../funnel-housekeeping.js';
 
 const ORG_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const LEAD_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -92,11 +95,9 @@ const BASE_LEAD = {
 
 function makeTx() {
   return {
-    update: vi
-      .fn()
-      .mockReturnValue({
-        set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
-      }),
+    update: vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+    }),
     insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
   };
 }
@@ -111,7 +112,7 @@ beforeEach(() => {
   });
 });
 
-function setupSelectSeq(settingsRows, leadsRows) {
+function setupSelectSeq(settingsRows: unknown[], leadsRows: unknown[]) {
   let n = 0;
   mockSelect.mockImplementation(() => {
     n++;
@@ -119,15 +120,11 @@ function setupSelectSeq(settingsRows, leadsRows) {
       return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(settingsRows) }) };
     // n=2: findEligibleLeads (leads JOIN kanban_cards JOIN kanban_stages)
     return {
-      from: vi
-        .fn()
-        .mockReturnValue({
-          innerJoin: vi
-            .fn()
-            .mockReturnValue({
-              innerJoin: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(leadsRows) }),
-            }),
+      from: vi.fn().mockReturnValue({
+        innerJoin: vi.fn().mockReturnValue({
+          innerJoin: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(leadsRows) }),
         }),
+      }),
     };
   });
 }
@@ -164,7 +161,8 @@ describe('runFunnelHousekeepingTick', () => {
     const r = await runFunnelHousekeepingTick(mockDb);
     expect(r.stagnantEmitted).toBe(1);
     expect(mockEmit).toHaveBeenCalledOnce();
-    const emitArgs = mockEmit.mock.calls[0];
+    // as justificado: vitest mock.calls tipado como (unknown[] | undefined)[] — assertamos existencia antes.
+    const emitArgs = mockEmit.mock.calls[0] as unknown[];
     // Segundo argumento: o evento; terceiro: opts com onConflictDoNothing
     expect(emitArgs[1]).toMatchObject({
       eventName: 'leads.stagnant',
@@ -182,21 +180,13 @@ describe('runFunnelHousekeepingTick', () => {
           from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([BASE_SETTINGS]) }),
         };
       return {
-        from: vi
-          .fn()
-          .mockReturnValue({
-            innerJoin: vi
-              .fn()
-              .mockReturnValue({
-                innerJoin: vi
-                  .fn()
-                  .mockReturnValue({
-                    where: vi
-                      .fn()
-                      .mockResolvedValue([BASE_LEAD, { ...BASE_LEAD, leadId: 'lead-2' }]),
-                  }),
-              }),
+        from: vi.fn().mockReturnValue({
+          innerJoin: vi.fn().mockReturnValue({
+            innerJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([BASE_LEAD, { ...BASE_LEAD, leadId: 'lead-2' }]),
+            }),
           }),
+        }),
       };
     });
     mockTransaction.mockRejectedValueOnce(new Error('DB error')).mockResolvedValue(undefined);
