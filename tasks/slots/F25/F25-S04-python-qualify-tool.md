@@ -15,6 +15,8 @@ docs_required: false
 completed_at: 2026-07-08T21:56:13Z
 ---
 
+---
+
 # F25-S04 — Python: tool qualify_lead (Ana Clara)
 
 ## Objetivo

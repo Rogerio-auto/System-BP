@@ -29,7 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 7     | 3   | 0   | 0   | 0   | 1   | 3   |
+| F6   | 7     | 4   | 0   | 0   | 0   | 0   | 3   |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -349,12 +349,12 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24-S03 | Backend — provider de email Resend + senders/email.ts real (org-aware)          | ✅ done      | high       | —                                  |
 | F24-S04 | Backend — catálogo de gatilhos + schemas Zod de regras (shared-schemas)         | ✅ done      | high       | —                                  |
 | F24-S05 | Backend — módulo notification-rules (CRUD admin + RBAC + test-fire)             | ✅ done      | high       | F24-S01, F24-S02, F24-S04          |
-| F24-S06 | Backend — fan-out rules-driven por evento + registro no outbox + dedup          | 🟢 available | high       | F24-S03, F24-S04, F24-S05, F24-S09 |
+| F24-S06 | Backend — fan-out rules-driven por evento + registro no outbox + dedup          | 🟣 review    | high       | F24-S03, F24-S04, F24-S05, F24-S09 |
 | F24-S07 | Backend — worker notification-sla-scan (estagnação em estágios)                 | 🟢 available | high       | F24-S04, F24-S05, F24-S06          |
 | F24-S08 | Backend — push em tempo real (sala user + publish notification.new)             | 🟢 available | medium     | F24-S06                            |
 | F24-S09 | Backend — preferências de notificação por categoria                             | ✅ done      | medium     | F24-S01                            |
 | F24-S10 | Frontend — página Admin de regras de notificação (lista + card)                 | ✅ done      | high       | F24-S05                            |
-| F24-S11 | Frontend — drawer criar/editar regra + test-fire (preview)                      | 🟢 available | high       | F24-S05, F24-S10                   |
+| F24-S11 | Frontend — drawer criar/editar regra + test-fire (preview)                      | 🟣 review    | high       | F24-S05, F24-S10                   |
 | F24-S12 | Frontend — preferências de notificação do usuário (categoria × canal)           | ✅ done      | medium     | F24-S09                            |
 | F24-S13 | Frontend — sino de notificações em tempo real (socket + toast + badge)          | 🟢 available | medium     | F24-S08                            |
 | F24-S14 | QA — testes de integração do sistema de notificações                            | 🟢 available | high       | F24-S06, F24-S07, F24-S08, F24-S09 |
@@ -457,7 +457,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F6-S05 | DB/Seed — ai_assistant:use + flag ai.internal_assistant.enabled + tabela assistant_queries | ✅ done      | high       | —              |
 | F6-S06 | Backend — endpoints de leitura RBAC-bound do copiloto (principal do usuário + city scope)  | ✅ done      | high       | F6-S05         |
 | F6-S07 | Python — grafo internal_assistant + tools de leitura + prompt (sem escrita)                | ✅ done      | high       | F6-S06         |
-| F6-S08 | Backend — POST /api/internal-assistant/query (injeta principal → grafo) + guard + log      | 🟣 review    | high       | F6-S05, F6-S07 |
+| F6-S08 | Backend — POST /api/internal-assistant/query (injeta principal → grafo) + guard + log      | 🟢 available | high       | F6-S05, F6-S07 |
 | F6-S09 | Frontend — tela de chat do copiloto (substitui o teaser do InternalAssistantButton)        | 🟢 available | medium     | F6-S08         |
 | F6-S10 | QA — testes RBAC-bound do copiloto (por role/cidade, negação sem vazar, DLP, flag)         | 🟢 available | high       | F6-S06, F6-S08 |
 | F6-S11 | Docs — Central de Ajuda do copiloto interno (perguntar sobre seus dados / RBAC)            | 🟢 available | medium     | F6-S09         |

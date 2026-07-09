@@ -1,5 +1,5 @@
 // =============================================================================
-// pages/admin/Notificacoes.tsx — /admin/notificacoes (F24-S10).
+// pages/admin/Notificacoes.tsx — /admin/notificacoes (F24-S10 / F24-S11).
 //
 // Página de administração de regras de notificação.
 //
@@ -7,6 +7,7 @@
 //   - Header editorial (Bricolage) + descrição (Geist)
 //   - Barra de filtros: busca por nome/gatilho, filtro por status
 //   - RuleList: tabela densa DS §9.7
+//   - RuleDrawer: drawer criar/editar regra (F24-S11)
 //
 // RBAC: notifications:manage (backend valida; API retorna 403 sem permissão).
 // DS: profundidade elev-1 nos cards, hover de linha no table, tokens canônicos.
@@ -15,6 +16,7 @@ import * as React from 'react';
 
 import type { ListRulesParams } from '../../features/admin/notification-rules/api';
 import { useNotificationRules } from '../../features/admin/notification-rules/hooks';
+import { RuleDrawer } from '../../features/admin/notification-rules/RuleDrawer';
 import { RuleList } from '../../features/admin/notification-rules/RuleList';
 import { cn } from '../../lib/cn';
 
@@ -31,6 +33,10 @@ export function NotificacoesPage(): React.JSX.Element {
   const [searchDebounced, setSearchDebounced] = React.useState('');
   const [enabledFilter, setEnabledFilter] = React.useState<'all' | 'true' | 'false'>('all');
   const [page] = React.useState(1);
+
+  // Estado do drawer
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [editRuleId, setEditRuleId] = React.useState<string | undefined>(undefined);
 
   // Debounce da busca — 300ms
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,9 +67,31 @@ export function NotificacoesPage(): React.JSX.Element {
   const rules = data?.data ?? [];
 
   const handleNewRule = React.useCallback((): void => {
-    // F24-S11 implementará o drawer/formulário de criação.
-    // Botão desabilitado no RuleList enquanto a rota não existe — este handler
-    // não deve ser chamado; está aqui apenas para satisfazer a interface de prop.
+    setEditRuleId(undefined);
+    setDrawerOpen(true);
+  }, []);
+
+  // Chamado a partir de qualquer call site que queira abrir o drawer de edição
+  // (ex: RuleList quando ganhar suporte à prop onEditRule em slot futuro).
+  const handleEditRule = React.useCallback((id: string): void => {
+    setEditRuleId(id);
+    setDrawerOpen(true);
+  }, []);
+
+  // Expor via window event para que RuleList possa acionar sem alterar a interface
+  // — compatibilidade sem tocar em files_forbidden.
+  React.useEffect(() => {
+    const handler = (e: Event): void => {
+      const ce = e as CustomEvent<{ ruleId: string }>;
+      if (ce.detail?.ruleId) handleEditRule(ce.detail.ruleId);
+    };
+    window.addEventListener('rule:edit', handler);
+    return () => window.removeEventListener('rule:edit', handler);
+  }, [handleEditRule]);
+
+  const handleDrawerClose = React.useCallback((): void => {
+    setDrawerOpen(false);
+    setEditRuleId(undefined);
   }, []);
 
   return (
@@ -133,6 +161,9 @@ export function NotificacoesPage(): React.JSX.Element {
         onRetry={refetch}
         onNewRule={handleNewRule}
       />
+
+      {/* ── Drawer criar/editar ───────────────────────────────────────────────── */}
+      <RuleDrawer open={drawerOpen} onClose={handleDrawerClose} ruleId={editRuleId} />
     </div>
   );
 }

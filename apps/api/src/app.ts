@@ -42,6 +42,7 @@ import { internalFeatureFlagsRoutes } from './modules/internal/featureFlags/rout
 // Slots futuros (F3-S02, S05–S12) só criam modules/internal/<domínio>/routes.ts —
 // não editam app.ts, eliminando colisão de merge em desenvolvimento paralelo.
 import internalPlugin from './modules/internal/index.js';
+import { internalAssistantRoutes } from './modules/internal-assistant/routes.js';
 import { kanbanRoutes } from './modules/kanban/routes.js';
 import { lawFirmsRoutes } from './modules/law-firms/routes.js';
 import { leadsRoutes } from './modules/leads/routes.js';
@@ -368,6 +369,8 @@ export async function buildApp() {
   await app.register(customersRoutes);
 
   // Módulo de escritórios de advocacia — CRUD + suggest por cidade (F19-S02)
+  // Copiloto interno -- POST /api/internal-assistant/query (F6-S08)
+  await app.register(internalAssistantRoutes);
   await app.register(lawFirmsRoutes);
 
   // Dev-only endpoints (schema-examples, etc.) — NOT registered in production (F10-S11)
