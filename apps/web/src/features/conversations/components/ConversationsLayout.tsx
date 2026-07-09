@@ -201,6 +201,7 @@ export function ConversationsLayout(): React.JSX.Element {
           aria-label="Lista de conversas"
         >
           <ChatList
+            key={statusFilter}
             selectedConversationId={selectedId}
             onSelectConversation={(id) => setSelectedId(id)}
             statusFilter={statusFilter}
