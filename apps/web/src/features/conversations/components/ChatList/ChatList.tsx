@@ -17,7 +17,6 @@
 
 import * as React from 'react';
 
-import { useSocket } from '../../../../lib/realtime/useSocket';
 import { useChannels } from '../../../configuracoes/canais/useChannels';
 import {
   useConversationSocket,
@@ -190,6 +189,9 @@ export function ChatList({
   const [cursor, setCursor] = React.useState<string | undefined>(undefined);
   // Acumula conversas de múltiplas páginas
   const [accumulated, setAccumulated] = React.useState<Conversation[]>([]);
+  // Versão que sobe no reset de status para forçar Effect de acumulação a
+  // re-executar mesmo quando o TanStack retorna a mesma referência de cache.
+  const [listVersion, setListVersion] = React.useState(0);
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
 
   // ── Query params ─────────────────────────────────────────────────────────
@@ -211,7 +213,11 @@ export function ChatList({
     return map;
   }, [channels]);
 
-  // Acumula resultados quando a query retorna dados novos
+  // Acumula resultados quando a query retorna dados novos.
+  // `listVersion` na dep array garante que este effect re-execute após o reset
+  // de status (Effect abaixo), mesmo que TanStack devolva a mesma referência de
+  // cache via structural sharing — evitando lista vazia permanente ao alternar
+  // entre abas de status já visitadas.
   React.useEffect(() => {
     if (!data) return;
     if (cursor === undefined) {
@@ -223,30 +229,21 @@ export function ChatList({
         return [...prev, ...newItems];
       });
     }
-  }, [data, cursor]);
+  }, [data, cursor, listVersion]);
 
-  // Reset ao mudar o filtro de status (prop vinda de fora)
+  // Reset ao mudar o filtro de status (prop vinda de fora).
+  // Bumpamos listVersion para que o Effect de acumulação re-execute no próximo
+  // render com cursor=undefined, repovoando accumulated do cache disponível.
   React.useEffect(() => {
     setCursor(undefined);
     setAccumulated([]);
+    setListVersion((v) => v + 1);
   }, [statusFilter]);
 
   // ── Realtime ─────────────────────────────────────────────────────────────
   const socketOptions: UseConversationSocketOptions =
     selectedConversationId !== null ? { conversationId: selectedConversationId } : {};
   useConversationSocket(socketOptions);
-
-  const socket = useSocket();
-  React.useEffect(() => {
-    if (!socket) return;
-    function handleMessageNew(): void {
-      setCursor(undefined);
-    }
-    socket.on('message:new', handleMessageNew);
-    return () => {
-      socket.off('message:new', handleMessageNew);
-    };
-  }, [socket]);
 
   // ── Filtro de busca (cliente-side sobre dados acumulados) ────────────────
   const conversations: Conversation[] = React.useMemo(() => {
