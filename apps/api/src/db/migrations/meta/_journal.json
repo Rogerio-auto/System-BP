@@ -533,6 +533,13 @@
       "when": 1783987200000,
       "tag": "0084_seed_ai_actions_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1783624532255,
+      "tag": "0085_ai_funnel_settings",
+      "breakpoints": true
     }
   ]
 }

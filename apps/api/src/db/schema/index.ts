@@ -121,3 +121,6 @@ export * from './law-firms.js';
 
 // Copiloto interno — log de auditoria de consultas (F6-S05)
 export * from './assistantQueries.js';
+
+// Agente proativo — configuração de housekeeping por org (F25-S05)
+export * from './aiFunnelSettings.js';
