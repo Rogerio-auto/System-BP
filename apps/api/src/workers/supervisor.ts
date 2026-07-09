@@ -40,6 +40,7 @@ const GROUPS: Record<string, readonly string[]> = {
     'winback-scan',
     'import-processor',
     'cron-retention',
+    'notification-sla-scan',
   ],
 };
 

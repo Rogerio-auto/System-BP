@@ -3,7 +3,7 @@ id: F24-S07
 title: Backend — worker notification-sla-scan (estagnação em estágios)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: review
 priority: high
 estimated_size: L
 agent_id: null
@@ -12,6 +12,8 @@ blocks: [F24-S14]
 labels: [backend, notifications, worker, multi-tenant]
 source_docs: [docs/planejamento-notificacoes.md, docs/09-feature-flags.md]
 docs_required: false
+claimed_at: 2026-07-09T19:03:14Z
+completed_at: 2026-07-09T20:19:07Z
 ---
 
 # F24-S07 — Backend: worker de estagnação
