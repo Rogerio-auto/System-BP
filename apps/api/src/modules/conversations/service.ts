@@ -46,6 +46,7 @@ import {
   getMessages as repoGetMessages,
   listConversations as repoListConversations,
 } from '../livechat/service.js';
+import { fetchApprovedTemplatesFromMeta } from '../templates/service.js';
 
 import type {
   ConversationCountsQuery,
@@ -423,10 +424,11 @@ export interface ConversationTemplatesResponse {
 }
 
 /**
- * Lista templates aprovados da organização da conversa.
+ * Lista templates aprovados para o seletor de template do live chat.
  *
- * Valida que a conversa pertence ao org/escopo do actor antes de retornar templates.
- * Filtra apenas `status = 'approved'` — os únicos enviáveis fora da janela 24h.
+ * Fonte primária: Meta API (WABA) — sempre fresco, sem necessidade de sync prévio.
+ * Fallback: banco local (whatsapp_templates status=approved) se a Meta falhar.
+ * Efeito colateral: upsert no DB local (fire-and-forget) para manter sincronismo.
  *
  * @throws NotFoundError se conversa não pertencer à org/escopo do usuário.
  */
@@ -443,7 +445,26 @@ export async function getConversationTemplatesService(
   const userCtx: UserScopeCtx = { cityScopeIds };
   const conv = await getConversation(db, conversationId, organizationId, userCtx);
 
-  // 2. Lista templates aprovados da org da conversa (ordenados por nome)
+  // 2. Fonte primária: Meta API — puxar templates aprovados diretamente do WABA
+  try {
+    const metaItems = await fetchApprovedTemplatesFromMeta(conv.organizationId);
+    return {
+      data: metaItems.map((t) => ({
+        id: t.id,
+        name: t.name,
+        category: t.category,
+        variables: t.variables,
+        body_text: t.body,
+      })),
+    };
+  } catch (err) {
+    log.warn(
+      { organizationId: conv.organizationId, err },
+      'conversations.service: falha ao buscar templates da Meta — usando DB local como fallback',
+    );
+  }
+
+  // 3. Fallback: banco local (canal sem credenciais ou Meta indisponível)
   const rows = await db
     .select({
       id: whatsappTemplates.id,
@@ -461,16 +482,16 @@ export async function getConversationTemplatesService(
     )
     .orderBy(asc(whatsappTemplates.name));
 
-  const data: TemplateDto[] = rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    // `as` justificado: Drizzle infere text enum como string genérica; o check DB garante o enum.
-    category: row.category as TemplateDto['category'],
-    variables: row.variables,
-    body_text: row.body,
-  }));
-
-  return { data };
+  return {
+    data: rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      // `as` justificado: Drizzle infere text enum como string genérica; o check DB garante o enum.
+      category: row.category as TemplateDto['category'],
+      variables: row.variables,
+      body_text: row.body,
+    })),
+  };
 }
 
 // ---------------------------------------------------------------------------

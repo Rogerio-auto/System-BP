@@ -858,3 +858,75 @@ export async function pullFromMetaService(
 
   return { imported, updated, unchanged, errors };
 }
+
+// ---------------------------------------------------------------------------
+// fetchApprovedTemplatesFromMeta — usado pelo seletor de template do live chat
+// ---------------------------------------------------------------------------
+
+export interface ApprovedTemplateItem {
+  id: string;
+  name: string;
+  category: 'utility' | 'marketing' | 'authentication';
+  variables: string[];
+  body: string;
+}
+
+/**
+ * Busca templates aprovados diretamente da Meta (WABA) e retorna a lista
+ * pronta para o seletor de template do live chat.
+ *
+ * Como efeito colateral (fire-and-forget), faz upsert no banco local para
+ * manter o DB em sincronia sem bloquear a resposta.
+ *
+ * Usado por GET /api/conversations/:id/templates.
+ *
+ * @throws ExternalServiceError se o canal não estiver configurado.
+ */
+export async function fetchApprovedTemplatesFromMeta(
+  organizationId: string,
+): Promise<ApprovedTemplateItem[]> {
+  const metaClient = await buildMetaTemplatesClient(organizationId);
+  const metaTemplates = await metaClient.listTemplates();
+
+  const approved = metaTemplates.filter((t) => t.status === 'APPROVED');
+
+  const items: ApprovedTemplateItem[] = approved
+    .map((t) => {
+      const body = parseBodyFromComponents(t.components ?? []);
+      if (body === null) return null;
+      return {
+        id: t.id,
+        name: t.name,
+        category: mapMetaCategory(t.category),
+        variables: extractVariables(body),
+        body,
+      };
+    })
+    .filter((x): x is ApprovedTemplateItem => x !== null)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Upsert no DB em background para manter sincronismo local (fire-and-forget).
+  void Promise.all(
+    approved.map(async (t) => {
+      const body = parseBodyFromComponents(t.components ?? []);
+      if (body === null) return;
+      const { headerType, headerText } = parseHeaderFromComponents(t.components ?? []);
+      try {
+        await upsertTemplateFromMeta(db, organizationId, t.id, {
+          name: t.name,
+          category: mapMetaCategory(t.category),
+          language: t.language,
+          body,
+          variables: extractVariables(body),
+          status: 'approved',
+          headerType,
+          headerText,
+        });
+      } catch {
+        // silent — não pode bloquear a resposta ao atendente
+      }
+    }),
+  );
+
+  return items;
+}
