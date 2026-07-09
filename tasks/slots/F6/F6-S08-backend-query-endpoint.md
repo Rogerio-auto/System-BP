@@ -3,7 +3,7 @@ id: F6-S08
 title: Backend — POST /api/internal-assistant/query (injeta principal → grafo) + guard + log
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
@@ -12,6 +12,7 @@ blocks: [F6-S09]
 labels: [backend, ai-assistant, rbac, audit, feature-flags]
 source_docs: [docs/22-agente-interno-acoes.md, docs/10-seguranca-permissoes.md]
 docs_required: false
+completed_at: 2026-07-09T13:23:57Z
 ---
 
 # F6-S08 — Backend: endpoint público do copiloto
