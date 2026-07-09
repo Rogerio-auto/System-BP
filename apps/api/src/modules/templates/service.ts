@@ -875,8 +875,8 @@ export interface ApprovedTemplateItem {
  * Busca templates aprovados diretamente da Meta (WABA) e retorna a lista
  * pronta para o seletor de template do live chat.
  *
- * Como efeito colateral (fire-and-forget), faz upsert no banco local para
- * manter o DB em sincronia sem bloquear a resposta.
+ * Faz upsert no banco local antes de retornar para obter UUIDs locais
+ * estáveis (o schema Zod do endpoint exige uuid no campo id).
  *
  * Usado por GET /api/conversations/:id/templates.
  *
@@ -890,43 +890,47 @@ export async function fetchApprovedTemplatesFromMeta(
 
   const approved = metaTemplates.filter((t) => t.status === 'APPROVED');
 
-  const items: ApprovedTemplateItem[] = approved
-    .map((t) => {
-      const body = parseBodyFromComponents(t.components ?? []);
-      if (body === null) return null;
-      return {
-        id: t.id,
-        name: t.name,
-        category: mapMetaCategory(t.category),
-        variables: extractVariables(body),
-        body,
-      };
-    })
-    .filter((x): x is ApprovedTemplateItem => x !== null)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  // Upsert em paralelo (máx 3 concorrentes) para obter UUIDs locais.
+  // O schema Zod do endpoint exige uuid — não podemos retornar o ID numérico da Meta.
+  const CONCURRENCY = 3;
+  const items: ApprovedTemplateItem[] = [];
 
-  // Upsert no DB em background para manter sincronismo local (fire-and-forget).
-  void Promise.all(
-    approved.map(async (t) => {
-      const body = parseBodyFromComponents(t.components ?? []);
-      if (body === null) return;
-      const { headerType, headerText } = parseHeaderFromComponents(t.components ?? []);
-      try {
-        await upsertTemplateFromMeta(db, organizationId, t.id, {
-          name: t.name,
-          category: mapMetaCategory(t.category),
-          language: t.language,
-          body,
-          variables: extractVariables(body),
-          status: 'approved',
-          headerType,
-          headerText,
-        });
-      } catch {
-        // silent — não pode bloquear a resposta ao atendente
-      }
-    }),
-  );
+  const chunks: typeof approved = [];
+  for (let i = 0; i < approved.length; i += CONCURRENCY) {
+    chunks.push(...approved.slice(i, i + CONCURRENCY));
+  }
 
-  return items;
+  // Processar em lotes de 3
+  for (let i = 0; i < approved.length; i += CONCURRENCY) {
+    const chunk = approved.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(
+      chunk.map(async (t) => {
+        const body = parseBodyFromComponents(t.components ?? []);
+        if (body === null) return null;
+        const { headerType, headerText } = parseHeaderFromComponents(t.components ?? []);
+        const category = mapMetaCategory(t.category);
+        const variables = extractVariables(body);
+        try {
+          const { row } = await upsertTemplateFromMeta(db, organizationId, t.id, {
+            name: t.name,
+            category,
+            language: t.language,
+            body,
+            variables,
+            status: 'approved',
+            headerType,
+            headerText,
+          });
+          return { id: row.id, name: t.name, category, variables, body };
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (const item of results) {
+      if (item !== null) items.push(item);
+    }
+  }
+
+  return items.sort((a, b) => a.name.localeCompare(b.name));
 }
