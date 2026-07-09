@@ -152,3 +152,9 @@ export function setupWorkerHandlers(): void {
     );
   }
 }
+
+// F25-S05: worker periodico de housekeeping do funil (estagnacao + abandono reversivel).
+// Varrre leads parados alem dos limiares por org (ai_funnel_settings).
+// Iniciado como processo separado (a adicionar no supervisor.ts grupo periodic).
+// Gated por internal_assistant.actions.enabled.
+export { runFunnelHousekeepingTick } from './funnel-housekeeping.js';
