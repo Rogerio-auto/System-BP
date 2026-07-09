@@ -37,6 +37,7 @@ import pino from 'pino';
 import type { Database } from '../../db/client.js';
 import { conversations } from '../../db/schema/conversations.js';
 import { idempotencyKeys } from '../../db/schema/idempotencyKeys.js';
+import { whatsappTemplates } from '../../db/schema/whatsappTemplates.js';
 import type { AuditTx } from '../../lib/audit.js';
 import { auditLog } from '../../lib/audit.js';
 import { makeEnvelope, publish } from '../../lib/queue/index.js';
@@ -229,13 +230,49 @@ export async function sendMessage(
   // persistOutboundMessage já emite evento no outbox (whatsapp.message_sent)
   const messageType = toMessageType(body);
 
+  // Para templates: resolve o body text do DB e interpola variáveis dos components
+  // para que TemplateBubble no live chat exiba o texto real enviado.
+  let templateContent: string | undefined;
+  if (body.type === 'template') {
+    try {
+      const tmplRows = await db
+        .select({ body: whatsappTemplates.body })
+        .from(whatsappTemplates)
+        .where(
+          and(
+            eq(whatsappTemplates.name, body.templateName),
+            eq(whatsappTemplates.organizationId, actor.organizationId),
+          ),
+        )
+        .limit(1);
+      const tmplBody = tmplRows[0]?.body;
+      if (tmplBody) {
+        type ComponentParam = { type?: string; text?: string };
+        type TemplateComponent = { type?: string; parameters?: ComponentParam[] };
+        const comps = body.components as TemplateComponent[];
+        const bodyComp = comps.find((c) => c.type?.toUpperCase() === 'BODY');
+        const params = bodyComp?.parameters ?? [];
+        templateContent = tmplBody.replace(/\{\{(\d+)\}\}/g, (_m, n: string) => {
+          return params[Number(n) - 1]?.text ?? `{{${n}}}`;
+        });
+      }
+    } catch {
+      // falha silenciosa — TemplateBubble exibirá "Corpo não disponível"
+    }
+  }
+
   const message = await persistOutboundMessage(db, {
     organizationId: actor.organizationId,
     channelId: conversation.channelId,
     conversationId,
     messageType,
     // LGPD: campos PII passados com tipo explícito (não logados)
-    content: body.type === 'text' || body.type === 'ig_private_reply' ? body.content : undefined,
+    content:
+      body.type === 'text' || body.type === 'ig_private_reply'
+        ? body.content
+        : body.type === 'template'
+          ? templateContent
+          : undefined,
     mediaUrl: body.type === 'media' ? body.publicMediaUrl : undefined,
     mediaMime: body.type === 'media' ? body.mime : undefined,
     interactivePayload:
