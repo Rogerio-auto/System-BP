@@ -3,7 +3,7 @@ id: F25-S08
 title: QA — testes de integração da fronteira IA↔humano (escopo, idempotência, reversão, flag)
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
