@@ -432,4 +432,28 @@ describe('createSimulation', () => {
     ];
     expect(insertCall[1].createdByUserId).toBeNull();
   });
+
+  // -------------------------------------------------------------------------
+  // 14. F25-S11 — actor.role='ai' (contexto real de internal-routes.ts p/
+  //     origin='ai') propaga para auditLog -> lib/audit.ts deriva
+  //     actor_type='ai' (heurística role==='ai', ver audit.test.ts).
+  // -------------------------------------------------------------------------
+
+  it("F25-S11: origin='ai' com actor.role='ai' (contexto real da IA) propaga role='ai' para auditLog", async () => {
+    // Mimetiza o SimulationActorContext montado por internal-routes.ts: userId=''
+    // (sentinela — IA não tem usuário), role='ai'.
+    const AI_ACTOR = { ...ACTOR, userId: '', role: 'ai' };
+    mockInsertSimulation.mockResolvedValue(
+      makeSimulationDbRow({ origin: 'ai', createdByUserId: null }),
+    );
+
+    const { createSimulation } = await import('../service.js');
+    await createSimulation(mockDb as never, AI_ACTOR, BODY, { origin: 'ai' });
+
+    expect(mockAuditLog).toHaveBeenCalledOnce();
+    const auditArgs = mockAuditLog.mock.calls[0] as [unknown, { actor: unknown }];
+    // role='ai' é o sinal que lib/audit.ts usa para derivar actor_type='ai'
+    // (ver lib/audit.test.ts) — aqui garantimos que o wiring chega correto.
+    expect(auditArgs[1].actor).toMatchObject({ role: 'ai' });
+  });
 });

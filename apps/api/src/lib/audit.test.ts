@@ -277,6 +277,78 @@ describe('auditLog()', () => {
 });
 
 // ---------------------------------------------------------------------------
+// actor_type — derivação (F25-S11)
+// ---------------------------------------------------------------------------
+
+describe('auditLog() — deriva actor_type', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockValues.mockResolvedValue(undefined);
+    mockInsert.mockReturnValue({ values: mockValues });
+  });
+
+  it("actor null -> actor_type = 'system' (ações de worker/job)", async () => {
+    const tx = makeTx();
+    await auditLog(tx, makeParams({ actor: null }));
+
+    const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row['actorType']).toBe('system');
+  });
+
+  it("actor.role === 'ai' -> actor_type = 'ai' (heurística de role)", async () => {
+    const tx = makeTx();
+    await auditLog(tx, makeParams({ actor: { userId: null, role: 'ai' } }));
+
+    const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row['actorType']).toBe('ai');
+  });
+
+  it("actor.role humano (ex: 'gestor') -> actor_type = 'user' (sem regressão)", async () => {
+    const tx = makeTx();
+    await auditLog(tx, makeParams({ actor: { userId: USER_ID, role: 'gestor' } }));
+
+    const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row['actorType']).toBe('user');
+  });
+
+  it('actor.type explícito vence a heurística de role (ex: role humano + type=ai)', async () => {
+    const tx = makeTx();
+    await auditLog(tx, makeParams({ actor: { userId: USER_ID, role: 'gestor', type: 'ai' } }));
+
+    const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row['actorType']).toBe('ai');
+  });
+
+  it('actor.type explícito = system é respeitado mesmo com actor não-nulo', async () => {
+    const tx = makeTx();
+    await auditLog(tx, makeParams({ actor: { userId: null, role: 'worker', type: 'system' } }));
+
+    const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row['actorType']).toBe('system');
+  });
+
+  it.each(['user', 'system', 'ai'] as const)(
+    "aceita o valor '%s' do check constraint chk_audit_logs_actor_type",
+    async (type) => {
+      const tx = makeTx();
+      await auditLog(tx, makeParams({ actor: { userId: USER_ID, role: 'x', type } }));
+
+      const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(['user', 'system', 'ai']).toContain(row['actorType']);
+      expect(row['actorType']).toBe(type);
+    },
+  );
+
+  it("actor default sem type (role humano) -> actor_type = 'user'", async () => {
+    const tx = makeTx();
+    await auditLog(tx, makeParams());
+
+    const row = mockValues.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row['actorType']).toBe('user');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // LGPD — garantias de design
 // ---------------------------------------------------------------------------
 

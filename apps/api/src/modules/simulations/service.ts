@@ -124,6 +124,21 @@ export interface CreateSimulationOptions {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * F25-S11 — actor_type='ai' para os audits de IA:
+ *
+ * Este helper é compartilhado por 3 sites de auditLog() (createSimulation,
+ * markSimulationSent, sendSimulation). Não forçamos `type: 'ai'` aqui porque
+ * sendSimulation() é o endpoint MANUAL (F14-S05, humano clica "enviar") — um
+ * `type` fixo classificaria incorretamente ações humanas como IA.
+ *
+ * Em vez disso confiamos na derivação por `role` em lib/audit.ts
+ * (`actor.role === 'ai' -> actor_type = 'ai'`): os únicos dois callers que
+ * criam SimulationActorContext com origin='ai' (internal-routes.ts, tools da
+ * IA) já setam `role: 'ai'` explicitamente — createSimulation(origin='ai') e
+ * markSimulationSent(). sendSimulation() é chamado só com a role real do
+ * usuário autenticado, então cai corretamente em 'user'.
+ */
 function buildAuditActor(actor: SimulationActorContext): AuditActor {
   return {
     // origin='ai' passa userId='' (sentinela — IA não tem usuário). audit_logs.
