@@ -12,11 +12,10 @@
 //   - Preferência de canal desligada suprime o canal (sem suprimir a regra).
 //   - city_scope: regra filtrada nunca grava delivery para si mesma, mesmo
 //     quando outra regra sem filtro dispara para o mesmo evento.
-//   - Achado de QA (documentado, não é bug a corrigir neste slot): ao
-//     contrário do worker de SLA (fail-closed, F24-S16), o fan-out por
-//     evento é fail-OPEN quando o evento não carrega city_id — uma regra
-//     com city_scope configurado ainda dispara nesse caso. Ver teste
-//     dedicado abaixo.
+//   - Fail-closed (F24-S21, paridade com o worker de SLA — F24-S16): quando
+//     o evento não carrega city_id resolvível, uma regra com city_scope
+//     configurado é suprimida (não dispara) — nunca faz broadcast org-wide.
+//     Ver teste dedicado abaixo.
 //   - Feature flag `notifications.rules.enabled` desligada → no-op total.
 //   - Isolamento de organização: evento de uma org nunca aciona regra de outra.
 //   - severity da regra chega ao payload do socket relay (mock da fila —
@@ -403,8 +402,8 @@ describe.runIf(dbAvailable)('[INTEGRATION] handleFanoutNotification — SQL real
   });
 
   it(
-    'achado QA: city_scope configurado + evento sem city_id é fail-OPEN (regra ainda dispara) — ' +
-      'diferente do worker de SLA (fail-closed, F24-S16)',
+    'fail-closed (F24-S21): city_scope configurado + evento sem city_id não registra delivery — ' +
+      'paridade com o worker de SLA (fail-closed, F24-S16)',
     async () => {
       const event = buildEvent();
       // `as` justificado: payload é jsonb do outbox — reescrevemos data.city_id
@@ -414,10 +413,10 @@ describe.runIf(dbAvailable)('[INTEGRATION] handleFanoutNotification — SQL real
       await insertEvent(event);
       await handleFanoutNotification(event, db);
 
-      // Comportamento ATUAL do fanout: eventCityId=null não ativa o filtro de
-      // city_scope (extractCityScopeFromFilters + `eventCityId !== null` no
-      // guard) — a regra city-scoped dispara mesmo sem cidade resolvível.
-      expect(await countDeliveries(RULE_CITY_SCOPED_ID, event.aggregateId)).toBe(1);
+      // Fail-closed: eventCityId=null + regra com city_scope configurado →
+      // suprimida (nunca dispara), evitando o broadcast org-wide que
+      // resolveByRoleCity faria com cityId=null.
+      expect(await countDeliveries(RULE_CITY_SCOPED_ID, event.aggregateId)).toBe(0);
     },
   );
 
