@@ -417,29 +417,19 @@ describe.runIf(dbAvailable)(
       expect(abandonEvents).toHaveLength(1);
     });
 
-    it(
-      'ACHADO F25-S08: 2º tick no mesmo dia DUPLICA audit_logs de leads.stagnant ' +
-        '(gap real, não é bloqueio deste slot — reportado para follow-up)',
-      async () => {
-        // processStagnant() (funnel-housekeeping.ts) chama emit() com
-        // onConflictDoNothing (dedup real, testado acima) e, LOGO EM SEGUIDA,
-        // na MESMA transação, chama auditLog() incondicionalmente — o helper
-        // audit.ts não tem chave de idempotência própria. Resultado real: um
-        // 2º tick no mesmo dia (ex.: restart do worker, trigger manual) insere
-        // uma SEGUNDA linha em audit_logs para o mesmo lead+ação+dia, mesmo com
-        // o outbox corretamente deduplicado. Efeito prático: infla a contagem
-        // do painel "IA nas últimas 24h" (doc 22 §11) — não duplica mutação de
-        // estado nem side-effect externo (outbox é a fonte de verdade para
-        // consumidores). LEAD_ABANDON não sofre o mesmo problema aqui porque,
-        // após o 1º tick, o lead já está em closed_lost (status terminal) e
-        // sai da query de elegibilidade (notInArray(TERMINAL_STATUSES)) —
-        // só leads.stagnant (que nunca muda o status) fica reexposto a cada
-        // tick. Documentando o comportamento real em vez de mascará-lo —
-        // mesmo padrão usado para o gap de actor_type em F25-S06.
-        expect(await countAiActionAudits(LEAD_STAGNANT_ID, 'leads.stagnant')).toBe(2);
-        expect(await countAiActionAudits(LEAD_ABANDON_ID, 'leads.abandoned')).toBe(1);
-      },
-    );
+    it('F25-S10: 2º tick no mesmo dia NÃO duplica audit_logs de leads.stagnant', async () => {
+      // processStagnant() (funnel-housekeeping.ts) agora faz uma pre-checagem
+      // no outbox (SELECT 1 FROM event_outbox WHERE idempotency_key = ...)
+      // antes de emit()+auditLog(), na MESMA transação. Num 2º tick no mesmo
+      // dia (ex.: restart do worker, trigger manual, sobreposição de
+      // agendamento) a idempotencyKey já existe no outbox → o tick pula
+      // tanto o emit quanto o auditLog para esse lead, então audit_logs não
+      // infla a contagem do painel "IA nas últimas 24h" (doc 22 §11).
+      // LEAD_ABANDON também permanece consistente (nunca duplicou: após o
+      // 1º tick o lead vira closed_lost e sai da elegibilidade).
+      expect(await countAiActionAudits(LEAD_STAGNANT_ID, 'leads.stagnant')).toBe(1);
+      expect(await countAiActionAudits(LEAD_ABANDON_ID, 'leads.abandoned')).toBe(1);
+    });
 
     it('LGPD §8.5: payload dos eventos de housekeeping não carrega PII bruta', async () => {
       const [stagnantEvent] = await db
