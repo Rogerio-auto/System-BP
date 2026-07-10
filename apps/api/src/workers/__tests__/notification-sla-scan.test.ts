@@ -69,6 +69,7 @@ vi.mock('../../modules/notifications/senders/email.js', () => ({
   sendEmail: (...a: unknown[]) => mockSendEmail(...a),
 }));
 
+import { AppError } from '../../shared/errors.js';
 import { buildSlaBucket, runSlaScanTick } from '../../workers/notification-sla-scan.js';
 import type { SlaScanDb, SlaScanLogger } from '../../workers/notification-sla-scan.js';
 
@@ -86,9 +87,11 @@ const mockDb: SlaScanDb = {
 };
 
 // Logger mockado para inspecionar a supressão fail-closed de city_scope
-// (hardening pós-review F24-S16 — sem isso a supressão vira silêncio).
+// (hardening pós-review F24-S16 — sem isso a supressão vira silêncio) e os
+// catches que antes engoliam exceção sem log (F24-S19).
 const mockLoggerWarn = vi.fn();
-const mockLogger: SlaScanLogger = { warn: mockLoggerWarn };
+const mockLoggerError = vi.fn();
+const mockLogger: SlaScanLogger = { warn: mockLoggerWarn, error: mockLoggerError };
 
 const RULE_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const ORG_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -156,6 +159,7 @@ beforeEach(() => {
   mockSendInApp.mockResolvedValue(undefined);
   mockSendEmail.mockResolvedValue(undefined);
   mockLoggerWarn.mockReset();
+  mockLoggerError.mockReset();
 });
 
 describe('buildSlaBucket', () => {
@@ -299,5 +303,107 @@ describe('runSlaScanTick', () => {
     mockIsCategoryEnabled.mockResolvedValue(false);
     await runSlaScanTick(mockDb);
     expect(mockSendInApp).not.toHaveBeenCalled();
+  });
+
+  // ---------------------------------------------------------------------------
+  // F24-S19: severity da regra propaga ao sendInApp.
+  // ---------------------------------------------------------------------------
+
+  it('rule.severity=critical -> sendInApp recebe severity=critical', async () => {
+    setupFullFlow([{ ...BASE_RULE, severity: 'critical' as const }], false);
+    mockFindSlaSources.mockResolvedValue([BASE_ENTITY]);
+    mockResolveRecipients.mockResolvedValue([
+      { userId: USER_ID, organizationId: ORG_ID, displayName: 'A', channels: ['in_app' as const] },
+    ]);
+    await runSlaScanTick(mockDb);
+    expect(mockSendInApp).toHaveBeenCalledWith(
+      mockDb,
+      expect.objectContaining({ severity: 'critical' }),
+    );
+  });
+
+  it('rule.severity=warning (BASE_RULE) -> sendInApp recebe severity=warning, sem regressão', async () => {
+    setupFullFlow([BASE_RULE], false);
+    mockFindSlaSources.mockResolvedValue([BASE_ENTITY]);
+    mockResolveRecipients.mockResolvedValue([
+      { userId: USER_ID, organizationId: ORG_ID, displayName: 'A', channels: ['in_app' as const] },
+    ]);
+    await runSlaScanTick(mockDb);
+    expect(mockSendInApp).toHaveBeenCalledWith(
+      mockDb,
+      expect.objectContaining({ severity: 'warning' }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // F24-S19: catches mudos engoliam o AppError(422) de trigger_key desconhecido
+  // (F24-S16). Precisam logar com contexto e manter o isolamento por regra.
+  // ---------------------------------------------------------------------------
+
+  it('trigger_key invalido (AppError 422 de findSlaSources) -> loga erro e nao interrompe as demais regras', async () => {
+    const badRule = {
+      ...BASE_RULE,
+      id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      triggerKey: 'eixo:inexistente',
+    };
+    const goodRule = { ...BASE_RULE };
+    setupFullFlow([badRule, goodRule], false);
+    mockFindSlaSources.mockImplementation(
+      (_db: unknown, _orgId: unknown, _hrs: unknown, triggerKey: string) => {
+        if (triggerKey === 'eixo:inexistente') {
+          return Promise.reject(
+            new AppError(
+              422,
+              'VALIDATION_ERROR',
+              `findSlaSources: trigger_key desconhecido: '${triggerKey}'`,
+            ),
+          );
+        }
+        return Promise.resolve([BASE_ENTITY]);
+      },
+    );
+    mockResolveRecipients.mockResolvedValue([
+      { userId: USER_ID, organizationId: ORG_ID, displayName: 'A', channels: ['in_app' as const] },
+    ]);
+
+    const r = await runSlaScanTick(mockDb, mockLogger);
+
+    // Regra ruim isolada — não derruba o tick nem a regra boa.
+    expect(r.rulesProcessed).toBe(2);
+    expect(mockSendInApp).toHaveBeenCalledOnce();
+
+    // Erro logado com contexto (sem PII) em vez de engolido em silêncio.
+    expect(mockLoggerError).toHaveBeenCalledOnce();
+    const [logPayload] = mockLoggerError.mock.calls[0] as [Record<string, unknown>, string];
+    expect(logPayload['rule_id']).toBe('ffffffff-ffff-ffff-ffff-ffffffffffff');
+    expect(logPayload['trigger_key']).toBe('eixo:inexistente');
+    expect(logPayload['organization_id']).toBe(ORG_ID);
+    expect(logPayload['err']).toBeInstanceOf(AppError);
+  });
+
+  it('falha isolada por entidade -> loga erro com entity_id e segue processando as demais entidades', async () => {
+    setupFullFlow([BASE_RULE], false);
+    const entity2 = { ...BASE_ENTITY, entityId: 'other-entity-id' };
+    mockFindSlaSources.mockResolvedValue([BASE_ENTITY, entity2]);
+    // 1ª entidade falha ao resolver destinatários; 2ª segue normalmente.
+    mockResolveRecipients
+      .mockRejectedValueOnce(new Error('falha ao resolver destinatarios'))
+      .mockResolvedValueOnce([
+        {
+          userId: USER_ID,
+          organizationId: ORG_ID,
+          displayName: 'A',
+          channels: ['in_app' as const],
+        },
+      ]);
+
+    await runSlaScanTick(mockDb, mockLogger);
+
+    expect(mockLoggerError).toHaveBeenCalledOnce();
+    const [logPayload] = mockLoggerError.mock.calls[0] as [Record<string, unknown>, string];
+    expect(logPayload['rule_id']).toBe(RULE_ID);
+    expect(logPayload['entity_id']).toBe(CARD_ID);
+    // Entidade seguinte ainda processada apesar da falha isolada na primeira.
+    expect(mockSendInApp).toHaveBeenCalledOnce();
   });
 });
