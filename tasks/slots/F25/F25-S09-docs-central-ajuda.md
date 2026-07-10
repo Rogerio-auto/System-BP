@@ -3,7 +3,7 @@ id: F25-S09
 title: Docs — Central de Ajuda: ações do agente no funil + revisar/reverter
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
@@ -12,9 +12,9 @@ blocks: []
 labels: [docs, help-center, ai-agent]
 source_docs: [docs/22-agente-interno-acoes.md, docs/20-central-de-ajuda.md]
 docs_required: true
-docs_artifacts:
-  [docs/help/guias/livechat/acoes-do-agente-no-funil.mdx, docs/help/guias/livechat/revisar-e-reverter-acoes-da-ia.mdx]
+docs_artifacts: [docs/help/guias/livechat/acoes-do-agente-no-funil.mdx, docs/help/guias/livechat/revisar-e-reverter-acoes-da-ia.mdx]
 claimed_at: 2026-07-10T17:53:21Z
+completed_at: 2026-07-10T18:01:43Z
 
 ---
 
