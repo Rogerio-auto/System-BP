@@ -3,7 +3,7 @@ id: F24-S14
 title: QA — testes de integração do sistema de notificações
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: high
 estimated_size: L
 agent_id: null
