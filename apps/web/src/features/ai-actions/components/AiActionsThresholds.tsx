@@ -50,10 +50,7 @@ export function AiActionsThresholds(): React.JSX.Element {
             className="flex flex-col gap-1 p-3 rounded-md border border-border"
             style={{ background: 'var(--bg-elev-2)' }}
           >
-            <span
-              className="font-sans uppercase tracking-widest text-ink-3"
-              style={{ fontSize: '0.65rem' }}
-            >
+            <span className="font-sans uppercase tracking-widest text-ink-3 text-xs">
               Estagnação após
             </span>
             <span
@@ -67,10 +64,7 @@ export function AiActionsThresholds(): React.JSX.Element {
             className="flex flex-col gap-1 p-3 rounded-md border border-border"
             style={{ background: 'var(--bg-elev-2)' }}
           >
-            <span
-              className="font-sans uppercase tracking-widest text-ink-3"
-              style={{ fontSize: '0.65rem' }}
-            >
+            <span className="font-sans uppercase tracking-widest text-ink-3 text-xs">
               Abandono após
             </span>
             <span
