@@ -24,7 +24,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
-| F24  | 19    | 8   | 0   | 0   | 0   | 0   | 11  |
+| F24  | 19    | 7   | 0   | 0   | 0   | 1   | 11  |
 | F25  | 9     | 4   | 0   | 0   | 0   | 0   | 5   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -358,7 +358,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24-S12 | Frontend — preferências de notificação do usuário (categoria × canal)            | ✅ done      | medium     | F24-S09                            |
 | F24-S13 | Frontend — sino de notificações em tempo real (socket + toast + badge)           | 🟢 available | medium     | F24-S08                            |
 | F24-S14 | QA — testes de integração do sistema de notificações                             | 🟢 available | high       | F24-S06, F24-S07, F24-S08, F24-S09 |
-| F24-S15 | Docs — doc canônico de notificações + flags + runbook go-live                    | 🟢 available | medium     | F24-S05, F24-S07, F24-S12          |
+| F24-S15 | Docs — doc canônico de notificações + flags + runbook go-live                    | 🟣 review    | medium     | F24-S05, F24-S07, F24-S12          |
 | F24-S16 | Backend — worker de SLA: 7 eixos reais + trigger_key kanban_stage parametrizável | 🟢 available | high       | F24-S07                            |
 | F24-S17 | Frontend — seletor de stage no editor de regra de estagnação                     | 🟢 available | medium     | F24-S16                            |
 | F24-S18 | Backend — flag notifications.email.enabled passa a gatear o envio de e-mail      | 🟢 available | high       | F24-S03                            |

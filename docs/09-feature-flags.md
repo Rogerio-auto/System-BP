@@ -32,29 +32,42 @@ Auditoria em `feature_flag_audit`. Toda mudança via UI requer permissão `flags
 
 ## 3. Catálogo MVP
 
-| Key                                          | Default           | Visível no MVP | Quando habilitar |
-| -------------------------------------------- | ----------------- | -------------- | ---------------- |
-| `crm.enabled`                                | enabled           | ✓              | —                |
-| `crm.import.enabled`                         | enabled           | ✓              | —                |
-| `kanban.enabled`                             | enabled           | ✓              | —                |
-| `credit_simulation.enabled`                  | enabled           | ✓              | —                |
-| `credit_analysis.enabled`                    | enabled           | ✓              | —                |
-| `credit_analysis.import.enabled`             | enabled           | ✓              | —                |
-| `chatwoot.integration.enabled`               | enabled           | ✓              | —                |
-| `ai.whatsapp_agent.enabled`                  | enabled           | ✓              | —                |
-| `ai.internal_assistant.enabled`              | disabled          | ✓ (badge)      | Fase 6           |
-| `internal_assistant.actions.enabled`         | disabled          | ✓ (badge)      | Pós-MVP          |
-| `followup.enabled`                           | disabled          | ✓ (badge)      | Fase 5           |
-| `collection.enabled`                         | disabled          | ✓ (badge)      | Fase 5           |
-| `dashboard.enabled`                          | enabled (parcial) | ✓              | —                |
-| `dashboard.by_agent.enabled`                 | disabled          | ✓ (badge)      | Fase 6           |
-| `dashboard.followup_metrics.enabled`         | disabled          | ✓ (badge)      | Fase 6           |
-| `reports.export.enabled`                     | disabled          | ✓ (badge)      | Fase 6           |
-| `multi_city_routing.enabled`                 | enabled           | ✓              | —                |
-| `pwa.enabled`                                | disabled          | ✗              | Pós-MVP          |
-| `internal_score.enabled`                     | disabled          | ✓ (badge)      | Pós-MVP          |
-| `auto_complete_on_chatwoot_resolved.enabled` | disabled          | ✗              | Pós-validação    |
-| `imports.regional.enabled`                   | disabled          | ✗              | Sob demanda      |
+| Key                                          | Default           | Visível no MVP | Quando habilitar       |
+| -------------------------------------------- | ----------------- | -------------- | ---------------------- |
+| `crm.enabled`                                | enabled           | ✓              | —                      |
+| `crm.import.enabled`                         | enabled           | ✓              | —                      |
+| `kanban.enabled`                             | enabled           | ✓              | —                      |
+| `credit_simulation.enabled`                  | enabled           | ✓              | —                      |
+| `credit_analysis.enabled`                    | enabled           | ✓              | —                      |
+| `credit_analysis.import.enabled`             | enabled           | ✓              | —                      |
+| `chatwoot.integration.enabled`               | enabled           | ✓              | —                      |
+| `ai.whatsapp_agent.enabled`                  | enabled           | ✓              | —                      |
+| `ai.internal_assistant.enabled`              | disabled          | ✓ (badge)      | Fase 6                 |
+| `internal_assistant.actions.enabled`         | disabled          | ✓ (badge)      | Pós-MVP                |
+| `followup.enabled`                           | disabled          | ✓ (badge)      | Fase 5                 |
+| `collection.enabled`                         | disabled          | ✓ (badge)      | Fase 5                 |
+| `dashboard.enabled`                          | enabled (parcial) | ✓              | —                      |
+| `dashboard.by_agent.enabled`                 | disabled          | ✓ (badge)      | Fase 6                 |
+| `dashboard.followup_metrics.enabled`         | disabled          | ✓ (badge)      | Fase 6                 |
+| `reports.export.enabled`                     | disabled          | ✓ (badge)      | Fase 6                 |
+| `multi_city_routing.enabled`                 | enabled           | ✓              | —                      |
+| `pwa.enabled`                                | disabled          | ✗              | Pós-MVP                |
+| `internal_score.enabled`                     | disabled          | ✓ (badge)      | Pós-MVP                |
+| `auto_complete_on_chatwoot_resolved.enabled` | disabled          | ✗              | Pós-validação          |
+| `imports.regional.enabled`                   | disabled          | ✗              | Sob demanda            |
+| `notifications.rules.enabled`                | disabled          | ✓ (badge)      | Fase F24               |
+| `notifications.sla.enabled`                  | disabled          | ✓ (badge)      | Fase F24               |
+| `notifications.email.enabled`                | disabled          | ✓ (badge)      | Fase F24 — nota abaixo |
+| `notifications.realtime.enabled`             | disabled          | ✓ (badge)      | Fase F24 — nota abaixo |
+
+> **Notificações (Fase F24) — leia antes de mexer:** as 4 flags acima foram seedadas na
+> migration `0077` mas **duas delas não são checadas por nenhum código** hoje:
+> `notifications.email.enabled` (o gate real do envio de email é a env var
+> `NOTIFICATIONS_EMAIL_ENABLED`, não a flag de banco) e `notifications.realtime.enabled` (a
+> feature de push em tempo real ainda não foi implementada — slots F24-S08/F24-S13 pendentes).
+> Detalhe completo, incluindo um bug conhecido no worker de estagnação, em
+> [`docs/23-notificacoes.md`](23-notificacoes.md) §9 e §12. Ordem de flip recomendada em
+> [`docs/19-runbook-go-live.md`](19-runbook-go-live.md) §14.
 
 ## 4. Comportamento por camada
 

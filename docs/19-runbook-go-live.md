@@ -679,15 +679,15 @@ SELECT * FROM idempotency_keys WHERE key = '<message_id>' ORDER BY created_at;
 
 ### 12.1 Tabela de contatos
 
-| Papel                           | Pessoa                | Contato primário           | Contato secundário       | Escalação |
-| ------------------------------- | --------------------- | -------------------------- | ------------------------ | --------- |
-| On-call primário (D0..D0+7)     | Rogério Viana         | WhatsApp: ****\_\_\_\_**** | rogerio5566.ro@gmail.com | —         |
-| On-call secundário              | A definir             | —                          | —                        | Rogério   |
-| DPO técnico                     | A definir             | —                          | —                        | Rogério   |
-| Gestor Banco do Povo (operação) | A definir             | —                          | —                        | —         |
-| TI SEDEC-RO (infra)             | A definir             | —                          | —                        | Rogério   |
-| Suporte OpenRouter              | support@openrouter.ai | —                          | —                        | Rogério   |
-| Suporte Meta Business           | Meta Business Help    | —                          | —                        | Rogério   |
+| Papel                           | Pessoa                | Contato primário               | Contato secundário       | Escalação |
+| ------------------------------- | --------------------- | ------------------------------ | ------------------------ | --------- |
+| On-call primário (D0..D0+7)     | Rogério Viana         | WhatsApp: \***\*\_\_\_\_\*\*** | rogerio5566.ro@gmail.com | —         |
+| On-call secundário              | A definir             | —                              | —                        | Rogério   |
+| DPO técnico                     | A definir             | —                              | —                        | Rogério   |
+| Gestor Banco do Povo (operação) | A definir             | —                              | —                        | —         |
+| TI SEDEC-RO (infra)             | A definir             | —                              | —                        | Rogério   |
+| Suporte OpenRouter              | support@openrouter.ai | —                              | —                        | Rogério   |
+| Suporte Meta Business           | Meta Business Help    | —                              | —                        | Rogério   |
 
 ### 12.2 SLA por severidade
 
@@ -796,10 +796,60 @@ Se `db:check-drift` retornar código diferente de 0, **não prosseguir com o dep
 
 ---
 
+## 14. Go-live — Notificações (Fase F24)
+
+Doc canônico completo: [`docs/23-notificacoes.md`](23-notificacoes.md). Catálogo de flags:
+[`docs/09-feature-flags.md`](09-feature-flags.md) §3.
+
+### 14.1 Pré-requisitos antes de qualquer flip
+
+- `security-reviewer` aprovado (RBAC de `notifications:manage`, org-scope na resolução de
+  destinatários, idempotência do fan-out e do worker de SLA, `pino.redact` de email/PII).
+- Checklist LGPD §14.2 (doc 17) revisado — regras tocam destinatários internos (dado de
+  colaborador), não dado de cidadão, mas templates podem carregar PII indireta.
+- Ler **doc 23 §12** (divergências conhecidas) — em particular §12.4: o único eixo de
+  inatividade hoje implementável (`kanban_stage:*`) tem um bug de formato de chave que impede
+  qualquer regra criada pela API real de disparar. **Não ligar `notifications.sla.enabled` em
+  produção antes de corrigir esse bug** (fora do escopo deste slot de docs).
+
+### 14.2 Ordem de flip recomendada
+
+1. **`notifications.email.enabled`** (flag de banco — hoje sem efeito real, ver doc 23 §12.1).
+   O gate que efetivamente controla o envio é a env var `NOTIFICATIONS_EMAIL_ENABLED` +
+   `RESEND_API_KEY` + `EMAIL_FROM` (+ `EMAIL_REPLY_TO` opcional) no ambiente da API. Validar
+   com 1 usuário de teste antes de expandir: criar uma regra de evento simples
+   (`simulations.generated`, canal `email`), habilitar, disparar o evento, confirmar
+   recebimento e checar logs (sem PII) por erro do Resend.
+2. **`notifications.rules.enabled`** (flag mestre — liga o fan-out por evento). Observa
+   `notification_rule_deliveries` por alguns dias para confirmar dedup (nenhuma duplicata por
+   `(rule_id, entity_type, entity_id, bucket)`).
+3. **`notifications.realtime.enabled`** — **não ligar ainda**: não há código de push a gatear
+   (F24-S08 backend e F24-S13 frontend seguem `available` no board). Ligar essa flag hoje é
+   no-op — não quebra nada, mas também não entrega nada. Reavaliar quando os dois slots
+   fecharem.
+4. **`notifications.sla.enabled`** (worker de estagnação — maior volume, ligar por último).
+   **Bloqueado** até o bug de §14.1 ser corrigido — caso contrário, regras de estagnação ficam
+   habilitadas sem nunca disparar, o que é pior do que a flag desligada (falsa sensação de
+   cobertura operacional).
+
+### 14.3 Checklist de validação pós-flip
+
+- [ ] `notifications.email.enabled` + env vars: 1 email de teste recebido, sem PII nos logs.
+- [ ] `notifications.rules.enabled`: evento real dispara notificação in-app (linha em
+      `notifications`, visível via `GET /api/notifications`) para o destinatário esperado.
+- [ ] `notification_rule_deliveries` sem duplicatas após reprocesso de outbox (idempotência).
+- [ ] Preferências do usuário respeitadas (desabilitar uma categoria/canal e confirmar que a
+      notificação correspondente não é despachada para esse usuário).
+- [ ] `notifications.sla.enabled`: **não marcar como pronto** até o bug de §14.1/doc 23 §12.4
+      ser corrigido e validado com uma regra real criada via `POST /api/notification-rules`.
+
+---
+
 ## Histórico de revisões
 
-| Data       | Versão | Autor       | Mudança                                                                                                                                                                                                                                              |
-| ---------- | ------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-22 | 1.0    | Slot F7-S06 | Criação inicial a partir da auditoria pré-launch                                                                                                                                                                                                     |
-| 2026-05-25 | 1.1    | Slot F7-S06 | Consolidação completa: bloqueadores marcados done (F7-S01, F4-S01, F4-S02, F7-S02, F7-S03, F7-S04), seções expandidas (GO/NO-GO, rotação secrets, desfecho paralelo, playbooks detalhados, tabela de cutover, contatos), smoke-prod.ps1 referenciado |
-| 2026-05-26 | 1.2    | Slot F8-S17 | Seção 13: troubleshooting de migrations com CONCURRENTLY, journal drift e checklist de deploy com db:check-drift                                                                                                                                     |
+| Data       | Versão | Autor        | Mudança                                                                                                                                                                                                                                              |
+| ---------- | ------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-05-22 | 1.0    | Slot F7-S06  | Criação inicial a partir da auditoria pré-launch                                                                                                                                                                                                     |
+| 2026-05-25 | 1.1    | Slot F7-S06  | Consolidação completa: bloqueadores marcados done (F7-S01, F4-S01, F4-S02, F7-S02, F7-S03, F7-S04), seções expandidas (GO/NO-GO, rotação secrets, desfecho paralelo, playbooks detalhados, tabela de cutover, contatos), smoke-prod.ps1 referenciado |
+| 2026-05-26 | 1.2    | Slot F8-S17  | Seção 13: troubleshooting de migrations com CONCURRENTLY, journal drift e checklist de deploy com db:check-drift                                                                                                                                     |
+| 2026-07-10 | 1.3    | Slot F24-S15 | Seção 14: ordem de flip das 4 flags de notificações (Fase F24), pré-requisitos e checklist de validação pós-flip; aponta para divergências conhecidas em doc 23 §12                                                                                  |
