@@ -4,14 +4,23 @@
 // DS §7: dropdown usa elev-3 (modals/popovers). Badge warning para não-lidas.
 // Fecha ao clicar fora (handleClickOutside via useEffect no document).
 // Posição: canto superior direito do ícone, alinhado à direita.
+//
+// Tempo real (F24-S13): monta useNotificationSocket() — singleton, pois este
+// componente vive uma única vez na Topbar (AppLayout, fora do <Outlet>). O
+// socket alimenta badge+lista ao vivo (via cache TanStack) e uma pilha de
+// toasts por severidade, renderizada em portal abaixo da Topbar.
 // =============================================================================
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 
 import { cn } from '../../lib/cn';
 
-import { useMarkAllRead, useNotifications } from './hooks';
+import { useMarkAllRead, useMarkRead, useNotifications } from './hooks';
 import { NotificationItem } from './NotificationItem';
+import type { NotificationSocketSeverity, NotificationToast } from './useNotificationSocket';
+import { useNotificationSocket } from './useNotificationSocket';
 
 const DROPDOWN_PAGE_SIZE = 10;
 
@@ -71,6 +80,181 @@ function UnreadBadge({ count }: UnreadBadgeProps): React.JSX.Element | null {
 }
 
 // ---------------------------------------------------------------------------
+// Toast por severidade (tempo real)
+// ---------------------------------------------------------------------------
+
+function ToastIcon({ severity }: { severity: NotificationSocketSeverity }): React.JSX.Element {
+  if (severity === 'critical') {
+    return (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+    );
+  }
+
+  if (severity === 'warning') {
+    return (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  );
+}
+
+/** Cor de borda/ícone/fundo por severidade — sempre tokens do DS, nunca hex. */
+const TOAST_SEVERITY_STYLE: Record<
+  NotificationSocketSeverity,
+  { border: string; bg: string; fg: string }
+> = {
+  info: { border: 'var(--info)', bg: 'var(--info-bg)', fg: 'var(--info)' },
+  warning: { border: 'var(--warning)', bg: 'var(--warning-bg)', fg: 'var(--warning)' },
+  critical: { border: 'var(--danger)', bg: 'var(--danger-bg)', fg: 'var(--danger)' },
+};
+
+interface NotificationToastStackProps {
+  toasts: readonly NotificationToast[];
+  onDismiss: (id: string) => void;
+  onOpen: (toast: NotificationToast) => void;
+}
+
+/**
+ * Pilha de toasts de notificação em tempo real.
+ * Portal para body — posição abaixo da Topbar, alinhada à direita, elev-5
+ * (DS: overlay acima de tudo exige elev-5 — "falta de hierarquia" sem ela).
+ * Cada toast: clique navega (deep-link) + marca como lida; X só dispensa.
+ */
+function NotificationToastStack({
+  toasts,
+  onDismiss,
+  onOpen,
+}: NotificationToastStackProps): React.JSX.Element | null {
+  if (toasts.length === 0) return null;
+
+  return createPortal(
+    <div
+      role="region"
+      aria-label="Notificações em tempo real"
+      aria-live="polite"
+      className="fixed right-4 flex flex-col gap-2"
+      style={{ top: 72, zIndex: 200, width: 320 }}
+    >
+      {toasts.map((t) => {
+        const style = TOAST_SEVERITY_STYLE[t.severity];
+        return (
+          <div key={t.id} className="animate-[fade-up_var(--dur-slow)_var(--ease-out)_both]">
+            <div
+              role="alert"
+              className={cn(
+                'flex items-start gap-3 px-4 py-3 rounded-md cursor-pointer',
+                'transition-transform duration-[150ms]',
+                'hover:-translate-y-0.5',
+              )}
+              style={{
+                background: style.bg,
+                borderLeft: `3px solid ${style.border}`,
+                boxShadow: 'var(--elev-5)',
+              }}
+              onClick={() => onOpen(t)}
+            >
+              <span className="shrink-0 mt-0.5" style={{ color: style.fg }} aria-hidden="true">
+                <ToastIcon severity={t.severity} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p
+                  className="font-sans font-semibold"
+                  style={{ fontSize: 'var(--text-sm)', color: 'var(--text)' }}
+                >
+                  {t.title}
+                </p>
+                {t.href !== null && (
+                  <p
+                    className="font-sans mt-0.5"
+                    style={{ fontSize: 'var(--text-xs)', color: style.fg }}
+                  >
+                    Ver detalhes →
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDismiss(t.id);
+                }}
+                aria-label="Fechar notificação"
+                className={cn(
+                  'shrink-0 opacity-60 hover:opacity-100 transition-opacity',
+                  'min-w-[24px] min-h-[24px] flex items-center justify-center rounded-sm',
+                  'outline-none focus-visible:ring-2 focus-visible:ring-azul/40',
+                )}
+                style={{ color: 'var(--text-3)' }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>,
+    document.body,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // NotificationDropdown
 // ---------------------------------------------------------------------------
 
@@ -81,11 +265,24 @@ function UnreadBadge({ count }: UnreadBadgeProps): React.JSX.Element | null {
 export function NotificationDropdown(): React.JSX.Element {
   const [open, setOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   const { data, isLoading } = useNotifications({ page: 1, per_page: DROPDOWN_PAGE_SIZE });
   const markAll = useMarkAllRead();
+  const markRead = useMarkRead();
+
+  // Tempo real (F24-S13) — singleton: este componente vive uma única vez na
+  // Topbar. Reusa o socket do SocketProvider (namespace /livechat) já
+  // conectado; nenhuma conexão nova é aberta aqui.
+  const { toasts, dismissToast } = useNotificationSocket();
 
   const unreadCount = data?.unread_count ?? 0;
+
+  const handleToastOpen = (toast: NotificationToast): void => {
+    if (!markRead.isPending) markRead.mutate(toast.id);
+    if (toast.href !== null) navigate(toast.href);
+    dismissToast(toast.id);
+  };
 
   // Fecha ao clicar fora
   React.useEffect(() => {
@@ -262,6 +459,9 @@ export function NotificationDropdown(): React.JSX.Element {
           )}
         </div>
       )}
+
+      {/* Toasts em tempo real — portal, independente do dropdown estar aberto */}
+      <NotificationToastStack toasts={toasts} onDismiss={dismissToast} onOpen={handleToastOpen} />
     </div>
   );
 }

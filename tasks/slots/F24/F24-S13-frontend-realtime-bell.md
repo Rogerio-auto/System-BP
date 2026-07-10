@@ -3,7 +3,7 @@ id: F24-S13
 title: Frontend — sino de notificações em tempo real (socket + toast + badge)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,8 @@ blocks: []
 labels: [frontend, notifications, realtime, design-system]
 source_docs: [docs/planejamento-notificacoes.md, docs/18-design-system.md]
 docs_required: false
+claimed_at: 2026-07-10T16:32:49Z
+completed_at: 2026-07-10T16:44:44Z
 ---
 
 # F24-S13 — Frontend: sino em tempo real
