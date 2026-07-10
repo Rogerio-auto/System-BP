@@ -3,7 +3,7 @@ id: F24-S17
 title: Frontend — seletor de stage no editor de regra de estagnação
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,7 @@ blocks: []
 labels: [frontend, notifications, admin]
 source_docs: [docs/18-design-system.md, docs/23-notificacoes.md]
 docs_required: false
+claimed_at: 2026-07-10T15:53:05Z
 ---
 
 # F24-S17 — Frontend: escolher o stage da regra de estagnação
