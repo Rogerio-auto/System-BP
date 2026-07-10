@@ -3,7 +3,7 @@ id: F24-S19
 title: Backend — propagar rule.severity até o payload de tempo real
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
