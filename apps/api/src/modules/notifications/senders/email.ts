@@ -4,11 +4,14 @@
 // Implementação real que substitui o stub do F15-S06.
 //
 // Fluxo:
-//   1. Verificar flag NOTIFICATIONS_EMAIL_ENABLED — no-op se desligada.
-//   2. Buscar email do destinatário na tabela users por userId.
-//   3. Resolver marca da organização (nome, cor) a partir da tabela organizations.
-//   4. Montar HTML do email com renderEmailTemplate (org-aware).
-//   5. Enviar via resendSendEmail (fetch + retry exponencial 3x).
+//   1. Verificar env NOTIFICATIONS_EMAIL_ENABLED — no-op se desligada (infra/credenciais).
+//   2. Verificar feature flag `notifications.email.enabled` — no-op se desligada
+//      (decisão operacional por organização, F24-S18). As duas camadas precisam
+//      estar ligadas para enviar; env é checada primeiro (barato, sem I/O).
+//   3. Buscar email do destinatário na tabela users por userId.
+//   4. Resolver marca da organização (nome, cor) a partir da tabela organizations.
+//   5. Montar HTML do email com renderEmailTemplate (org-aware).
+//   6. Enviar via resendSendEmail (fetch + retry exponencial 3x).
 //
 // LGPD §8.5:
 //   - email do destinatário: nunca logado — coberto por pino.redact.
@@ -28,6 +31,7 @@ import { env } from '../../../config/env.js';
 import { db as defaultDb } from '../../../db/client.js';
 import type { Database } from '../../../db/client.js';
 import { users } from '../../../db/schema/index.js';
+import { requireFlag } from '../../../lib/featureFlags.js';
 import { resendSendEmail } from '../email/resendClient.js';
 import { renderEmailTemplate, resolveOrgBrand } from '../email/template.js';
 
@@ -117,14 +121,23 @@ async function resolveRecipientEmail(
 /**
  * Envia notificação por email via Resend.
  *
- * No-op limpo quando `NOTIFICATIONS_EMAIL_ENABLED=false`.
+ * Gate em duas camadas — as duas precisam estar ligadas para enviar (F24-S18):
+ *   1. Env `NOTIFICATIONS_EMAIL_ENABLED` — infraestrutura/credenciais. Checada
+ *      primeiro (barato, sem I/O); desligada evita a consulta de flag abaixo.
+ *   2. Feature flag `notifications.email.enabled` — decisão operacional por
+ *      organização, consultada no banco via `requireFlag`. Fail-closed: se a
+ *      consulta falhar (ex.: banco indisponível), NÃO envia — email é o único
+ *      canal de notificação que sai da rede.
+ *
+ * No-op limpo (sem lançar, sem quebrar o fan-out) quando qualquer uma das
+ * camadas está desligada ou indisponível.
  * Nunca propaga exceção — erros são absorvidos com log (sem PII).
  *
  * @param input   Payload de notificação do fan-out.
  * @param db      Instância Drizzle (injetável para testes; default = singleton).
  */
 export async function sendEmail(input: EmailSenderInput, db: Database = defaultDb): Promise<void> {
-  // ── 1. Feature flag ────────────────────────────────────────────────────────
+  // ── 1. Env (infra/credenciais) — barato, sem I/O ───────────────────────────
   if (!env.NOTIFICATIONS_EMAIL_ENABLED) {
     logger.debug(
       {
@@ -138,6 +151,31 @@ export async function sendEmail(input: EmailSenderInput, db: Database = defaultD
     return;
   }
 
+  // ── 2. Feature flag (decisão operacional por organização) ──────────────────
+  let flagEnabled: boolean;
+  try {
+    flagEnabled = await requireFlag(db, 'notifications.email.enabled', logger);
+  } catch (err: unknown) {
+    // Fail-closed: falha ao consultar a flag (ex.: banco indisponível) nunca
+    // libera o envio. E-mail é o único canal de notificação que sai da rede.
+    logger.error(
+      {
+        err,
+        event: 'email.notification.flag_check_error',
+        organization_id: input.organizationId,
+        user_id: input.userId,
+        event_type: input.eventType,
+      },
+      'email-sender: falha ao consultar notifications.email.enabled — fail-closed, no-op',
+    );
+    return;
+  }
+
+  if (!flagEnabled) {
+    // requireFlag já loga o motivo (evento 'job.skipped_feature_disabled').
+    return;
+  }
+
   // Vars obrigatórias validadas pelo refine do envSchema (boot falha se ausentes).
   // Non-null assertion justificada: env.NOTIFICATIONS_EMAIL_ENABLED=true implica
   // que RESEND_API_KEY e EMAIL_FROM são definidos (garantido pelo refine).
@@ -147,23 +185,23 @@ export async function sendEmail(input: EmailSenderInput, db: Database = defaultD
   const fromAddress = env.EMAIL_FROM!;
 
   try {
-    // ── 2. Resolver email do destinatário ──────────────────────────────────
+    // ── 3. Resolver email do destinatário ──────────────────────────────────
     const recipientEmail = await resolveRecipientEmail(db, input.userId, input.organizationId);
     if (recipientEmail === null) {
       return;
     }
 
-    // ── 3. Resolver marca da organização ──────────────────────────────────
+    // ── 4. Resolver marca da organização ──────────────────────────────────
     const orgBrand = await resolveOrgBrand(db, input.organizationId);
 
-    // ── 4. Montar HTML ────────────────────────────────────────────────────
+    // ── 5. Montar HTML ────────────────────────────────────────────────────
     const html = renderEmailTemplate({
       orgBrand,
       subject: input.subject,
       body: input.body,
     });
 
-    // ── 5. Enviar via Resend ──────────────────────────────────────────────
+    // ── 6. Enviar via Resend ──────────────────────────────────────────────
     const result = await resendSendEmail(apiKey, {
       from: fromAddress,
       // LGPD: recipientEmail nunca passa pelo logger — apenas via Resend API
