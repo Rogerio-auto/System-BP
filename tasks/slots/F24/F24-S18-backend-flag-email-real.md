@@ -3,7 +3,7 @@ id: F24-S18
 title: Backend — flag notifications.email.enabled passa a gatear o envio de e-mail
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
@@ -12,6 +12,7 @@ blocks: []
 labels: [backend, notifications, feature-flag, bugfix]
 source_docs: [docs/09-feature-flags.md, docs/23-notificacoes.md]
 docs_required: false
+claimed_at: 2026-07-10T15:14:44Z
 ---
 
 # F24-S18 — Backend: a flag de e-mail não gateia nada
