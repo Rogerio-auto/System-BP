@@ -3,7 +3,7 @@ id: F24-S16
 title: Backend — worker de SLA: 7 eixos reais + trigger_key kanban_stage parametrizável
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: L
 agent_id: null
@@ -13,6 +13,7 @@ labels: [backend, notifications, worker, bugfix, multi-tenant]
 source_docs: [docs/planejamento-notificacoes.md, docs/23-notificacoes.md]
 docs_required: false
 claimed_at: 2026-07-10T15:02:53Z
+completed_at: 2026-07-10T15:36:12Z
 
 ---
 
