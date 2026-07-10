@@ -3,7 +3,7 @@ id: F24-S17
 title: Frontend — seletor de stage no editor de regra de estagnação
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
