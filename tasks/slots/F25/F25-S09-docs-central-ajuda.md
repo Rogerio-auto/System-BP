@@ -3,7 +3,7 @@ id: F25-S09
 title: Docs — Central de Ajuda: ações do agente no funil + revisar/reverter
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null

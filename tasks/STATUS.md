@@ -25,7 +25,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
 | F24  | 21    | 0   | 0   | 0   | 0   | 0   | 21  |
-| F25  | 9     | 1   | 0   | 0   | 0   | 1   | 7   |
+| F25  | 9     | 1   | 0   | 0   | 0   | 0   | 8   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -378,7 +378,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F25-S06 | Backend — reversão de ação da IA + endpoint do painel "IA nas últimas 24h"               | ✅ done      | medium     | F25-S02, F25-S03, F25-S05 |
 | F25-S07 | Frontend — painel "IA no funil (24h)" + reverter + config de limiares (gated)            | ✅ done      | medium     | F25-S06                   |
 | F25-S08 | QA — testes de integração da fronteira IA↔humano (escopo, idempotência, reversão, flag) | 🟢 available | medium     | F25-S03, F25-S05, F25-S06 |
-| F25-S09 | Docs — Central de Ajuda: ações do agente no funil + revisar/reverter                     | 🟣 review    | medium     | F25-S07                   |
+| F25-S09 | Docs — Central de Ajuda: ações do agente no funil + revisar/reverter                     | ✅ done      | medium     | F25-S07                   |
 
 ## Fase 3 — Agentes IA
 
