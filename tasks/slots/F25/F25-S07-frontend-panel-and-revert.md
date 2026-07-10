@@ -3,7 +3,7 @@ id: F25-S07
 title: Frontend — painel "IA no funil (24h)" + reverter + config de limiares (gated)
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,7 @@ blocks: [F25-S09]
 labels: [frontend, ai-agent, rbac, design-system]
 source_docs: [docs/22-agente-interno-acoes.md, docs/18-design-system.md]
 docs_required: false
+claimed_at: 2026-07-10T17:35:02Z
 ---
 
 # F25-S07 — Frontend: painel de ações da IA + reversão
