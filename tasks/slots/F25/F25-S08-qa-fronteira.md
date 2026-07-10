@@ -3,7 +3,7 @@ id: F25-S08
 title: QA — testes de integração da fronteira IA↔humano (escopo, idempotência, reversão, flag)
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,7 @@ blocks: []
 labels: [qa, ai-agent, rbac, lgpd]
 source_docs: [docs/22-agente-interno-acoes.md, docs/13-criterios-aceite.md]
 docs_required: false
+claimed_at: 2026-07-10T17:35:25Z
 ---
 
 # F25-S08 — QA: fronteira do agente no funil
