@@ -24,7 +24,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F21  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
-| F24  | 19    | 5   | 0   | 0   | 0   | 1   | 13  |
+| F24  | 19    | 5   | 0   | 0   | 0   | 0   | 14  |
 | F25  | 9     | 3   | 0   | 0   | 0   | 0   | 6   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
@@ -361,7 +361,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24-S15 | Docs — doc canônico de notificações + flags + runbook go-live                    | ✅ done      | medium     | F24-S05, F24-S07, F24-S12          |
 | F24-S16 | Backend — worker de SLA: 7 eixos reais + trigger_key kanban_stage parametrizável | 🟢 available | high       | F24-S07                            |
 | F24-S17 | Frontend — seletor de stage no editor de regra de estagnação                     | 🟢 available | medium     | F24-S16                            |
-| F24-S18 | Backend — flag notifications.email.enabled passa a gatear o envio de e-mail      | 🟣 review    | high       | F24-S03                            |
+| F24-S18 | Backend — flag notifications.email.enabled passa a gatear o envio de e-mail      | ✅ done      | high       | F24-S03                            |
 | F24-S19 | Backend — propagar rule.severity até o payload de tempo real                     | 🟢 available | medium     | F24-S08, F24-S16                   |
 
 ## Fase 25 —
