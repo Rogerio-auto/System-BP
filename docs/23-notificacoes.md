@@ -161,8 +161,12 @@ de canal. Env vars: `NOTIFICATIONS_EMAIL_ENABLED`, `RESEND_API_KEY`, `EMAIL_FROM
 `EMAIL_REPLY_TO` (validadas por `refine()` em `config/env.ts` — `NOTIFICATIONS_EMAIL_ENABLED=true`
 exige `RESEND_API_KEY` e `EMAIL_FROM` presentes, senão o boot falha).
 
-**Importante**: o gate real do envio de email é a env var `NOTIFICATIONS_EMAIL_ENABLED`, **não**
-a feature flag de banco `notifications.email.enabled` — ver divergência em §12.1.
+**Gate em duas camadas (F24-S18)**: o envio de email exige que **as duas** estejam ligadas — a
+env var `NOTIFICATIONS_EMAIL_ENABLED` (infraestrutura/credenciais, checada primeiro, sem I/O) **e**
+a feature flag de banco `notifications.email.enabled` (decisão operacional por organização,
+consultada via `requireFlag`). Qualquer uma desligada resulta em no-op limpo (log + return, sem
+lançar). Se a consulta da flag falhar (ex.: banco indisponível), o envio é **fail-closed** — não
+envia — porque email é o único canal de notificação que sai da rede.
 
 ### 5.3 Tempo real — NÃO IMPLEMENTADO
 
@@ -238,12 +242,12 @@ as mesmas rotas herdadas de F15).
 
 4 flags seedadas em migration `0077` — **todas nascem `disabled`**:
 
-| Flag                             | Camada que checa                                                             | Status real                                  |
-| -------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------- |
-| `notifications.rules.enabled`    | Rotas `notification-rules` (`featureGate`) + fan-out (`requireFlag`, mestre) | Funcional                                    |
-| `notifications.sla.enabled`      | Loop do worker `notification-sla-scan` (`requireFlag`)                       | Funcional                                    |
-| `notifications.email.enabled`    | **Nenhuma** — o gate real é a env var `NOTIFICATIONS_EMAIL_ENABLED`          | **Flag morta** — ver §12.1                   |
-| `notifications.realtime.enabled` | **Nenhuma** — não há código de realtime a gatear (F24-S08/S13 pendentes)     | **Flag morta / feature inexistente** — §12.2 |
+| Flag                             | Camada que checa                                                                     | Status real                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------- |
+| `notifications.rules.enabled`    | Rotas `notification-rules` (`featureGate`) + fan-out (`requireFlag`, mestre)         | Funcional                                    |
+| `notifications.sla.enabled`      | Loop do worker `notification-sla-scan` (`requireFlag`)                               | Funcional                                    |
+| `notifications.email.enabled`    | `senders/email.ts` (`requireFlag`), em série com a env `NOTIFICATIONS_EMAIL_ENABLED` | Funcional (F24-S18)                          |
+| `notifications.realtime.enabled` | **Nenhuma** — não há código de realtime a gatear (F24-S08/S13 pendentes)             | **Flag morta / feature inexistente** — §12.2 |
 
 Ver §12 para o detalhe de cada divergência antes de decidir a estratégia de flip.
 
@@ -288,16 +292,18 @@ implementação real diverge do planejamento (`docs/planejamento-notificacoes.md
 incompleta em relação aos 15 slots decompostos. Nenhum destes pontos é fictício — cada um foi
 confirmado lendo o código-fonte em 2026-07-10.
 
-### 12.1 `notifications.email.enabled` é uma flag morta
+### 12.1 `notifications.email.enabled` — resolvido (F24-S18)
 
-A flag de banco `notifications.email.enabled` é seedada (migration `0077`) e aparece na tela
-`/admin/feature-flags`, mas **nenhum código do backend a consulta**. O gate real do envio de
-email é a env var `NOTIFICATIONS_EMAIL_ENABLED` (`config/env.ts` + `senders/email.ts`).
-Consequência prática: ligar a flag `notifications.email.enabled` no admin **não tem efeito
-nenhum** — quem decide se o email sai é a env var do deploy. Decisão pendente para o Rogério:
-(a) fazer `sendEmail` também checar a flag de banco (dupla trava), ou (b) aposentar a flag de
-banco e documentar que o gate de email é só via env var. Enquanto isso não for decidido, o
-runbook (§14 do doc 19) trata a env var como a trava real.
+Até 2026-07-10, a flag de banco `notifications.email.enabled` era seedada (migration `0077`) e
+aparecia na tela `/admin/feature-flags`, mas nenhum código a consultava — o gate real do envio de
+email era só a env var `NOTIFICATIONS_EMAIL_ENABLED`, tornando a flag morta no painel.
+
+F24-S18 corrigiu: `senders/email.ts` agora consulta `requireFlag(db, 'notifications.email.enabled',
+logger)` **em série** com a env var. Semântica de duas camadas: env = infraestrutura/credenciais do
+deploy (checada primeiro, sem I/O — desligada evita a consulta de flag); flag de banco = decisão
+operacional por organização. As duas precisam estar ligadas para o email sair. Falha na consulta da
+flag (ex.: banco indisponível) é tratada fail-closed — não envia, só loga o motivo. O runbook (§14
+do doc 19) segue mandando virar a flag no go-live — agora isso tem efeito real.
 
 ### 12.2 Tempo real (`notifications.realtime.enabled`) — feature inexistente
 

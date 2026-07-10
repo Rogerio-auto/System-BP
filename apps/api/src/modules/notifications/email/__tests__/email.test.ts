@@ -1,7 +1,7 @@
 // =============================================================================
-// notifications/email/__tests__/email.test.ts — Testes unitários (F24-S03).
+// notifications/email/__tests__/email.test.ts — Testes unitários (F24-S03, F24-S18).
 //
-// Cobre (DoD F24-S03):
+// Cobre (DoD F24-S03 + F24-S18):
 //   1.  renderEmailTemplate: cabeçalho de marca com nome da org
 //   2.  renderEmailTemplate: cor primária customizada no cabeçalho
 //   3.  renderEmailTemplate: CTA opcional presente quando fornecido
@@ -11,7 +11,7 @@
 //   7.  resolveOrgBrand: usa DEFAULT_PRIMARY_COLOR quando brand_color ausente
 //   8.  resolveOrgBrand: usa defaults quando organização não encontrada
 //   9.  resolveOrgBrand: ignora brand_color inválido (não-hex)
-//   10. sendEmail: no-op quando NOTIFICATIONS_EMAIL_ENABLED=false
+//   10. sendEmail: no-op quando NOTIFICATIONS_EMAIL_ENABLED=false (env off, flag on)
 //   11. sendEmail: resolve users.email por userId (não usa recipientEmail=[stub])
 //   12. sendEmail: skip quando usuário não encontrado no DB
 //   13. sendEmail: chama resendSendEmail com from/to/subject/html corretos
@@ -20,6 +20,11 @@
 //   16. resendClient: retry em erro 5xx (2 falhas + 1 sucesso = 3 calls)
 //   17. resendClient: não retenta em erro 4xx (1 call total)
 //   18. resendClient: lança ResendApiError após esgotar retries
+//   19. sendEmail: env off + flag on → no-op e não consulta a flag (F24-S18)
+//   20. sendEmail: env on + flag off → no-op via requireFlag (F24-S18)
+//   21. sendEmail: env on + flag on → envia (F24-S18)
+//   22. sendEmail: env off + flag off → no-op, flag nunca consultada (F24-S18)
+//   23. sendEmail: falha na consulta da flag → fail-closed, não envia (F24-S18)
 // =============================================================================
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -36,6 +41,13 @@ vi.mock('../../../../config/env.js', () => ({
     EMAIL_FROM: undefined,
     EMAIL_REPLY_TO: undefined,
   },
+}));
+
+// Mock do requireFlag (feature flag notifications.email.enabled) — controlado
+// por cada teste via mockRequireFlag.mockResolvedValue/mockRejectedValue.
+const mockRequireFlag = vi.fn();
+vi.mock('../../../../lib/featureFlags.js', () => ({
+  requireFlag: (...args: unknown[]) => mockRequireFlag(...args),
 }));
 
 // Mock do db/client (nunca abre conexão real nos testes)
@@ -214,11 +226,14 @@ describe('sendEmail', () => {
 
   beforeEach(() => {
     mockResendSendEmail.mockReset();
-    // Default: flag desligada
+    mockRequireFlag.mockReset();
+    // Default: env desligada; flag ligada (testes pré-existentes 11-15 ligam a
+    // env e esperam envio — a flag precisa estar "on" por default para não quebrá-los).
     mutableEnv.NOTIFICATIONS_EMAIL_ENABLED = false;
     mutableEnv.RESEND_API_KEY = undefined;
     mutableEnv.EMAIL_FROM = undefined;
     mutableEnv.EMAIL_REPLY_TO = undefined;
+    mockRequireFlag.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -431,6 +446,144 @@ describe('sendEmail', () => {
         db as never,
       ),
     ).resolves.toBeUndefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // 19-23: gate de duas camadas — env × flag `notifications.email.enabled` (F24-S18)
+  // -------------------------------------------------------------------------
+
+  it('19. env off + flag on → no-op e não consulta a flag (sem I/O desnecessário)', async () => {
+    mutableEnv.NOTIFICATIONS_EMAIL_ENABLED = false;
+    mockRequireFlag.mockResolvedValue(true);
+
+    const { db } = buildDbMock([]);
+    await sendEmail(
+      {
+        organizationId: 'org-5',
+        userId: 'user-5',
+        recipientEmail: '[stub]',
+        subject: 'Teste',
+        body: 'Corpo',
+        eventType: 'task.created',
+      },
+      db as never,
+    );
+
+    expect(mockResendSendEmail).not.toHaveBeenCalled();
+    expect(mockRequireFlag).not.toHaveBeenCalled();
+  });
+
+  it('20. env on + flag off → no-op (requireFlag consultado, mas retorna false)', async () => {
+    mutableEnv.NOTIFICATIONS_EMAIL_ENABLED = true;
+    mutableEnv.RESEND_API_KEY = 're_key';
+    mutableEnv.EMAIL_FROM = 'noreply@bdp.test';
+    mockRequireFlag.mockResolvedValue(false);
+
+    const { db } = buildDbMock([]);
+    await sendEmail(
+      {
+        organizationId: 'org-6',
+        userId: 'user-6',
+        recipientEmail: '[stub]',
+        subject: 'Teste',
+        body: 'Corpo',
+        eventType: 'task.created',
+      },
+      db as never,
+    );
+
+    expect(mockRequireFlag).toHaveBeenCalledWith(
+      db,
+      'notifications.email.enabled',
+      expect.anything(),
+    );
+    expect(mockResendSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('21. env on + flag on → envia', async () => {
+    mutableEnv.NOTIFICATIONS_EMAIL_ENABLED = true;
+    mutableEnv.RESEND_API_KEY = 're_key';
+    mutableEnv.EMAIL_FROM = 'noreply@bdp.test';
+    mockRequireFlag.mockResolvedValue(true);
+
+    const limitMock1 = vi.fn().mockResolvedValueOnce([{ email: 'z@bdp.test' }]);
+    const whereMock1 = vi.fn().mockReturnValue({ limit: limitMock1 });
+    const fromMock1 = vi.fn().mockReturnValue({ where: whereMock1 });
+
+    const limitMock2 = vi.fn().mockResolvedValueOnce([{ name: 'BdP', settings: {} }]);
+    const whereMock2 = vi.fn().mockReturnValue({ limit: limitMock2 });
+    const fromMock2 = vi.fn().mockReturnValue({ where: whereMock2 });
+
+    let callCount = 0;
+    const db = {
+      select: vi.fn().mockImplementation(() => {
+        callCount++;
+        return callCount === 1 ? { from: fromMock1 } : { from: fromMock2 };
+      }),
+    };
+
+    mockResendSendEmail.mockResolvedValue({ id: 'msg-both-on' });
+
+    await sendEmail(
+      {
+        organizationId: 'org-7',
+        userId: 'user-7',
+        recipientEmail: '[stub]',
+        subject: 'Ambas ligadas',
+        body: 'Corpo.',
+        eventType: 'task.created',
+      },
+      db as never,
+    );
+
+    expect(mockRequireFlag).toHaveBeenCalledOnce();
+    expect(mockResendSendEmail).toHaveBeenCalledOnce();
+  });
+
+  it('22. env off + flag off → no-op, flag nunca consultada', async () => {
+    mutableEnv.NOTIFICATIONS_EMAIL_ENABLED = false;
+    mockRequireFlag.mockResolvedValue(false);
+
+    const { db } = buildDbMock([]);
+    await sendEmail(
+      {
+        organizationId: 'org-8',
+        userId: 'user-8',
+        recipientEmail: '[stub]',
+        subject: 'Teste',
+        body: 'Corpo',
+        eventType: 'task.created',
+      },
+      db as never,
+    );
+
+    expect(mockRequireFlag).not.toHaveBeenCalled();
+    expect(mockResendSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('23. falha na consulta da flag (banco indisponível) → fail-closed, não envia', async () => {
+    mutableEnv.NOTIFICATIONS_EMAIL_ENABLED = true;
+    mutableEnv.RESEND_API_KEY = 're_key';
+    mutableEnv.EMAIL_FROM = 'noreply@bdp.test';
+    mockRequireFlag.mockRejectedValue(new Error('conexão com o banco indisponível'));
+
+    const { db } = buildDbMock([]);
+
+    await expect(
+      sendEmail(
+        {
+          organizationId: 'org-9',
+          userId: 'user-9',
+          recipientEmail: '[stub]',
+          subject: 'Teste',
+          body: 'Corpo',
+          eventType: 'task.created',
+        },
+        db as never,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(mockResendSendEmail).not.toHaveBeenCalled();
   });
 });
 
