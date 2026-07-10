@@ -20,6 +20,7 @@
 import type { NotificationRuleResponse } from '@elemento/shared-schemas';
 import {
   TRIGGER_CATALOG,
+  lookupTrigger,
   notificationRuleCreateSchema,
   type NotificationRuleCreate,
 } from '@elemento/shared-schemas';
@@ -32,6 +33,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { useToast } from '../../../components/ui/Toast';
+import { useKanbanStages } from '../../../hooks/kanban/useKanbanStages';
 import { cn } from '../../../lib/cn';
 
 import {
@@ -41,6 +43,38 @@ import {
   useUpdateNotificationRule,
 } from './hooks';
 import { RuleTestPanel } from './RuleTestPanel';
+
+// ---------------------------------------------------------------------------
+// Eixo kanban_stage: trigger_key parametrizável por stage (F24-S16/S17).
+//
+// A entrada de catálogo é sempre `kanban_stage:*`, mas o trigger_key
+// persistido pode restringir a um stage específico: `kanban_stage:<stageId>`
+// (UUID de kanban_stages.id). O campo do form continua sendo um único
+// `trigger_key` — estas funções puras compõem/decompõem a string, sem campo
+// separado no payload.
+// ---------------------------------------------------------------------------
+
+const KANBAN_STAGE_TRIGGER_PREFIX = 'kanban_stage:';
+const KANBAN_STAGE_ANY_TRIGGER_KEY = 'kanban_stage:*';
+
+/** `true` se o trigger_key pertence ao eixo kanban_stage (genérico ou por stage). */
+export function isKanbanStageTriggerKey(triggerKey: string): boolean {
+  return triggerKey.startsWith(KANBAN_STAGE_TRIGGER_PREFIX);
+}
+
+/** Extrai o seletor de stage (`'*'` ou UUID) a partir de um trigger_key persistido. */
+export function parseKanbanStageSelector(triggerKey: string): string {
+  return isKanbanStageTriggerKey(triggerKey)
+    ? triggerKey.slice(KANBAN_STAGE_TRIGGER_PREFIX.length)
+    : '*';
+}
+
+/** Monta o trigger_key final a partir do seletor escolhido no Select de stage. */
+export function buildKanbanStageTriggerKey(stageSelector: string): string {
+  return stageSelector === '*'
+    ? KANBAN_STAGE_ANY_TRIGGER_KEY
+    : `${KANBAN_STAGE_TRIGGER_PREFIX}${stageSelector}`;
+}
 
 // ---------------------------------------------------------------------------
 // Tipos do formulário
@@ -239,7 +273,10 @@ interface PlaceholderHintsProps {
 }
 
 function PlaceholderHints({ triggerKey }: PlaceholderHintsProps): React.JSX.Element | null {
-  const entry = TRIGGER_CATALOG.find((e) => e.key === triggerKey);
+  // lookupTrigger resolve o prefixo kanban_stage:<stageId|*> para a mesma
+  // entrada de catálogo (F24-S16/S17) — TRIGGER_CATALOG.find exato não cobre
+  // trigger_key com stage específico.
+  const entry = lookupTrigger(triggerKey);
   if (entry === undefined) return null;
 
   return (
@@ -278,6 +315,10 @@ function RuleForm({ ruleId, onClose, onSaved }: RuleFormProps): React.JSX.Elemen
 
   // Dados do catálogo para o dropdown de gatilhos
   const { data: catalogData, isLoading: catalogLoading } = useNotificationCatalog();
+
+  // Stages do Kanban para o seletor do eixo kanban_stage (F24-S17) — reusa o
+  // hook existente do módulo Kanban, sem endpoint novo.
+  const { stages: kanbanStages, isLoading: stagesLoading } = useKanbanStages();
 
   // Prefill em modo edit
   const { data: existingRule, isLoading: ruleLoading } = useNotificationRule(ruleId);
@@ -335,11 +376,31 @@ function RuleForm({ ruleId, onClose, onSaved }: RuleFormProps): React.JSX.Elemen
   const watchedChannels = watch('channels');
   const watchedRoles = watch('recipient_roles') ?? [];
 
-  // Determinar se o gatilho atual é stage_inactivity
-  const selectedTriggerEntry = TRIGGER_CATALOG.find((e) => e.key === watchedTriggerKey);
+  // Determinar se o gatilho atual é stage_inactivity — lookupTrigger resolve
+  // o prefixo kanban_stage:<stageId|*> para a mesma entrada de catálogo.
+  const selectedTriggerEntry = lookupTrigger(watchedTriggerKey);
   const isInactivityTrigger = selectedTriggerEntry?.kind === 'stage_inactivity';
   const showThreshold = isInactivityTrigger;
   const showRoles = watchedRecipientMode === 'by_role_city';
+
+  // Eixo kanban_stage: exibe o seletor de stage só quando o gatilho atual
+  // pertence a este eixo (F24-S17). O stage escolhido não é um campo
+  // separado — é derivado/gravado diretamente na string trigger_key.
+  const isKanbanStageTrigger = isKanbanStageTriggerKey(watchedTriggerKey);
+  const selectedStageSelector = parseKanbanStageSelector(watchedTriggerKey);
+  const hasKanbanStages = kanbanStages.length > 0;
+
+  const stageOptions = React.useMemo(
+    () => [
+      { value: '*', label: 'Qualquer stage' },
+      ...kanbanStages.map((s) => ({ value: s.id, label: s.name })),
+    ],
+    [kanbanStages],
+  );
+
+  const handleStageSelectorChange = (stageSelector: string): void => {
+    setValue('trigger_key', buildKanbanStageTriggerKey(stageSelector), { shouldValidate: true });
+  };
 
   // Quando mudar o gatilho para event, limpa threshold_hours
   React.useEffect(() => {
@@ -474,13 +535,34 @@ function RuleForm({ ruleId, onClose, onSaved }: RuleFormProps): React.JSX.Elemen
             required
             placeholder="Selecione o gatilho…"
             options={triggerOptions}
-            value={field.value}
+            // O eixo kanban_stage sempre exibe a entrada genérica do catálogo
+            // (kanban_stage:*) aqui — o stage específico é escolhido no
+            // seletor abaixo, não neste dropdown (F24-S17).
+            value={isKanbanStageTriggerKey(field.value) ? 'kanban_stage:*' : field.value}
             onChange={(e) => field.onChange(e.target.value)}
             error={errors.trigger_key?.message}
             hint="Define quando a notificação será disparada. Não pode ser alterado após salvar."
           />
         )}
       />
+
+      {/* ── Stage do Kanban (apenas eixo kanban_stage) ──────────────────────── */}
+      {isKanbanStageTrigger && (
+        <Select
+          id="rule-kanban-stage"
+          label="Estágio do Kanban"
+          required
+          options={stageOptions}
+          value={selectedStageSelector}
+          onChange={(e) => handleStageSelectorChange(e.target.value)}
+          disabled={isBusy || stagesLoading || !hasKanbanStages}
+          hint={
+            hasKanbanStages
+              ? 'Restringe o gatilho a um único estágio, ou monitore qualquer estágio.'
+              : 'Nenhum estágio do Kanban cadastrado para esta organização.'
+          }
+        />
+      )}
 
       {/* ── Threshold (apenas stage_inactivity) ───────────────────────────── */}
       {showThreshold && (
