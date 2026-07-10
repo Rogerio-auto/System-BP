@@ -12,6 +12,7 @@ import {
   notificationRuleResponseSchema,
   notificationRuleListResponseSchema,
   notificationRuleTestResponseSchema,
+  lookupTrigger,
 } from '../notification-rules.js';
 
 // ---------------------------------------------------------------------------
@@ -194,6 +195,42 @@ describe('TRIGGER_CATALOG', () => {
     const entry = TRIGGER_CATALOG.find((e) => e.key === 'kanban_stage:*');
     expect(entry?.placeholders).toContain('hours_stalled');
     expect(entry?.placeholders).toContain('stage_name');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// lookupTrigger — resolução por prefixo kanban_stage: (F24-S16)
+// ---------------------------------------------------------------------------
+
+describe('lookupTrigger — kanban_stage parametrizável', () => {
+  const STAGE_ID = '11111111-1111-4111-8111-111111111111';
+
+  it('resolve kanban_stage:* para a entrada de catálogo', () => {
+    const trigger = lookupTrigger('kanban_stage:*');
+    expect(trigger).toBeDefined();
+    expect(trigger?.key).toBe('kanban_stage:*');
+    expect(trigger?.entityType).toBe('kanban_card');
+  });
+
+  it('resolve kanban_stage:<uuid> para a MESMA entrada de catálogo', () => {
+    const trigger = lookupTrigger(`kanban_stage:${STAGE_ID}`);
+    expect(trigger).toBeDefined();
+    expect(trigger?.key).toBe('kanban_stage:*');
+    expect(trigger?.category).toBe('lifecycle_stalled');
+    expect(trigger?.entityType).toBe('kanban_card');
+  });
+
+  it('rejeita kanban_stage:<nome-do-stage> (não é UUID nem *)', () => {
+    expect(lookupTrigger('kanban_stage:Qualificacao')).toBeUndefined();
+  });
+
+  it('rejeita kanban_stage: vazio (sem seletor)', () => {
+    expect(lookupTrigger('kanban_stage:')).toBeUndefined();
+  });
+
+  it('demais chaves continuam exigindo match exato', () => {
+    expect(lookupTrigger('handoff:requested')).toBeDefined();
+    expect(lookupTrigger('handoff:requested-extra')).toBeUndefined();
   });
 });
 
