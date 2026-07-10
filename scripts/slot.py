@@ -1068,6 +1068,11 @@ _VALIDATION_BLOCK_RE = re.compile(
 )
 _CODE_FENCE_RE = re.compile(r"^```(?:[a-z]*)\n(.*?)\n```", re.MULTILINE | re.DOTALL)
 
+# Qualquer invocação de `slot.py validate` dentro de um bloco Validação.
+# Casa `python scripts/slot.py validate F1-S01`, `python3 ./scripts/slot.py validate ...`.
+_SELF_VALIDATE_RE = re.compile(r"slot\.py['\"]?\s+validate\b")
+_VALIDATE_GUARD_ENV = "ELEMENTO_SLOT_VALIDATE_ACTIVE"
+
 
 def _link_node_modules_for_validate(worktree_root: Path, main_root: Path) -> list[str]:
     """Linka node_modules/ do main para o worktree (junction no Windows, symlink
@@ -1141,8 +1146,32 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 "validando o código do worktree"
             )
 
+    # Guarda de recursão (incidente 2026-07-10): 29 slots trazem
+    # `python scripts/slot.py validate <o-próprio-id>` dentro do bloco Validação.
+    # Como cada comando roda via subprocess, o script se reinvocava sem limite —
+    # ~295 processos python.exe em segundos. Um validate dentro de um validate
+    # nunca agrega sinal, então é pulado. A env var pega recursão indireta
+    # (comando do slot → outro script → slot.py validate).
+    if os.environ.get(_VALIDATE_GUARD_ENV) == "1":
+        die(
+            "[validate] recursão detectada: slot.py validate foi invocado de dentro "
+            "de outro slot.py validate. Abortando (ver guarda anti-fork-bomb)."
+        )
+
     results = []
+    env = {**os.environ, _VALIDATE_GUARD_ENV: "1"}
     for cmd in commands:
+        if _SELF_VALIDATE_RE.search(cmd):
+            warn(f"[validate] pulando comando auto-referencial: {cmd}")
+            results.append({
+                "command": cmd,
+                "returncode": 0,
+                "passed": True,
+                "skipped": "self-referential",
+                "stdout_tail": [],
+                "stderr_tail": [],
+            })
+            continue
         info(f"[validate] $ {cmd}")
         # Comandos Python (scripts/*.py) sempre rodam a partir do REPO_ROOT do
         # worktree corrente — não precisam de node_modules e devem usar a versão
@@ -1154,6 +1183,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         # Shell=True para suportar pipes e &&. POSIX/Windows-compatible.
         proc = subprocess.run(
             cmd, cwd=effective_cwd, shell=True, capture_output=True, text=True, encoding="utf-8",
+            env=env,
         )
         results.append({
             "command": cmd,
