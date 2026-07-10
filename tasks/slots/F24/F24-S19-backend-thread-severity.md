@@ -39,8 +39,27 @@ tempo real) vai estilizar badge/toast por severidade e receberá neutro para tod
 Nota: `notifications` **não tem** coluna `severity` (é um campo de transporte, não persistido). Isso é
 intencional e não deve mudar neste slot.
 
+### Segundo defeito: o worker engole exceções sem log
+
+`workers/notification-sla-scan.ts` (herdado de `F24-S07`, linhas ~124, ~254, ~258) tem três blocos:
+
+```ts
+} catch {
+  /* isolado */
+}
+```
+
+O isolamento por regra/entidade está **certo** (uma regra ruim não pode derrubar o scan das outras orgs),
+mas o erro é descartado **sem nenhum log**. Consequência prática: `F24-S16` fez `findSlaSources` lançar
+`AppError(422)` em `trigger_key` desconhecido — "erro explícito em vez de silêncio" — e esse erro é
+engolido aqui. O fix do S16 fica invisível em produção. Foi exatamente esse padrão de falha muda que
+manteve o bug dos 6 eixos escondido.
+
 ## Escopo (faz)
 
+- `workers/notification-sla-scan.ts`: trocar os três `catch {}` mudos por `catch (err: unknown)` com log
+  estruturado (`logger.error`/`warn`), incluindo `rule_id`, `trigger_key`, `organization_id` e, quando
+  houver, `entity_id`. **Manter o isolamento** — continuar sem relançar. Sem PII no log.
 - `handlers/fanout-notification.ts`: repassar `rule.severity` na chamada a `sendInApp`
   (via `dispatchToChannel`/params, sem alterar a assinatura pública de `dispatchToChannel` se possível).
 - `workers/notification-sla-scan.ts`: idem, repassar `rule.severity` ao `sendInApp`.
@@ -74,6 +93,9 @@ intencional e não deve mudar neste slot.
 - [ ] `rule.severity` chega ao payload a partir do worker de SLA
 - [ ] Regra sem `severity` continua produzindo `'info'` (sem regressão)
 - [ ] `notifications` segue sem coluna `severity` (nenhuma migration)
+- [ ] Nenhum `catch {}` mudo em `notification-sla-scan.ts`: todos logam com contexto e sem PII
+- [ ] O isolamento por regra/entidade é preservado (erro não derruba o tick das outras orgs)
+- [ ] Teste: `trigger_key` inválido gera log de erro e não interrompe o processamento das demais regras
 - [ ] `pnpm --filter @elemento/api typecheck` + `lint` + `test` verdes
 
 ## Validação
