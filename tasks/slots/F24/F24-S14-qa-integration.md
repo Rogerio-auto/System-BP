@@ -3,15 +3,22 @@ id: F24-S14
 title: QA — testes de integração do sistema de notificações
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: review
 priority: high
 estimated_size: L
 agent_id: null
 depends_on: [F24-S06, F24-S07, F24-S08, F24-S09]
 blocks: []
 labels: [qa, notifications, security, multi-tenant, lgpd-impact]
-source_docs: [docs/planejamento-notificacoes.md, docs/10-seguranca-permissoes.md, docs/17-lgpd-protecao-dados.md]
+source_docs:
+  [
+    docs/planejamento-notificacoes.md,
+    docs/10-seguranca-permissoes.md,
+    docs/17-lgpd-protecao-dados.md,
+  ]
 docs_required: false
+claimed_at: 2026-07-10T16:33:16Z
+completed_at: 2026-07-10T17:16:21Z
 ---
 
 # F24-S14 — QA: integração do sistema de notificações
