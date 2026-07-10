@@ -70,7 +70,7 @@ vi.mock('../../modules/notifications/senders/email.js', () => ({
 }));
 
 import { buildSlaBucket, runSlaScanTick } from '../../workers/notification-sla-scan.js';
-import type { SlaScanDb } from '../../workers/notification-sla-scan.js';
+import type { SlaScanDb, SlaScanLogger } from '../../workers/notification-sla-scan.js';
 
 // ---------------------------------------------------------------------------
 // Mock de Database — tipado como SlaScanDb (Pick<Database, 'select'|'insert'>),
@@ -84,6 +84,11 @@ const mockDb: SlaScanDb = {
   select: mockSelect,
   insert: mockInsert,
 };
+
+// Logger mockado para inspecionar a supressão fail-closed de city_scope
+// (hardening pós-review F24-S16 — sem isso a supressão vira silêncio).
+const mockLoggerWarn = vi.fn();
+const mockLogger: SlaScanLogger = { warn: mockLoggerWarn };
 
 const RULE_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const ORG_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -150,6 +155,7 @@ beforeEach(() => {
   mockIsCategoryEnabled.mockResolvedValue(true);
   mockSendInApp.mockResolvedValue(undefined);
   mockSendEmail.mockResolvedValue(undefined);
+  mockLoggerWarn.mockReset();
 });
 
 describe('buildSlaBucket', () => {
@@ -209,11 +215,71 @@ describe('runSlaScanTick', () => {
     expect(mockSendInApp).not.toHaveBeenCalled();
   });
 
-  it('city_scope: fora do scope -> skip', async () => {
+  it('city_scope: fora do scope (cityId conhecido) -> skip', async () => {
     setupFullFlow([{ ...BASE_RULE, filters: { city_scope: ['city-a'] } }], false);
     mockFindSlaSources.mockResolvedValue([{ ...BASE_ENTITY, cityId: 'city-b' }]);
     await runSlaScanTick(mockDb);
     expect(mockSendInApp).not.toHaveBeenCalled();
+  });
+
+  it('city_scope: dentro do scope (cityId conhecido) -> notifica', async () => {
+    setupFullFlow([{ ...BASE_RULE, filters: { city_scope: ['city-a'] } }], false);
+    mockFindSlaSources.mockResolvedValue([{ ...BASE_ENTITY, cityId: 'city-a' }]);
+    mockResolveRecipients.mockResolvedValue([
+      { userId: USER_ID, organizationId: ORG_ID, displayName: 'A', channels: ['in_app' as const] },
+    ]);
+    await runSlaScanTick(mockDb);
+    expect(mockSendInApp).toHaveBeenCalledOnce();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Hardening pós-review F24-S16: fail-closed de city_scope quando cityId é nulo.
+  //
+  // Regressão do bug: uma regra com city_scope configurado + uma entidade cujo
+  // cityId não é resolvível (ex: handoff:requested sem lead vinculado — o
+  // próprio eixo novo que este slot tornou vivo) NÃO pode ser tratada como
+  // "sem restrição". Antes do fix, cityId=null passava direto para
+  // resolveRuleRecipients, que trata cityId=null como contexto global e faria
+  // broadcast pra org inteira — furando o city_scope da regra (cross-city leak).
+  // ---------------------------------------------------------------------------
+
+  it('REGRESSÃO: city_scope configurado + cityId nulo -> suprime (fail-closed), nunca broadcast', async () => {
+    setupFullFlow([{ ...BASE_RULE, filters: { city_scope: ['city-a'] } }], false);
+    mockFindSlaSources.mockResolvedValue([{ ...BASE_ENTITY, cityId: null }]);
+    // Mesmo que resolveRuleRecipients devolvesse destinatários (contexto global),
+    // a supressão deve acontecer ANTES de resolveRuleRecipients ser chamado.
+    mockResolveRecipients.mockResolvedValue([
+      { userId: USER_ID, organizationId: ORG_ID, displayName: 'A', channels: ['in_app' as const] },
+    ]);
+    await runSlaScanTick(mockDb, mockLogger);
+    expect(mockResolveRecipients).not.toHaveBeenCalled();
+    expect(mockSendInApp).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('REGRESSÃO: supressão fail-closed é logada com rule_id/trigger_key/organization_id (sem PII)', async () => {
+    setupFullFlow([{ ...BASE_RULE, filters: { city_scope: ['city-a'] } }], false);
+    mockFindSlaSources.mockResolvedValue([{ ...BASE_ENTITY, cityId: null }]);
+    await runSlaScanTick(mockDb, mockLogger);
+    expect(mockLoggerWarn).toHaveBeenCalledOnce();
+    const [logPayload] = mockLoggerWarn.mock.calls[0] as [Record<string, unknown>, string];
+    expect(logPayload).toEqual({
+      rule_id: RULE_ID,
+      trigger_key: 'kanban_stage:*',
+      organization_id: ORG_ID,
+    });
+  });
+
+  it('sem city_scope + cityId nulo -> segue notificando (sem regressão)', async () => {
+    // BASE_RULE.filters = {} (sem city_scope) + BASE_ENTITY.cityId = null por padrão.
+    setupFullFlow([BASE_RULE], false);
+    mockFindSlaSources.mockResolvedValue([BASE_ENTITY]);
+    mockResolveRecipients.mockResolvedValue([
+      { userId: USER_ID, organizationId: ORG_ID, displayName: 'A', channels: ['in_app' as const] },
+    ]);
+    await runSlaScanTick(mockDb, mockLogger);
+    expect(mockSendInApp).toHaveBeenCalledOnce();
+    expect(mockLoggerWarn).not.toHaveBeenCalled();
   });
 
   it('sem destinatarios -> sem disparo', async () => {

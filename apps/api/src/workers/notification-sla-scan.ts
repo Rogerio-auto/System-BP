@@ -30,6 +30,22 @@ const DEFAULT_TICK_MS = 60 * 60 * 1_000;
  */
 export type SlaScanDb = Pick<Database, 'select' | 'insert'>;
 
+/**
+ * Logger mínimo injetável (compatível estruturalmente com pino.Logger).
+ * Usado para deixar rastreável a supressão fail-closed de city_scope
+ * (F24-S16 hardening) — sem isso, "por que esse handoff sem lead não
+ * notificou" vira outro silêncio indetectável.
+ */
+export interface SlaScanLogger {
+  warn(obj: object, msg?: string): void;
+}
+
+const noopLogger: SlaScanLogger = {
+  warn: () => {
+    /* no-op — logger não fornecido (ex: chamada direta em teste) */
+  },
+};
+
 function getTickMs(): number {
   return env.FOLLOWUP_SCHEDULER_TICK_MS ?? DEFAULT_TICK_MS;
 }
@@ -153,16 +169,37 @@ interface ProcessSlaRuleOptions {
    */
   leadId: string | null;
   bucket: string;
+  logger: SlaScanLogger;
 }
 
 async function processSlaRule(opts: ProcessSlaRuleOptions): Promise<void> {
-  const { db, rule, entityId, entityType, cityId, leadId, bucket } = opts;
+  const { db, rule, entityId, entityType, cityId, leadId, bucket, logger } = opts;
   if (await hasDelivery(db, rule.id, entityType, entityId, bucket)) return;
   const filters = rule.filters as Record<string, unknown> | null;
   const cityScope = Array.isArray(filters?.['city_scope'])
     ? (filters['city_scope'] as string[])
     : null;
-  if (cityScope !== null && cityId !== null && !cityScope.includes(cityId)) return;
+  // Fail-closed (hardening pós-review F24-S16): regra com city_scope configurado
+  // é uma decisão explícita de restringir. Se a entidade não tem cidade
+  // resolvível (cityId null — ex: chatwoot_handoffs sem lead vinculado),
+  // NÃO tratar como "sem restrição": resolveByRoleCity trataria cityId=null
+  // como contexto global e faria broadcast pra org inteira, furando o
+  // city_scope da regra (cross-city leak — CLAUDE.md regra #3).
+  if (cityScope !== null) {
+    if (cityId === null) {
+      logger.warn(
+        {
+          rule_id: rule.id,
+          trigger_key: rule.triggerKey,
+          organization_id: rule.organizationId,
+        },
+        'sla-scan: notificação suprimida (fail-closed) — regra tem city_scope ' +
+          'mas a entidade não tem cidade resolvível',
+      );
+      return;
+    }
+    if (!cityScope.includes(cityId)) return;
+  }
   // as justificado: channels e text[] validado na borda HTTP; apenas 'in_app'|'email'.
   const ruleChannels = rule.channels as RuleChannel[];
   // as justificado: recipients.ts/notifications exigem Database completo; SlaScanDb
@@ -215,6 +252,7 @@ async function processSlaRule(opts: ProcessSlaRuleOptions): Promise<void> {
 
 export async function runSlaScanTick(
   db: SlaScanDb = defaultDb,
+  logger: SlaScanLogger = noopLogger,
 ): Promise<{ rulesProcessed: number; entitiesEligible: number }> {
   const activeRules = await db
     .select()
@@ -250,6 +288,7 @@ export async function runSlaScanTick(
             cityId: entity.cityId,
             leadId: entity.leadId,
             bucket,
+            logger,
           });
         } catch {
           /* isolado */
@@ -278,7 +317,7 @@ if (process.argv[1] !== undefined && process.argv[1].includes('notification-sla-
         continue;
       }
       try {
-        const r = await runSlaScanTick(db);
+        const r = await runSlaScanTick(db, logger);
         logger.info(r, 'sla-scan tick');
       } catch (err: unknown) {
         logger.error({ err }, 'erro no tick');
