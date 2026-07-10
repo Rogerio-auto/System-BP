@@ -263,7 +263,15 @@ export const TRIGGER_CATALOG = [
 
   /**
    * Lead parado em qualquer stage do kanban além do threshold.
-   * O asterisco (*) indica que o stage específico é parametrizado pela regra.
+   *
+   * A entrada de catálogo é sempre `kanban_stage:*`, mas o `trigger_key`
+   * persistido em uma regra pode ser mais específico: `kanban_stage:<stageId>`
+   * (UUID de kanban_stages.id) restringe o eixo a um único stage (F24-S16).
+   * `findTrigger`/`lookupTrigger` resolvem QUALQUER chave com o prefixo
+   * `kanban_stage:` (seguida de `*` ou um UUID válido) para esta entrada —
+   * o stage específico é um parâmetro da regra, não uma nova entrada de
+   * catálogo. Usa-se o UUID (não o nome do stage): nome é editável e não é
+   * uma chave estável.
    */
   {
     key: 'kanban_stage:*',
@@ -271,7 +279,7 @@ export const TRIGGER_CATALOG = [
     category: 'lifecycle_stalled',
     entityType: 'kanban_card',
     placeholders: ['lead_id', 'card_id', 'stage_name', 'hours_stalled'],
-    timestampSource: 'kanban_cards.stage_changed_at',
+    timestampSource: 'kanban_cards.entered_stage_at',
   },
 
   /**
@@ -295,11 +303,14 @@ export const TRIGGER_CATALOG = [
     category: 'lifecycle_stalled',
     entityType: 'simulation',
     placeholders: ['lead_id', 'simulation_id', 'hours_stalled'],
-    timestampSource: 'simulations.sent_at',
+    timestampSource: 'credit_simulations.sent_at',
   },
 
   /**
    * Análise de crédito com status 'pendente' além do threshold.
+   * O relógio reinicia a cada mudança de status (updated_at), não na criação —
+   * uma análise que ficou 'em_analise' por dias antes de virar 'pendente' não
+   * deve contar esse tempo anterior como inatividade em 'pendente'.
    */
   {
     key: 'analysis:pendente',
@@ -307,7 +318,7 @@ export const TRIGGER_CATALOG = [
     category: 'lifecycle_stalled',
     entityType: 'credit_analysis',
     placeholders: ['analysis_id', 'lead_id', 'hours_stalled'],
-    timestampSource: 'credit_analyses.created_at',
+    timestampSource: 'credit_analyses.updated_at',
   },
 
   /**
@@ -336,6 +347,9 @@ export const TRIGGER_CATALOG = [
 
   /**
    * Conversa aberta sem resposta do agente além do threshold.
+   * O relógio é o último inbound do contato (last_inbound_at) — o momento em
+   * que o agente passou a "dever" uma resposta — não a última mensagem em
+   * qualquer direção (last_message_at incluiria outbound do próprio agente).
    */
   {
     key: 'conversation:no_reply',
@@ -343,7 +357,7 @@ export const TRIGGER_CATALOG = [
     category: 'lifecycle_stalled',
     entityType: 'conversation',
     placeholders: ['lead_id', 'chatwoot_conversation_id', 'hours_stalled'],
-    timestampSource: 'conversations.last_message_at',
+    timestampSource: 'conversations.last_inbound_at',
   },
 ] as const satisfies ReadonlyArray<TriggerCatalogEntry>;
 
@@ -354,8 +368,28 @@ export type TriggerKey = (typeof TRIGGER_CATALOG)[number]['key'];
 // Helpers (module-private)
 // ---------------------------------------------------------------------------
 
-/** Encontra uma entrada no catálogo pelo key exato. */
+/** Prefixo de trigger_key parametrizável por stage (F24-S16). */
+const KANBAN_STAGE_PREFIX = 'kanban_stage:';
+
+/** UUID v1-v5 canônico (mesmo padrão aceito por z.string().uuid()). */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Encontra uma entrada no catálogo pela key.
+ *
+ * Match exato para a maioria das chaves. Chaves com o prefixo `kanban_stage:`
+ * são parametrizáveis (F24-S16, decisão do Rogério 2026-07-10): o sufixo deve
+ * ser `*` (qualquer stage) ou um UUID de `kanban_stages.id` (stage
+ * específico). Ambas resolvem para a mesma entrada de catálogo
+ * `kanban_stage:*` — o stage é um parâmetro da regra, não uma nova entrada.
+ * Sufixo inválido (nem `*` nem UUID) não resolve — retorna undefined.
+ */
 function findTrigger(key: string): TriggerCatalogEntry | undefined {
+  if (key.startsWith(KANBAN_STAGE_PREFIX)) {
+    const stageSelector = key.slice(KANBAN_STAGE_PREFIX.length);
+    if (stageSelector !== '*' && !UUID_REGEX.test(stageSelector)) return undefined;
+    return TRIGGER_CATALOG.find((e) => e.key === 'kanban_stage:*');
+  }
   return TRIGGER_CATALOG.find((e) => e.key === key);
 }
 
@@ -417,11 +451,18 @@ export const notificationRuleCreateSchema = z
      */
     name: z.string().min(1).max(200).describe('Nome descritivo da regra (exibido na listagem)'),
 
-    /** Chave do gatilho — deve existir no TRIGGER_CATALOG. */
+    /**
+     * Chave do gatilho — deve existir no TRIGGER_CATALOG.
+     * `kanban_stage:*` aceita qualquer stage; `kanban_stage:<stageId>`
+     * (UUID de kanban_stages.id) restringe a um stage específico (F24-S16).
+     */
     trigger_key: z
       .string()
       .min(1)
-      .describe('Chave canônica do gatilho (ex: simulations.generated)'),
+      .describe(
+        'Chave canônica do gatilho (ex: simulations.generated, kanban_stage:*, ' +
+          'kanban_stage:<stageId>)',
+      ),
 
     /** Como resolver os destinatários da notificação. */
     recipient_mode: recipientModeSchema,
@@ -765,11 +806,13 @@ export type NotificationRuleTestResponse = z.infer<typeof notificationRuleTestRe
 // ---------------------------------------------------------------------------
 
 /**
- * Encontra uma entrada no catálogo pelo key exato.
- * Exportado para uso no service layer (derivar category + validar placeholders).
+ * Encontra uma entrada no catálogo pela key (mesma resolução de findTrigger,
+ * incluindo o prefixo parametrizável `kanban_stage:<stageId|*>` — F24-S16).
+ * Exportado para uso no service layer (derivar category/entityType) e no
+ * worker de SLA (apps/api/src/modules/notification-rules/sla-sources.ts).
  */
 export function lookupTrigger(key: string): TriggerCatalogEntry | undefined {
-  return TRIGGER_CATALOG.find((e) => e.key === key);
+  return findTrigger(key);
 }
 
 /**

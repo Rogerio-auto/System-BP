@@ -1,4 +1,8 @@
-// notification-sla-scan.test.ts -- F24-S07
+// notification-sla-scan.test.ts -- F24-S07, corrigido em F24-S16
+//
+// F24-S16: triggerKey usa uma chave REAL do TRIGGER_CATALOG ('kanban_stage:*').
+// 'Qualificacao' (nome de stage) é proibido aqui — era exatamente o valor que
+// a validação da API rejeitaria, e mascarava o bug de F24-S07 (ver slot).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../config/env.js', () => ({
@@ -24,13 +28,11 @@ vi.mock('../../config/env.js', () => ({
   },
 }));
 vi.mock('pg', () => {
-  const M = vi
-    .fn()
-    .mockImplementation(() => ({
-      query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
-      end: vi.fn().mockResolvedValue(undefined),
-      on: vi.fn(),
-    }));
+  const M = vi.fn().mockImplementation(() => ({
+    query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+    end: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+  }));
   return { Pool: M, default: { Pool: M } };
 });
 vi.mock('drizzle-orm', async (importOriginal) => {
@@ -44,16 +46,6 @@ vi.mock('drizzle-orm', async (importOriginal) => {
   };
 });
 
-const mockSelect = vi.fn();
-const mockInsert = vi.fn();
-const mockDb = {
-  select: mockSelect,
-  insert: mockInsert, // as justificado: mock tipado localmente sem import circular
-} as unknown as {
-  select: typeof mockSelect;
-  insert: typeof mockInsert;
-  transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
-};
 vi.mock('../../db/client.js', () => ({ db: {}, pool: {} }));
 
 const mockFindSlaSources = vi.fn();
@@ -78,10 +70,25 @@ vi.mock('../../modules/notifications/senders/email.js', () => ({
 }));
 
 import { buildSlaBucket, runSlaScanTick } from '../../workers/notification-sla-scan.js';
+import type { SlaScanDb } from '../../workers/notification-sla-scan.js';
+
+// ---------------------------------------------------------------------------
+// Mock de Database — tipado como SlaScanDb (Pick<Database, 'select'|'insert'>),
+// o subconjunto real exercitado pelo worker (F24-S16). Nada de `as unknown as
+// Database`: select/insert são os únicos métodos chamados diretamente aqui —
+// tudo o mais (recipients, senders, sla-sources) é mockado via vi.mock acima.
+// ---------------------------------------------------------------------------
+const mockSelect = vi.fn();
+const mockInsert = vi.fn();
+const mockDb: SlaScanDb = {
+  select: mockSelect,
+  insert: mockInsert,
+};
 
 const RULE_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const ORG_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const LEAD_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+const CARD_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const USER_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 
 const BASE_RULE = {
@@ -89,8 +96,9 @@ const BASE_RULE = {
   organizationId: ORG_ID,
   name: 'Inatividade',
   triggerKind: 'stage_inactivity' as const,
-  triggerKey: 'Qualificacao',
-  category: 'lead',
+  // F24-S16: chave REAL do TRIGGER_CATALOG — 'Qualificacao' é proibido aqui.
+  triggerKey: 'kanban_stage:*',
+  category: 'lifecycle_stalled',
   thresholdHours: 24,
   cooldownHours: 24,
   enabled: true,
@@ -105,10 +113,14 @@ const BASE_RULE = {
   createdAt: new Date(),
   updatedAt: new Date(),
 };
+
+// entityType vem do catálogo (kanban_card para o eixo kanban_stage) — nunca 'lead'
+// fixo (F24-S16). leadId é o campo separado usado para recipientMode='assignee'.
 const BASE_ENTITY = {
-  entityId: LEAD_ID,
-  entityType: 'lead',
+  entityId: CARD_ID,
+  entityType: 'kanban_card',
   cityId: null,
+  leadId: LEAD_ID,
   sinceAt: new Date(Date.now() - 48 * 60 * 60 * 1_000),
 };
 
@@ -119,15 +131,11 @@ function setupFullFlow(rules: unknown[], hasDelivery: boolean): void {
     if (n === 1)
       return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(rules) }) };
     return {
-      from: vi
-        .fn()
-        .mockReturnValue({
-          where: vi
-            .fn()
-            .mockReturnValue({
-              limit: vi.fn().mockResolvedValue(hasDelivery ? [{ id: 'x' }] : []),
-            }),
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue(hasDelivery ? [{ id: 'x' }] : []),
         }),
+      }),
     };
   });
   mockInsert.mockReturnValue({
@@ -181,6 +189,16 @@ describe('runSlaScanTick', () => {
     expect(r.rulesProcessed).toBe(1);
     expect(r.entitiesEligible).toBe(1);
     expect(mockSendInApp).toHaveBeenCalledOnce();
+  });
+
+  it('repassa leadId da entidade (nao mais entityType==="lead") para resolveRuleRecipients', async () => {
+    setupFullFlow([BASE_RULE], false);
+    mockFindSlaSources.mockResolvedValue([BASE_ENTITY]);
+    mockResolveRecipients.mockResolvedValue([]);
+    await runSlaScanTick(mockDb);
+    expect(mockResolveRecipients).toHaveBeenCalledOnce();
+    const [, resolveInput] = mockResolveRecipients.mock.calls[0] as [unknown, { leadId: unknown }];
+    expect(resolveInput.leadId).toBe(LEAD_ID);
   });
 
   it('cooldown: ja entregue -> skip', async () => {

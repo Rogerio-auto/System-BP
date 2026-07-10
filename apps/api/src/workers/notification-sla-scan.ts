@@ -18,6 +18,18 @@ import { createWorkerRuntime } from './_runtime.js';
 const WORKER_NAME = 'notification-sla-scan';
 const DEFAULT_TICK_MS = 60 * 60 * 1_000;
 
+/**
+ * Subconjunto de Database realmente exercitado por este worker (select + insert
+ * — nunca transaction/query/$with). Permite tipar mocks de teste com o tipo
+ * correto (Pick<Database, ...>), sem `as unknown as Database`. Onde o `db`
+ * precisa satisfazer um parâmetro `Database` completo de outro módulo
+ * (recipients.ts, notifications/repository.ts, senders/*), usamos `db as
+ * Database` — cast direto justificado (SlaScanDb é assignable DE Database,
+ * então o cast reverso é seguro; a implementação real (defaultDb) sempre
+ * satisfaz o tipo completo).
+ */
+export type SlaScanDb = Pick<Database, 'select' | 'insert'>;
+
 function getTickMs(): number {
   return env.FOLLOWUP_SCHEDULER_TICK_MS ?? DEFAULT_TICK_MS;
 }
@@ -45,7 +57,7 @@ function renderTemplate(template: string, context: Record<string, unknown>): str
 }
 
 async function hasDelivery(
-  db: Database,
+  db: Pick<Database, 'select'>,
   ruleId: string,
   entityType: string,
   entityId: string,
@@ -67,7 +79,7 @@ async function hasDelivery(
 }
 
 async function recordDelivery(
-  db: Database,
+  db: Pick<Database, 'insert'>,
   organizationId: string,
   ruleId: string,
   entityType: string,
@@ -127,16 +139,24 @@ async function dispatchToChannel(
 }
 
 interface ProcessSlaRuleOptions {
-  db: Database;
+  db: SlaScanDb;
   rule: typeof notificationRules.$inferSelect;
   entityId: string;
   entityType: string;
   cityId: string | null;
+  /**
+   * Lead associado à entidade elegível (via SlaEligibleEntity.leadId),
+   * usado apenas para resolver recipientMode='assignee'. Substitui a
+   * checagem antiga `entityType === 'lead'` (F24-S16) — entityType agora
+   * vem do catálogo por eixo (kanban_card, conversation, simulation, etc.)
+   * e nunca mais é literalmente 'lead'.
+   */
+  leadId: string | null;
   bucket: string;
 }
 
 async function processSlaRule(opts: ProcessSlaRuleOptions): Promise<void> {
-  const { db, rule, entityId, entityType, cityId, bucket } = opts;
+  const { db, rule, entityId, entityType, cityId, leadId, bucket } = opts;
   if (await hasDelivery(db, rule.id, entityType, entityId, bucket)) return;
   const filters = rule.filters as Record<string, unknown> | null;
   const cityScope = Array.isArray(filters?.['city_scope'])
@@ -145,13 +165,17 @@ async function processSlaRule(opts: ProcessSlaRuleOptions): Promise<void> {
   if (cityScope !== null && cityId !== null && !cityScope.includes(cityId)) return;
   // as justificado: channels e text[] validado na borda HTTP; apenas 'in_app'|'email'.
   const ruleChannels = rule.channels as RuleChannel[];
-  const recipients = await resolveRuleRecipients(db, {
+  // as justificado: recipients.ts/notifications exigem Database completo; SlaScanDb
+  // (Pick<Database,'select'|'insert'>) é assignable DE Database — cast reverso seguro,
+  // a implementação real (defaultDb) sempre satisfaz o tipo completo.
+  const fullDb = db as Database;
+  const recipients = await resolveRuleRecipients(fullDb, {
     organizationId: rule.organizationId,
     recipientMode: rule.recipientMode,
     recipientRoles: rule.recipientRoles,
     channels: ruleChannels,
     cityId,
-    leadId: entityType === 'lead' ? entityId : null,
+    leadId,
   });
   if (recipients.length === 0) return;
   const ctx: Record<string, unknown> = {
@@ -167,7 +191,7 @@ async function processSlaRule(opts: ProcessSlaRuleOptions): Promise<void> {
     for (const channel of recipient.channels) {
       if (
         !(await isCategoryChannelEnabled(
-          db,
+          fullDb,
           recipient.organizationId,
           recipient.userId,
           channel,
@@ -175,7 +199,7 @@ async function processSlaRule(opts: ProcessSlaRuleOptions): Promise<void> {
         ))
       )
         continue;
-      await dispatchToChannel(db, channel, {
+      await dispatchToChannel(fullDb, channel, {
         organizationId: recipient.organizationId,
         userId: recipient.userId,
         type: 'sla:' + rule.triggerKey + ':' + rule.id,
@@ -190,7 +214,7 @@ async function processSlaRule(opts: ProcessSlaRuleOptions): Promise<void> {
 }
 
 export async function runSlaScanTick(
-  db: Database = defaultDb,
+  db: SlaScanDb = defaultDb,
 ): Promise<{ rulesProcessed: number; entitiesEligible: number }> {
   const activeRules = await db
     .select()
@@ -224,6 +248,7 @@ export async function runSlaScanTick(
             entityId: entity.entityId,
             entityType: entity.entityType,
             cityId: entity.cityId,
+            leadId: entity.leadId,
             bucket,
           });
         } catch {
