@@ -24,6 +24,8 @@
 //   - Cobrança — Réguas    : billing:write + flag billing.enabled (billing/routes.ts L138)
 //   - Cobrança — Jobs      : billing:read + flag billing.enabled (billing/routes.ts L173)
 //   - Templates WhatsApp   : templates:read (templates/routes.ts L47)
+//   - IA no funil          : ai_actions:read + flag internal_assistant.actions.enabled
+//                            (ai-actions/routes.ts — F25-S06/S07)
 // =============================================================================
 
 import * as React from 'react';
@@ -298,6 +300,24 @@ function IconNotificacoes(): React.JSX.Element {
       <path d="M10 17v1a2 2 0 0 0 4 0v-1" strokeLinecap="round" />
       <circle cx="18" cy="6" r="3" stroke="currentColor" strokeWidth={1.5} />
       <path d="M17.5 5.5l1 1" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// IA no funil: escudo com seta de retorno (supervisão + reversão — F25-S07)
+function IconAcoesIA(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <path d="M12 3l8 3v6c0 4.5-3.5 8-8 9-4.5-1-8-4.5-8-9V6l8-3Z" />
+      <path d="M9.5 12.5a2.5 2.5 0 1 0 .8-1.85" strokeLinecap="round" />
+      <path d="M9.5 9.5v2h2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -587,6 +607,21 @@ function AdminSection(): React.JSX.Element {
               'Teste o grafo do agente em modo dry-run sem persistir nem enviar ao cliente.',
             icon: <IconAgenteIA />,
             href: '/configuracoes/ia/playground',
+          },
+        ]
+      : []),
+    // IA no funil: ai_actions:read + flag internal_assistant.actions.enabled (F25-S07)
+    // Mesmo padrão AND-gate de billing/tutorials — card só aparece com os dois
+    // habilitados; a rota em si (acesso direto) permanece só permissão-gated.
+    ...(hasPermission('ai_actions:read') && flagEnabled('internal_assistant.actions.enabled')
+      ? [
+          {
+            title: 'IA no funil',
+            description:
+              'Ações autônomas do agente de IA no funil nas últimas 24h — qualificações, ' +
+              'estagnações e abandonos, com opção de reverter.',
+            icon: <IconAcoesIA />,
+            href: '/configuracoes/ia/acoes',
           },
         ]
       : []),
