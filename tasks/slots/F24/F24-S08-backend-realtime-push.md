@@ -3,7 +3,7 @@ id: F24-S08
 title: Backend — push em tempo real (sala user + publish notification.new)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,9 @@ blocks: [F24-S13, F24-S14]
 labels: [backend, notifications, realtime, socket]
 source_docs: [docs/planejamento-notificacoes.md]
 docs_required: false
+claimed_at: 2026-07-10T14:14:37Z
+completed_at: 2026-07-10T14:33:53Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/414
 ---
 
 # F24-S08 — Backend: push em tempo real

@@ -4,13 +4,20 @@
 // Responsabilidades:
 //   - Registrar Socket.io no servidor HTTP do Fastify (namespace /livechat).
 //   - Autenticar cada conexão via JWT Bearer ou cookie access_token.
-//   - Ao conectar, dar join automático em workspace:{organizationId}.
+//   - Ao conectar, dar join automático em workspace:{organizationId} e user:{userId}.
 //   - Eventos do cliente:
 //       conversation:join  → join em conversation:{conversationId} (valida escopo de org)
 //       conversation:leave → leave de conversation:{conversationId}
 //
+// Sala user:{userId} (F24-S08):
+//   - Usada para push em tempo real de notificações in-app (evento notification.new,
+//     publicado por modules/notifications/realtime.ts na fila hm.q.socket.relay).
+//   - userId vem do claim `sub` do JWT validado no handshake — não é possível entrar
+//     na sala de outro usuário.
+//
 // Escopo de cidade (LGPD + segurança):
 //   - A sala workspace:{orgId} separa tenants completamente.
+//   - A sala user:{userId} é pessoal — só o próprio socket autenticado entra nela.
 //   - conversation:{conversationId} valida que a conversa pertence à org do cliente
 //     conectado — evita vazamento cross-org/cross-cidade.
 //   - Escopo de cidade é garantido pelo relay: events só chegam para salas
@@ -190,6 +197,7 @@ export async function validateConversationScope(
 export function setupSocketHandlers(socket: AuthenticatedSocket): void {
   const { userId, organizationId } = socket.data;
   const workspaceRoom = `workspace:${organizationId}`;
+  const userRoom = `user:${userId}`;
 
   logger.info(
     { event: 'socket.connected', userId, organizationId, socketId: socket.id },
@@ -198,6 +206,10 @@ export function setupSocketHandlers(socket: AuthenticatedSocket): void {
 
   // Join automático na sala do workspace da org (re-entra em cada reconexão automática)
   void socket.join(workspaceRoom);
+
+  // Join automático na sala pessoal do usuário (F24-S08) — recebe notification.new.
+  // Re-entra em cada reconexão, pois rooms são transientes (perdidas em disconnect).
+  void socket.join(userRoom);
 
   // conversation:join — receber eventos de uma conversa específica
   socket.on('conversation:join', (raw: unknown) => {
@@ -285,6 +297,8 @@ export function setupSocketHandlers(socket: AuthenticatedSocket): void {
  * Auth JWT: Bearer header ou cookie access_token ou socket.handshake.auth.token.
  * Rooms:
  *   - workspace:{orgId}       — toda conexão autenticada entra automaticamente
+ *   - user:{userId}           — toda conexão autenticada entra automaticamente (F24-S08:
+ *                               push de notification.new)
  *   - conversation:{convId}   — sob demanda via evento conversation:join
  *
  * O decorator fastify.io expõe o SocketIOServer para uso pelo relay worker
