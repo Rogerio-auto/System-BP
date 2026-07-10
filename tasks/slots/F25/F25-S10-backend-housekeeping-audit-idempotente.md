@@ -3,7 +3,7 @@ id: F25-S10
 title: Backend — audit de housekeeping idempotente (2º tick não infla o painel IA-24h)
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
@@ -13,6 +13,7 @@ labels: [backend, ai-agent, bugfix, idempotency]
 source_docs: [docs/22-agente-interno-acoes.md]
 docs_required: false
 claimed_at: 2026-07-10T18:41:11Z
+completed_at: 2026-07-10T18:49:21Z
 ---
 
 # F25-S10 — Backend: audit de housekeeping idempotente
