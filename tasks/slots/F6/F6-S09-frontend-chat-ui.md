@@ -3,7 +3,7 @@ id: F6-S09
 title: Frontend — tela de chat do copiloto (substitui o teaser do InternalAssistantButton)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
