@@ -3,7 +3,7 @@ id: F25-S07
 title: Frontend — painel "IA no funil (24h)" + reverter + config de limiares (gated)
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
