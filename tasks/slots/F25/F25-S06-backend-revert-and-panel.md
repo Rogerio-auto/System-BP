@@ -3,7 +3,7 @@ id: F25-S06
 title: Backend — reversão de ação da IA + endpoint do painel "IA nas últimas 24h"
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,7 @@ blocks: [F25-S07]
 labels: [backend, ai-agent, rbac, audit]
 source_docs: [docs/22-agente-interno-acoes.md, docs/10-seguranca-permissoes.md]
 docs_required: false
+claimed_at: 2026-07-10T14:30:53Z
 ---
 
 # F25-S06 — Backend: reversão + painel de ações da IA
