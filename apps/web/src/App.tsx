@@ -23,6 +23,7 @@ import { ToastProvider } from './components/ui/Toast';
 import { PersonalEmailModal } from './features/account/PersonalEmailModal';
 import { usePersonalEmailGuard } from './features/account/usePersonalEmailGuard';
 import { RolesPage } from './features/admin/roles/RolesPage';
+import { AiActionsPage } from './features/ai-actions';
 import { LoginPage } from './features/auth/LoginPage';
 import { CollectionJobsPage, CollectionRulesPage, PaymentDuesPage } from './features/billing';
 import {
@@ -163,6 +164,8 @@ function AppRoutes(): React.JSX.Element {
             element={<ConversationTimelinePage />}
           />
           <Route path="/configuracoes/ia/playground" element={<PlaygroundPage />} />
+          {/* F25-S07: painel "IA no funil" — ações autônomas + reversão */}
+          <Route path="/configuracoes/ia/acoes" element={<AiActionsPage />} />
           <Route path="/admin/cities" element={<CitiesPage />} />
           <Route path="/admin/feature-flags" element={<FeatureFlagsPage />} />
           <Route path="/admin/products" element={<ProductsPage />} />
