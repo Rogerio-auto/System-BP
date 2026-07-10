@@ -17,6 +17,7 @@ import { env } from './config/env.js';
 import { accountRoutes } from './modules/account/routes.js';
 import { adminDlqRoutes } from './modules/admin/dlq.routes.js';
 import { agentsRoutes } from './modules/agents/routes.js';
+import { aiActionsRoutes } from './modules/ai-actions/routes.js';
 import { decisionsRoutes } from './modules/ai-console/decisions/index.js';
 import { playgroundRoutes } from './modules/ai-console/playground/index.js';
 import { promptsRoutes } from './modules/ai-console/prompts/index.js';
@@ -372,6 +373,9 @@ export async function buildApp() {
   // Copiloto interno -- POST /api/internal-assistant/query (F6-S08)
   await app.register(internalAssistantRoutes);
   await app.register(lawFirmsRoutes);
+
+  // Painel "IA nas últimas 24h" + reversão de ações da IA no funil (F25-S06)
+  await app.register(aiActionsRoutes);
 
   // Dev-only endpoints (schema-examples, etc.) — NOT registered in production (F10-S11)
   if (process.env['NODE_ENV'] !== 'production') {
