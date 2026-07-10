@@ -304,17 +304,37 @@ async function processRule(opts: ProcessRuleOptions): Promise<void> {
 
   // ── 1. Filtro de cidade ────────────────────────────────────────────────────
   const cityScope = extractCityScopeFromFilters(rule.filters);
-  if (cityScope !== null && eventCityId !== null && !cityScope.includes(eventCityId)) {
-    logger.debug(
-      {
-        rule_id: rule.id,
-        event_name: event.eventName,
-        event_city_id: eventCityId,
-        city_scope: cityScope,
-      },
-      'fanout: regra filtrada por city_scope — pulando',
-    );
-    return;
+  // Fail-closed (F24-S21, espelha o fix do F24-S16 no worker de SLA): regra com
+  // city_scope configurado é uma decisão explícita de restringir. Se o evento
+  // não carrega city_id resolvível (eventCityId null — ex.: task.created,
+  // contract.signed), NÃO tratar como "sem restrição": resolveByRoleCity
+  // trataria cityId=null como contexto global e faria broadcast pra org
+  // inteira, furando o city_scope da regra (cross-city leak — CLAUDE.md #3).
+  if (cityScope !== null) {
+    if (eventCityId === null) {
+      logger.warn(
+        {
+          rule_id: rule.id,
+          event_name: event.eventName,
+          organization_id: event.organizationId,
+        },
+        'fanout: notificação suprimida (fail-closed) — regra tem city_scope ' +
+          'mas o evento não tem city_id resolvível',
+      );
+      return;
+    }
+    if (!cityScope.includes(eventCityId)) {
+      logger.debug(
+        {
+          rule_id: rule.id,
+          event_name: event.eventName,
+          event_city_id: eventCityId,
+          city_scope: cityScope,
+        },
+        'fanout: regra filtrada por city_scope — pulando',
+      );
+      return;
+    }
   }
 
   // ── 2. Idempotência: verificar delivery existente ─────────────────────────

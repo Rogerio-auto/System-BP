@@ -519,6 +519,35 @@ describe('handleFanoutNotification()', () => {
     expect(mockSendInApp).toHaveBeenCalledTimes(1);
   });
 
+  // ── 16. Fail-closed (F24-S21): city_scope + evento sem city_id ────────────
+
+  it('regra com city_scope + evento sem city_id → notificação suprimida (fail-closed)', async () => {
+    const ruleWithScope = {
+      ...BASE_RULE,
+      filters: { city_scope: [CITY_ID] },
+    };
+    // BASE_EVENT não carrega city_id no payload (ex.: task.created, contract.signed)
+    const db = makeDb({ rules: [ruleWithScope], hasDelivery: false });
+
+    await handleFanoutNotification(BASE_EVENT, db as never);
+
+    // Fail-closed: cidade indeterminada + regra restrita por city_scope → suprime
+    expect(mockResolveRuleRecipients).not.toHaveBeenCalled();
+    expect(mockSendInApp).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    // Nenhuma tentativa de delivery registrada — supressão ocorre antes da idempotência.
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it('regra sem city_scope + evento sem city_id → dispara normalmente (sem regressão)', async () => {
+    const db = makeDb({ rules: [BASE_RULE], hasDelivery: false });
+
+    await handleFanoutNotification(BASE_EVENT, db as never);
+
+    expect(mockSendInApp).toHaveBeenCalledTimes(1);
+    expect(db.insert).toHaveBeenCalledTimes(1);
+  });
+
   // ── 15. severity da regra propaga ao sendInApp (F24-S19) ──────────────────
 
   it('regra com severity=critical → sendInApp recebe severity=critical', async () => {
