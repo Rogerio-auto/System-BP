@@ -93,8 +93,18 @@ const BASE_LEAD = {
   updatedAt: OLD_STAGNANT,
 };
 
-function makeTx() {
+// F25-S10: processStagnant/processAbandon fazem uma pre-checagem
+// `tx.select(...).from(eventOutbox)...limit(1)` antes de emit+auditLog. O mock
+// de tx.select retorna `existingRows` (vazio por padrao = 1o tick, sem dup).
+function makeTx(existingRows: unknown[] = []) {
   return {
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue(existingRows),
+        }),
+      }),
+    }),
     update: vi.fn().mockReturnValue({
       set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
     }),
@@ -169,6 +179,17 @@ describe('runFunnelHousekeepingTick', () => {
       idempotencyKey: expect.stringContaining('funnel-stagnant:'),
     });
     expect(emitArgs[2]).toMatchObject({ onConflictDoNothing: true });
+  });
+
+  it('F25-S10: 2o tick (idempotencyKey ja no outbox) pula emit E audit', async () => {
+    // Pre-checagem encontra a idempotencyKey ja emitida -> nem emit nem
+    // auditLog devem ser chamados para este lead (nao infla audit_logs).
+    setupSelectSeq([BASE_SETTINGS], [BASE_LEAD]);
+    mockTransaction.mockImplementation(async (fn) => fn(makeTx([{ id: 'existing-event-id' }])));
+    const r = await runFunnelHousekeepingTick(mockDb);
+    expect(r.stagnantEmitted).toBe(1); // contador do tick nao gateia no resultado do pre-check
+    expect(mockEmit).not.toHaveBeenCalled();
+    expect(mockAuditLog).not.toHaveBeenCalled();
   });
 
   it('erro por lead isolado nao interrompe org', async () => {

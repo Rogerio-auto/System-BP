@@ -8,7 +8,13 @@ import { and, eq, inArray, isNull, lt, notInArray, sql } from 'drizzle-orm';
 import { env } from '../config/env.js';
 import { db as defaultDb } from '../db/client.js';
 import type { Database } from '../db/client.js';
-import { aiFunnelSettings, kanbanCards, kanbanStages, leads } from '../db/schema/index.js';
+import {
+  aiFunnelSettings,
+  eventOutbox,
+  kanbanCards,
+  kanbanStages,
+  leads,
+} from '../db/schema/index.js';
 import { emit } from '../events/emit.js';
 import type { DrizzleTx } from '../events/emit.js';
 import { auditLog } from '../lib/audit.js';
@@ -53,6 +59,21 @@ async function processStagnant(db: Database, lead: StagnantLead, dayBucket: stri
   // idempotencyKey unica por lead+dia: onConflictDoNothing no outbox garante idempotencia.
   const idempotencyKey = buildStagnantKey(lead.leadId, dayBucket);
   await db.transaction(async (tx) => {
+    // Pre-checagem: se o outbox ja tem esta idempotencyKey, e um tick repetido
+    // no mesmo dia (restart do worker, trigger manual, sobreposicao de
+    // agendamento) -- pula emit E audit para nao inflar audit_logs (F25-S10).
+    const existing = await tx
+      .select({ id: eventOutbox.id })
+      .from(eventOutbox)
+      .where(
+        and(
+          eq(eventOutbox.organizationId, lead.orgId),
+          eq(eventOutbox.idempotencyKey, idempotencyKey),
+        ),
+      )
+      .limit(1);
+    if (existing.length > 0) return;
+
     await emit(
       tx as unknown as DrizzleTx,
       {
@@ -87,6 +108,22 @@ async function processAbandon(db: Database, lead: StagnantLead, dayBucket: strin
   // idempotencyKey unica por lead+dia: onConflictDoNothing no outbox garante idempotencia.
   const idempotencyKey = buildAbandonKey(lead.leadId, dayBucket);
   await db.transaction(async (tx) => {
+    // Pre-checagem: mesma logica de processStagnant (F25-S10). O lead.abandoned
+    // ja saia da elegibilidade apos o 1o tick (status vira terminal), mas a
+    // pre-checagem mantem os dois caminhos consistentes e cobre a janela entre
+    // o UPDATE de status e a proxima leitura de elegibilidade.
+    const existingAbandon = await tx
+      .select({ id: eventOutbox.id })
+      .from(eventOutbox)
+      .where(
+        and(
+          eq(eventOutbox.organizationId, lead.orgId),
+          eq(eventOutbox.idempotencyKey, idempotencyKey),
+        ),
+      )
+      .limit(1);
+    if (existingAbandon.length > 0) return;
+
     // sql justificado: atualizacao atomica de jsonb sem sobrescrever outros campos.
     const outcomeSql = sql`jsonb_set(COALESCE(metadata, '{}'::jsonb), '{outcome}', '"abandonado"')`; // as justificado: sql<unknown> compativel com jsonb
     await tx
