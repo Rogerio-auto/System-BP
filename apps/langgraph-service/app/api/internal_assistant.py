@@ -36,7 +36,7 @@ router = APIRouter()
 async def _require_internal_token(
     x_internal_token: str | None = Header(default=None, alias="X-Internal-Token"),
 ) -> None:
-    token = settings.langgraph_internal_token
+    token = settings.internal_token.get_secret_value()
     if not x_internal_token or not token:
         raise HTTPException(status_code=401, detail="Token interno ausente")
     if not hmac.compare_digest(x_internal_token.encode(), token.encode()):
