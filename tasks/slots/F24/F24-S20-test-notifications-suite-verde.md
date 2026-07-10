@@ -3,7 +3,7 @@ id: F24-S20
 title: Test — notifications.test.ts: 3 testes quebrados + 3 erros de typecheck
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
