@@ -363,7 +363,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24-S17 | Frontend — seletor de stage no editor de regra de estagnação                     | 🟢 available | medium     | F24-S16                            |
 | F24-S18 | Backend — flag notifications.email.enabled passa a gatear o envio de e-mail      | ✅ done      | high       | F24-S03                            |
 | F24-S19 | Backend — propagar rule.severity até o payload de tempo real                     | 🟢 available | medium     | F24-S08, F24-S16                   |
-| F24-S20 | Test — notifications.test.ts: 3 testes quebrados + 3 erros de typecheck          | 🟢 available | high       | F24-S06                            |
+| F24-S20 | Test — notifications.test.ts: 3 testes quebrados + 3 erros de typecheck          | 🟣 review    | high       | F24-S06                            |
 
 ## Fase 25 —
 

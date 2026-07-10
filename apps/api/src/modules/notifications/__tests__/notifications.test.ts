@@ -21,6 +21,8 @@ import Fastify from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { EventOutbox } from '../../../db/schema/events.js';
+import { handleFanoutNotification } from '../../../handlers/fanout-notification.js';
 import { notificationsRoutes } from '../routes.js';
 
 // ---------------------------------------------------------------------------
@@ -75,6 +77,41 @@ vi.mock('../service.js', () => ({
   markAllNotificationsReadService: (...args: unknown[]) => mockMarkAllRead(...args),
   getPreferencesService: (...args: unknown[]) => mockGetPreferences(...args),
   updatePreferencesService: (...args: unknown[]) => mockUpdatePreferences(...args),
+}));
+
+// ---------------------------------------------------------------------------
+// Mocks do fan-out (handleFanoutNotification — F24-S06)
+//
+// O handler chama requireFlag(db, ...) antes de tudo — sem stub, o db mock
+// (que não implementa .select) faria `listAllFlags` estourar. Como os 3
+// testes abaixo provam roteamento de fan-out por canal (não a feature flag
+// em si), o mais fiel é stubar requireFlag no nível do módulo e cobrir o
+// caminho flag-off separadamente (ver teste dedicado).
+// ---------------------------------------------------------------------------
+
+const mockRequireFlag = vi.fn();
+vi.mock('../../../lib/featureFlags.js', () => ({
+  requireFlag: (...args: unknown[]) => mockRequireFlag(...args),
+}));
+
+const mockResolveRuleRecipients = vi.fn();
+vi.mock('../../notification-rules/recipients.js', () => ({
+  resolveRuleRecipients: (...args: unknown[]) => mockResolveRuleRecipients(...args),
+}));
+
+const mockIsCategoryChannelEnabled = vi.fn();
+vi.mock('../repository.js', () => ({
+  isCategoryChannelEnabled: (...args: unknown[]) => mockIsCategoryChannelEnabled(...args),
+}));
+
+const mockSendInApp = vi.fn();
+vi.mock('../senders/inApp.js', () => ({
+  sendInApp: (...args: unknown[]) => mockSendInApp(...args),
+}));
+
+const mockSendEmail = vi.fn();
+vi.mock('../senders/email.js', () => ({
+  sendEmail: (...args: unknown[]) => mockSendEmail(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -472,111 +509,323 @@ describe('Sem autenticação → 401', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Fan-out: handleFanoutNotification (testes de unidade)
+// Fan-out: handleFanoutNotification (testes de unidade — F24-S06/F24-S20)
+//
+// F24-S06 reescreveu handleFanoutNotification para ser rules-driven:
+//   requireFlag → busca notification_rules (db.select) → resolveRuleRecipients
+//   → isCategoryChannelEnabled → dispatch por canal → recordDelivery (db.insert).
+// O handler recebe uma ROW de event_outbox (EventOutbox), não um payload de
+// emissão — daí os fixtures abaixo espelharem exatamente esse shape.
 // ---------------------------------------------------------------------------
+
+const OUTBOX_TASK_ID = 'b0000007-0000-0000-0000-000000000007';
+const OUTBOX_CONTRACT_ID = 'b0000008-0000-0000-0000-000000000008';
+const OUTBOX_LEAD_ID = 'b0000009-0000-0000-0000-000000000009';
+const RULE_TASK_ID = 'b000000a-0000-0000-0000-00000000000a';
+const RULE_CONTRACT_ID = 'b000000b-0000-0000-0000-00000000000b';
+const LEAD_ID = 'b000000c-0000-0000-0000-00000000000c';
+
+const TASK_CREATED_EVENT: EventOutbox = {
+  id: OUTBOX_TASK_ID,
+  organizationId: ORG_ID,
+  eventName: 'task.created',
+  eventVersion: 1,
+  aggregateType: 'task',
+  aggregateId: TASK_ID,
+  payload: {
+    event_id: OUTBOX_TASK_ID,
+    occurred_at: '2026-06-15T10:00:00.000Z',
+    actor: { kind: 'system', id: null, ip: null },
+    correlation_id: null,
+    data: {
+      task_id: TASK_ID,
+      assignee_role: 'agente',
+      city_id: CITY_ID,
+      type: 'spc_inclusion',
+      entity_type: 'customer',
+      entity_id: USER_ID,
+      organization_id: ORG_ID,
+    },
+  },
+  correlationId: null,
+  idempotencyKey: `task.created:${TASK_ID}`,
+  attempts: 0,
+  lastError: null,
+  processedAt: null,
+  failedAt: null,
+  createdAt: new Date('2026-06-15T10:00:00.000Z'),
+};
+
+const CONTRACT_SIGNED_EVENT: EventOutbox = {
+  id: OUTBOX_CONTRACT_ID,
+  organizationId: ORG_ID,
+  eventName: 'contract.signed',
+  eventVersion: 1,
+  aggregateType: 'contract',
+  aggregateId: CONTRACT_ID,
+  payload: {
+    event_id: OUTBOX_CONTRACT_ID,
+    occurred_at: '2026-06-15T10:00:00.000Z',
+    actor: { kind: 'user', id: USER_ID, ip: null },
+    correlation_id: null,
+    data: {
+      contract_id: CONTRACT_ID,
+      customer_id: USER_ID,
+      organization_id: ORG_ID,
+      signed_at: '2026-06-15T10:00:00.000Z',
+    },
+  },
+  correlationId: null,
+  idempotencyKey: `contract.signed:${CONTRACT_ID}`,
+  attempts: 0,
+  lastError: null,
+  processedAt: null,
+  failedAt: null,
+  createdAt: new Date('2026-06-15T10:00:00.000Z'),
+};
+
+const LEADS_CREATED_EVENT: EventOutbox = {
+  id: OUTBOX_LEAD_ID,
+  organizationId: ORG_ID,
+  eventName: 'leads.created',
+  eventVersion: 1,
+  aggregateType: 'lead',
+  aggregateId: LEAD_ID,
+  payload: {
+    event_id: OUTBOX_LEAD_ID,
+    occurred_at: '2026-06-15T10:00:00.000Z',
+    actor: { kind: 'user', id: USER_ID, ip: null },
+    correlation_id: null,
+    data: {
+      lead_id: LEAD_ID,
+      city_id: null,
+      source: 'manual',
+      assigned_agent_id: null,
+      created_by_kind: 'user',
+    },
+  },
+  correlationId: null,
+  idempotencyKey: `leads.created:${LEAD_ID}`,
+  attempts: 0,
+  lastError: null,
+  processedAt: null,
+  failedAt: null,
+  createdAt: new Date('2026-06-15T10:00:00.000Z'),
+};
+
+const TASK_CREATED_RULE = {
+  id: RULE_TASK_ID,
+  organizationId: ORG_ID,
+  name: 'Nova tarefa criada',
+  triggerKind: 'event' as const,
+  triggerKey: 'task.created',
+  category: 'system',
+  thresholdHours: null,
+  filters: {},
+  recipientMode: 'by_role_city' as const,
+  recipientRoles: ['agente'],
+  severity: 'info' as const,
+  channels: ['in_app'],
+  titleTemplate: 'Nova tarefa {{task_id}}',
+  bodyTemplate: 'Tarefa {{type}} criada para {{entity_type}} {{entity_id}}.',
+  cooldownHours: 0,
+  enabled: true,
+  createdBy: null,
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+};
+
+const CONTRACT_SIGNED_RULE = {
+  id: RULE_CONTRACT_ID,
+  organizationId: ORG_ID,
+  name: 'Contrato assinado',
+  triggerKind: 'event' as const,
+  triggerKey: 'contract.signed',
+  category: 'system',
+  thresholdHours: null,
+  filters: {},
+  recipientMode: 'managers' as const,
+  recipientRoles: [] as string[],
+  severity: 'info' as const,
+  channels: ['in_app'],
+  titleTemplate: 'Contrato {{contract_id}} assinado',
+  bodyTemplate: 'Cliente {{customer_id}} assinou o contrato {{contract_id}}.',
+  cooldownHours: 0,
+  enabled: true,
+  createdBy: null,
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+};
+
+const TASK_RECIPIENT = {
+  userId: USER_ID,
+  organizationId: ORG_ID,
+  displayName: 'Agente Teste',
+  channels: ['in_app'] as ('in_app' | 'email')[],
+};
+
+const MANAGER_RECIPIENT = {
+  userId: USER_ID,
+  organizationId: ORG_ID,
+  displayName: 'Gestor Teste',
+  channels: ['in_app'] as ('in_app' | 'email')[],
+};
+
+// ---------------------------------------------------------------------------
+// Helper: makeFanoutDb — mock de Database usado só pelo handler de fan-out.
+// Espelha o padrão já validado em handlers/__tests__/fanout-notification.test.ts.
+// ---------------------------------------------------------------------------
+
+interface MakeFanoutDbOptions {
+  rules?: Array<typeof TASK_CREATED_RULE | typeof CONTRACT_SIGNED_RULE>;
+  hasDelivery?: boolean;
+}
+
+function makeFanoutDb(opts: MakeFanoutDbOptions = {}) {
+  const rules = opts.rules ?? [];
+  const deliveryRows = opts.hasDelivery === true ? [{ id: 'delivery-uuid' }] : [];
+
+  const mockInsert = {
+    values: vi.fn().mockReturnValue({
+      onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+    }),
+  };
+
+  const mockSelectRules = {
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(rules),
+    }),
+  };
+
+  const mockSelectDelivery = {
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue(deliveryRows),
+      }),
+    }),
+  };
+
+  let selectCallCount = 0;
+
+  return {
+    select: vi.fn().mockImplementation(() => {
+      selectCallCount++;
+      // 1ª chamada select() = busca de notification_rules.
+      // 2ª+ chamadas select() = verificação de delivery (idempotência).
+      if (selectCallCount === 1) return mockSelectRules;
+      return mockSelectDelivery;
+    }),
+    insert: vi.fn().mockReturnValue(mockInsert),
+    _mockInsert: mockInsert,
+  };
+}
 
 describe('handleFanoutNotification — fan-out de eventos', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireFlag.mockResolvedValue(true);
+    mockResolveRuleRecipients.mockResolvedValue([]);
+    mockIsCategoryChannelEnabled.mockResolvedValue(true);
+    mockSendInApp.mockResolvedValue(undefined);
+    mockSendEmail.mockResolvedValue(undefined);
+  });
+
+  it('feature flag notifications.rules.enabled off → no-op, sem consultar regras', async () => {
+    mockRequireFlag.mockResolvedValue(false);
+    const db = makeFanoutDb();
+
+    // `as` justificado: mock parcial de Database — só implementa select/insert,
+    // suficiente para o handler sob teste (mesmo padrão de fanout-notification.test.ts).
+    await handleFanoutNotification(TASK_CREATED_EVENT, db as never);
+
+    expect(mockRequireFlag).toHaveBeenCalledWith(
+      db,
+      'notifications.rules.enabled',
+      expect.anything(),
+    );
+    expect(mockResolveRuleRecipients).not.toHaveBeenCalled();
+    expect(mockSendInApp).not.toHaveBeenCalled();
   });
 
   it('task.created: cria notificação in-app para destinatário correto', async () => {
-    const mockResolveRecipients = vi
-      .fn()
-      .mockResolvedValue([{ id: USER_ID, organizationId: ORG_ID }]);
-    const mockIsChannelEnabled = vi.fn().mockResolvedValue(true);
-    const mockSendInApp = vi.fn().mockResolvedValue(undefined);
+    mockResolveRuleRecipients.mockResolvedValue([TASK_RECIPIENT]);
+    const db = makeFanoutDb({ rules: [TASK_CREATED_RULE], hasDelivery: false });
 
-    vi.doMock('../../../modules/notifications/repository.js', () => ({
-      resolveTaskCreatedRecipients: mockResolveRecipients,
-      resolveContractSignedRecipients: vi.fn().mockResolvedValue([]),
-      isChannelEnabled: mockIsChannelEnabled,
-    }));
+    // `as` justificado: mock parcial de Database — ver comentário acima.
+    await handleFanoutNotification(TASK_CREATED_EVENT, db as never);
 
-    vi.doMock('../../../modules/notifications/senders/inApp.js', () => ({
-      sendInApp: mockSendInApp,
-    }));
-
-    vi.doMock('../../../modules/notifications/senders/email.js', () => ({
-      sendEmail: vi.fn().mockResolvedValue(undefined),
-    }));
-
-    vi.doMock('../../../modules/notifications/senders/whatsapp.js', () => ({
-      sendWhatsApp: vi.fn().mockResolvedValue(undefined),
-    }));
-
-    const { handleFanoutNotification } = await import('../../../handlers/fanout-notification.js');
-
-    const event = {
-      eventName: 'task.created' as const,
-      aggregateType: 'task',
-      aggregateId: TASK_ID,
-      organizationId: ORG_ID,
-      actor: { kind: 'system' as const, id: null, ip: null },
-      idempotencyKey: `task.created:${TASK_ID}`,
-      data: {
-        task_id: TASK_ID,
-        assignee_role: 'agente',
-        city_id: CITY_ID,
-        type: 'spc_inclusion',
-        entity_type: 'customer',
-        entity_id: USER_ID,
-        organization_id: ORG_ID,
-      },
-    };
-
-    // Handler usa db mock vazio — repositório mocado acima
-    await expect(
-      handleFanoutNotification(event, {} as Parameters<typeof handleFanoutNotification>[1]),
-    ).resolves.not.toThrow();
+    expect(mockResolveRuleRecipients).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        organizationId: ORG_ID,
+        recipientMode: 'by_role_city',
+        cityId: CITY_ID,
+      }),
+    );
+    expect(mockSendInApp).toHaveBeenCalledTimes(1);
+    expect(mockSendInApp).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        organizationId: ORG_ID,
+        userId: USER_ID,
+        entityType: 'task',
+        entityId: TASK_ID,
+      }),
+    );
+    expect(db.insert).toHaveBeenCalledTimes(1);
+    expect(db._mockInsert.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: ORG_ID,
+        ruleId: RULE_TASK_ID,
+        entityType: 'task',
+        entityId: TASK_ID,
+        bucket: OUTBOX_TASK_ID,
+      }),
+    );
   });
 
   it('contract.signed: notifica admin/gestor da organização', async () => {
-    // Testa que o evento contract.signed resolve destinatários admin/gestor
-    const { handleFanoutNotification } = await import('../../../handlers/fanout-notification.js');
+    mockResolveRuleRecipients.mockResolvedValue([MANAGER_RECIPIENT]);
+    const db = makeFanoutDb({ rules: [CONTRACT_SIGNED_RULE], hasDelivery: false });
 
-    // Mock repository retorna array vazio → fan-out não envia nada, mas não lança
-    const event = {
-      eventName: 'contract.signed' as const,
-      aggregateType: 'contract',
-      aggregateId: CONTRACT_ID,
-      organizationId: ORG_ID,
-      actor: { kind: 'user' as const, id: USER_ID, ip: null },
-      idempotencyKey: `contract.signed:${CONTRACT_ID}`,
-      data: {
-        contract_id: CONTRACT_ID,
-        customer_id: USER_ID,
-        organization_id: ORG_ID,
-        signed_at: '2026-06-15T10:00:00.000Z',
-      },
-    };
+    // `as` justificado: mock parcial de Database — ver comentário acima.
+    await handleFanoutNotification(CONTRACT_SIGNED_EVENT, db as never);
 
-    await expect(
-      handleFanoutNotification(event, {} as Parameters<typeof handleFanoutNotification>[1]),
-    ).resolves.not.toThrow();
+    expect(mockResolveRuleRecipients).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({ organizationId: ORG_ID, recipientMode: 'managers' }),
+    );
+    expect(mockSendInApp).toHaveBeenCalledTimes(1);
+    expect(mockSendInApp).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        organizationId: ORG_ID,
+        userId: USER_ID,
+        entityType: 'contract',
+        entityId: CONTRACT_ID,
+      }),
+    );
+    expect(db.insert).toHaveBeenCalledTimes(1);
+    expect(db._mockInsert.values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: ORG_ID,
+        ruleId: RULE_CONTRACT_ID,
+        entityType: 'contract',
+        entityId: CONTRACT_ID,
+        bucket: OUTBOX_CONTRACT_ID,
+      }),
+    );
   });
 
-  it('evento não suportado: ignora silenciosamente', async () => {
-    const { handleFanoutNotification } = await import('../../../handlers/fanout-notification.js');
+  it('leads.created: nenhuma regra cadastrada para o evento → ignora silenciosamente', async () => {
+    const db = makeFanoutDb({ rules: [] });
 
-    const event = {
-      eventName: 'leads.created' as const,
-      aggregateType: 'lead',
-      aggregateId: USER_ID,
-      organizationId: ORG_ID,
-      actor: { kind: 'user' as const, id: USER_ID, ip: null },
-      idempotencyKey: `leads.created:${USER_ID}`,
-      data: {
-        lead_id: USER_ID,
-        city_id: null,
-        source: 'manual',
-        assigned_agent_id: null,
-        created_by_kind: 'user',
-      },
-    };
+    // `as` justificado: mock parcial de Database — ver comentário acima.
+    await expect(handleFanoutNotification(LEADS_CREATED_EVENT, db as never)).resolves.not.toThrow();
 
-    await expect(
-      handleFanoutNotification(event, {} as Parameters<typeof handleFanoutNotification>[1]),
-    ).resolves.not.toThrow();
+    expect(db.select).toHaveBeenCalledTimes(1);
+    expect(mockResolveRuleRecipients).not.toHaveBeenCalled();
+    expect(mockSendInApp).not.toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalled();
   });
 });
