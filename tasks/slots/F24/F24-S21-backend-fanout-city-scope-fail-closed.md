@@ -3,7 +3,7 @@ id: F24-S21
 title: Backend — fail-closed de city_scope no fan-out por evento (paridade com F24-S16)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
