@@ -3,7 +3,7 @@ id: F24-S19
 title: Backend — propagar rule.severity até o payload de tempo real
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
@@ -13,6 +13,7 @@ labels: [backend, notifications, bugfix]
 source_docs: [docs/23-notificacoes.md]
 docs_required: false
 claimed_at: 2026-07-10T15:53:26Z
+completed_at: 2026-07-10T16:04:43Z
 ---
 
 # F24-S19 — Backend: severity nunca chega ao frontend
