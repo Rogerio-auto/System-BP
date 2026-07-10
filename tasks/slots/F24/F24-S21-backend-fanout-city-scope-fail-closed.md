@@ -3,7 +3,7 @@ id: F24-S21
 title: Backend — fail-closed de city_scope no fan-out por evento (paridade com F24-S16)
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
@@ -12,6 +12,7 @@ blocks: []
 labels: [backend, notifications, security, multi-tenant, bugfix]
 source_docs: [docs/10-seguranca-permissoes.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
+claimed_at: 2026-07-10T17:20:33Z
 ---
 
 # F24-S21 — Backend: fan-out por evento também deve ser fail-closed no city_scope
