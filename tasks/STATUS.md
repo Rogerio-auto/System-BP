@@ -25,7 +25,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F22  | 3     | 0   | 0   | 0   | 0   | 0   | 3   |
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
 | F24  | 21    | 0   | 0   | 0   | 0   | 0   | 21  |
-| F25  | 10    | 1   | 0   | 0   | 0   | 0   | 9   |
+| F25  | 10    | 0   | 0   | 0   | 1   | 0   | 9   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -368,18 +368,18 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 25 —
 
-| ID      | Título                                                                                   | Status       | Prioridade | Depende de                |
-| ------- | ---------------------------------------------------------------------------------------- | ------------ | ---------- | ------------------------- |
-| F25-S01 | DB — canonical_role em kanban_stages + ator 'ai' no audit + event types do funil         | ✅ done      | high       | —                         |
-| F25-S02 | Seed — permissões ai_actions:\* + role_permissions + flags + MODULE_PREFIX_MAP           | ✅ done      | high       | F25-S01                   |
-| F25-S03 | Backend — /internal qualify_lead + evento leads.qualified + workers por canonical_role   | ✅ done      | high       | F25-S01, F25-S02          |
-| F25-S04 | Python — tool qualify_lead no agente + fiação no agent_turn + prompt                     | ✅ done      | high       | F25-S03                   |
-| F25-S05 | Backend — worker proativo de estagnação + abandono reversível (config por org)           | ✅ done      | high       | F25-S01, F25-S02          |
-| F25-S06 | Backend — reversão de ação da IA + endpoint do painel "IA nas últimas 24h"               | ✅ done      | medium     | F25-S02, F25-S03, F25-S05 |
-| F25-S07 | Frontend — painel "IA no funil (24h)" + reverter + config de limiares (gated)            | ✅ done      | medium     | F25-S06                   |
-| F25-S08 | QA — testes de integração da fronteira IA↔humano (escopo, idempotência, reversão, flag) | ✅ done      | medium     | F25-S03, F25-S05, F25-S06 |
-| F25-S09 | Docs — Central de Ajuda: ações do agente no funil + revisar/reverter                     | ✅ done      | medium     | F25-S07                   |
-| F25-S10 | Backend — audit de housekeeping idempotente (2º tick não infla o painel IA-24h)          | 🟢 available | medium     | F25-S05, F25-S08          |
+| ID      | Título                                                                                   | Status         | Prioridade | Depende de                |
+| ------- | ---------------------------------------------------------------------------------------- | -------------- | ---------- | ------------------------- |
+| F25-S01 | DB — canonical_role em kanban_stages + ator 'ai' no audit + event types do funil         | ✅ done        | high       | —                         |
+| F25-S02 | Seed — permissões ai_actions:\* + role_permissions + flags + MODULE_PREFIX_MAP           | ✅ done        | high       | F25-S01                   |
+| F25-S03 | Backend — /internal qualify_lead + evento leads.qualified + workers por canonical_role   | ✅ done        | high       | F25-S01, F25-S02          |
+| F25-S04 | Python — tool qualify_lead no agente + fiação no agent_turn + prompt                     | ✅ done        | high       | F25-S03                   |
+| F25-S05 | Backend — worker proativo de estagnação + abandono reversível (config por org)           | ✅ done        | high       | F25-S01, F25-S02          |
+| F25-S06 | Backend — reversão de ação da IA + endpoint do painel "IA nas últimas 24h"               | ✅ done        | medium     | F25-S02, F25-S03, F25-S05 |
+| F25-S07 | Frontend — painel "IA no funil (24h)" + reverter + config de limiares (gated)            | ✅ done        | medium     | F25-S06                   |
+| F25-S08 | QA — testes de integração da fronteira IA↔humano (escopo, idempotência, reversão, flag) | ✅ done        | medium     | F25-S03, F25-S05, F25-S06 |
+| F25-S09 | Docs — Central de Ajuda: ações do agente no funil + revisar/reverter                     | ✅ done        | medium     | F25-S07                   |
+| F25-S10 | Backend — audit de housekeeping idempotente (2º tick não infla o painel IA-24h)          | 🔵 in-progress | medium     | F25-S05, F25-S08          |
 
 ## Fase 3 — Agentes IA
 
