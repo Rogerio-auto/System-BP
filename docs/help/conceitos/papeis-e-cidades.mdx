@@ -2,7 +2,7 @@
 title: Papéis e cidades
 description: O que cada papel pode fazer no sistema e por que você só vê leads das suas cidades.
 order: 10
-keywords: [papel, papeis, cidade, escopo, admin, gestor, agente, permissao]
+keywords: [papel, papeis, cidade, escopo, admin, gestor, agente, permissao, ia, acoes da ia, funil]
 ---
 
 # Papéis e cidades
@@ -45,6 +45,20 @@ Gestores regionais funcionam da mesma forma, mas com mais de uma cidade no escop
 <Callout type="info" title="Mudou de cidade?">
   Se você atende uma cidade nova, o administrador precisa adicionar essa cidade ao seu
   escopo em **Configurações → Agentes**. Sem isso, o sistema continua escondendo os leads.
+</Callout>
+
+## Permissões da IA no funil
+
+Três permissões controlam quem vê e quem pode mexer no que a Ana Clara faz sozinha no funil de leads (qualificação, sinalização de estagnação e abandono automático):
+
+| Permissão | O que libera | Quem recebe por padrão |
+|---|---|---|
+| `ai_actions:read` | Ver o painel "IA no funil" com o histórico de ações | Todos os papéis, dentro do seu escopo de cidade |
+| `ai_actions:revert` | Reverter uma qualificação ou abandono feito pela IA | Administrador, gestor geral, gestor regional e agente (nos seus leads/cidades) |
+| `ai_actions:manage` | Ligar/desligar as ações da IA no funil e ver os limiares configurados | Apenas administrador e gestor geral |
+
+<Callout type="tip" title="Veja também">
+  Para entender o que a IA faz e como revisar essas ações, veja [Ações do agente de IA no funil](/ajuda/guias/livechat/acoes-do-agente-no-funil) e [Revisar e reverter ações da IA](/ajuda/guias/livechat/revisar-e-reverter-acoes-da-ia).
 </Callout>
 
 ## Quem cuida disso
