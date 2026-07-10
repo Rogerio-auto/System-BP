@@ -205,7 +205,9 @@ const BASE_RECIPIENT = {
 // ---------------------------------------------------------------------------
 
 interface MakeDbOptions {
-  rules?: (typeof BASE_RULE)[];
+  // severity ampliado para 'info'|'warning'|'critical' (F24-S19) — os testes
+  // de severidade passam regras com severity diferente do default de BASE_RULE.
+  rules?: (Omit<typeof BASE_RULE, 'severity'> & { severity: 'info' | 'warning' | 'critical' })[];
   hasDelivery?: boolean;
 }
 
@@ -515,5 +517,40 @@ describe('handleFanoutNotification()', () => {
     await handleFanoutNotification(eventWithCity, db as never);
 
     expect(mockSendInApp).toHaveBeenCalledTimes(1);
+  });
+
+  // ── 15. severity da regra propaga ao sendInApp (F24-S19) ──────────────────
+
+  it('regra com severity=critical → sendInApp recebe severity=critical', async () => {
+    const criticalRule = { ...BASE_RULE, severity: 'critical' as const };
+    const db = makeDb({ rules: [criticalRule], hasDelivery: false });
+
+    await handleFanoutNotification(BASE_EVENT, db as never);
+
+    expect(mockSendInApp).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({ severity: 'critical' }),
+    );
+  });
+
+  it('regra sem severity configurada (default info) → sendInApp recebe severity=info', async () => {
+    const db = makeDb({ rules: [BASE_RULE], hasDelivery: false });
+
+    await handleFanoutNotification(BASE_EVENT, db as never);
+
+    expect(mockSendInApp).toHaveBeenCalledWith(db, expect.objectContaining({ severity: 'info' }));
+  });
+
+  it('canal email não recebe campo severity (parâmetro exclusivo de in_app)', async () => {
+    const ruleEmail = { ...BASE_RULE, channels: ['email'], severity: 'critical' as const };
+    const recipientEmail = { ...BASE_RECIPIENT, channels: ['email'] as ('in_app' | 'email')[] };
+    mockResolveRuleRecipients.mockResolvedValue([recipientEmail]);
+    const db = makeDb({ rules: [ruleEmail], hasDelivery: false });
+
+    await handleFanoutNotification(BASE_EVENT, db as never);
+
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    const emailArgs = mockSendEmail.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(emailArgs).not.toHaveProperty('severity');
   });
 });

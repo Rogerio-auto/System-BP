@@ -9,6 +9,7 @@ import { notificationRuleDeliveries, notificationRules } from '../db/schema/inde
 import { requireFlag } from '../lib/featureFlags.js';
 import { resolveRuleRecipients } from '../modules/notification-rules/recipients.js';
 import { findSlaSources } from '../modules/notification-rules/sla-sources.js';
+import type { NotificationSocketSeverity } from '../modules/notifications/realtime.js';
 import { isCategoryChannelEnabled } from '../modules/notifications/repository.js';
 import { sendEmail } from '../modules/notifications/senders/email.js';
 import { sendInApp } from '../modules/notifications/senders/inApp.js';
@@ -32,16 +33,21 @@ export type SlaScanDb = Pick<Database, 'select' | 'insert'>;
 
 /**
  * Logger mínimo injetável (compatível estruturalmente com pino.Logger).
- * Usado para deixar rastreável a supressão fail-closed de city_scope
- * (F24-S16 hardening) — sem isso, "por que esse handoff sem lead não
- * notificou" vira outro silêncio indetectável.
+ * `warn` deixa rastreável a supressão fail-closed de city_scope (F24-S16
+ * hardening). `error` deixa rastreáveis as falhas isoladas por regra/entidade
+ * (F24-S19) — sem isso, um `AppError` de `findSlaSources` (ex: trigger_key
+ * desconhecido) é engolido em silêncio pelo isolamento do scan.
  */
 export interface SlaScanLogger {
   warn(obj: object, msg?: string): void;
+  error(obj: object, msg?: string): void;
 }
 
 const noopLogger: SlaScanLogger = {
   warn: () => {
+    /* no-op — logger não fornecido (ex: chamada direta em teste) */
+  },
+  error: () => {
     /* no-op — logger não fornecido (ex: chamada direta em teste) */
   },
 };
@@ -119,7 +125,11 @@ async function dispatchToChannel(
     body: string;
     entityType: string;
     entityId: string;
+    severity: NotificationSocketSeverity;
+    ruleId: string;
+    triggerKey: string;
   },
+  logger: SlaScanLogger,
 ): Promise<boolean> {
   try {
     if (channel === 'in_app') {
@@ -131,6 +141,7 @@ async function dispatchToChannel(
         body: params.body,
         entityType: params.entityType,
         entityId: params.entityId,
+        severity: params.severity,
       });
       return true;
     }
@@ -149,7 +160,18 @@ async function dispatchToChannel(
       return true;
     }
     return false;
-  } catch {
+  } catch (err: unknown) {
+    logger.error(
+      {
+        err,
+        channel,
+        rule_id: params.ruleId,
+        trigger_key: params.triggerKey,
+        organization_id: params.organizationId,
+        entity_id: params.entityId,
+      },
+      'sla-scan: erro ao despachar para canal ' + channel + ' — isolado, continuando',
+    );
     return false;
   }
 }
@@ -236,15 +258,23 @@ async function processSlaRule(opts: ProcessSlaRuleOptions): Promise<void> {
         ))
       )
         continue;
-      await dispatchToChannel(fullDb, channel, {
-        organizationId: recipient.organizationId,
-        userId: recipient.userId,
-        type: 'sla:' + rule.triggerKey + ':' + rule.id,
-        title: renderedTitle,
-        body: renderedBody,
-        entityType,
-        entityId,
-      });
+      await dispatchToChannel(
+        fullDb,
+        channel,
+        {
+          organizationId: recipient.organizationId,
+          userId: recipient.userId,
+          type: 'sla:' + rule.triggerKey + ':' + rule.id,
+          title: renderedTitle,
+          body: renderedBody,
+          entityType,
+          entityId,
+          severity: rule.severity,
+          ruleId: rule.id,
+          triggerKey: rule.triggerKey,
+        },
+        logger,
+      );
     }
   }
   await recordDelivery(db, rule.organizationId, rule.id, entityType, entityId, bucket);
@@ -290,12 +320,29 @@ export async function runSlaScanTick(
             bucket,
             logger,
           });
-        } catch {
-          /* isolado */
+        } catch (err: unknown) {
+          logger.error(
+            {
+              err,
+              rule_id: rule.id,
+              trigger_key: rule.triggerKey,
+              organization_id: rule.organizationId,
+              entity_id: entity.entityId,
+            },
+            'sla-scan: erro ao processar entidade — isolado, continuando',
+          );
         }
       }
-    } catch {
-      /* isolado */
+    } catch (err: unknown) {
+      logger.error(
+        {
+          err,
+          rule_id: rule.id,
+          trigger_key: rule.triggerKey,
+          organization_id: rule.organizationId,
+        },
+        'sla-scan: erro ao processar regra — isolado, continuando',
+      );
     }
   }
   return { rulesProcessed: activeRules.length, entitiesEligible };

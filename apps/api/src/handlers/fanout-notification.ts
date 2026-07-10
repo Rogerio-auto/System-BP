@@ -42,6 +42,7 @@ import type { EventOutbox } from '../db/schema/events.js';
 import { notificationRuleDeliveries, notificationRules } from '../db/schema/index.js';
 import { requireFlag } from '../lib/featureFlags.js';
 import { resolveRuleRecipients } from '../modules/notification-rules/recipients.js';
+import type { NotificationSocketSeverity } from '../modules/notifications/realtime.js';
 import { isCategoryChannelEnabled } from '../modules/notifications/repository.js';
 import { sendEmail } from '../modules/notifications/senders/email.js';
 import { sendInApp } from '../modules/notifications/senders/inApp.js';
@@ -217,6 +218,7 @@ async function dispatchToChannel(
     entityType: string;
     entityId: string;
     eventName: string;
+    severity: NotificationSocketSeverity;
   },
 ): Promise<boolean> {
   try {
@@ -229,6 +231,7 @@ async function dispatchToChannel(
         body: params.body,
         entityType: params.entityType,
         entityId: params.entityId,
+        severity: params.severity,
       });
       return true;
     }
@@ -420,6 +423,7 @@ async function processRule(opts: ProcessRuleOptions): Promise<void> {
         entityType,
         entityId,
         eventName: event.eventName,
+        severity: rule.severity,
       });
 
       if (dispatched) {
