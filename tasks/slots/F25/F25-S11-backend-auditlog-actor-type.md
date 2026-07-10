@@ -3,7 +3,7 @@ id: F25-S11
 title: Backend — auditLog seta actor_type na raiz (IA e sistema deixam de ser rotulados 'user')
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
