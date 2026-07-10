@@ -3,7 +3,7 @@ id: F24-S15
 title: Docs — doc canônico de notificações + flags + runbook go-live
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
@@ -13,6 +13,7 @@ labels: [docs, notifications]
 source_docs:
   [docs/planejamento-notificacoes.md, docs/09-feature-flags.md, docs/19-runbook-go-live.md]
 docs_required: false
+claimed_at: 2026-07-10T14:12:13Z
 ---
 
 # F24-S15 — Docs: canônico + flags + runbook
