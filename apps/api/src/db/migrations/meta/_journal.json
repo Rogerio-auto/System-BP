@@ -540,6 +540,13 @@
       "when": 1783624532255,
       "tag": "0085_ai_funnel_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1784100000000,
+      "tag": "0086_seed_internal_assistant_prompt",
+      "breakpoints": true
     }
   ]
 }
