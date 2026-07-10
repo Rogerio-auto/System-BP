@@ -4,15 +4,16 @@
 // Fonte: audit_logs (actor_type='ai' OU actor_role='ai' — ver nota abaixo) +
 // leads (join mínimo para nome mascarado + city_id de escopo).
 //
-// NOTA — gap conhecido de actor_type (docs/22 §8.A, migration 0078):
-//   `qualifyLead` (F25-S03, leads/service.ts) insere audit_logs diretamente com
-//   actor_type='ai'. Já `funnel-housekeeping` (F25-S05) usa o helper auditLog()
-//   passando `actor: { role: 'ai' }` — mas lib/audit.ts (fora do escopo deste
-//   slot) não expõe actor_type como parâmetro, então essas linhas ficam com
-//   actor_type='user' (default da coluna). Para não perder leads.stagnant/
-//   leads.abandoned do painel, filtramos por `actor_type = 'ai' OR actor_role
-//   = 'ai'` — actor_role é setado corretamente pelo helper em ambos os casos.
-//   Corrigir a raiz (lib/audit.ts aceitar actor_type) fica para slot futuro.
+// NOTA — raiz corrigida em F25-S11 (docs/22 §8.A, migration 0078):
+//   O gap original (`lib/audit.ts` nunca setava actor_type, então toda linha
+//   gravada via helper auditLog() caía no default 'user') foi corrigido na
+//   raiz: auditLog() agora deriva actor_type (explícito > null->'system' >
+//   role==='ai'->'ai' > 'user'). `qualifyLead` (F25-S03, leads/service.ts)
+//   já gravava direto com actor_type='ai' (correto desde sempre). Novas
+//   linhas de `funnel-housekeeping` e `simulations/service.ts` agora gravam
+//   actor_type='ai' diretamente — o `OR actor_role = 'ai'` abaixo vira rede
+//   de segurança só para linhas históricas gravadas ANTES do F25-S11 (sem
+//   backfill neste slot). Removível num cleanup futuro após backfill.
 //
 // Segurança (doc 10 §3.4/§3.5): city-scope aplicado via JOIN leads.city_id.
 // Linhas sem lead correspondente (órfãs) são excluídas para usuários com
@@ -85,6 +86,9 @@ function buildAiActionsWhereFragment(
     al.organization_id = ${organizationId}
       AND al.resource_type = 'lead'
       AND al.action IN (${actionsFrag})
+      -- F25-S11: raiz corrigida — novas linhas já gravam actor_type='ai'.
+      -- OR actor_role='ai' é rede de segurança para linhas históricas
+      -- pré-F25-S11 (sem backfill); removível num cleanup futuro.
       AND (al.actor_type = 'ai' OR al.actor_role = 'ai')
       AND al.created_at >= ${sinceDate.toISOString()}::timestamptz
       ${cityFrag}

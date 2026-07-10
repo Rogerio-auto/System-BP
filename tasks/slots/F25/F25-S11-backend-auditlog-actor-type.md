@@ -3,7 +3,7 @@ id: F25-S11
 title: Backend — auditLog seta actor_type na raiz (IA e sistema deixam de ser rotulados 'user')
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
@@ -13,6 +13,8 @@ labels: [backend, audit, lgpd, ai-agent, bugfix]
 source_docs:
   [docs/22-agente-interno-acoes.md, docs/17-lgpd-protecao-dados.md, docs/10-seguranca-permissoes.md]
 docs_required: false
+claimed_at: 2026-07-10T19:21:59Z
+completed_at: 2026-07-10T19:31:24Z
 ---
 
 # F25-S11 — Backend: auditLog seta actor_type na raiz

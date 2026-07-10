@@ -96,7 +96,9 @@ async function processStagnant(db: Database, lead: StagnantLead, dayBucket: stri
     );
     await auditLog(tx as unknown as AuditTx, {
       organizationId: lead.orgId,
-      actor: { userId: null, role: 'ai' },
+      // type: 'ai' explícito (F25-S11) -- intenção clara, não depende só da
+      // heurística de role==='ai' em lib/audit.ts.
+      actor: { userId: null, role: 'ai', type: 'ai' },
       action: 'leads.stagnant',
       resource: { type: 'lead', id: lead.leadId },
       after: { stagnant_days: lead.daysSinceUpdate },
@@ -160,7 +162,9 @@ async function processAbandon(db: Database, lead: StagnantLead, dayBucket: strin
     );
     await auditLog(tx as unknown as AuditTx, {
       organizationId: lead.orgId,
-      actor: { userId: null, role: 'ai' },
+      // type: 'ai' explícito (F25-S11) -- intenção clara, não depende só da
+      // heurística de role==='ai' em lib/audit.ts.
+      actor: { userId: null, role: 'ai', type: 'ai' },
       action: 'leads.abandoned',
       resource: { type: 'lead', id: lead.leadId },
       before: { status: 'active' },

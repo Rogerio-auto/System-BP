@@ -61,6 +61,13 @@ export interface AuditTx {
 }
 
 /**
+ * Valor gravado em audit_logs.actor_type (F25-S01 / LGPD Art. 20 — transparência
+ * de decisão automatizada). Check constraint chk_audit_logs_actor_type aceita
+ * exatamente estes 3 valores.
+ */
+export type AuditActorType = 'user' | 'system' | 'ai';
+
+/**
  * Informações sobre o ator que executou a ação.
  * null para ações de sistema (worker, job, integração interna).
  */
@@ -69,6 +76,12 @@ export type AuditActor = {
   userId: string | null;
   /** Role snapshot no momento da ação. */
   role: string;
+  /**
+   * Tipo do ator para audit_logs.actor_type (F25-S11).
+   * Explícito vence a derivação por `role`. Deixe undefined para a heurística
+   * padrão decidir (ver auditLog() — role==='ai' → 'ai', senão 'user').
+   */
+  type?: AuditActorType;
   /** IP do cliente. null se não disponível. */
   ip?: string | null;
   /** User-Agent. null se não disponível. */
@@ -183,6 +196,17 @@ export async function auditLog(tx: AuditTx, params: AuditLogParams): Promise<str
       ? params.actor.userAgent.slice(0, 512)
       : null;
 
+  // Deriva actor_type (F25-S11 / LGPD Art. 20 — transparência de decisão
+  // automatizada). Ordem:
+  //   1. actor.type explícito, se o caller informou;
+  //   2. actor === null (ações de sistema: worker/job/integração) -> 'system';
+  //   3. actor.role === 'ai' (convenção já usada pelos callers de IA) -> 'ai';
+  //   4. senão -> 'user'.
+  // Lógica pura sobre params.actor — nenhum cast necessário.
+  const actorType: AuditActorType =
+    params.actor?.type ??
+    (params.actor === null ? 'system' : params.actor.role === 'ai' ? 'ai' : 'user');
+
   await tx.insert(auditLogs).values({
     id,
     organizationId: params.organizationId,
@@ -192,6 +216,7 @@ export async function auditLog(tx: AuditTx, params: AuditLogParams): Promise<str
     // normaliza ''/undefined/null para NULL. Ver feedback_system_actor_audit_uuid.
     actorUserId: params.actor?.userId || null,
     actorRole: params.actor?.role ?? null,
+    actorType,
     action: params.action,
     resourceType: params.resource.type,
     resourceId: params.resource.id,

@@ -164,6 +164,31 @@ describe('runFunnelHousekeepingTick', () => {
     expect(mockTransaction).toHaveBeenCalledOnce();
   });
 
+  // F25-S11: actor_type='ai' explícito nas ações da IA (housekeeping).
+  it("F25-S11: auditLog de leads.stagnant recebe actor explícito type='ai'", async () => {
+    setupSelectSeq([BASE_SETTINGS], [BASE_LEAD]);
+    await runFunnelHousekeepingTick(mockDb);
+
+    expect(mockAuditLog).toHaveBeenCalledOnce();
+    const auditArgs = mockAuditLog.mock.calls[0] as unknown[];
+    expect(auditArgs[1]).toMatchObject({
+      action: 'leads.stagnant',
+      actor: { userId: null, role: 'ai', type: 'ai' },
+    });
+  });
+
+  it("F25-S11: auditLog de leads.abandoned recebe actor explícito type='ai'", async () => {
+    setupSelectSeq([BASE_SETTINGS], [{ ...BASE_LEAD, updatedAt: OLD_ABANDON }]);
+    await runFunnelHousekeepingTick(mockDb);
+
+    expect(mockAuditLog).toHaveBeenCalledOnce();
+    const auditArgs = mockAuditLog.mock.calls[0] as unknown[];
+    expect(auditArgs[1]).toMatchObject({
+      action: 'leads.abandoned',
+      actor: { userId: null, role: 'ai', type: 'ai' },
+    });
+  });
+
   it('idempotencia: emit chamado com onConflictDoNothing (dedup no outbox)', async () => {
     // A idempotencia e garantida pelo onConflictDoNothing no emit() com idempotencyKey unica.
     // Este teste verifica que emit e chamado com a flag correta.
