@@ -3,7 +3,7 @@ id: F24-S15
 title: Docs — doc canônico de notificações + flags + runbook go-live
 phase: F24
 task_ref: docs/planejamento-notificacoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
@@ -15,6 +15,7 @@ source_docs:
 docs_required: false
 claimed_at: 2026-07-10T14:12:13Z
 completed_at: 2026-07-10T14:26:44Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/413
 ---
 
 # F24-S15 — Docs: canônico + flags + runbook

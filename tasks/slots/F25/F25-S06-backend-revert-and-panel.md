@@ -3,7 +3,7 @@ id: F25-S06
 title: Backend — reversão de ação da IA + endpoint do painel "IA nas últimas 24h"
 phase: F25
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/22-agente-interno-acoes.md, docs/10-seguranca-permissoes.md]
 docs_required: false
 claimed_at: 2026-07-10T14:30:53Z
 completed_at: 2026-07-10T14:38:44Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/415
 ---
 
 # F25-S06 — Backend: reversão + painel de ações da IA
