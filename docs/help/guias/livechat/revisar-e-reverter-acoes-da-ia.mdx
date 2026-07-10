@@ -1,0 +1,61 @@
+---
+title: Revisar e reverter ações da IA
+description: Como usar o painel "IA no funil" para ver o que a Ana Clara fez nas últimas horas e como desfazer uma qualificação ou abandono automático.
+order: 80
+keywords: [ia, painel, revisar, reverter, historico, qualificacao, abandono, permissao, gestor, administrador]
+audience: [gestor, admin]
+---
+
+# Revisar e reverter ações da IA
+
+Use este guia quando você precisar conferir o que a Ana Clara fez sozinha no funil de leads e desfazer uma dessas ações.
+
+<Callout type="info" title="Antes de começar">
+  Você precisa ter o papel de **gestor** ou **administrador**, e o módulo de ações da IA no funil precisa estar liberado pelo administrador. Consulte [Módulos liberados](/ajuda/conceitos/modulos-liberados) para entender quem libera esse módulo.
+
+  <Permission requires="ai_actions:read" />
+</Callout>
+
+## Onde encontrar o painel
+
+Acesse **Configurações → Administração → IA no funil**. A página mostra a lista de ações que a Ana Clara realizou sozinha — qualificações, sinalizações de estagnação e abandonos — na janela de tempo que você escolher: **24 horas**, **7 dias** ou **30 dias**.
+
+Cada linha mostra quando a ação aconteceu, o tipo de ação e o lead envolvido. Por proteção de dados, o nome do lead aparece mascarado na lista.
+
+## Como reverter uma ação
+
+<Step number={1}>
+  **Localize a ação na lista**
+
+  Escolha a janela de tempo (24 horas, 7 dias ou 30 dias) e encontre a linha da ação que você quer desfazer.
+</Step>
+
+<Step number={2}>
+  **Clique em Reverter**
+
+  Nem toda ação pode ser revertida — ações apenas informativas (como uma sinalização de estagnação) não mostram o botão. Ações que mudam o funil, como qualificação ou abandono, mostram o botão **Reverter**.
+
+  <Permission requires="ai_actions:revert" />
+</Step>
+
+<Step number={3}>
+  **Confirme a reversão**
+
+  Uma janela de confirmação mostra o lead e a ação que será desfeita. Ao confirmar, o lead volta a uma etapa não encerrada do funil, e a reversão fica registrada — o histórico da ação original não é apagado, apenas complementado.
+</Step>
+
+<Callout type="warn" title="O que reverter não faz">
+  Reverter uma ação da IA devolve o lead a uma etapa aberta do funil. Isso não aprova crédito, não altera valores e não substitui uma decisão humana — a IA continua sem poder de decisão sobre crédito, e a reversão em si também não decide nada por você.
+</Callout>
+
+## Limiares do agente proativo
+
+Se você tem a permissão de configuração, o painel também mostra os limiares usados pela IA para sinalizar estagnação e abandono (por padrão, 7 dias e 30 dias sem resposta). Uma tela própria para editar esses valores ainda está em desenvolvimento — por enquanto eles são apenas informativos.
+
+<Permission requires="ai_actions:manage" />
+
+## Veja também
+
+- [Agente de IA no Live Chat (Ana Clara)](/ajuda/guias/livechat/agente-ia) — o que a Ana Clara faz durante a conversa.
+- [Handoff IA para atendimento humano](/ajuda/guias/livechat/handoff-ia-humano) — como funciona a transferência para um atendente.
+- [Ações do agente de IA no funil](/ajuda/guias/livechat/acoes-do-agente-no-funil) — a fronteira completa entre o que a IA faz e o que é decisão humana.

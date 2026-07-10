@@ -2,7 +2,7 @@
 title: Agente de IA no Live Chat (Ana Clara)
 description: Como a Ana Clara responde automaticamente às mensagens do live chat, o que você vê em tempo real no painel e como ela mantém o contexto da conversa.
 order: 50
-keywords: [live chat, agente ia, ana clara, resposta automatica, tempo real, contexto, homologacao, allowlist]
+keywords: [live chat, agente ia, ana clara, resposta automatica, tempo real, contexto, homologacao, allowlist, qualificacao, funil, kanban]
 audience: [operador, gestor]
 ---
 
@@ -50,6 +50,21 @@ A Ana Clara conduz a triagem inicial da conversa: coleta nome, cidade, atividade
 | Módulo habilitado + lista de homologação preenchida | Ana Clara responde somente aos números da lista |
 | Mensagem de mídia (imagem, documento) | Ana Clara não responde (somente mensagens de texto) |
 | Mensagem duplicada | Ana Clara não responde novamente |
+
+---
+
+## Qualificação e atualização automática do Kanban
+
+Além de conduzir a triagem, a Ana Clara também atualiza o funil sozinha em dois momentos:
+
+- Assim que reúne nome, cidade, atividade e o motivo do crédito, ela **qualifica** o lead. Isso aparece como uma mudança de status e um selo no card, ainda dentro da etapa de Pré-atendimento — ela não pula etapas do funil por conta própria.
+- Se o cidadão fica muito tempo sem responder, ela sinaliza o lead como **estagnado** e, depois de mais tempo em silêncio, pode marcá-lo como **abandonado** — o card vai para a etapa de perdido, sempre com o motivo anotado no histórico.
+
+<Callout type="warn" title="O que a Ana Clara nunca faz">
+  A Ana Clara qualifica leads e atualiza o funil, mas **nunca decide sobre o crédito** — aprovar, recusar ou definir valores continua sendo sempre uma decisão humana. Ela também não move o card para Documentação, Análise ou Concluído, e não manda mensagem para o cidadão por iniciativa própria fora da conversa em andamento.
+</Callout>
+
+Consulte [Ações do agente de IA no funil](/ajuda/guias/livechat/acoes-do-agente-no-funil) para entender toda a fronteira entre o que a IA faz e o que continua sendo decisão sua. Se você é gestor ou administrador, [Revisar e reverter ações da IA](/ajuda/guias/livechat/revisar-e-reverter-acoes-da-ia) explica como acompanhar e desfazer uma qualificação ou abandono automático.
 
 ---
 
@@ -109,6 +124,7 @@ A atualização em tempo real depende de conexão ativa com o servidor. Se a con
 
 ## Veja também
 
+- [Ações do agente de IA no funil](/ajuda/guias/livechat/acoes-do-agente-no-funil) — o que a Ana Clara faz sozinha no funil e o que continua sendo decisão humana.
 - [Handoff IA para atendimento humano](/ajuda/guias/livechat/handoff-ia-humano) — como assumir conversas transferidas pela Ana Clara.
 - [Tempo real e leitura](/ajuda/guias/livechat/tempo-real-e-leitura) — como o inbox atualiza em tempo real.
 - [Responder conversas](/ajuda/guias/livechat/responder-conversa) — como usar o painel de conversa para responder manualmente.
