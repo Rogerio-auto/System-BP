@@ -4,9 +4,16 @@
 // Grava linha na tabela `notifications` para exibição no sino/central do frontend.
 // É o único sender que persiste em banco — email e whatsapp são externos.
 //
+// F24-S08: após persistir, publica `notification.new` no socket relay (sala
+// `user:{userId}`) atrás da flag `notifications.realtime.enabled`. Fire-and-forget:
+// falha de publish não deve impedir a criação da notificação (já persistida).
+//
 // LGPD §8.5: title/body podem ter PII indireta — não logar sem redact.
 // =============================================================================
 import type { Database } from '../../../db/client.js';
+import { logger } from '../../../lib/logger.js';
+import type { NotificationSocketSeverity } from '../realtime.js';
+import { publishNotificationSocket } from '../realtime.js';
 import { createNotification } from '../repository.js';
 
 export interface InAppSenderInput {
@@ -20,14 +27,16 @@ export interface InAppSenderInput {
   body: string;
   entityType?: string | null;
   entityId?: string | null;
+  /** Severidade para estilo do badge/toast em tempo real. Default: 'info'. */
+  severity?: NotificationSocketSeverity;
 }
 
 /**
- * Persiste notificação in-app no banco.
+ * Persiste notificação in-app no banco e publica push em tempo real (F24-S08).
  * Lança AppError 500 se INSERT falhar (tratado pelo consumer do outbox).
  */
 export async function sendInApp(db: Database, input: InAppSenderInput): Promise<void> {
-  await createNotification(db, {
+  const notification = await createNotification(db, {
     organizationId: input.organizationId,
     userId: input.userId,
     channel: 'in_app',
@@ -36,5 +45,25 @@ export async function sendInApp(db: Database, input: InAppSenderInput): Promise<
     body: input.body,
     entityType: input.entityType ?? null,
     entityId: input.entityId ?? null,
+  });
+
+  // Fire-and-forget: tempo real é um enhancement, não bloqueia a criação já persistida.
+  publishNotificationSocket(db, {
+    organizationId: input.organizationId,
+    userId: input.userId,
+    notification: {
+      id: notification.id,
+      type: input.type,
+      title: notification.title,
+      severity: input.severity ?? 'info',
+      entityType: notification.entity_type,
+      entityId: notification.entity_id,
+      createdAt: notification.created_at,
+    },
+  }).catch((err: unknown) => {
+    logger.warn(
+      { event: 'notifications.realtime.publish_failed', err },
+      'inApp: falha ao publicar push em tempo real (non-blocking)',
+    );
   });
 }
