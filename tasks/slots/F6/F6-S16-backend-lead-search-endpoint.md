@@ -3,7 +3,7 @@ id: F6-S16
 title: Backend — endpoint interno de busca de lead por nome (para o copiloto resolver o lead)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
