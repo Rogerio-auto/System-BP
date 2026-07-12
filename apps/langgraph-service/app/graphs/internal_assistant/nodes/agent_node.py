@@ -18,8 +18,10 @@ from app.tools.assistant_tools import (
     build_assistant_tool_schemas,
     call_analysis_status,
     call_billing_snapshot,
+    call_find_lead,
     call_funnel_metrics,
     call_lead_count,
+    call_summarize_lead_conversation,
 )
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
@@ -63,6 +65,16 @@ async def _dispatch_tool(
             result = await call_billing_snapshot(
                 principal=principal,
                 city_ids=city_ids,
+            )
+        elif tool_name == "find_lead":
+            result = await call_find_lead(
+                principal=principal,
+                name=tool_args.get("name", ""),
+            )
+        elif tool_name == "summarize_lead_conversation":
+            result = await call_summarize_lead_conversation(
+                principal=principal,
+                lead_id=tool_args["lead_id"],
             )
         else:
             return json.dumps({"error": f"tool desconhecida: {tool_name}"})

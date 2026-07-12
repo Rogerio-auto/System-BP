@@ -8,8 +8,15 @@ Contratos (fonte de verdade: apps/api/src/modules/internal/assistant/schemas.ts)
   lead_count      -> POST /internal/assistant/lead-count      (range + cityIds)
   analysis_status -> POST /internal/assistant/analysis-status (lead_id)
   billing_snapshot-> POST /internal/assistant/billing-upcoming (cityIds ONLY, sem range)
+  lead_search     -> POST /internal/assistant/lead-search      (name)          (F6-S16)
+  lead_conversation-> POST /internal/assistant/lead-conversation (lead_id)     (F6-S13)
 
 LGPD s17/s8.5: responses nao incluem CPF. Telefone mascarado pelo backend.
+
+F6-S14 (find_lead + summarize_lead_conversation): duas tools read-only encadeaveis
+pelo LLM. O `name` de busca e o `content` das mensagens de conversa SAO PII (doc 17
+s8.1/s8.3/s14.2) -- nunca logados aqui. A DLP do gateway (agent_node, dlp=True) redige
+o texto antes de qualquer chamada ao OpenRouter.
 """
 from __future__ import annotations
 
@@ -116,6 +123,27 @@ def build_assistant_tool_schemas() -> list[dict[str, Any]]:
             },
             required=[],
         ),
+        _tool(
+            "find_lead",
+            "Use para localizar o lead pelo NOME quando o usuario se refere a um lead "
+            "por nome (ex.: 'resuma a conversa da Maria'). Retorna candidatos com "
+            "lead_id, name e city_name -- se houver mais de um, pergunte ao usuario "
+            "qual deles antes de prosseguir.",
+            {
+                "name": _prop("string", "Nome (ou parte do nome) do lead a buscar."),
+            },
+            required=["name"],
+        ),
+        _tool(
+            "summarize_lead_conversation",
+            "Use quando o usuario pedir para resumir a conversa de um lead, com o "
+            "lead_id obtido via find_lead. Retorna as mensagens da conversa para "
+            "voce (o modelo) resumir -- esta tool nao resume sozinha.",
+            {
+                "lead_id": _prop("string", "UUID do lead cuja conversa sera resumida."),
+            },
+            required=["lead_id"],
+        ),
     ]
 
 
@@ -197,3 +225,38 @@ async def call_billing_snapshot(
         del body["query"]
     log.info("assistant_tool_call", tool="get_billing_snapshot")
     return await http.post("/internal/assistant/billing-upcoming", json=body)
+
+
+async def call_find_lead(
+    principal: Principal,
+    name: str,
+    client: InternalApiClient | None = None,
+) -> dict[str, Any]:
+    """Chama /internal/assistant/lead-search e retorna candidatos.
+
+    LGPD s8.1/s14.2: `name` e PII (texto livre digitado pelo usuario) -- NUNCA
+    logado. O log de auditoria NAO inclui o termo de busca, apenas o nome da tool.
+    A tool devolve os candidatos ao LLM; a escolha entre homonimos e do usuario.
+    """
+    http = client or InternalApiClient()
+    body: dict[str, Any] = {"principal": principal, "name": name}
+    log.info("assistant_tool_call", tool="find_lead")
+    return await http.post("/internal/assistant/lead-search", json=body)
+
+
+async def call_summarize_lead_conversation(
+    principal: Principal,
+    lead_id: str,
+    client: InternalApiClient | None = None,
+) -> dict[str, Any]:
+    """Chama /internal/assistant/lead-conversation e retorna as mensagens.
+
+    LGPD s8.1/s8.3: messages[].content e PII (texto livre do contato/agente) --
+    NUNCA logado aqui. A tool apenas repassa as mensagens ao loop de tool-calling;
+    quem resume e o LLM, sob DLP (agent_node chama o gateway com dlp=True), que
+    redige o texto antes de qualquer chamada ao OpenRouter.
+    """
+    http = client or InternalApiClient()
+    body: dict[str, Any] = {"principal": principal, "lead_id": lead_id}
+    log.info("assistant_tool_call", tool="summarize_lead_conversation", lead_id=lead_id)
+    return await http.post("/internal/assistant/lead-conversation", json=body)
