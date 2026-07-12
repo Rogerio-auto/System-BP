@@ -3,7 +3,7 @@ id: F6-S13
 title: Backend — endpoint interno de leitura da conversa do lead (para resumo do copiloto)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
@@ -13,6 +13,8 @@ labels: [backend, ai-assistant, rbac, lgpd-impact]
 source_docs:
   [docs/22-agente-interno-acoes.md, docs/10-seguranca-permissoes.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
+claimed_at: 2026-07-12T15:40:22Z
+completed_at: 2026-07-12T15:51:52Z
 ---
 
 # F6-S13 — Backend: endpoint de leitura da conversa do lead

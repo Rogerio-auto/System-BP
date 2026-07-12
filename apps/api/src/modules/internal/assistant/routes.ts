@@ -22,6 +22,8 @@ import {
   BillingUpcomingResponseSchema,
   FunnelMetricsBodySchema,
   FunnelMetricsResponseSchema,
+  LeadConversationBodySchema,
+  LeadConversationResponseSchema,
   LeadCountBodySchema,
   LeadCountResponseSchema,
 } from './schemas.js';
@@ -29,6 +31,7 @@ import {
   getAnalysisStatus,
   getBillingUpcoming,
   getFunnelMetrics,
+  getLeadConversation,
   getLeadCount,
 } from './service.js';
 
@@ -102,6 +105,25 @@ const internalAssistantRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) => {
       checkToken(req.headers['x-internal-token']);
       const result = await getBillingUpcoming(db, req.body.principal, req.body.query);
+      return reply.status(200).send(result);
+    },
+  );
+
+  // POST /internal/assistant/lead-conversation -- requer livechat:conversation:read
+  // LGPD: response contem messages[].content (PII bruta) -- nao logar (pino.redact
+  // cobre `*.content` em app.ts). DLP do gateway LangGraph redige antes do LLM.
+  app.post(
+    '/lead-conversation',
+    {
+      schema: {
+        hide: true,
+        body: LeadConversationBodySchema,
+        response: { 200: LeadConversationResponseSchema },
+      },
+    },
+    async (req, reply) => {
+      checkToken(req.headers['x-internal-token']);
+      const result = await getLeadConversation(db, req.body.principal, req.body.lead_id);
       return reply.status(200).send(result);
     },
   );
