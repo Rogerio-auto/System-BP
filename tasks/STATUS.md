@@ -29,7 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 12    | 1   | 0   | 0   | 1   | 0   | 10  |
+| F6   | 12    | 1   | 0   | 0   | 0   | 1   | 10  |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -460,20 +460,20 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 6 — Dashboards e relatórios
 
-| ID     | Título                                                                                     | Status         | Prioridade | Depende de     |
-| ------ | ------------------------------------------------------------------------------------------ | -------------- | ---------- | -------------- |
-| F6-S05 | DB/Seed — ai_assistant:use + flag ai.internal_assistant.enabled + tabela assistant_queries | ✅ done        | high       | —              |
-| F6-S06 | Backend — endpoints de leitura RBAC-bound do copiloto (principal do usuário + city scope)  | ✅ done        | high       | F6-S05         |
-| F6-S07 | Python — grafo internal_assistant + tools de leitura + prompt (sem escrita)                | ✅ done        | high       | F6-S06         |
-| F6-S08 | Backend — POST /api/internal-assistant/query (injeta principal → grafo) + guard + log      | ✅ done        | high       | F6-S05, F6-S07 |
-| F6-S09 | Frontend — tela de chat do copiloto (substitui o teaser do InternalAssistantButton)        | ✅ done        | medium     | F6-S08         |
-| F6-S10 | QA — testes RBAC-bound do copiloto (por role/cidade, negação sem vazar, DLP, flag)         | ✅ done        | high       | F6-S06, F6-S08 |
-| F6-S11 | Docs — Central de Ajuda do copiloto interno (perguntar sobre seus dados / RBAC)            | 🟢 available   | medium     | F6-S09         |
-| F6-S12 | Frontend — workspace fullscreen do copiloto (markdown + chips de sugestão por role)        | ✅ done        | medium     | F6-S09         |
-| F6-S13 | Backend — endpoint interno de leitura da conversa do lead (para resumo do copiloto)        | ✅ done        | medium     | F6-S06         |
-| F6-S14 | LangGraph — tool de resumo de conversa do lead no copiloto (read-only, DLP)                | ✅ done        | medium     | F6-S13, F6-S16 |
-| F6-S15 | Prompt — copiloto v2: saída em markdown + capacidade de resumo de conversa                 | 🔵 in-progress | medium     | F6-S14         |
-| F6-S16 | Backend — endpoint interno de busca de lead por nome (para o copiloto resolver o lead)     | ✅ done        | medium     | F6-S06         |
+| ID     | Título                                                                                     | Status       | Prioridade | Depende de     |
+| ------ | ------------------------------------------------------------------------------------------ | ------------ | ---------- | -------------- |
+| F6-S05 | DB/Seed — ai_assistant:use + flag ai.internal_assistant.enabled + tabela assistant_queries | ✅ done      | high       | —              |
+| F6-S06 | Backend — endpoints de leitura RBAC-bound do copiloto (principal do usuário + city scope)  | ✅ done      | high       | F6-S05         |
+| F6-S07 | Python — grafo internal_assistant + tools de leitura + prompt (sem escrita)                | ✅ done      | high       | F6-S06         |
+| F6-S08 | Backend — POST /api/internal-assistant/query (injeta principal → grafo) + guard + log      | ✅ done      | high       | F6-S05, F6-S07 |
+| F6-S09 | Frontend — tela de chat do copiloto (substitui o teaser do InternalAssistantButton)        | ✅ done      | medium     | F6-S08         |
+| F6-S10 | QA — testes RBAC-bound do copiloto (por role/cidade, negação sem vazar, DLP, flag)         | ✅ done      | high       | F6-S06, F6-S08 |
+| F6-S11 | Docs — Central de Ajuda do copiloto interno (perguntar sobre seus dados / RBAC)            | 🟢 available | medium     | F6-S09         |
+| F6-S12 | Frontend — workspace fullscreen do copiloto (markdown + chips de sugestão por role)        | ✅ done      | medium     | F6-S09         |
+| F6-S13 | Backend — endpoint interno de leitura da conversa do lead (para resumo do copiloto)        | ✅ done      | medium     | F6-S06         |
+| F6-S14 | LangGraph — tool de resumo de conversa do lead no copiloto (read-only, DLP)                | ✅ done      | medium     | F6-S13, F6-S16 |
+| F6-S15 | Prompt — copiloto v2: saída em markdown + capacidade de resumo de conversa                 | 🟣 review    | medium     | F6-S14         |
+| F6-S16 | Backend — endpoint interno de busca de lead por nome (para o copiloto resolver o lead)     | ✅ done      | medium     | F6-S06         |
 
 ## Fase 7 — Hardening final
 
