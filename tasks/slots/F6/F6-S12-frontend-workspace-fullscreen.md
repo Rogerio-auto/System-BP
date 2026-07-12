@@ -3,7 +3,7 @@ id: F6-S12
 title: Frontend — workspace fullscreen do copiloto (markdown + chips de sugestão por role)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: review
 priority: medium
 estimated_size: L
 agent_id: null
@@ -12,6 +12,8 @@ blocks: []
 labels: [frontend, ai-assistant, design-system, ux]
 source_docs: [docs/18-design-system.md, docs/22-agente-interno-acoes.md]
 docs_required: false
+claimed_at: 2026-07-12T15:41:51Z
+completed_at: 2026-07-12T15:51:25Z
 ---
 
 # F6-S12 — Frontend: workspace fullscreen do copiloto
