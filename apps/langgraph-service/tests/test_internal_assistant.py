@@ -10,7 +10,10 @@ from app.graphs.internal_assistant.nodes.agent_node import agent_node
 from app.graphs.internal_assistant.state import InternalAssistantState, Principal
 from app.llm.gateway import LLMResponse, TokenUsage
 from app.tools.assistant_tools import (
+    build_assistant_tool_schemas,
     call_billing_snapshot,
+    call_find_lead,
+    call_summarize_lead_conversation,
 )
 
 ORG_ID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
@@ -77,6 +80,81 @@ async def test_call_billing_snapshot_with_city_ids():
     body = captured[0]["body"]
     assert "range" not in body.get("query", {})
     assert body["query"]["cityIds"] == city_ids
+
+
+# ---------------------------------------------------------------------------
+# Testes de find_lead / summarize_lead_conversation (F6-S14)
+# ---------------------------------------------------------------------------
+
+
+def test_build_assistant_tool_schemas_includes_find_lead_and_summarize():
+    """Os 2 novos schemas devem estar expostos ao LLM com os params corretos."""
+    schemas = build_assistant_tool_schemas()
+    by_name = {s["function"]["name"]: s["function"] for s in schemas}
+
+    assert "find_lead" in by_name
+    find_lead_params = by_name["find_lead"]["parameters"]
+    assert find_lead_params["required"] == ["name"]
+    assert "name" in find_lead_params["properties"]
+
+    assert "summarize_lead_conversation" in by_name
+    summarize_params = by_name["summarize_lead_conversation"]["parameters"]
+    assert summarize_params["required"] == ["lead_id"]
+    assert "lead_id" in summarize_params["properties"]
+
+
+@pytest.mark.asyncio
+async def test_call_find_lead_dispatches_name_to_lead_search():
+    """call_find_lead deve POSTar {principal, name} em /internal/assistant/lead-search."""
+    captured: list = []
+
+    async def mock_post(path, **kw):
+        captured.append({"path": path, "body": kw.get("json", {})})
+        candidate = {"lead_id": "lead-1", "name": "Maria Silva", "city_name": "Porto Velho"}
+        return {
+            "source": "assistant.lead-search",
+            "candidates": [candidate],
+            "truncated": False,
+        }
+
+    with patch("app.tools.assistant_tools.InternalApiClient") as mock_cls:
+        mock_instance = AsyncMock()
+        mock_instance.post = AsyncMock(side_effect=mock_post)
+        mock_cls.return_value = mock_instance
+        result = await call_find_lead(principal=_make_principal(), name="Maria")
+
+    assert len(captured) == 1
+    assert captured[0]["path"] == "/internal/assistant/lead-search"
+    assert captured[0]["body"] == {"principal": _make_principal(), "name": "Maria"}
+    assert result["candidates"][0]["lead_id"] == "lead-1"
+
+
+@pytest.mark.asyncio
+async def test_call_summarize_lead_conversation_dispatches_lead_id():
+    """call_summarize_lead_conversation deve POSTar {principal, lead_id}."""
+    captured: list = []
+
+    async def mock_post(path, **kw):
+        captured.append({"path": path, "body": kw.get("json", {})})
+        message = {"direction": "in", "content": "Ola", "created_at": "2026-07-01T10:00:00Z"}
+        return {
+            "source": "assistant.lead-conversation",
+            "lead_id": "lead-1",
+            "messages": [message],
+            "truncated": False,
+        }
+
+    with patch("app.tools.assistant_tools.InternalApiClient") as mock_cls:
+        mock_instance = AsyncMock()
+        mock_instance.post = AsyncMock(side_effect=mock_post)
+        mock_cls.return_value = mock_instance
+        principal = _make_principal()
+        result = await call_summarize_lead_conversation(principal=principal, lead_id="lead-1")
+
+    assert len(captured) == 1
+    assert captured[0]["path"] == "/internal/assistant/lead-conversation"
+    assert captured[0]["body"] == {"principal": _make_principal(), "lead_id": "lead-1"}
+    assert result["messages"][0]["content"] == "Ola"
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +276,129 @@ async def test_agent_node_billing_dispatch_no_range():
         await agent_node(_make_state())
     assert len(billing_calls) == 1
     assert "range" not in billing_calls[0], "range nao deve ser passado para call_billing_snapshot"
+
+
+@pytest.mark.asyncio
+async def test_agent_node_dispatches_find_lead():
+    """find_lead: agent_node despacha o nome do arg do LLM para call_find_lead."""
+    import json as _json
+
+    tc = {
+        "id": "call_1",
+        "function": {"name": "find_lead", "arguments": _json.dumps({"name": "Maria"})},
+    }
+    calls: list = []
+
+    async def mock_find_lead(principal, name, client=None):
+        calls.append({"principal": principal, "name": name})
+        candidate = {"lead_id": "lead-1", "name": "Maria Silva", "city_name": "Porto Velho"}
+        return {"candidates": [candidate]}
+
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    mock_gw.complete = AsyncMock(
+        side_effect=[_llm_resp("", tool_calls=[tc]), _llm_resp("Encontrei a Maria Silva.")]
+    )
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    fl = "app.graphs.internal_assistant.nodes.agent_node.call_find_lead"
+    with (
+        patch(lp, new=AsyncMock(return_value=mock_prompt)),
+        patch(gw, return_value=mock_gw),
+        patch(fl, side_effect=mock_find_lead),
+    ):
+        result = await agent_node(_make_state(question="Resuma a conversa da Maria"))
+    assert len(calls) == 1
+    assert calls[0]["name"] == "Maria"
+    assert calls[0]["principal"]["organization_id"] == ORG_ID
+    assert "find_lead" in result["sources"]
+
+
+@pytest.mark.asyncio
+async def test_agent_node_dispatches_summarize_lead_conversation():
+    """summarize_lead_conversation: agent_node despacha o lead_id do arg do LLM."""
+    import json as _json
+
+    tc = {
+        "id": "call_1",
+        "function": {
+            "name": "summarize_lead_conversation",
+            "arguments": _json.dumps({"lead_id": "lead-1"}),
+        },
+    }
+    calls: list = []
+
+    async def mock_summarize(principal, lead_id, client=None):
+        calls.append({"principal": principal, "lead_id": lead_id})
+        message = {"direction": "in", "content": "Ola", "created_at": "2026-07-01T10:00:00Z"}
+        return {"messages": [message]}
+
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    final_resp = _llm_resp("A conversa comecou com um cumprimento.")
+    mock_gw.complete = AsyncMock(side_effect=[_llm_resp("", tool_calls=[tc]), final_resp])
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    sc = "app.graphs.internal_assistant.nodes.agent_node.call_summarize_lead_conversation"
+    with (
+        patch(lp, new=AsyncMock(return_value=mock_prompt)),
+        patch(gw, return_value=mock_gw),
+        patch(sc, side_effect=mock_summarize),
+    ):
+        result = await agent_node(_make_state(question="Resuma a conversa do lead-1"))
+    assert len(calls) == 1
+    assert calls[0]["lead_id"] == "lead-1"
+    assert calls[0]["principal"]["organization_id"] == ORG_ID
+    assert "summarize_lead_conversation" in result["sources"]
+
+
+@pytest.mark.asyncio
+async def test_agent_node_find_lead_error_handled_gracefully():
+    """Erro no endpoint (ex.: 403/404) vira erro gracioso sem vazar detalhe,
+    e o loop continua ate a resposta final do LLM."""
+    import json as _json
+
+    tc = {
+        "id": "call_1",
+        "function": {"name": "find_lead", "arguments": _json.dumps({"name": "Joao"})},
+    }
+
+    async def mock_find_lead_raises(principal, name, client=None):
+        raise RuntimeError("boom: detalhe interno sensivel")
+
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    mock_gw.complete = AsyncMock(
+        side_effect=[_llm_resp("", tool_calls=[tc]), _llm_resp("Nao encontrei o lead.")]
+    )
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    fl = "app.graphs.internal_assistant.nodes.agent_node.call_find_lead"
+    with (
+        patch(lp, new=AsyncMock(return_value=mock_prompt)),
+        patch(gw, return_value=mock_gw),
+        patch(fl, side_effect=mock_find_lead_raises),
+    ):
+        result = await agent_node(_make_state(question="Ache o lead Joao"))
+    assert any(e.get("tool") == "find_lead" for e in result["errors"])
+    tool_msg = next(m["content"] for m in result["messages"] if m.get("role") == "tool")
+    parsed_tool_msg = _json.loads(tool_msg)
+    assert parsed_tool_msg["message"] == "tool execution failed"
+    assert "boom" not in tool_msg, "detalhe interno da excecao nunca deve vazar ao LLM"
+    assert "find_lead" not in result["sources"]
+    assert result["answer"] == "Nao encontrei o lead."
 
 
 # ---------------------------------------------------------------------------
