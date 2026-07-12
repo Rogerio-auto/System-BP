@@ -3,7 +3,7 @@ id: F6-S13
 title: Backend — endpoint interno de leitura da conversa do lead (para resumo do copiloto)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
