@@ -547,6 +547,13 @@
       "when": 1784100000000,
       "tag": "0086_seed_internal_assistant_prompt",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1784200000000,
+      "tag": "0087_seed_internal_assistant_prompt_v2",
+      "breakpoints": true
     }
   ]
 }
