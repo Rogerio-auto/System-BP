@@ -1,7 +1,7 @@
 // =============================================================================
-// features/assistant/types.ts — Tipos do chat do copiloto interno (F6-S09).
+// features/assistant/types.ts — Tipos do chat do copiloto interno (F6-S09/F6-S12).
 //
-// Histórico vive apenas em memória (React state) enquanto o drawer está
+// Histórico vive apenas em memória (React state) enquanto o workspace está
 // aberto — nunca em localStorage/sessionStorage (LGPD doc 17).
 // =============================================================================
 

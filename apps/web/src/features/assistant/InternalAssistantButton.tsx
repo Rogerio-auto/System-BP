@@ -3,7 +3,8 @@
 //
 // Doc 05 §7 / doc 22: quando a flag `ai.internal_assistant.enabled` estiver
 // ligada E o usuário tiver a permissão `ai_assistant:use`, o botão abre o
-// chat real do copiloto (AssistantChatDrawer, F6-S09) consumindo
+// workspace fullscreen do copiloto (AssistantWorkspaceModal, F6-S12 —
+// substitui o drawer lateral de F6-S09) consumindo
 // POST /api/internal-assistant/query. Caso contrário, mantém o teaser
 // honesto ("em breve") — comportamento original desta superfície (F1).
 //
@@ -16,46 +17,28 @@ import * as React from 'react';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useAuth } from '../auth/useAuth';
 
-import { AssistantChatDrawer } from './components/AssistantChatDrawer';
 import { AssistantTeaserPopover } from './components/AssistantTeaserPopover';
-
-/** Ícone de "sparkle" (IA). */
-function SparkleIcon({ className }: { className?: string }): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M10 2.5l1.6 4.1 4.1 1.6-4.1 1.6L10 14l-1.6-4.2L4.3 8.2l4.1-1.6L10 2.5z" />
-      <path d="M15.5 12.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8z" />
-    </svg>
-  );
-}
+import { AssistantWorkspaceModal } from './components/AssistantWorkspaceModal';
+import { SparkleIcon } from './components/SparkleIcon';
 
 /**
  * Botão do Assistente interno na Topbar.
  *
  * Gated por flag `ai.internal_assistant.enabled` + permissão `ai_assistant:use`:
- *   - Liberado → abre o AssistantChatDrawer (chat real, F6-S09).
+ *   - Liberado → abre o AssistantWorkspaceModal (workspace fullscreen, F6-S12).
  *   - Bloqueado → mantém o popover de teaser honesto ("em breve").
  * Fecha ao clicar fora (teaser) ou Escape (ambos).
  */
 export function InternalAssistantButton(): React.JSX.Element {
   const [open, setOpen] = React.useState(false); // popover de teaser
-  const [chatOpen, setChatOpen] = React.useState(false); // drawer real
+  const [chatOpen, setChatOpen] = React.useState(false); // workspace fullscreen
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   const { hasPermission } = useAuth();
   const { enabled: flagEnabled } = useFeatureFlag('ai.internal_assistant.enabled');
   const canUseAssistant = flagEnabled && hasPermission('ai_assistant:use');
 
-  // O teaser é a única superfície com clique-fora — o drawer usa overlay próprio.
+  // O teaser é a única superfície com clique-fora — o workspace usa overlay próprio.
   React.useEffect(() => {
     if (!open || canUseAssistant) return;
     function onPointerDown(e: MouseEvent): void {
@@ -136,7 +119,9 @@ export function InternalAssistantButton(): React.JSX.Element {
         )}
       </button>
 
-      {canUseAssistant && chatOpen && <AssistantChatDrawer onClose={() => setChatOpen(false)} />}
+      {canUseAssistant && chatOpen && (
+        <AssistantWorkspaceModal onClose={() => setChatOpen(false)} hasPermission={hasPermission} />
+      )}
 
       {!canUseAssistant && open && <AssistantTeaserPopover />}
     </div>

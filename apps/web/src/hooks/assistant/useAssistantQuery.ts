@@ -15,7 +15,7 @@
 //
 // LGPD (doc 17): pergunta/resposta nunca são persistidas no client (sem
 // localStorage/sessionStorage/cookies) — vivem apenas em memória de estado do
-// componente enquanto o drawer está aberto, e são descartadas ao fechar.
+// componente enquanto o workspace está aberto, e são descartadas ao fechar.
 //
 // Timeout: AbortController client-side em ASSISTANT_TIMEOUT_MS — folga sobre o
 // timeout do grafo LangGraph (LANGGRAPH_AI_TIMEOUT_MS ~25s no backend), para

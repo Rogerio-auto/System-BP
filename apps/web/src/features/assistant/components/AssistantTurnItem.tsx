@@ -1,9 +1,9 @@
 // =============================================================================
 // features/assistant/components/AssistantTurnItem.tsx — Um turno de conversa
-// do copiloto interno (F6-S09): pergunta + resposta (ou loading/erro).
+// do copiloto interno (F6-S09/F6-S12): pergunta + resposta (ou loading/erro).
 //
-// Estados: pending (skeleton — nunca spinner sozinho), success (resposta +
-// fontes citadas via sources[]), error (alerta + retry).
+// Estados: pending (skeleton — nunca spinner sozinho), success (resposta em
+// markdown — F6-S12 — + fontes citadas via sources[]), error (alerta + retry).
 // =============================================================================
 
 import * as React from 'react';
@@ -11,6 +11,8 @@ import * as React from 'react';
 import { Badge } from '../../../components/ui/Badge';
 import { cn } from '../../../lib/cn';
 import type { AssistantTurn } from '../types';
+
+import { AssistantMarkdown } from './AssistantMarkdown';
 
 interface AssistantTurnItemProps {
   turn: AssistantTurn;
@@ -75,9 +77,7 @@ function AnswerBubble({
         boxShadow: 'var(--elev-1)',
       }}
     >
-      <p className="font-sans text-sm text-ink leading-relaxed whitespace-pre-wrap break-words">
-        {answer}
-      </p>
+      <AssistantMarkdown source={answer} />
 
       {sources.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border-subtle">
