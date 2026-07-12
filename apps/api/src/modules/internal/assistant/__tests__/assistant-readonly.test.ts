@@ -59,10 +59,32 @@ vi.mock('../../../credit-analyses/repository.js', () => ({
     total: 1,
   }),
 }));
+vi.mock('../../../leads/repository.js', () => ({
+  findLeadById: vi.fn().mockResolvedValue({ id: '33333333-3333-3333-3333-333333333333' }),
+}));
+vi.mock('../repository.js', () => ({
+  findLeadConversationMessages: vi.fn().mockResolvedValue({
+    messages: [
+      {
+        direction: 'in',
+        content: 'Oi, quero saber sobre o credito',
+        createdAt: new Date('2026-07-01T10:00:00Z'),
+      },
+      {
+        direction: 'out',
+        content: 'Claro! Vamos te ajudar.',
+        createdAt: new Date('2026-07-01T10:01:00Z'),
+      },
+    ],
+    truncated: false,
+  }),
+}));
 vi.mock('../../../../db/client.js', () => ({
   db: { execute: vi.fn().mockResolvedValue({ rows: [{ name: 'Joao da Silva' }] }) },
 }));
 import { buildApp } from '../../../../app.js';
+import { findLeadById } from '../../../leads/repository.js';
+import { findLeadConversationMessages } from '../repository.js';
 import { maskLeadName } from '../service.js';
 
 const PRINCIPAL_FULL = {
@@ -245,6 +267,86 @@ describe('POST /internal/assistant/billing-upcoming', () => {
     expect(res.statusCode).toBe(403);
   });
 });
+describe('POST /internal/assistant/lead-conversation', () => {
+  const LEAD_ID = '33333333-3333-3333-3333-333333333333';
+  const PRINCIPAL_CONVERSATION = {
+    ...PRINCIPAL_FULL,
+    permissions: ['livechat:conversation:read'],
+  };
+
+  it('200 caminho feliz', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-conversation',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: { principal: PRINCIPAL_CONVERSATION, lead_id: LEAD_ID },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.source).toBe('assistant.lead-conversation');
+    expect(body.lead_id).toBe(LEAD_ID);
+    expect(body.messages).toHaveLength(2);
+    expect(body.messages[0]).toEqual({
+      direction: 'in',
+      content: 'Oi, quero saber sobre o credito',
+      created_at: '2026-07-01T10:00:00.000Z',
+    });
+    expect(body.truncated).toBe(false);
+    expect(res.payload).not.toMatch(/cpf/i);
+    expect(res.payload).not.toMatch(/telefone/i);
+  });
+
+  it('401 sem token', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-conversation',
+      payload: { principal: PRINCIPAL_CONVERSATION, lead_id: LEAD_ID },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('403 sem permissao livechat:conversation:read', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-conversation',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: {
+        principal: { ...PRINCIPAL_FULL, permissions: ['dashboard:read'] },
+        lead_id: LEAD_ID,
+      },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('404 lead fora do escopo/org (nunca vaza existencia)', async () => {
+    vi.mocked(findLeadById).mockResolvedValueOnce(null);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-conversation',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: { principal: PRINCIPAL_CONVERSATION, lead_id: LEAD_ID },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('200 lead sem conversa retorna lista vazia', async () => {
+    vi.mocked(findLeadConversationMessages).mockResolvedValueOnce({
+      messages: [],
+      truncated: false,
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-conversation',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: { principal: PRINCIPAL_CONVERSATION, lead_id: LEAD_ID },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.messages).toEqual([]);
+    expect(body.truncated).toBe(false);
+  });
+});
+
 describe('maskLeadName unit', () => {
   it('nome completo', () => {
     expect(maskLeadName('Joao da Silva')).toBe('J. Silva');

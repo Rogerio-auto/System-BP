@@ -5,16 +5,20 @@ import type { Database } from '../../../db/client.js';
 import { AppError, ForbiddenError, NotFoundError } from '../../../shared/errors.js';
 import type { UserScopeCtx } from '../../../shared/scope.js';
 import { findAnalysesByLeadId } from '../../credit-analyses/repository.js';
+import { findLeadById } from '../../leads/repository.js';
 import {
   getCollectionWallet,
   getFunnelStages,
   getOverviewLeads,
 } from '../../reports/repository.js';
 
+import { findLeadConversationMessages } from './repository.js';
+import { MessageDirectionSchema } from './schemas.js';
 import type {
   AnalysisStatusResponse,
   BillingUpcomingResponse,
   FunnelMetricsResponse,
+  LeadConversationResponse,
   LeadCountResponse,
   Principal,
 } from './schemas.js';
@@ -209,5 +213,52 @@ export async function getBillingUpcoming(
     upcomingCount: wallet.pending,
     totalAmountBrl: wallet.pendingAmountSum + wallet.overdueAmountSum,
     snapshotLabel: 'Carteira atual',
+  };
+}
+
+/**
+ * Retorna as mensagens da conversa de um lead, para o copiloto resumir (F6-S14).
+ *
+ * LGPD (§12.5): `content` é PII bruta — nunca logada aqui (pino.redact cobre
+ * `*.content` globalmente). A DLP do gateway LangGraph redige o texto antes
+ * do LLM; este endpoint apenas entrega o histórico.
+ *
+ * Segurança (doc 10 §3.5, oracle-of-existence): a existência do lead é
+ * validada via findLeadById ANTES de buscar mensagens — lead fora do
+ * escopo/org da organização → 404 (nunca 403, para não vazar a existência do
+ * recurso em outra cidade/org). Lead no escopo mas sem conversas → 200 com
+ * `messages: []` (caso válido, não é erro).
+ */
+export async function getLeadConversation(
+  db: Database,
+  principal: Principal,
+  leadId: string,
+): Promise<LeadConversationResponse> {
+  assertPermission(principal, 'livechat:conversation:read');
+  const scopeCtx = principalToScopeCtx(principal);
+
+  const lead = await findLeadById(db, leadId, principal.organization_id, scopeCtx.cityScopeIds);
+  if (lead === null) throw new NotFoundError('Lead nao encontrado');
+
+  const { messages, truncated } = await findLeadConversationMessages(
+    db,
+    leadId,
+    principal.organization_id,
+    scopeCtx,
+  );
+
+  // direction vem do DB como `text` (CHECK garante 'in'|'out'); narrado via
+  // Zod para não usar `as` — mesmo idioma de ChannelProviderSchema.parse().
+  const toDto = (m: (typeof messages)[number]): LeadConversationResponse['messages'][number] => ({
+    direction: MessageDirectionSchema.parse(m.direction),
+    content: m.content,
+    created_at: m.createdAt.toISOString(),
+  });
+
+  return {
+    source: 'assistant.lead-conversation',
+    lead_id: leadId,
+    messages: messages.map(toDto),
+    truncated,
   };
 }

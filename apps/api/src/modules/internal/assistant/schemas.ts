@@ -152,3 +152,37 @@ export const BillingUpcomingResponseSchema = z.object({
   snapshotLabel: z.string(),
 });
 export type BillingUpcomingResponse = z.infer<typeof BillingUpcomingResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// 5. POST /internal/assistant/lead-conversation
+//    Requer: livechat:conversation:read
+//    LGPD (§12.5, doc 17 §8.1/§8.3): messages[].content É PII (texto livre do
+//    contato/agente). Nunca logar (pino.redact cobre `*.content` em app.ts).
+//    Sem telefone/CPF em campo separado — a DLP do gateway LangGraph (F6-S14,
+//    dlp=True) redige o texto antes do LLM.
+// ---------------------------------------------------------------------------
+export const LeadConversationBodySchema = z.object({
+  principal: PrincipalSchema,
+  lead_id: z.string().uuid(),
+});
+export type LeadConversationBody = z.infer<typeof LeadConversationBodySchema>;
+
+/** Direção da mensagem: in = recebida do contato; out = enviada pelo agente/sistema. */
+export const MessageDirectionSchema = z.enum(['in', 'out']);
+export type MessageDirection = z.infer<typeof MessageDirectionSchema>;
+
+export const LeadConversationResponseSchema = z.object({
+  source: z.literal('assistant.lead-conversation'),
+  lead_id: z.string().uuid(),
+  messages: z.array(
+    z.object({
+      direction: MessageDirectionSchema,
+      /** Texto da mensagem — PII. Nunca logar. DLP do gateway (F6-S14) redige antes do LLM. */
+      content: z.string().nullable(),
+      created_at: z.string(),
+    }),
+  ),
+  /** true se a conversa tinha mais de N=100 mensagens e a lista foi cortada. */
+  truncated: z.boolean(),
+});
+export type LeadConversationResponse = z.infer<typeof LeadConversationResponseSchema>;
