@@ -3,7 +3,7 @@ id: F6-S14
 title: LangGraph — tool de resumo de conversa do lead no copiloto (read-only, DLP)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
