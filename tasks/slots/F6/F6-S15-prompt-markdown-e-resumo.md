@@ -3,7 +3,7 @@ id: F6-S15
 title: Prompt — copiloto v2: saída em markdown + capacidade de resumo de conversa
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: null
@@ -12,6 +12,8 @@ blocks: []
 labels: [prompt, ai-assistant, db]
 source_docs: [docs/22-agente-interno-acoes.md]
 docs_required: false
+claimed_at: 2026-07-12T17:13:55Z
+
 ---
 
 # F6-S15 — Prompt: copiloto v2 (markdown + resumo)
