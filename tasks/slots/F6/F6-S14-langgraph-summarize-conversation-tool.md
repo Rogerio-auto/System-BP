@@ -7,7 +7,7 @@ status: available
 priority: medium
 estimated_size: M
 agent_id: null
-depends_on: [F6-S13]
+depends_on: [F6-S13, F6-S16]
 blocks: [F6-S15]
 labels: [langgraph, ai-assistant, lgpd-impact]
 source_docs: [docs/22-agente-interno-acoes.md, docs/17-lgpd-protecao-dados.md]
@@ -32,12 +32,20 @@ As tools do copiloto estão em `apps/langgraph-service/app/tools/assistant_tools
 
 ## Escopo (faz)
 
-- Nova tool **`summarize_lead_conversation`** (ou `get_lead_conversation`):
-  - Schema em `build_assistant_tool_schemas()`: descrição clara ("Use quando o usuário pedir para resumir
-    a conversa de um lead"), parâmetro `lead_id` (string/uuid).
-  - `call_*` correspondente: `POST /internal/assistant/lead-conversation` (F6-S13) com `lead_id`, devolve
-    as mensagens; o **LLM resume** (a tool retorna as mensagens ao loop de tool-calling, não resume ela mesma).
-  - Fiar no dispatch de tools do `agent_node` (onde as outras `call_*` são roteadas).
+Duas tools novas que o LLM **encadeia** (fluxo agêntico): o usuário nomeia o lead → `find_lead` resolve →
+`summarize_lead_conversation` resume. Se `find_lead` retorna vários, o LLM pergunta qual; se nenhum, avisa.
+
+- **`find_lead`** (busca por nome):
+  - Schema: descrição ("Use para localizar o lead pelo NOME quando o usuário se refere a um lead por nome"),
+    parâmetro `name` (string).
+  - `call_*`: `POST /internal/assistant/lead-search` (F6-S16) com `name`; retorna candidatos
+    `[{ lead_id, name, city_name }]` + `truncated`. A tool devolve os candidatos ao LLM (não escolhe sozinha).
+- **`summarize_lead_conversation`**:
+  - Schema: descrição ("Use quando o usuário pedir para resumir a conversa de um lead, com o `lead_id`
+    obtido via find_lead"), parâmetro `lead_id` (string/uuid).
+  - `call_*`: `POST /internal/assistant/lead-conversation` (F6-S13) com `lead_id`, devolve as mensagens;
+    o **LLM resume** (a tool retorna as mensagens ao loop de tool-calling, não resume ela mesma).
+- Fiar as duas no dispatch de tools do `agent_node` (onde as outras `call_*` são roteadas).
 - **DLP:** nada especial a fazer além de garantir que o fluxo continua com `dlp=True` (já é o caso). O texto
   das mensagens passa pela redação do gateway antes do LLM. **Nunca** logar o `content` das mensagens.
 - Erro do endpoint (404 fora de escopo, 403) → retornar ao LLM uma mensagem de tool graciosa (padrão já
@@ -62,10 +70,10 @@ As tools do copiloto estão em `apps/langgraph-service/app/tools/assistant_tools
 
 ## Definition of Done
 
-- [ ] Tool `summarize_lead_conversation` no schema + `call_*` que bate no endpoint de F6-S13
-- [ ] Fiada no dispatch do `agent_node`; continua com `dlp=True`
-- [ ] `content` das mensagens nunca logado; erro de endpoint tratado graciosamente
-- [ ] Testes: schema exposto, call despacha certo (mock do InternalApiClient), erro tratado
+- [ ] Tools `find_lead` (→ F6-S16) e `summarize_lead_conversation` (→ F6-S13) no schema + `call_*`
+- [ ] Ambas fiadas no dispatch do `agent_node`; continua com `dlp=True`
+- [ ] `content` das mensagens e `name` da busca nunca logados; erro de endpoint tratado graciosamente
+- [ ] Testes: os 2 schemas expostos, cada `call_*` despacha certo (mock do InternalApiClient), erro tratado
 - [ ] `ruff check .` + `mypy app` + `pytest -q` verdes
 
 ## Validação

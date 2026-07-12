@@ -33,8 +33,10 @@ O `.md` fonte no repo é `apps/langgraph-service/app/prompts/internal_assistant.
 - **Atualizar** `apps/langgraph-service/app/prompts/internal_assistant.md` com:
   - Instrução de **formato markdown**: usar **tabelas** para dados tabulares (métricas por stage, contagens),
     **negrito** para números-chave, listas para enumerações, títulos curtos. Respostas limpas e escaneáveis.
-  - A nova capacidade: descrever a tool de **resumo de conversa** (quando usar, que é read-only, que não
-    expõe PII bruta — resumo objetivo do andamento do atendimento).
+  - A nova capacidade de **resumo de conversa**, descrevendo o **fluxo de 2 tools**: quando o usuário
+    nomear um lead, usar `find_lead(nome)` para localizar; se houver vários candidatos, **perguntar qual**
+    (listar nome + cidade); depois `summarize_lead_conversation(lead_id)`. Read-only; resumo objetivo do
+    andamento do atendimento, sem expor PII bruta (telefone/CPF).
   - Manter as regras atuais (RBAC/DLP/limites: não decide crédito, não inventa números, cita fontes).
 - **Migration 0087** `0087_seed_internal_assistant_prompt_v2.sql` espelhando o 0086:
   - INSERT em `prompt_versions` com `key='internal_assistant'`, `version=2`, `active=true`, `body`=novo

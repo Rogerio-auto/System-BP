@@ -29,7 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 11    | 3   | 0   | 0   | 0   | 0   | 8   |
+| F6   | 12    | 4   | 0   | 0   | 0   | 0   | 8   |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -471,8 +471,9 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F6-S11 | Docs — Central de Ajuda do copiloto interno (perguntar sobre seus dados / RBAC)            | 🟢 available | medium     | F6-S09         |
 | F6-S12 | Frontend — workspace fullscreen do copiloto (markdown + chips de sugestão por role)        | ✅ done      | medium     | F6-S09         |
 | F6-S13 | Backend — endpoint interno de leitura da conversa do lead (para resumo do copiloto)        | ✅ done      | medium     | F6-S06         |
-| F6-S14 | LangGraph — tool de resumo de conversa do lead no copiloto (read-only, DLP)                | 🟢 available | medium     | F6-S13         |
+| F6-S14 | LangGraph — tool de resumo de conversa do lead no copiloto (read-only, DLP)                | 🟢 available | medium     | F6-S13, F6-S16 |
 | F6-S15 | Prompt — copiloto v2: saída em markdown + capacidade de resumo de conversa                 | 🟢 available | medium     | F6-S14         |
+| F6-S16 | Backend — endpoint interno de busca de lead por nome (para o copiloto resolver o lead)     | 🟢 available | medium     | F6-S06         |
 
 ## Fase 7 — Hardening final
 
