@@ -5,7 +5,7 @@ import type { Database } from '../../../db/client.js';
 import { AppError, ForbiddenError, NotFoundError } from '../../../shared/errors.js';
 import type { UserScopeCtx } from '../../../shared/scope.js';
 import { findAnalysesByLeadId } from '../../credit-analyses/repository.js';
-import { findLeadById } from '../../leads/repository.js';
+import { findCityNamesByIds, findLeadById, findLeads } from '../../leads/repository.js';
 import {
   getCollectionWallet,
   getFunnelStages,
@@ -20,8 +20,12 @@ import type {
   FunnelMetricsResponse,
   LeadConversationResponse,
   LeadCountResponse,
+  LeadSearchResponse,
   Principal,
 } from './schemas.js';
+
+/** Limite de candidatos retornados pela busca por nome — evita despejo de PII. */
+export const LEAD_SEARCH_CANDIDATE_LIMIT = 8;
 
 interface DateRange {
   from: Date;
@@ -259,6 +263,69 @@ export async function getLeadConversation(
     source: 'assistant.lead-conversation',
     lead_id: leadId,
     messages: messages.map(toDto),
+    truncated,
+  };
+}
+
+/**
+ * Busca leads por nome (ou parte do nome) para o copiloto resolver
+ * "resuma a conversa da Maria" → lead_id, com desambiguação de homônimos
+ * quando há mais de um resultado (F6-S14 decide o que fazer com os
+ * candidatos: se 1, resume; se vários, pergunta qual; se nenhum, avisa).
+ *
+ * Reuso (docs/22-agente-interno-acoes.md §12): delega inteiramente a busca
+ * (org + escopo de cidade + filtro por nome/telefone, paginação) para
+ * `findLeads` (leads/repository.ts) — não reimplementa a query aqui.
+ *
+ * LGPD (minimização, doc 17 §8.1/§14.2):
+ *   - `name` (termo de busca) É PII — nunca logado nesta função nem em
+ *     routes.ts (ver comentário na rota). O parâmetro nunca é passado a
+ *     `app.log`/`request.log` em nenhum ponto deste módulo.
+ *   - Response devolve apenas lead_id/name/city_name — o mínimo necessário
+ *     para o usuário desambiguar homônimos. Nunca telefone/CPF/e-mail
+ *     (findLeads() já não seleciona esses campos; cpf_encrypted/cpf_hash
+ *     nunca fazem parte do SELECT de leads).
+ *   - `city_name` é resolvido via findCityNamesByIds (join leve, só os IDs
+ *     presentes nos candidatos já retornados dentro do escopo do principal —
+ *     não há como vazar cidade fora do escopo, pois os candidatos em si já
+ *     vêm filtrados por cityScopeIds).
+ *
+ * Volume: busca `LEAD_SEARCH_CANDIDATE_LIMIT + 1` para detectar corte sem
+ * uma query de COUNT adicional (mesmo padrão de findLeadConversationMessages).
+ * Candidatos são ordenados por nome (apresentação) para facilitar a leitura
+ * de uma lista de homônimos — a query em si não é reordenada.
+ */
+export async function searchLeadsByName(
+  db: Database,
+  principal: Principal,
+  name: string,
+): Promise<LeadSearchResponse> {
+  assertPermission(principal, 'leads:read');
+  const scopeCtx = principalToScopeCtx(principal);
+
+  const result = await findLeads(db, principal.organization_id, scopeCtx.cityScopeIds, {
+    page: 1,
+    limit: LEAD_SEARCH_CANDIDATE_LIMIT + 1,
+    search: name,
+  });
+
+  const truncated = result.data.length > LEAD_SEARCH_CANDIDATE_LIMIT;
+  const page = truncated ? result.data.slice(0, LEAD_SEARCH_CANDIDATE_LIMIT) : result.data;
+
+  const cityIds = page.map((lead) => lead.cityId).filter((id): id is string => id !== null);
+  const cityNames = await findCityNamesByIds(db, cityIds);
+
+  const candidates = page
+    .map((lead) => ({
+      lead_id: lead.id,
+      name: lead.name,
+      city_name: lead.cityId !== null ? (cityNames.get(lead.cityId) ?? null) : null,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+
+  return {
+    source: 'assistant.lead-search',
+    candidates,
     truncated,
   };
 }

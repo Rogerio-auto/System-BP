@@ -26,6 +26,8 @@ import {
   LeadConversationResponseSchema,
   LeadCountBodySchema,
   LeadCountResponseSchema,
+  LeadSearchBodySchema,
+  LeadSearchResponseSchema,
 } from './schemas.js';
 import {
   getAnalysisStatus,
@@ -33,6 +35,7 @@ import {
   getFunnelMetrics,
   getLeadConversation,
   getLeadCount,
+  searchLeadsByName,
 } from './service.js';
 
 const internalAssistantRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -124,6 +127,27 @@ const internalAssistantRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) => {
       checkToken(req.headers['x-internal-token']);
       const result = await getLeadConversation(db, req.body.principal, req.body.lead_id);
+      return reply.status(200).send(result);
+    },
+  );
+
+  // POST /internal/assistant/lead-search -- requer leads:read
+  // LGPD (minimização, doc 17 §8.1/§14.2): response só lead_id/name/city_name
+  // -- nunca telefone/CPF/e-mail (ver searchLeadsByName em service.ts).
+  // `req.body.name` (termo de busca) É PII -- NUNCA logado: nem este handler
+  // nem service.ts/repository.ts passam `name`/`req.body` a app.log/request.log.
+  app.post(
+    '/lead-search',
+    {
+      schema: {
+        hide: true,
+        body: LeadSearchBodySchema,
+        response: { 200: LeadSearchResponseSchema },
+      },
+    },
+    async (req, reply) => {
+      checkToken(req.headers['x-internal-token']);
+      const result = await searchLeadsByName(db, req.body.principal, req.body.name);
       return reply.status(200).send(result);
     },
   );

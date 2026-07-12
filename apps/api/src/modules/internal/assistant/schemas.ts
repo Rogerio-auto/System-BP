@@ -186,3 +186,38 @@ export const LeadConversationResponseSchema = z.object({
   truncated: z.boolean(),
 });
 export type LeadConversationResponse = z.infer<typeof LeadConversationResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// 6. POST /internal/assistant/lead-search
+//    Requer: leads:read
+//    Contexto (docs/22-agente-interno-acoes.md §12): resolve "resuma a conversa
+//    da Maria" → lead_id, com desambiguação de homônimos.
+//
+//    LGPD (minimização, doc 17 §8.1/§14.2): o `name` de busca É PII (texto
+//    livre informado pelo usuário) — nunca logado (ver comentário em routes.ts
+//    e nota de escopo no service.ts). A response devolve APENAS lead_id/name/
+//    city_name — o mínimo para o usuário desambiguar homônimos. NUNCA
+//    telefone, CPF ou e-mail.
+// ---------------------------------------------------------------------------
+export const LeadSearchBodySchema = z.object({
+  principal: PrincipalSchema,
+  /** Nome (ou parte do nome) do lead a buscar. PII — nunca logar. */
+  name: z.string().min(2),
+});
+export type LeadSearchBody = z.infer<typeof LeadSearchBodySchema>;
+
+export const LeadSearchResponseSchema = z.object({
+  source: z.literal('assistant.lead-search'),
+  candidates: z.array(
+    z.object({
+      lead_id: z.string().uuid(),
+      /** Nome do lead — PII mínima necessária para o usuário desambiguar homônimos. */
+      name: z.string(),
+      /** null quando o lead não tem cidade atribuída. */
+      city_name: z.string().nullable(),
+    }),
+  ),
+  /** true se havia mais candidatos que o limite e a lista foi cortada — força refinar a busca. */
+  truncated: z.boolean(),
+});
+export type LeadSearchResponse = z.infer<typeof LeadSearchResponseSchema>;

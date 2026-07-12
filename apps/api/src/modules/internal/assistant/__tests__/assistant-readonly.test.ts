@@ -61,6 +61,8 @@ vi.mock('../../../credit-analyses/repository.js', () => ({
 }));
 vi.mock('../../../leads/repository.js', () => ({
   findLeadById: vi.fn().mockResolvedValue({ id: '33333333-3333-3333-3333-333333333333' }),
+  findLeads: vi.fn().mockResolvedValue({ data: [], total: 0 }),
+  findCityNamesByIds: vi.fn().mockResolvedValue(new Map()),
 }));
 vi.mock('../repository.js', () => ({
   findLeadConversationMessages: vi.fn().mockResolvedValue({
@@ -83,7 +85,7 @@ vi.mock('../../../../db/client.js', () => ({
   db: { execute: vi.fn().mockResolvedValue({ rows: [{ name: 'Joao da Silva' }] }) },
 }));
 import { buildApp } from '../../../../app.js';
-import { findLeadById } from '../../../leads/repository.js';
+import { findCityNamesByIds, findLeadById, findLeads } from '../../../leads/repository.js';
 import { findLeadConversationMessages } from '../repository.js';
 import { maskLeadName } from '../service.js';
 
@@ -344,6 +346,204 @@ describe('POST /internal/assistant/lead-conversation', () => {
     const body = res.json();
     expect(body.messages).toEqual([]);
     expect(body.truncated).toBe(false);
+  });
+});
+
+// Fixture completa de Lead — findLeads() (leads/repository.ts) retorna o tipo
+// completo do Drizzle; a busca só usa id/name/cityId, mas o mock precisa
+// satisfazer o tipo inteiro (sem `as`).
+function makeLeadFixture(overrides: Partial<{ id: string; name: string; cityId: string | null }>) {
+  return {
+    id: '77777777-7777-7777-7777-777777777777',
+    organizationId: '22222222-2222-2222-2222-222222222222',
+    cityId: null,
+    agentId: null,
+    name: 'Lead Fixture',
+    phoneE164: '+5569900000000',
+    phoneNormalized: '5569900000000',
+    source: 'manual' as const,
+    status: 'new' as const,
+    email: null,
+    cpfEncrypted: null,
+    cpfHash: null,
+    notes: null,
+    lastSimulationId: null,
+    lastAnalysisId: null,
+    metadata: {},
+    cnpj: null,
+    legalName: null,
+    notionPageId: null,
+    anonymizedAt: null,
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    updatedAt: new Date('2026-01-01T00:00:00Z'),
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+describe('POST /internal/assistant/lead-search', () => {
+  const PRINCIPAL_LEADS_READ = {
+    ...PRINCIPAL_FULL,
+    permissions: ['leads:read'],
+  };
+  const CITY_ID = '66666666-6666-6666-6666-666666666666';
+
+  it('200 match unico', async () => {
+    vi.mocked(findLeads).mockResolvedValueOnce({
+      data: [
+        makeLeadFixture({
+          id: '77777777-7777-7777-7777-777777777777',
+          name: 'Maria Souza',
+          cityId: CITY_ID,
+        }),
+      ],
+      total: 1,
+    });
+    vi.mocked(findCityNamesByIds).mockResolvedValueOnce(new Map([[CITY_ID, 'Porto Velho']]));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-search',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: { principal: PRINCIPAL_LEADS_READ, name: 'Maria' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.source).toBe('assistant.lead-search');
+    expect(body.candidates).toEqual([
+      {
+        lead_id: '77777777-7777-7777-7777-777777777777',
+        name: 'Maria Souza',
+        city_name: 'Porto Velho',
+      },
+    ]);
+    expect(body.truncated).toBe(false);
+    expect(res.payload).not.toMatch(/cpf/i);
+    expect(res.payload).not.toMatch(/telefone|phone|email/i);
+  });
+
+  it('200 multiplos candidatos (desambiguacao de homonimos)', async () => {
+    vi.mocked(findLeads).mockResolvedValueOnce({
+      data: [
+        makeLeadFixture({
+          id: '11111111-aaaa-1111-aaaa-111111111111',
+          name: 'Zeca Souza',
+          cityId: null,
+        }),
+        makeLeadFixture({
+          id: '22222222-aaaa-2222-aaaa-222222222222',
+          name: 'Ana Souza',
+          cityId: CITY_ID,
+        }),
+      ],
+      total: 2,
+    });
+    vi.mocked(findCityNamesByIds).mockResolvedValueOnce(new Map([[CITY_ID, 'Porto Velho']]));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-search',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: { principal: PRINCIPAL_LEADS_READ, name: 'Souza' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.candidates).toHaveLength(2);
+    // ordenado por nome (apresentacao) -- Ana antes de Zeca
+    expect(body.candidates[0].name).toBe('Ana Souza');
+    expect(body.candidates[1].name).toBe('Zeca Souza');
+    expect(body.candidates[0].city_name).toBe('Porto Velho');
+    expect(body.candidates[1].city_name).toBe(null);
+    expect(body.truncated).toBe(false);
+  });
+
+  it('200 truncated quando ha mais candidatos que o limite', async () => {
+    const many = Array.from({ length: 9 }, (_, i) =>
+      makeLeadFixture({
+        id: `99999999-0000-0000-0000-00000000000${i}`,
+        name: `Lead ${i}`,
+        cityId: null,
+      }),
+    );
+    vi.mocked(findLeads).mockResolvedValueOnce({ data: many, total: 20 });
+    vi.mocked(findCityNamesByIds).mockResolvedValueOnce(new Map());
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-search',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: { principal: PRINCIPAL_LEADS_READ, name: 'Lead' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.candidates).toHaveLength(8);
+    expect(body.truncated).toBe(true);
+  });
+
+  it('200 nenhum candidato', async () => {
+    vi.mocked(findLeads).mockResolvedValueOnce({ data: [], total: 0 });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-search',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: { principal: PRINCIPAL_LEADS_READ, name: 'Ninguem' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.candidates).toEqual([]);
+    expect(body.truncated).toBe(false);
+  });
+
+  it('401 sem token', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-search',
+      payload: { principal: PRINCIPAL_LEADS_READ, name: 'Maria' },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('403 sem permissao leads:read', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-search',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: {
+        principal: { ...PRINCIPAL_FULL, permissions: ['dashboard:read'] },
+        name: 'Maria',
+      },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('400 nome muito curto (min 2)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-search',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: { principal: PRINCIPAL_LEADS_READ, name: 'M' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('escopo de cidade do principal e repassado ao findLeads (nao vaza fora do escopo)', async () => {
+    vi.mocked(findLeads).mockResolvedValueOnce({ data: [], total: 0 });
+    const scopedPrincipal = { ...PRINCIPAL_LEADS_READ, city_scope_ids: [CITY_ID] };
+
+    await app.inject({
+      method: 'POST',
+      url: '/internal/assistant/lead-search',
+      headers: { 'x-internal-token': VALID_TOKEN },
+      payload: { principal: scopedPrincipal, name: 'Maria' },
+    });
+
+    expect(findLeads).toHaveBeenCalledWith(
+      expect.anything(),
+      scopedPrincipal.organization_id,
+      [CITY_ID],
+      expect.objectContaining({ search: 'Maria' }),
+    );
   });
 });
 
