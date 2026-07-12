@@ -3,7 +3,7 @@ id: F6-S15
 title: Prompt — copiloto v2: saída em markdown + capacidade de resumo de conversa
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
