@@ -3,7 +3,7 @@ id: F6-S16
 title: Backend — endpoint interno de busca de lead por nome (para o copiloto resolver o lead)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: S
 agent_id: null
@@ -13,6 +13,7 @@ labels: [backend, ai-assistant, rbac, lgpd-impact]
 source_docs:
   [docs/22-agente-interno-acoes.md, docs/10-seguranca-permissoes.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
+claimed_at: 2026-07-12T16:50:14Z
 ---
 
 # F6-S16 — Backend: busca de lead por nome (para o copiloto)
