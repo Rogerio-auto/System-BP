@@ -3,7 +3,7 @@ id: F6-S18
 title: LangGraph — copiloto usa histórico da sessão nas mensagens do LLM
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: null
@@ -13,8 +13,9 @@ labels: [langgraph, ai-assistant, lgpd-impact]
 source_docs: [docs/22-agente-interno-acoes.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
 claimed_at: 2026-07-13T13:06:38Z
----
+completed_at: 2026-07-13T13:16:06Z
 
+---
 # F6-S18 — LangGraph: histórico nas mensagens do copiloto
 
 ## Objetivo
