@@ -183,4 +183,76 @@ describe('POST /api/internal-assistant/query', () => {
     const body = res.json<{ answer: string }>();
     expect(body.answer).toContain('Nao consegui');
   });
+
+  // ==========================================================
+  // F6-S17: historico de sessao (memoria de conversa)
+  // ==========================================================
+
+  it('deve aceitar requisicao sem history (retrocompatibilidade)', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/internal-assistant/query',
+      payload: { question: 'Quantos leads temos hoje?' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(mockHandleAssistantQuery).toHaveBeenCalledOnce();
+    const [, body] = mockHandleAssistantQuery.mock.calls[0] as [unknown, { history?: unknown }];
+    expect(body.history).toBeUndefined();
+  });
+
+  it('deve repassar history do body ao service quando presente (ate 10 turnos)', async () => {
+    const history = [
+      { role: 'user', content: 'Qual o total de leads da cidade X?' },
+      { role: 'assistant', content: 'A cidade X tem 12 leads ativos.' },
+    ];
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/internal-assistant/query',
+      payload: { question: 'E na cidade Y?', history },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(mockHandleAssistantQuery).toHaveBeenCalledOnce();
+    const [, body] = mockHandleAssistantQuery.mock.calls[0] as [
+      unknown,
+      { history?: typeof history },
+    ];
+    expect(body.history).toEqual(history);
+  });
+
+  it('deve rejeitar history com mais de 10 turnos (400, Zod max(10))', async () => {
+    const history = Array.from({ length: 11 }, (_, i) => ({
+      role: i % 2 === 0 ? 'user' : 'assistant',
+      content: `turno-${String(i)}`,
+    }));
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/internal-assistant/query',
+      payload: { question: 'Continuando...', history },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(mockHandleAssistantQuery).not.toHaveBeenCalled();
+  });
+
+  it('deve rejeitar turno de history com content vazio (400)', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/internal-assistant/query',
+      payload: { question: 'Pergunta', history: [{ role: 'user', content: '' }] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('deve rejeitar role invalido no history (400)', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/internal-assistant/query',
+      payload: { question: 'Pergunta', history: [{ role: 'system', content: 'x' }] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
 });

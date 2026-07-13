@@ -4,6 +4,16 @@
 // LGPD (doc 17 sec14.2 / doc 22 sec12.5):
 //   - question_redacted: DLP antes de gravar em assistant_queries.
 //   - Sem CPF, telefone, nome completo bruto em logs.
+//
+// Historico de sessao (F6-S17):
+//   - `history` e memoria de sessao pura do cliente -- nunca persistido (nem
+//     em assistant_queries) e nunca logado (o `content` de turnos anteriores
+//     pode conter PII citada em respostas do copiloto). O pino redact abaixo
+//     cobre `history[].content` explicitamente; o logger nunca recebe o
+//     history bruto em nenhum campo de log.
+//   - Truncado defensivamente para os ultimos 10 turnos antes de montar o
+//     payload do LangGraph -- a rota HTTP ja rejeita (400) arrays maiores via
+//     Zod `.max(10)`, mas o service protege qualquer chamador direto.
 // =============================================================================
 import { randomUUID } from 'node:crypto';
 
@@ -16,6 +26,7 @@ import { redactPii } from '../../lib/dlp.js';
 import { ExternalServiceError } from '../../shared/errors.js';
 
 import type {
+  AssistantHistoryTurn,
   AssistantQueryBody,
   AssistantQueryResponse,
   LangGraphAssistantRequest,
@@ -26,11 +37,16 @@ import { LangGraphAssistantResponseSchema } from './schemas.js';
 
 const logger = pino({
   name: 'internal-assistant',
-  redact: { paths: ['*.question', '*.answer'], censor: '[REDACTED]' },
+  redact: {
+    paths: ['*.question', '*.answer', '*.history', '*.history[*].content'],
+    censor: '[REDACTED]',
+  },
 });
 
 const LANGGRAPH_QUERY_PATH = '/process/assistant/query';
 const QUERY_TIMEOUT_MS = env.LANGGRAPH_AI_TIMEOUT_MS ?? 25_000;
+/** Máx. turnos de histórico repassados ao LangGraph (~5 idas-e-voltas). */
+const MAX_HISTORY_TURNS = 10;
 
 export interface AssistantActorContext {
   userId: string;
@@ -60,13 +76,18 @@ export async function handleAssistantQuery(
     city_scope_ids: actor.cityScopeIds,
   };
 
-  // 3. Chamar LangGraph service
+  // 3. Historico de sessao (opcional, nunca persistido/logado) -- truncado
+  //    defensivamente para os ultimos N turnos antes de repassar ao LangGraph.
+  const history: AssistantHistoryTurn[] | undefined = truncateHistory(body.history);
+
+  // 4. Chamar LangGraph service
   const baseUrl = env.LANGGRAPH_SERVICE_URL.replace(/\/$/, '');
   const url = baseUrl + LANGGRAPH_QUERY_PATH;
 
   const payload: LangGraphAssistantRequest = {
     principal,
     question: questionRedacted,
+    ...(history !== undefined ? { history } : {}),
     correlation_id: correlationId,
   };
 
@@ -118,7 +139,8 @@ export async function handleAssistantQuery(
     };
   }
 
-  // 4. Persistir em assistant_queries (question_redacted -- DLP ja aplicado)
+  // 5. Persistir em assistant_queries (question_redacted -- DLP ja aplicado).
+  //    `history` NAO e persistido aqui de proposito -- memoria de sessao pura.
   const cityScopeSnapshot =
     actor.cityScopeIds !== null
       ? { city_ids: actor.cityScopeIds, scope_type: 'city' }
@@ -153,4 +175,20 @@ export async function handleAssistantQuery(
   );
 
   return { answer: lgResponse.answer, sources: lgResponse.sources };
+}
+
+/**
+ * Trunca o historico de sessao para os ultimos `MAX_HISTORY_TURNS` turnos
+ * (mais antigo primeiro, entao mantemos a "cauda" do array). Retorna
+ * `undefined` quando nao ha historico -- o campo fica omitido do payload
+ * (compat com chamadas antigas sem `history`).
+ *
+ * Nunca loga `content` -- funcao pura, sem side effects de logging.
+ */
+function truncateHistory(
+  history: AssistantHistoryTurn[] | undefined,
+): AssistantHistoryTurn[] | undefined {
+  if (history === undefined || history.length === 0) return undefined;
+  if (history.length <= MAX_HISTORY_TURNS) return history;
+  return history.slice(-MAX_HISTORY_TURNS);
 }
