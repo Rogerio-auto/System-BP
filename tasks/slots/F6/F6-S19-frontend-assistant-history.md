@@ -3,7 +3,7 @@ id: F6-S19
 title: Frontend — copiloto envia o histórico da sessão (memória de conversa)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
