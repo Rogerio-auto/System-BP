@@ -5,17 +5,24 @@
 // operacionais (leads, cobranças, simulações), sempre respeitando RBAC + escopo
 // de cidade no backend. Contrato real
 // (apps/api/src/modules/internal-assistant/schemas.ts):
-//   request:  { question: string }        (1..2000 chars)
+//   request:  { question: string, history?: Array<{ role: 'user'|'assistant', content: string }> }
+//             question: 1..2000 chars — history: opcional, máx 10 itens, content max 4000 chars
 //   response: { answer: string, sources: string[] }
+//
+// Histórico de sessão (F6-S19): `history` são os turnos anteriores da conversa,
+// montados pelo caller (AssistantWorkspaceModal) a partir do useState do chat —
+// mais antigo primeiro, alternando user/assistant, excluindo o turno atual e
+// turnos de erro/loading. Nunca persistido em localStorage/sessionStorage (LGPD
+// doc 17) — vive só em memória enquanto o workspace está aberto.
 //
 // Gating (camada UI, aplicada pelo caller): hasPermission('ai_assistant:use') &&
 // useFeatureFlag('ai.internal_assistant.enabled'). O backend também aplica
 // (authorize + featureGate na rota) — isto é defesa em profundidade, não a
 // fonte de verdade.
 //
-// LGPD (doc 17): pergunta/resposta nunca são persistidas no client (sem
-// localStorage/sessionStorage/cookies) — vivem apenas em memória de estado do
-// componente enquanto o workspace está aberto, e são descartadas ao fechar.
+// LGPD (doc 17): pergunta/resposta/histórico nunca são persistidos no client
+// (sem localStorage/sessionStorage/cookies) — vivem apenas em memória de estado
+// do componente enquanto o workspace está aberto, e são descartadas ao fechar.
 //
 // Timeout: AbortController client-side em ASSISTANT_TIMEOUT_MS — folga sobre o
 // timeout do grafo LangGraph (LANGGRAPH_AI_TIMEOUT_MS ~25s no backend), para
@@ -33,6 +40,9 @@ import { api, ApiError } from '../../lib/api';
 /** Espelha AssistantQueryBodySchema.question (max) no backend. */
 export const ASSISTANT_QUESTION_MAX_LENGTH = 2000;
 
+/** Espelha AssistantQueryBodySchema.history (.max(10)) no backend — cap rígido. */
+export const ASSISTANT_HISTORY_MAX_TURNS = 10;
+
 /** Timeout do client — folga sobre o timeout do grafo (~25s) no backend. */
 export const ASSISTANT_TIMEOUT_MS = 30_000;
 
@@ -44,6 +54,20 @@ export const ASSISTANT_TIMEOUT_MS = 30_000;
 export interface AssistantQueryResponse {
   answer: string;
   sources: string[];
+}
+
+/**
+ * Um turno do histórico de sessão enviado ao backend. Espelha
+ * AssistantHistoryTurnSchema (apps/api/.../internal-assistant/schemas.ts).
+ */
+export interface AssistantHistoryTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+interface AssistantQueryVariables {
+  question: string;
+  history?: AssistantHistoryTurn[];
 }
 
 export type AssistantErrorKind =
@@ -113,11 +137,18 @@ export function classifyAssistantError(error: unknown): AssistantError {
 
 async function postAssistantQuery(
   question: string,
+  history: AssistantHistoryTurn[] | undefined,
   signal: AbortSignal,
 ): Promise<AssistantQueryResponse> {
+  // Defesa em profundidade: mesmo que o caller já tenha truncado, nunca
+  // deixamos passar mais de ASSISTANT_HISTORY_MAX_TURNS — o backend rejeita
+  // com 400 acima disso.
+  const truncatedHistory =
+    history && history.length > 0 ? history.slice(-ASSISTANT_HISTORY_MAX_TURNS) : undefined;
+
   return api.post<AssistantQueryResponse>(
     '/api/internal-assistant/query',
-    { question },
+    truncatedHistory ? { question, history: truncatedHistory } : { question },
     { signal },
   );
 }
@@ -127,8 +158,12 @@ async function postAssistantQuery(
 // ---------------------------------------------------------------------------
 
 export interface UseAssistantQueryResult {
-  /** Envia a pergunta; resolve com a resposta ou rejeita (classifique com classifyAssistantError). */
-  ask: (question: string) => Promise<AssistantQueryResponse>;
+  /**
+   * Envia a pergunta (+ histórico de sessão opcional, já truncado pelo
+   * caller para os últimos ASSISTANT_HISTORY_MAX_TURNS); resolve com a
+   * resposta ou rejeita (classifique com classifyAssistantError).
+   */
+  ask: (question: string, history?: AssistantHistoryTurn[]) => Promise<AssistantQueryResponse>;
   /** true enquanto aguarda resposta do copiloto. */
   isPending: boolean;
   /** Reseta o estado interno da mutation (não afeta o histórico local do drawer). */
@@ -140,18 +175,20 @@ export interface UseAssistantQueryResult {
  * Uma pergunta por vez (o composer desabilita envio enquanto isPending).
  */
 export function useAssistantQuery(): UseAssistantQueryResult {
-  const mutation: UseMutationResult<AssistantQueryResponse, unknown, string> = useMutation({
-    mutationFn: (question: string) => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), ASSISTANT_TIMEOUT_MS);
-      return postAssistantQuery(question, controller.signal).finally(() => {
-        clearTimeout(timer);
-      });
-    },
-  });
+  const mutation: UseMutationResult<AssistantQueryResponse, unknown, AssistantQueryVariables> =
+    useMutation({
+      mutationFn: ({ question, history }: AssistantQueryVariables) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ASSISTANT_TIMEOUT_MS);
+        return postAssistantQuery(question, history, controller.signal).finally(() => {
+          clearTimeout(timer);
+        });
+      },
+    });
 
   return {
-    ask: mutation.mutateAsync,
+    ask: (question: string, history?: AssistantHistoryTurn[]) =>
+      mutation.mutateAsync(history ? { question, history } : { question }),
     isPending: mutation.isPending,
     reset: mutation.reset,
   };
