@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 import structlog
 
-from app.graphs.internal_assistant.state import InternalAssistantState, Principal
+from app.graphs.internal_assistant.state import HistoryTurn, InternalAssistantState, Principal
 from app.llm.factory import for_role, get_gateway
 from app.prompts.loader import PromptNotFoundError, load_active_prompt
 from app.tools.assistant_tools import (
@@ -33,6 +33,10 @@ _DEFAULT_MAX_TOKENS = 1024
 
 #: Cap de tool-calls por turno para evitar loop custoso
 MAX_TOOL_CALLS_PER_TURN: int = 6
+
+#: Cap defensivo de turnos de historico incluidos nas mensagens do LLM
+#: (o Node/endpoint ja capam em 10, mas o node nunca confia so no upstream).
+MAX_HISTORY_TURNS: int = 10
 
 
 async def _dispatch_tool(
@@ -133,8 +137,17 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
     gateway = get_gateway()
     model: str = model_override if model_override else for_role(_MODEL_ROLE)
     tools = build_assistant_tool_schemas()
+    # Truncamento defensivo: mesmo que o Node/endpoint ja capem em 10 turnos,
+    # o node nunca confia apenas no upstream. Historico entra ENTRE o system
+    # prompt e a pergunta atual -- dlp=True (abaixo) redige PII de TODAS as
+    # mensagens antes do OpenRouter, inclusive o historico.
+    history: list[HistoryTurn] = list(state.get("history") or [])[-MAX_HISTORY_TURNS:]
+    history_messages: list[dict[str, Any]] = [
+        {"role": turn["role"], "content": turn["content"]} for turn in history
+    ]
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
+        *history_messages,
         {"role": "user", "content": question},
     ]
     tool_call_count = 0

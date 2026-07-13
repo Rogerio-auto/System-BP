@@ -9,9 +9,21 @@ LGPD s17/s8.5:
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from typing_extensions import TypedDict
+
+
+class HistoryTurn(TypedDict):
+    """Turno de historico da sessao -- threaded do endpoint para o agent_node.
+
+    LGPD s17: content pode conter PII (respostas anteriores citam dados de
+    lead). Nunca logar o content -- apenas contagem/tamanho. A DLP (dlp=True
+    no gateway) redige PII antes de enviar ao LLM, inclusive deste campo.
+    """
+
+    role: Literal["user", "assistant"]
+    content: str
 
 
 class Principal(TypedDict):
@@ -55,6 +67,11 @@ class InternalAssistantState(TypedDict, total=False):
 
     # Pergunta do usuario (input do request)
     question: str
+
+    # Historico de turnos da sessao (opcional, fornecido pelo caller, max 10).
+    # Threaded para o agent_node, que o insere entre o system prompt e a
+    # pergunta atual. LGPD: pode conter PII em content -- nunca logar.
+    history: list[HistoryTurn]
 
     # Historico de mensagens para o LLM (format OpenAI)
     messages: list[dict[str, Any]]
