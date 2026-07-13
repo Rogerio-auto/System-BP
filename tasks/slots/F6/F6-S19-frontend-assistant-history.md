@@ -3,7 +3,7 @@ id: F6-S19
 title: Frontend — copiloto envia o histórico da sessão (memória de conversa)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: review
 priority: high
 estimated_size: S
 agent_id: null
@@ -12,6 +12,8 @@ blocks: []
 labels: [frontend, ai-assistant, ux]
 source_docs: [docs/22-agente-interno-acoes.md, docs/18-design-system.md]
 docs_required: false
+claimed_at: 2026-07-13T13:24:54Z
+completed_at: 2026-07-13T13:29:34Z
 ---
 
 # F6-S19 — Frontend: enviar o histórico da sessão

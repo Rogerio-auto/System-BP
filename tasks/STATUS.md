@@ -29,7 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 15    | 2   | 0   | 0   | 0   | 0   | 13  |
+| F6   | 15    | 1   | 0   | 0   | 0   | 1   | 13  |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -476,7 +476,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F6-S16 | Backend — endpoint interno de busca de lead por nome (para o copiloto resolver o lead)     | ✅ done      | medium     | F6-S06         |
 | F6-S17 | Backend — copiloto aceita histórico de conversa (memória de sessão)                        | ✅ done      | high       | F6-S08         |
 | F6-S18 | LangGraph — copiloto usa histórico da sessão nas mensagens do LLM                          | ✅ done      | high       | F6-S07         |
-| F6-S19 | Frontend — copiloto envia o histórico da sessão (memória de conversa)                      | 🟢 available | high       | F6-S17         |
+| F6-S19 | Frontend — copiloto envia o histórico da sessão (memória de conversa)                      | 🟣 review    | high       | F6-S17         |
 
 ## Fase 7 — Hardening final
 

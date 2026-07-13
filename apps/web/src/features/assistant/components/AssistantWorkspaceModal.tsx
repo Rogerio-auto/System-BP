@@ -13,6 +13,10 @@
 // Histórico de turnos vive só em React state (useState) — desmonta ao
 // fechar (o caller condiciona a renderização), então nunca sobrevive em
 // localStorage/sessionStorage (LGPD doc 17).
+//
+// Memória de conversa (F6-S19): cada pergunta enviada ao backend carrega os
+// turnos anteriores bem-sucedidos (buildAssistantHistory), para o copiloto
+// ter continuidade — sem persistir nada além do useState acima.
 // =============================================================================
 
 import * as React from 'react';
@@ -24,6 +28,7 @@ import {
   type AssistantErrorKind,
 } from '../../../hooks/assistant/useAssistantQuery';
 import { cn } from '../../../lib/cn';
+import { buildAssistantHistory } from '../history';
 import type { AssistantTurn } from '../types';
 
 import { AssistantComposer } from './AssistantComposer';
@@ -66,7 +71,12 @@ export function AssistantWorkspaceModal({
   }, [onClose]);
 
   function runTurn(id: string, question: string): void {
-    ask(question)
+    // `turns` aqui é o estado ANTES deste turno ser adicionado (sendQuestion)
+    // ou o estado com este turno ainda em 'error'/'pending' (handleRetry) —
+    // em ambos os casos buildAssistantHistory exclui o turno atual e
+    // qualquer turno que não tenha terminado com sucesso.
+    const history = buildAssistantHistory(turns, id);
+    ask(question, history)
       .then((res) => {
         if (!isMountedRef.current) return;
         setTurns((prev) =>
