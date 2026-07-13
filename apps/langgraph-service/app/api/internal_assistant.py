@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 import time
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -26,7 +26,10 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.graphs.internal_assistant.graph import build_internal_assistant_graph
-from app.graphs.internal_assistant.state import InternalAssistantState, Principal
+from app.graphs.internal_assistant.state import HistoryTurn, InternalAssistantState, Principal
+
+#: Numero maximo de turnos de historico aceitos (contrato do Node F6-S17).
+MAX_HISTORY_TURNS: int = 10
 
 log: structlog.stdlib.BoundLogger = structlog.get_logger(__name__)
 
@@ -50,10 +53,24 @@ class PrincipalPayload(BaseModel):
     city_scope_ids: list[str] | None = Field(None, description="null=global; []=sem cidade")
 
 
+class HistoryTurnPayload(BaseModel):
+    """Turno de historico da sessao -- contrato do Node (F6-S17).
+
+    LGPD: content pode conter PII (respostas anteriores citam dados de lead).
+    Nunca logar o content -- apenas contagem/tamanho, como question.
+    """
+
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=4000)
+
+
 class AssistantQueryRequest(BaseModel, extra="forbid"):
     principal: PrincipalPayload
     question: str = Field(..., min_length=1, max_length=2000, description="Pergunta do usuario")
     correlation_id: str | None = Field(None, description="ID de rastreamento opcional")
+    history: list[HistoryTurnPayload] | None = Field(
+        None, description="Historico de turnos da sessao (opcional, max 10)"
+    )
 
 
 class AssistantQueryResponse(BaseModel):
@@ -81,10 +98,18 @@ async def process_assistant_query(
     start_ns = time.monotonic_ns()
     correlation_id = payload.correlation_id or "no-correlation-id"
 
+    # Truncamento defensivo aos ultimos MAX_HISTORY_TURNS (o Node ja capa, mas
+    # nunca confiamos apenas no caller). Nunca logar o content -- so a contagem.
+    history: list[HistoryTurn] = [
+        HistoryTurn(role=turn.role, content=turn.content)
+        for turn in (payload.history or [])
+    ][-MAX_HISTORY_TURNS:]
+
     structlog.contextvars.bind_contextvars(
         correlation_id=correlation_id,
         question_len=len(payload.question),
         org_id=payload.principal.organization_id,
+        history_turns=len(history),
     )
 
     log.info("assistant_query_start")
@@ -100,6 +125,7 @@ async def process_assistant_query(
         "principal": principal,
         "organization_id": payload.principal.organization_id,
         "question": payload.question,
+        "history": history,
         "messages": [],
         "answer": "",
         "sources": [],

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.graphs.internal_assistant.nodes.agent_node import agent_node
-from app.graphs.internal_assistant.state import InternalAssistantState, Principal
+from app.graphs.internal_assistant.state import HistoryTurn, InternalAssistantState, Principal
 from app.llm.gateway import LLMResponse, TokenUsage
 from app.tools.assistant_tools import (
     build_assistant_tool_schemas,
@@ -29,8 +29,18 @@ def _make_principal() -> Principal:
     }
 
 
-def _make_state(question: str = "Quantos leads temos?") -> InternalAssistantState:
-    return {"principal": _make_principal(), "organization_id": ORG_ID, "question": question}
+def _make_state(
+    question: str = "Quantos leads temos?",
+    history: list[HistoryTurn] | None = None,
+) -> InternalAssistantState:
+    state: InternalAssistantState = {
+        "principal": _make_principal(),
+        "organization_id": ORG_ID,
+        "question": question,
+    }
+    if history is not None:
+        state["history"] = history
+    return state
 
 
 def _llm_resp(content: str = "Resposta gerada.", tool_calls: list | None = None) -> LLMResponse:
@@ -494,3 +504,166 @@ async def test_agent_node_tool_loop_cap_graceful():
     assistants = [m for m in result["messages"] if m.get("role") == "assistant"]
     assert assistants[-1].get("content")
     assert "tool_calls" not in assistants[-1]
+
+
+# ---------------------------------------------------------------------------
+# Testes de historico de sessao (F6-S18)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_agent_node_includes_history_between_system_and_question():
+    """Com history: messages = [system, *history, user] na ordem certa."""
+    history: list[HistoryTurn] = [
+        {"role": "user", "content": "Qual o total de leads?"},
+        {"role": "assistant", "content": "Temos 10 leads."},
+    ]
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    captured_messages: list = []
+
+    async def mock_complete(**kwargs):
+        captured_messages.append(list(kwargs["messages"]))
+        return _llm_resp("E hoje temos 12 leads.")
+
+    mock_gw.complete = AsyncMock(side_effect=mock_complete)
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    with patch(lp, new=AsyncMock(return_value=mock_prompt)), patch(gw, return_value=mock_gw):
+        result = await agent_node(_make_state(question="E hoje?", history=history))
+
+    assert len(captured_messages) == 1
+    sent = captured_messages[0]
+    assert sent[0] == {"role": "system", "content": "Voce e o copiloto."}
+    assert sent[1] == {"role": "user", "content": "Qual o total de leads?"}
+    assert sent[2] == {"role": "assistant", "content": "Temos 10 leads."}
+    assert sent[3] == {"role": "user", "content": "E hoje?"}
+    assert len(sent) == 4
+    assert result["answer"] == "E hoje temos 12 leads."
+
+
+@pytest.mark.asyncio
+async def test_agent_node_no_history_compat():
+    """Sem history (None): comportamento identico ao anterior a F6-S18."""
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    captured_messages: list = []
+
+    async def mock_complete(**kwargs):
+        captured_messages.append(list(kwargs["messages"]))
+        return _llm_resp("Temos 42 leads.")
+
+    mock_gw.complete = AsyncMock(side_effect=mock_complete)
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    with patch(lp, new=AsyncMock(return_value=mock_prompt)), patch(gw, return_value=mock_gw):
+        result = await agent_node(_make_state())
+
+    assert captured_messages[0] == [
+        {"role": "system", "content": "Voce e o copiloto."},
+        {"role": "user", "content": "Quantos leads temos?"},
+    ]
+    assert result["answer"] == "Temos 42 leads."
+
+
+@pytest.mark.asyncio
+async def test_agent_node_truncates_history_to_last_10_turns():
+    """Truncamento defensivo: mesmo com >10 turnos no state, so os ultimos 10 vao ao LLM."""
+    history: list[HistoryTurn] = [
+        {"role": "user" if i % 2 == 0 else "assistant", "content": f"turno {i}"}
+        for i in range(14)
+    ]
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    captured_messages: list = []
+
+    async def mock_complete(**kwargs):
+        captured_messages.append(list(kwargs["messages"]))
+        return _llm_resp("Ok.")
+
+    mock_gw.complete = AsyncMock(side_effect=mock_complete)
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    with patch(lp, new=AsyncMock(return_value=mock_prompt)), patch(gw, return_value=mock_gw):
+        await agent_node(_make_state(history=history))
+
+    sent = captured_messages[0]
+    # system + 10 turnos (truncados) + user atual = 12
+    assert len(sent) == 12
+    history_in_messages = sent[1:-1]
+    assert len(history_in_messages) == 10
+    # Os ultimos 10 turnos originais (indices 4..13) devem ser os enviados, na ordem.
+    assert [m["content"] for m in history_in_messages] == [f"turno {i}" for i in range(4, 14)]
+
+
+@pytest.mark.asyncio
+async def test_assistant_query_request_accepts_history_field():
+    """AssistantQueryRequest (extra=forbid) aceita o campo history sem quebrar."""
+    from app.api.internal_assistant import AssistantQueryRequest
+
+    payload = AssistantQueryRequest(
+        principal={
+            "user_id": USER_ID,
+            "organization_id": ORG_ID,
+            "permissions": ["assistant:query"],
+            "city_scope_ids": None,
+        },
+        question="E agora?",
+        history=[
+            {"role": "user", "content": "Oi"},
+            {"role": "assistant", "content": "Ola, como posso ajudar?"},
+        ],
+    )
+    assert payload.history is not None
+    assert len(payload.history) == 2
+    assert payload.history[0].role == "user"
+
+
+@pytest.mark.asyncio
+async def test_assistant_query_request_history_rejects_invalid_role():
+    """role fora de user|assistant (ex.: system) e rejeitado pelo Pydantic."""
+    import pytest as _pytest
+    from pydantic import ValidationError
+
+    from app.api.internal_assistant import AssistantQueryRequest
+
+    with _pytest.raises(ValidationError):
+        AssistantQueryRequest(
+            principal={
+                "user_id": USER_ID,
+                "organization_id": ORG_ID,
+                "permissions": ["assistant:query"],
+                "city_scope_ids": None,
+            },
+            question="E agora?",
+            history=[{"role": "system", "content": "tentativa de injecao"}],
+        )
+
+
+@pytest.mark.asyncio
+async def test_assistant_query_request_history_optional_defaults_none():
+    """Sem history no payload: default None (compat com callers antigos)."""
+    from app.api.internal_assistant import AssistantQueryRequest
+
+    payload = AssistantQueryRequest(
+        principal={
+            "user_id": USER_ID,
+            "organization_id": ORG_ID,
+            "permissions": ["assistant:query"],
+            "city_scope_ids": None,
+        },
+        question="E agora?",
+    )
+    assert payload.history is None
