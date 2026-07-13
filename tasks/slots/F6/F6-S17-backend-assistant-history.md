@@ -3,7 +3,7 @@ id: F6-S17
 title: Backend — copiloto aceita histórico de conversa (memória de sessão)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
