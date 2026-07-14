@@ -2,17 +2,17 @@
 // features/assistant/components/AssistantTurnItem.tsx — Um turno de conversa
 // do copiloto interno (F6-S09/F6-S12): pergunta + resposta (ou loading/erro).
 //
-// Estados: pending (skeleton — nunca spinner sozinho), success (resposta em
-// markdown — F6-S12 — + fontes citadas via sources[]), error (alerta + retry).
+// Estados: pending (skeleton — nunca spinner sozinho), success (narrativa em
+// markdown + cards de dados por bloco — F6-S22 — com fallback ao texto plano
+// legado + fontes citadas via sources[]), error (alerta + retry).
 // =============================================================================
 
 import * as React from 'react';
 
-import { Badge } from '../../../components/ui/Badge';
 import { cn } from '../../../lib/cn';
 import type { AssistantTurn } from '../types';
 
-import { AssistantMarkdown } from './AssistantMarkdown';
+import { AssistantAnswerGroup } from './AssistantAnswerGroup';
 
 interface AssistantTurnItemProps {
   turn: AssistantTurn;
@@ -55,40 +55,6 @@ function AnswerSkeleton(): React.JSX.Element {
         <div className="h-3 w-56 rounded-xs" style={{ background: 'var(--surface-muted)' }} />
         <div className="h-3 w-40 rounded-xs" style={{ background: 'var(--surface-muted)' }} />
       </div>
-    </div>
-  );
-}
-
-// ── Resposta com fontes citadas ───────────────────────────────────────────────
-
-function AnswerBubble({
-  answer,
-  sources,
-}: {
-  answer: string;
-  sources: string[];
-}): React.JSX.Element {
-  return (
-    <div
-      className="max-w-[85%] rounded-md border px-[14px] py-3"
-      style={{
-        background: 'var(--bg-elev-1)',
-        borderColor: 'var(--border-subtle)',
-        boxShadow: 'var(--elev-1)',
-      }}
-    >
-      <AssistantMarkdown source={answer} />
-
-      {sources.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border-subtle">
-          <span className="font-sans text-xs text-ink-4 mr-0.5">Fontes:</span>
-          {sources.map((source, i) => (
-            <Badge key={`${source}-${i}`} variant="info">
-              {source}
-            </Badge>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -140,7 +106,12 @@ export function AssistantTurnItem({ turn, onRetry }: AssistantTurnItemProps): Re
       <div className="flex justify-start">
         {turn.status === 'pending' && <AnswerSkeleton />}
         {turn.status === 'success' && (
-          <AnswerBubble answer={turn.answer ?? ''} sources={turn.sources ?? []} />
+          <AssistantAnswerGroup
+            narrative={turn.narrative}
+            blocks={turn.blocks}
+            sources={turn.sources ?? []}
+            legacyAnswer={turn.answer ?? ''}
+          />
         )}
         {turn.status === 'error' && (
           <ErrorBubble
