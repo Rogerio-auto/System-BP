@@ -3,7 +3,7 @@ id: F6-S22
 title: Frontend — render de resposta estruturada (narrativa + cards de dados)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: L
 agent_id: null
