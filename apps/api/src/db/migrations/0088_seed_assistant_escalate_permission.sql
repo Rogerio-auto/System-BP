@@ -7,7 +7,7 @@
 -- O que esta migration faz:
 --   1. Insere a permissão `assistant:escalate` — "Notificar o Departamento de
 --      Crédito sobre um lead a partir do copiloto interno".
---   2. Concede `assistant:escalate` aos 6 roles operacionais (decisão do
+--   2. Concede `assistant:escalate` aos 5 roles operacionais (decisão do
 --      Rogério: QUALQUER operador com acesso ao lead pode escalar — o gate
 --      real de segurança é permissão + escopo de cidade do lead, aplicado
 --      no service, não uma restrição adicional de role).
@@ -43,17 +43,21 @@ ON CONFLICT ("key") DO NOTHING;
 --> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
--- 2. Conceder assistant:escalate aos 6 roles operacionais
+-- 2. Conceder assistant:escalate aos roles OPERACIONAIS
 --
 -- Qualquer operador com acesso ao lead pode escalar — o gate de segurança é
 -- a combinação permissão + escopo de cidade do lead (404 fora do escopo),
 -- aplicado na service layer (apps/api/src/modules/assistant-escalation/).
+--
+-- `leitura` (Somente Leitura) fica DE FORA por menor privilégio: escalar cria
+-- notificações, registro de auditoria e evento no outbox — é uma ação, não uma
+-- leitura. Um role read-only não dispara efeitos colaterais no sistema.
 -- ---------------------------------------------------------------------------
 
 INSERT INTO "role_permissions" ("role_id", "permission_id")
 SELECT r.id, p.id
 FROM "roles" r
 CROSS JOIN "permissions" p
-WHERE r.key IN ('admin', 'gestor_geral', 'gestor_regional', 'agente', 'operador', 'leitura')
+WHERE r.key IN ('admin', 'gestor_geral', 'gestor_regional', 'agente', 'operador')
   AND p.key = 'assistant:escalate'
 ON CONFLICT DO NOTHING;
