@@ -22,6 +22,7 @@ import { decisionsRoutes } from './modules/ai-console/decisions/index.js';
 import { playgroundRoutes } from './modules/ai-console/playground/index.js';
 import { promptsRoutes } from './modules/ai-console/prompts/index.js';
 import { assistantEscalationRoutes } from './modules/assistant-escalation/routes.js';
+import { assistantHistoryRoutes } from './modules/assistant-history/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { billingRoutes } from './modules/billing/index.js';
 import { channelsRoutes } from './modules/channels/routes.js';
@@ -380,6 +381,11 @@ export async function buildApp() {
 
   // Escalar lead ao Departamento de Crédito via copiloto (human-in-the-loop, F6-S30)
   await app.register(assistantEscalationRoutes);
+
+  // Histórico persistente do copiloto interno — CRUD owner-scoped (F6-S25).
+  // Persistência é no-op enquanto a flag assistant.history.enabled estiver
+  // desligada (ver docs/anexos/lgpd/dpia-historico-copiloto.md).
+  await app.register(assistantHistoryRoutes);
 
   // Dev-only endpoints (schema-examples, etc.) — NOT registered in production (F10-S11)
   if (process.env['NODE_ENV'] !== 'production') {
