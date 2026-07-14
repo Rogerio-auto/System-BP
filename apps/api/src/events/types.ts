@@ -1004,6 +1004,31 @@ export interface UserCityScopeChangedData {
   action: 'added' | 'removed';
 }
 
+// --- Domínio: escalação ao Departamento de Crédito (F6-S30) ---
+// LGPD §8.5: sem PII bruta — apenas IDs opacos + contagem operacional.
+// A nota livre do operador NUNCA entra no payload do evento (pode conter
+// PII) — fica apenas em notifications.body (fora do outbox, LGPD §8.5).
+
+/**
+ * Emitido quando um operador humano escala um lead ao Departamento de
+ * Crédito via copiloto interno (human-in-the-loop — F6-S30). A IA nunca
+ * emite este evento sozinha; sempre em resposta a uma ação confirmada
+ * por um usuário autenticado.
+ *
+ * LGPD §8.5: payload sem PII — apenas IDs opacos + contagem de destinatários.
+ * O consumer hidrata dados do lead via GET /internal/leads/:id com escopo correto.
+ */
+export interface AssistantEscalationCreatedData {
+  /** UUID do audit_log que registrou a escalação — usado como ID opaco da escalação. */
+  escalation_id: string;
+  /** UUID opaco do lead escalado — não é PII direta. */
+  lead_id: string;
+  /** UUID da organização — contexto multi-tenant. */
+  organization_id: string;
+  /** Número de destinatários notificados (analistas de crédito). */
+  recipient_count: number;
+}
+
 // ---------------------------------------------------------------------------
 // APP_EVENT_NAMES — mapa de event_name → tipo de data
 // Usado pelo TypeScript para inferir os tipos nas sobrecargas de emit().
@@ -1113,6 +1138,8 @@ export interface AppEventDataMap {
   'data_subject.anonymized': DataSubjectAnonymizedData;
   'data_subject.deletion_completed': DataSubjectDeletionCompletedData;
   'data_subject.review_requested': DataSubjectReviewRequestedData;
+  // --- Escalação ao Departamento de Crédito (F6-S30) ---
+  'assistant.escalation.created': AssistantEscalationCreatedData;
 }
 
 /** Union de todos os nomes de evento válidos no sistema. */

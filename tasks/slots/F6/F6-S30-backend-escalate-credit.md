@@ -3,7 +3,7 @@ id: F6-S30
 title: Backend — escalar lead ao Departamento de Crédito (human-in-the-loop, via notificação)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: review
 priority: medium
 estimated_size: L
 agent_id: null
@@ -13,6 +13,8 @@ labels: [backend, ai-assistant, notifications, rbac, lgpd-impact]
 source_docs:
   [docs/22-agente-interno-acoes.md, docs/17-lgpd-protecao-dados.md, docs/10-seguranca-permissoes.md]
 docs_required: false
+claimed_at: 2026-07-14T19:08:31Z
+completed_at: 2026-07-14T19:36:54Z
 ---
 
 # F6-S30 — Backend: escalar lead ao Crédito
