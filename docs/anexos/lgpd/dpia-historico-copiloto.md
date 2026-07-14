@@ -2,7 +2,13 @@
 
 > Relatório de Impacto à Proteção de Dados (LGPD Art. 38). Artefato **normativo** da Fase 0.
 > Segue o conteúdo mínimo do `docs/17-lgpd-protecao-dados.md` §11.2.
-> **Status: em elaboração — pendente parecer do DPO oficial antes de qualquer código (Fase 1).**
+> **Status: em elaboração — pendente parecer do DPO oficial antes de qualquer PERSISTÊNCIA (Fases 2–4).**
+>
+> **Escopo do portão:** o que este DPIA protege é a **persistência** de dados derivados de PII. A **Fase 1**
+> (reformular a resposta em narrativa + blocos referenciados) **não persiste nada, não muda o fluxo ao
+> suboperador e não altera a DLP** — é refactor de formato sem novo impacto de proteção de dados, e **pode
+> ser desenvolvida em paralelo** para ganhar tempo. As **Fases 2–4** (armazenar, hidratar de histórico,
+> barra lateral) ficam **bloqueadas** até o parecer do DPO oficial (§6).
 >
 > - Controlador: Banco do Povo de Rondônia / SEDEC-RO
 > - Operador: Elemento
@@ -104,8 +110,10 @@ Recomendação **favorável**, condicionada à implementação integral das salv
 RBAC-bound com re-avaliação de escopo; (c) mascaramento de nome na pergunta e no título. O nível A é o
 desenho de menor risco residual entre as alternativas viáveis, e alinhado à minimização (Art. 6º III).
 
-Ressalva: como envolve **persistência de novo conjunto de dados** derivado de tratamento com IA, a Fase 1
-(código) **não deve iniciar** antes do parecer do DPO oficial abaixo.
+Ressalva: como envolve **persistência de novo conjunto de dados** derivado de tratamento com IA, as
+**Fases 2–4 (persistência, hidratação de histórico, barra lateral) não devem iniciar** antes do parecer
+do DPO oficial abaixo. A **Fase 1** (refactor da resposta em narrativa + blocos, sem qualquer persistência
+e sem alteração de fluxo ao suboperador ou de DLP) está fora do escopo deste portão e pode prosseguir.
 
 ## 6. Parecer do DPO oficial
 
