@@ -3,7 +3,7 @@ id: F6-S26
 title: Backend — retenção (90d) e exclusão do histórico do copiloto
 phase: F6
 task_ref: docs/anexos/lgpd/dpia-historico-copiloto.md
-status: review
+status: done
 priority: medium
 estimated_size: S
 agent_id: null
