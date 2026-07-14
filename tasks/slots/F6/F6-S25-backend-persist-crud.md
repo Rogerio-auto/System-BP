@@ -3,7 +3,7 @@ id: F6-S25
 title: Backend — persistência + CRUD das conversas do copiloto (nomeação por intenção)
 phase: F6
 task_ref: docs/anexos/lgpd/dpia-historico-copiloto.md
-status: review
+status: done
 priority: medium
 estimated_size: L
 agent_id: null
