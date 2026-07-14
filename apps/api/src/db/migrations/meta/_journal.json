@@ -561,6 +561,13 @@
       "when": 1784300000000,
       "tag": "0088_seed_assistant_escalate_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1784400000000,
+      "tag": "0089_assistant_conversations_turns",
+      "breakpoints": true
     }
   ]
 }
