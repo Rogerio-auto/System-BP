@@ -3,7 +3,7 @@ id: F6-S29
 title: Frontend — barra lateral de histórico do copiloto (listar, abrir, continuar, renomear)
 phase: F6
 task_ref: docs/anexos/lgpd/dpia-historico-copiloto.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,7 @@ blocks: []
 labels: [frontend, ai-assistant, design-system, ux]
 source_docs: [docs/18-design-system.md, docs/anexos/lgpd/dpia-historico-copiloto.md]
 docs_required: false
+claimed_at: 2026-07-14T23:42:03Z
 ---
 
 # F6-S29 — Frontend: barra lateral de histórico
