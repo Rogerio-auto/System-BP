@@ -394,6 +394,61 @@ Nasce **read-only**. Ações de escrita disparadas pelo copiloto (ex.: "qualific
 só depois, e sempre passando pela allowlist da IA-máquina (§8.A) + confirmação humana —
 nunca herdando escrita silenciosa do RBAC de leitura.
 
+### 12.8 Primeira ação de escrita: escalar lead ao Crédito (human-in-the-loop)
+
+A primeira ação de escrita exposta pelo copiloto (§12.7) é **notificar o Departamento de
+Crédito sobre um lead**. Ela segue o mesmo eixo de segurança do resto deste documento: **a
+IA nunca escala sozinha** — ela apenas oferece o botão; quem decide e dispara é sempre o
+operador humano.
+
+- **Gatilho:** no card `lead_summary` do copiloto (§12, F6-S22), o operador clica **"Escalar
+  ao Crédito"**. Um modal de confirmação mostra o lead, o destinatário e um campo opcional
+  de **nota** — só o **confirmar** dispara a chamada. Sem confirmação explícita, nada
+  acontece.
+- **Ator do audit:** o **humano** que confirmou (`actor_type='user'`), nunca `'ai'` — esta
+  ação não usa o ator de IA da Superfície A (§8.A), porque quem decide escalar é o operador,
+  não o modelo.
+- **Endpoint:** `POST /api/assistant/escalate { lead_id, note? }`.
+  - **RBAC:** permissão `assistant:escalate`, concedida a **todos os roles de operador**
+    (qualquer operador com acesso ao lead pode escalar) + o lead precisa estar no **escopo
+    de cidade** do usuário — fora do escopo responde `404` (sem confirmar/negar a
+    existência do lead a quem não deveria vê-lo).
+  - **Destinatário — config-driven, não derivado de permissão:** resolvido a partir de
+    `organizations.settings.credit_escalation`, um objeto jsonb no formato
+    `{ "city_id": "<uuid da cidade>", "role_keys": ["<role>", ...] }`. Na implantação do
+    Banco do Povo, o Departamento de Crédito fica na **matriz (Ariquemes)** e o
+    `role_keys` aponta para o role `agente` lotado lá — a config guarda **cidade e
+    papéis juntos**, porque não existe um role "analista de crédito" dedicado no
+    catálogo (`admin`, `agente`, `cobranca`, `gestor_geral`, `gestor_regional`, `leitura`,
+    `operador`) nem uma forma segura de derivar o destinatário só pela permissão
+    `credit_analyses:decide` — essa permissão hoje é detida também por administradores de
+    escopo global, e usá-la diretamente viraria broadcast.
+  - **Resolução:** `resolveByRoleCity(role_keys, city_id)` (reuso do resolvedor de
+    destinatários do F24, `notification-rules/recipients.ts`). Se
+    `credit_escalation` **não estiver configurado**, cai no **fallback**: roles que detêm
+    `credit_analyses:decide` em escopo global (hoje, efetivamente `gestor_geral`/`admin`).
+    Se mesmo assim **não houver destinatário**, o endpoint responde `409` ("Departamento de
+    Crédito não configurado") — a escalação **nunca** vira broadcast silencioso.
+  - **Onde setar:** `organizations.settings.credit_escalation` (coluna jsonb de
+    `organizations`), editável por quem já governa configuração organizacional
+    (equivalente a `ai_actions:manage`, §8.B). Ausência de configuração é um estado válido
+    — o sistema cai no fallback acima antes de falhar.
+  - **Canais:** `sendInApp` (in-app, sempre) + email — o email fica atrás do **gate de 2
+    camadas** do F24 (env `NOTIFICATIONS_EMAIL_ENABLED` **e** flag
+    `notifications.email.enabled`; ver `docs/23-notificacoes.md` §9). Sem as duas camadas
+    ligadas, a notificação permanece só in-app.
+  - **Idempotência:** dedup por `lead_id` numa janela curta (ex.: 1h) — o mesmo lead não
+    gera nova notificação a cada clique repetido dentro da janela.
+  - **Auditoria e evento:** `audit_logs` com `actor_type='user'`, ação
+    `assistant.lead_escalated`; evento `assistant.escalation.created` no outbox, **na mesma
+    transação**. O payload do evento carrega apenas **referência ao lead (`lead_id`) e a
+    nota do operador** — **sem PII bruta** (nada de CPF/telefone/nome bruto de cidadão no
+    outbox; consistente com `docs/17` §8.5/§3.4). O destinatário hidrata o lead pelo próprio
+    escopo ao abrir a notificação.
+- **Reversibilidade:** a escalação é **puramente informativa**. Ela não move o lead no
+  Kanban, não altera `leads.status` e não decide crédito — não há estado de negócio a
+  desfazer; uma nova escalação só é possível depois que a janela de dedup expira.
+
 ---
 
 ## 13. Central de Ajuda (atualização in-app)
@@ -445,6 +500,8 @@ kebab-case ASCII, e **MDX válido** — sintaxe inválida quebra o `manifest.tes
 - `docs/09-feature-flags.md` — flags em 4 camadas.
 - `docs/05-modulos-funcionais.md` — Kanban, stages, transições automáticas.
 - `docs/20-central-de-ajuda.md` — norma da Central de Ajuda in-app (§12).
+- `docs/23-notificacoes.md` — engine de notificações (in-app/email), gate de 2 camadas do
+  email, retenção (§12.8).
 - Código de referência do padrão: `apps/api/src/workers/kanban-on-simulation.ts`,
   `apps/api/src/workers/kanban-on-analysis.ts`.
 - RBAC: `apps/api/scripts/seed.ts` (catálogo `PERMISSIONS` + `ROLE_PERMISSIONS`),

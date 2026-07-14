@@ -3,7 +3,7 @@ id: F6-S32
 title: Docs — escalação ao Crédito (doc 22 normativo + RoPA/LGPD)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: review
 priority: low
 estimated_size: S
 agent_id: null
@@ -12,6 +12,8 @@ blocks: []
 labels: [docs, lgpd-impact]
 source_docs: [docs/22-agente-interno-acoes.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
+claimed_at: 2026-07-14T19:08:15Z
+completed_at: 2026-07-14T19:13:56Z
 ---
 
 # F6-S32 — Docs: escalação ao Crédito
