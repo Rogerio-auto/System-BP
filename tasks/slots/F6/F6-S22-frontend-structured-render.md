@@ -3,7 +3,7 @@ id: F6-S22
 title: Frontend — render de resposta estruturada (narrativa + cards de dados)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: L
 agent_id: null
@@ -13,6 +13,7 @@ labels: [frontend, ai-assistant, design-system]
 source_docs: [docs/18-design-system.md, docs/anexos/lgpd/dpia-historico-copiloto.md]
 docs_required: false
 claimed_at: 2026-07-14T17:42:02Z
+completed_at: 2026-07-14T17:44:22Z
 ---
 
 # F6-S22 — Frontend: render estruturado (narrativa + cards)
