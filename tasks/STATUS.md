@@ -29,7 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 28    | 1   | 7   | 0   | 0   | 1   | 19  |
+| F6   | 28    | 1   | 7   | 0   | 0   | 0   | 20  |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -488,7 +488,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F6-S28 | Frontend — abrir conversa do histórico (narrativa + cards hidratados)                      | ⏸️ blocked   | medium     | F6-S27, F6-S22  |
 | F6-S29 | Frontend — barra lateral de histórico do copiloto (listar, abrir, continuar, renomear)     | ⏸️ blocked   | medium     | F6-S25, F6-S28  |
 | F6-S30 | Backend — escalar lead ao Departamento de Crédito (human-in-the-loop, via notificação)     | ✅ done      | medium     | F6-S08, F24-S06 |
-| F6-S31 | Frontend — CTA "Escalar ao Crédito" no card de lead do copiloto (confirmação humana)       | 🟣 review    | medium     | F6-S30, F6-S22  |
+| F6-S31 | Frontend — CTA "Escalar ao Crédito" no card de lead do copiloto (confirmação humana)       | ✅ done      | medium     | F6-S30, F6-S22  |
 | F6-S32 | Docs — escalação ao Crédito (doc 22 normativo + RoPA/LGPD)                                 | ✅ done      | low        | —               |
 
 ## Fase 7 — Hardening final

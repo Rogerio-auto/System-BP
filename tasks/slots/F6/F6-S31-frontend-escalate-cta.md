@@ -3,7 +3,7 @@ id: F6-S31
 title: Frontend — CTA "Escalar ao Crédito" no card de lead do copiloto (confirmação humana)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
