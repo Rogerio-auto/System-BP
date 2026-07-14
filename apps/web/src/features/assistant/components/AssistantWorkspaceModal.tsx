@@ -81,7 +81,16 @@ export function AssistantWorkspaceModal({
         if (!isMountedRef.current) return;
         setTurns((prev) =>
           prev.map((t) =>
-            t.id === id ? { ...t, status: 'success', answer: res.answer, sources: res.sources } : t,
+            t.id === id
+              ? {
+                  ...t,
+                  status: 'success',
+                  narrative: res.narrative,
+                  blocks: res.blocks,
+                  sources: res.sources,
+                  answer: res.answer,
+                }
+              : t,
           ),
         );
       })

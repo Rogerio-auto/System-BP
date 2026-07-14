@@ -7,7 +7,20 @@
 // (apps/api/src/modules/internal-assistant/schemas.ts):
 //   request:  { question: string, history?: Array<{ role: 'user'|'assistant', content: string }> }
 //             question: 1..2000 chars — history: opcional, máx 10 itens, content max 4000 chars
-//   response: { answer: string, sources: string[] }
+//   response: { narrative: string, blocks: Block[], sources: string[], answer: string }
+//
+// Contrato estruturado narrativa + blocos (F6-S21, consumido a partir de F6-S22):
+//   - `narrative`: comentário/estrutura da resposta SEM PII de cliente — renderizado
+//     via AssistantMarkdown.
+//   - `blocks`: dados de cliente da resposta, referenciados por entidade (`ref`) +
+//     `value` hidratado (efêmero, `unknown` de propósito — cada card valida a forma
+//     em runtime, ver features/assistant/blocks/guards.ts). `type` NÃO é um enum
+//     fechado — tipo desconhecido cai no card genérico de fallback.
+//   - `answer`: [Legado] narrative + blocks já renderizados em texto plano pelo
+//     LangGraph. Mantido só para (a) fallback de UI quando narrative e blocks vêm
+//     vazios e (b) alimentar o `history` de sessão (buildAssistantHistory) — é a
+//     representação textual mais completa de um turno anterior para dar
+//     continuidade ao LLM.
 //
 // Histórico de sessão (F6-S19): `history` são os turnos anteriores da conversa,
 // montados pelo caller (AssistantWorkspaceModal) a partir do useState do chat —
@@ -50,10 +63,35 @@ export const ASSISTANT_TIMEOUT_MS = 30_000;
 // Tipos
 // ---------------------------------------------------------------------------
 
+/**
+ * Referência de entidade de um bloco — sem PII, apenas `kind` + UUID opaco.
+ * Espelha BlockRefSchema (apps/api/.../internal-assistant/schemas.ts).
+ */
+export interface AssistantBlockRef {
+  kind: 'lead' | 'none';
+  lead_id: string | null;
+}
+
+/**
+ * Bloco de dado de cliente referenciado por entidade. `type` não é um enum
+ * fechado (forward-compat com tipos novos do LangGraph) — `value` chega como
+ * `unknown` de propósito; a validação de forma acontece em runtime por card
+ * (features/assistant/blocks/guards.ts), nunca por cast.
+ * Espelha BlockSchema (apps/api/.../internal-assistant/schemas.ts).
+ */
+export interface AssistantBlock {
+  type: string;
+  ref: AssistantBlockRef;
+  value: unknown;
+}
+
 /** Espelha AssistantQueryResponseSchema (apps/api/.../internal-assistant/schemas.ts). */
 export interface AssistantQueryResponse {
-  answer: string;
+  narrative: string;
+  blocks: AssistantBlock[];
   sources: string[];
+  /** [Legado] narrative + blocks já renderizados em texto plano — ver nota acima. */
+  answer: string;
 }
 
 /**
