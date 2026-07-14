@@ -3,7 +3,7 @@ id: F6-S21
 title: Backend — contrato de resposta estruturada do copiloto (narrativa + blocos)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,8 @@ blocks: [F6-S22, F6-S24]
 labels: [backend, ai-assistant, architecture]
 source_docs: [docs/22-agente-interno-acoes.md, docs/anexos/lgpd/dpia-historico-copiloto.md]
 docs_required: false
+claimed_at: 2026-07-14T17:14:08Z
+completed_at: 2026-07-14T17:21:27Z
 ---
 
 # F6-S21 — Backend: contrato de resposta estruturada

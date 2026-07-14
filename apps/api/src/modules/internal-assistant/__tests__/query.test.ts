@@ -81,12 +81,14 @@ describe('POST /api/internal-assistant/query', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHandleAssistantQuery.mockResolvedValue({
+      narrative: 'Temos 42 leads.',
+      blocks: [],
       answer: 'Temos 42 leads.',
       sources: ['funnel_metrics'],
     });
   });
 
-  it('deve retornar 200 com answer e sources', async () => {
+  it('deve retornar 200 com narrative, blocks, answer e sources', async () => {
     const app = await buildApp();
     const res = await app.inject({
       method: 'POST',
@@ -94,7 +96,14 @@ describe('POST /api/internal-assistant/query', () => {
       payload: { question: 'Quantos leads temos hoje?' },
     });
     expect(res.statusCode).toBe(200);
-    const body = res.json<{ answer: string; sources: string[] }>();
+    const body = res.json<{
+      narrative: string;
+      blocks: unknown[];
+      answer: string;
+      sources: string[];
+    }>();
+    expect(body.narrative).toBe('Temos 42 leads.');
+    expect(body.blocks).toEqual([]);
     expect(body.answer).toBe('Temos 42 leads.');
     expect(body.sources).toEqual(['funnel_metrics']);
   });
@@ -170,6 +179,8 @@ describe('POST /api/internal-assistant/query', () => {
 
   it('deve retornar resposta graciosa em fallback do service', async () => {
     mockHandleAssistantQuery.mockResolvedValue({
+      narrative: 'Nao consegui consultar as informacoes agora.',
+      blocks: [],
       answer: 'Nao consegui consultar as informacoes agora.',
       sources: [],
     });
