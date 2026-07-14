@@ -3,7 +3,7 @@ id: F6-S20
 title: LangGraph — resposta estruturada do copiloto (narrativa sem PII + blocos referenciados)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: L
 agent_id: null
@@ -13,6 +13,7 @@ labels: [langgraph, ai-assistant, lgpd-impact, architecture]
 source_docs: [docs/22-agente-interno-acoes.md, docs/anexos/lgpd/dpia-historico-copiloto.md]
 docs_required: false
 claimed_at: 2026-07-14T14:56:15Z
+completed_at: 2026-07-14T17:07:27Z
 ---
 
 # F6-S20 — LangGraph: resposta estruturada (narrativa + blocos)
