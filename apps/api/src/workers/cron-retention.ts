@@ -8,6 +8,10 @@
 //   2. customers sem operação > 5 anos → anonymizeCustomer()
 //   3. interactions sem operação > 1 ano → eliminação física
 //   4. user_sessions expiradas > 30 dias → eliminação física
+//   5. histórico do copiloto interno (F6-S26, DPIA dpia-historico-copiloto.md):
+//      soft-deletadas pelo dono → eliminação física imediata; ativas sem
+//      atividade (updated_at) > 90 dias → eliminação física. Delegado a
+//      modules/assistant-history/retention.ts (assistant_turns cascade via FK).
 //
 // Relatório:
 //   - Insere linha em retention_runs com contagens e erros.
@@ -33,6 +37,10 @@ import { retentionRuns } from '../db/schema/data_subject.js';
 import { interactions } from '../db/schema/interactions.js';
 import { leads } from '../db/schema/leads.js';
 import { userSessions } from '../db/schema/user_sessions.js';
+import {
+  ASSISTANT_HISTORY_RETENTION_DAYS,
+  purgeExpiredAssistantHistory,
+} from '../modules/assistant-history/retention.js';
 import { anonymizeCustomer, anonymizeLead } from '../services/lgpd/anonymize.js';
 import type { AnonymizeTx } from '../services/lgpd/anonymize.js';
 
@@ -89,6 +97,7 @@ interface AffectedCounts {
   customers_anonymized: number;
   interactions_deleted: number;
   sessions_deleted: number;
+  assistant_history_deleted: number;
 }
 
 interface RetentionError {
@@ -292,6 +301,45 @@ async function retainSessions(
   }
 }
 
+/**
+ * Purga fisicamente o histórico do copiloto interno (F6-S26): conversas
+ * soft-deletadas pelo dono (imediato) + conversas ativas sem atividade há
+ * mais de ASSISTANT_HISTORY_RETENTION_DAYS dias. `assistant_turns` cascade
+ * via FK — nunca é lido/logado (só a contagem de conversas), respeitando
+ * LGPD §8.5: nenhum conteúdo de conversa (pergunta/narrativa/blocos) passa
+ * por este job. Delega a query/DELETE a
+ * modules/assistant-history/retention.ts (mantém este worker fino, mesmo
+ * padrão de anonymizeLead/anonymizeCustomer acima).
+ */
+async function retainAssistantHistory(
+  logger: ReturnType<typeof createWorkerRuntime>['logger'],
+  dryRun: boolean,
+): Promise<{ count: number; errors: RetentionError[] }> {
+  try {
+    const { deletedSoft, deletedStale } = await purgeExpiredAssistantHistory(db, { dryRun });
+    const total = deletedSoft + deletedStale;
+
+    logger.info(
+      {
+        deleted_soft: deletedSoft,
+        deleted_stale: deletedStale,
+        retention_days: ASSISTANT_HISTORY_RETENTION_DAYS,
+        dry_run: dryRun,
+      },
+      `[retention] ${dryRun ? '[DRY-RUN] ' : ''}Histórico do copiloto: soft-deletadas (imediato) + ativas > ${ASSISTANT_HISTORY_RETENTION_DAYS} dias sem atividade`,
+    );
+
+    return { count: total, errors: [] };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    logger.error({ err }, '[retention] Falha ao purgar histórico do copiloto');
+    return {
+      count: 0,
+      errors: [{ entity_type: 'assistant_history', entity_id: 'batch', error: errorMsg }],
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Execução principal do cron
 // ---------------------------------------------------------------------------
@@ -315,6 +363,7 @@ export async function runRetention(
     customers_anonymized: 0,
     interactions_deleted: 0,
     sessions_deleted: 0,
+    assistant_history_deleted: 0,
   };
 
   // 1. Leads
@@ -336,6 +385,11 @@ export async function runRetention(
   const sessionsResult = await retainSessions(logger, dryRun);
   counts.sessions_deleted = sessionsResult.count;
   allErrors.push(...sessionsResult.errors);
+
+  // 5. Histórico do copiloto interno (F6-S26)
+  const assistantHistoryResult = await retainAssistantHistory(logger, dryRun);
+  counts.assistant_history_deleted = assistantHistoryResult.count;
+  allErrors.push(...assistantHistoryResult.errors);
 
   const endedAt = new Date();
   const success = allErrors.length === 0;
