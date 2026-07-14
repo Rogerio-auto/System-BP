@@ -20,6 +20,21 @@
 //     backend (nem em assistant_queries) e nunca logado (pode conter PII de
 //     respostas anteriores). Repassado ao LangGraph para dar continuidade
 //     conversacional; a DLP do gateway (F6-S18) redige antes do LLM.
+//
+// Contrato estruturado narrativa + blocos (F6-S21, acompanha o LangGraph F6-S20):
+//   - `narrative`: comentário/estrutura da resposta SEM PII de cliente.
+//   - `blocks`: dados de cliente da resposta, referenciados por entidade
+//     (`ref`, persistível na Fase 2 do histórico -- docs/anexos/lgpd/
+//     dpia-historico-copiloto.md) + `value` (efêmero, só para exibição
+//     imediata -- descartado quando a persistência da Fase 2 existir).
+//     `ref` e `value` são campos propositalmente distintos, nunca colapsados.
+//   - Bloco com `type` desconhecido é tolerado (forward-compat): `type` NÃO é
+//     um enum fechado -- um bloco novo do LangGraph nunca deve quebrar o
+//     parse aqui.
+//   - `answer`: RETROCOMPAT -- narrative + blocks já vêm renderizados em
+//     texto plano pelo LangGraph. Mantido para não quebrar callers que ainda
+//     leem só `answer` durante a transição (F6-S22 migra o frontend).
+//   - `blocks[].value` NUNCA é logado (pode conter dado de cliente/PII).
 // =============================================================================
 import { z } from 'zod';
 
@@ -92,10 +107,52 @@ export const LangGraphAssistantRequestSchema = z.object({
 export type LangGraphAssistantRequest = z.infer<typeof LangGraphAssistantRequestSchema>;
 
 // ---------------------------------------------------------------------------
+// Blocos referenciados (F6-S21, forma acordada com o LangGraph F6-S20)
+// ---------------------------------------------------------------------------
+
+/**
+ * Referência de entidade de um bloco -- o que será persistido na Fase 2 do
+ * histórico (docs/anexos/lgpd/dpia-historico-copiloto.md). Sem PII: apenas
+ * `kind` + o UUID da entidade.
+ */
+export const BlockRefSchema = z.object({
+  kind: z.enum(['lead', 'none']).describe('Tipo de entidade referenciada pelo bloco'),
+  lead_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .describe("UUID do lead (presente apenas quando kind='lead')"),
+});
+
+export type BlockRef = z.infer<typeof BlockRefSchema>;
+
+/**
+ * Bloco de dado de cliente referenciado por entidade (F6-S20/F6-S21).
+ *
+ * `type` NÃO é um enum fechado de propósito -- um `type` novo/desconhecido
+ * vindo do LangGraph deve ser tolerado (forward-compat), nunca rejeitado
+ * pelo parse do Zod.
+ *
+ * `ref` (persistível, sem PII) e `value` (efêmero, dado hidratado para
+ * exibição imediata -- descartado quando a Fase 2 persistir histórico) são
+ * campos propositalmente distintos, nunca colapsados. `value` nunca deve ser
+ * logado.
+ */
+export const BlockSchema = z.object({
+  type: z.string().min(1).describe('Tipo do bloco (ex.: lead_summary, funnel_metrics)'),
+  ref: BlockRefSchema,
+  value: z.unknown().describe('Dado hidratado para exibição imediata (efêmero, nunca logar)'),
+});
+
+export type Block = z.infer<typeof BlockSchema>;
+
+// ---------------------------------------------------------------------------
 // Response do LangGraph service
 // ---------------------------------------------------------------------------
 
 export const LangGraphAssistantResponseSchema = z.object({
+  narrative: z.string(),
+  blocks: z.array(BlockSchema).default([]),
   answer: z.string(),
   sources: z.array(z.string()).default([]),
   tools_called: z.array(z.record(z.unknown())).default([]),
@@ -111,9 +168,23 @@ export type LangGraphAssistantResponse = z.infer<typeof LangGraphAssistantRespon
 
 /**
  * Resposta do POST /api/internal-assistant/query.
+ *
+ * `narrative` + `blocks` são a forma estruturada (F6-S21) repassada do
+ * LangGraph (F6-S20) sem alteração. `answer` é derivado/legado -- mantido
+ * durante a transição para não quebrar chamadas antigas que só leem `answer`
+ * (o LangGraph já entrega `answer` pronto como narrative+blocks renderizados
+ * em texto plano; o Node apenas repassa).
  */
 export const AssistantQueryResponseSchema = z.object({
-  answer: z.string().describe('Resposta gerada pelo copiloto'),
+  narrative: z
+    .string()
+    .describe('Comentário/estrutura da resposta do copiloto, sem PII de cliente'),
+  blocks: z.array(BlockSchema).describe('Dados de cliente da resposta, referenciados por entidade'),
+  answer: z
+    .string()
+    .describe(
+      '[Legado] narrative + blocks renderizados em texto plano -- mantido para compatibilidade retroativa',
+    ),
   sources: z.array(z.string()).describe('Fontes de dados consultadas'),
 });
 

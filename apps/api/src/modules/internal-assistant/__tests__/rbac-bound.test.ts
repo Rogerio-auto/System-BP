@@ -107,6 +107,8 @@ async function buildApp(user: UserLike) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockHandleAssistantQuery.mockResolvedValue({
+    narrative: 'Ha 42 leads na cidade.',
+    blocks: [],
     answer: 'Ha 42 leads na cidade.',
     sources: ['lead_count'],
   });
@@ -261,6 +263,8 @@ describe('F6-S10 RBAC-bound: matriz 12.6', () => {
 
   it('DLP: resposta nao vaza sequencia de 11 digitos (CPF bruto)', async () => {
     mockHandleAssistantQuery.mockResolvedValueOnce({
+      narrative: 'O lead possui CPF devidamente protegido.',
+      blocks: [],
       answer: 'O lead possui CPF devidamente protegido.',
       sources: ['lead_info'],
     });
@@ -299,6 +303,8 @@ describe('F6-S10 RBAC-bound: matriz 12.6', () => {
 
   it('negacao fora de escopo: resposta neutra sem vazar existencia de dado', async () => {
     mockHandleAssistantQuery.mockResolvedValueOnce({
+      narrative: 'Nao tenho acesso a informacoes fora do seu escopo.',
+      blocks: [],
       answer: 'Nao tenho acesso a informacoes fora do seu escopo.',
       sources: [],
     });

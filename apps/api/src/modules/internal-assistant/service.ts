@@ -14,6 +14,14 @@
 //   - Truncado defensivamente para os ultimos 10 turnos antes de montar o
 //     payload do LangGraph -- a rota HTTP ja rejeita (400) arrays maiores via
 //     Zod `.max(10)`, mas o service protege qualquer chamador direto.
+//
+// Contrato estruturado narrativa + blocos (F6-S21):
+//   - O LangGraph (F6-S20) devolve `{ narrative, blocks, answer, sources }`.
+//     Este service so repassa -- nenhuma persistencia de `blocks` (Fase 2,
+//     atras do parecer do DPO). `blocks[].value` pode conter dado de cliente
+//     e NUNCA e logado -- o pino redact abaixo cobre `blocks` e `narrative`
+//     como cinto-de-seguranca (o codigo hoje so loga campos escalares, nunca
+//     o objeto de resposta inteiro).
 // =============================================================================
 import { randomUUID } from 'node:crypto';
 
@@ -38,7 +46,15 @@ import { LangGraphAssistantResponseSchema } from './schemas.js';
 const logger = pino({
   name: 'internal-assistant',
   redact: {
-    paths: ['*.question', '*.answer', '*.history', '*.history[*].content'],
+    paths: [
+      '*.question',
+      '*.answer',
+      '*.history',
+      '*.history[*].content',
+      '*.narrative',
+      '*.blocks',
+      '*.blocks[*].value',
+    ],
     censor: '[REDACTED]',
   },
 });
@@ -129,9 +145,13 @@ export async function handleAssistantQuery(
 
     logger.error({ correlationId, userId: actor.userId, isTimeout }, 'assistant_query_call_failed');
 
-    // Fallback gracioso
+    // Fallback gracioso -- narrative == answer (mensagem estatica, sem PII), sem blocos.
+    const fallbackNarrative =
+      'Nao consegui consultar as informacoes agora. Tente novamente em instantes.';
     lgResponse = {
-      answer: 'Nao consegui consultar as informacoes agora. Tente novamente em instantes.',
+      narrative: fallbackNarrative,
+      blocks: [],
+      answer: fallbackNarrative,
       sources: [],
       tools_called: [],
       metadata: {},
@@ -170,11 +190,25 @@ export async function handleAssistantQuery(
   }
 
   logger.info(
-    { correlationId, userId: actor.userId, hasError: Boolean(lgResponse.error) },
+    {
+      correlationId,
+      userId: actor.userId,
+      hasError: Boolean(lgResponse.error),
+      blocksCount: lgResponse.blocks.length,
+    },
     'assistant_query_done',
   );
 
-  return { answer: lgResponse.answer, sources: lgResponse.sources };
+  // Repassa a forma estruturada do LangGraph (F6-S20) sem alteracao. `answer`
+  // e derivado/legado (o LangGraph ja o entrega pronto) -- mantido so para
+  // nao quebrar callers que ainda leem apenas `answer` durante a transicao.
+  // Nenhuma persistencia de narrative/blocks aqui (Fase 2, atras do DPO).
+  return {
+    narrative: lgResponse.narrative,
+    blocks: lgResponse.blocks,
+    answer: lgResponse.answer,
+    sources: lgResponse.sources,
+  };
 }
 
 /**

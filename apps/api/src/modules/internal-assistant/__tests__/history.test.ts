@@ -89,6 +89,8 @@ function mockLangGraphOk() {
     status: 200,
     json: () =>
       Promise.resolve({
+        narrative: 'Resposta do copiloto.',
+        blocks: [],
         answer: 'Resposta do copiloto.',
         sources: ['funnel_metrics'],
         tools_called: [],
