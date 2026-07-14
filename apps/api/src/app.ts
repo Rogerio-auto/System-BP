@@ -21,6 +21,7 @@ import { aiActionsRoutes } from './modules/ai-actions/routes.js';
 import { decisionsRoutes } from './modules/ai-console/decisions/index.js';
 import { playgroundRoutes } from './modules/ai-console/playground/index.js';
 import { promptsRoutes } from './modules/ai-console/prompts/index.js';
+import { assistantEscalationRoutes } from './modules/assistant-escalation/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { billingRoutes } from './modules/billing/index.js';
 import { channelsRoutes } from './modules/channels/routes.js';
@@ -376,6 +377,9 @@ export async function buildApp() {
 
   // Painel "IA nas últimas 24h" + reversão de ações da IA no funil (F25-S06)
   await app.register(aiActionsRoutes);
+
+  // Escalar lead ao Departamento de Crédito via copiloto (human-in-the-loop, F6-S30)
+  await app.register(assistantEscalationRoutes);
 
   // Dev-only endpoints (schema-examples, etc.) — NOT registered in production (F10-S11)
   if (process.env['NODE_ENV'] !== 'production') {
