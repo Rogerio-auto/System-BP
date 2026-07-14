@@ -30,7 +30,15 @@ function getActorContext(request: FastifyRequest): AssistantHistoryActorContext 
     throw new ForbiddenError('Contexto de usuário ausente — authenticate() não foi executado');
   }
 
-  return { userId: request.user.id, organizationId: request.user.organizationId };
+  // permissions/cityScopeIds são usados só por getConversationDetail, para
+  // re-hidratar blocos com o RBAC ATUAL do usuário (F6-S27) — ver
+  // AssistantHistoryActorContext em service.ts.
+  return {
+    userId: request.user.id,
+    organizationId: request.user.organizationId,
+    permissions: request.user.permissions,
+    cityScopeIds: request.user.cityScopeIds,
+  };
 }
 
 // ---------------------------------------------------------------------------

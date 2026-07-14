@@ -6,10 +6,15 @@
 // explicitamente conforme exigido pelo slot.
 //
 // LGPD (docs/anexos/lgpd/dpia-historico-copiloto.md §1.1/§4):
-//   - `blocks` persistido/retornado é SÓ `{ type, ref }` — nunca `value`
-//     (dado hidratado). O `value` some no service layer antes de gravar
-//     (ver service.ts) e nunca é reidratado aqui (Fase 2 — hidratação viva
-//     é F6-S27).
+//   - `blocks` PERSISTIDO (banco, jsonb) é SÓ `{ type, ref }` — nunca `value`
+//     (dado hidratado). O `value` some no service layer antes de gravar (ver
+//     service.ts:persistAssistantTurn), também defendido por CHECK no banco
+//     (db/schema/assistantTurns.ts).
+//   - `blocks` RETORNADO por GET /api/assistant/conversations/:id inclui
+//     `value` — hidratado ao vivo pelo service layer (F6-S27, hydrate.ts) no
+//     momento da leitura, com a permissão e o escopo de cidade ATUAIS do
+//     usuário. Sem acesso/entidade apagada -> `value: null` (nunca vaza; o
+//     frontend F6-S22 já trata isso como "dado indisponível").
 //   - `title` é derivado por INTENÇÃO (ver sanitize.ts) — nunca contém nome
 //     de titular.
 //   - `question_sanitized` já passou por DLP de CPF/telefone + mascaramento
@@ -19,7 +24,7 @@ import 'zod-openapi/extend';
 
 import { z } from 'zod';
 
-import { BlockRefSchema } from '../internal-assistant/schemas.js';
+import { BlockRefSchema, BlockSchema } from '../internal-assistant/schemas.js';
 
 // ---------------------------------------------------------------------------
 // Bloco persistido — só referência de entidade, nunca `value`
@@ -39,6 +44,17 @@ export const StoredBlockSchema = z
   .openapi({ example: { type: 'lead_summary', ref: { kind: 'lead', lead_id: null } } });
 
 export type StoredBlock = z.infer<typeof StoredBlockSchema>;
+
+// ---------------------------------------------------------------------------
+// Bloco hidratado — forma de RESPOSTA (F6-S27): `{ type, ref, value }`.
+// Reusa BlockSchema (internal-assistant/schemas.ts) — mesmo contrato do
+// bloco "ao vivo" do POST /api/internal-assistant/query, para o frontend
+// reaproveitar os mesmos cards (F6-S22) sem distinção de origem.
+// ---------------------------------------------------------------------------
+
+export const HydratedBlockSchema = BlockSchema;
+
+export type HydratedBlock = z.infer<typeof HydratedBlockSchema>;
 
 // ---------------------------------------------------------------------------
 // Conversa (esqueleto — sidebar)
@@ -82,8 +98,13 @@ export const AssistantTurnSchema = z
       .describe('Pergunta do operador após DLP de CPF/telefone + mascaramento de nome'),
     narrative: z.string().describe('Comentário/estrutura da resposta, sem PII de cliente'),
     blocks: z
-      .array(StoredBlockSchema)
-      .describe('Dados de cliente da resposta, referenciados por entidade (sem valor hidratado)'),
+      .array(HydratedBlockSchema)
+      .describe(
+        'Dados de cliente da resposta, referenciados por entidade e HIDRATADOS ao vivo ' +
+          '(F6-S27) com a permissão e o escopo de cidade ATUAIS do usuário. `value: null` ' +
+          'significa que o usuário não tem mais acesso à entidade referenciada (ou ela foi ' +
+          'removida) — nunca vaza o dado anterior.',
+      ),
     sources: z.array(z.string()).describe('Fontes de dado consultadas'),
     created_at: z.string().datetime({ offset: true }),
   })
@@ -92,7 +113,7 @@ export const AssistantTurnSchema = z
       id: '22222222-2222-2222-2222-222222222222',
       question_sanitized: 'Quantos leads temos em Ariquemes?',
       narrative: 'Há 42 leads ativos em Ariquemes.',
-      blocks: [{ type: 'funnel_metrics', ref: { kind: 'none', lead_id: null } }],
+      blocks: [{ type: 'funnel_metrics', ref: { kind: 'none', lead_id: null }, value: null }],
       sources: ['funnel_metrics'],
       created_at: '2026-07-14T12:00:05.000Z',
     },

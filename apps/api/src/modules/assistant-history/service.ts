@@ -20,12 +20,19 @@
 // Escopo privado (DPIA §4.5): toda operação por id é owner-scoped
 // (organization_id + user_id). Conversa de outro usuário -> 404, NUNCA 403
 // (doc 10 §3.5 — não vazar existência do recurso).
+//
+// Hidratação viva (F6-S27, hydrate.ts): getConversationDetail re-busca o
+// `value` de cada bloco referenciado (`{ type, ref }` persistido) com a
+// permissão + escopo de cidade ATUAIS do ator — nunca confia que o dado
+// era visível quando o turno foi gravado. Sem acesso/entidade removida ->
+// `value: null`, nunca vaza.
 // =============================================================================
 import type { Database } from '../../db/client.js';
 import { NotFoundError } from '../../shared/errors.js';
 import { isFlagEnabled } from '../featureFlags/service.js';
 import type { Block } from '../internal-assistant/schemas.js';
 
+import { hydrateBlocks } from './hydrate.js';
 import type { ConversationRow, TurnRow } from './repository.js';
 import {
   findConversationByOwner,
@@ -63,6 +70,23 @@ export const ASSISTANT_HISTORY_FLAG_KEY = 'assistant.history.enabled';
 export interface AssistantHistoryActorContext {
   userId: string;
   organizationId: string;
+  /**
+   * Permissões efetivas do usuário NO MOMENTO da requisição (JWT via
+   * authenticate()). Usadas SOMENTE por getConversationDetail, para
+   * re-hidratar os blocos com a permissão ATUAL do usuário (F6-S27,
+   * hydrate.ts) — nunca a permissão de quando o turno foi gravado. As
+   * demais operações deste módulo (list/create/rename/delete/
+   * persistAssistantTurn) ignoram este campo.
+   *
+   * Opcional (fail-closed): callers fora do fluxo HTTP autenticado (ex.:
+   * internal-assistant/service.ts:persistAssistantTurn, que não tem
+   * permissions/cityScopeIds à mão) podem omitir — a hidratação então trata
+   * como "nenhuma permissão" (todo bloco referenciando lead vira
+   * `unavailable`), nunca como acesso total.
+   */
+  permissions?: string[];
+  /** Escopo de cidade do usuário NO MOMENTO da requisição — mesma ressalva acima (fail-closed: ausente = sem cidade). */
+  cityScopeIds?: string[] | null;
 }
 
 async function historyEnabled(db: Database): Promise<boolean> {
@@ -98,12 +122,37 @@ function toSources(raw: unknown): string[] {
   return Array.isArray(raw) ? raw.filter((s): s is string => typeof s === 'string') : [];
 }
 
-function toAssistantTurn(row: TurnRow): ConversationDetailResponse['turns'][number] {
+/**
+ * Monta o turno de resposta HIDRATANDO `blocks` ao vivo (F6-S27):
+ * `{ type, ref }` persistido -> `{ type, ref, value }`, re-checando RBAC +
+ * escopo de cidade do ator ATUAL para cada `ref` (hydrate.ts). Sem
+ * acesso/entidade removida -> `value: null` (nunca vaza).
+ */
+async function toHydratedAssistantTurn(
+  db: Database,
+  actor: AssistantHistoryActorContext,
+  row: TurnRow,
+): Promise<ConversationDetailResponse['turns'][number]> {
+  const storedBlocks = toStoredBlocks(row.blocks);
+  // Fail-closed: actor sem permissions/cityScopeIds (nunca deveria acontecer
+  // no fluxo HTTP real — controller.ts sempre popula os dois a partir de
+  // request.user) hidrata como "sem nenhuma permissão", nunca como acesso
+  // total — todo bloco referenciando lead vira `unavailable`.
+  const blocks = await hydrateBlocks(
+    db,
+    {
+      userId: actor.userId,
+      organizationId: actor.organizationId,
+      permissions: actor.permissions ?? [],
+      cityScopeIds: actor.cityScopeIds ?? [],
+    },
+    storedBlocks,
+  );
   return {
     id: row.id,
     question_sanitized: row.questionSanitized,
     narrative: row.narrative,
-    blocks: toStoredBlocks(row.blocks),
+    blocks,
     sources: toSources(row.sources),
     created_at: row.createdAt.toISOString(),
   };
@@ -148,10 +197,13 @@ export async function getConversationDetail(
   }
 
   const turns = await listTurnsByConversation(db, conversationId);
+  const hydratedTurns = await Promise.all(
+    turns.map((row) => toHydratedAssistantTurn(db, actor, row)),
+  );
 
   return {
     ...toConversationSummary(conversation),
-    turns: turns.map(toAssistantTurn),
+    turns: hydratedTurns,
   };
 }
 

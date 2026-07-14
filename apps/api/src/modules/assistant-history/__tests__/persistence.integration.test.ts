@@ -72,14 +72,21 @@ const USER_OTHER_ID = makeUuid('ah600002');
 const PII_SENTINEL = 'SEGREDO_LEAD_VALUE_HIDRATADO_' + RUN_SUFFIX;
 const NAME_SENTINEL_QUESTION = 'Quantos leads o João Pedro da Silva tem no funil?';
 
+// permissions/cityScopeIds globais — a hidratação (F6-S27) em si é testada
+// à parte, em hydration.integration.test.ts; aqui só precisam satisfazer o
+// tipo (nenhum bloco com ref de lead é persistido nestes cenários).
 const OWNER_ACTOR: AssistantHistoryActorContext = {
   userId: USER_OWNER_ID,
   organizationId: ORG_ID,
+  permissions: ['ai_assistant:use'],
+  cityScopeIds: null,
 };
 
 const OTHER_ACTOR: AssistantHistoryActorContext = {
   userId: USER_OTHER_ID,
   organizationId: ORG_ID,
+  permissions: ['ai_assistant:use'],
+  cityScopeIds: null,
 };
 
 function blockWithValue(): Block {
