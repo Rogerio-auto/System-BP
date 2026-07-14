@@ -124,3 +124,8 @@ export * from './assistantQueries.js';
 
 // Agente proativo — configuração de housekeeping por org (F25-S05)
 export * from './aiFunnelSettings.js';
+
+// Copiloto interno — histórico persistente de conversas e turnos, sem PII em
+// repouso (F6-S24, dark até parecer do DPO — docs/anexos/lgpd/dpia-historico-copiloto.md)
+export * from './assistantConversations.js';
+export * from './assistantTurns.js';
