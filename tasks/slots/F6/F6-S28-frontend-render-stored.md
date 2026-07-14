@@ -3,7 +3,7 @@ id: F6-S28
 title: Frontend — abrir conversa do histórico (narrativa + cards hidratados)
 phase: F6
 task_ref: docs/anexos/lgpd/dpia-historico-copiloto.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,7 @@ blocks: [F6-S29]
 labels: [frontend, ai-assistant, design-system]
 source_docs: [docs/18-design-system.md, docs/anexos/lgpd/dpia-historico-copiloto.md]
 docs_required: false
+claimed_at: 2026-07-14T23:18:09Z
 ---
 
 # F6-S28 — Frontend: abrir conversa do histórico
