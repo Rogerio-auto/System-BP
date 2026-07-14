@@ -3,7 +3,7 @@ id: F6-S27
 title: Backend — hidratação viva das conversas do histórico (RBAC no momento)
 phase: F6
 task_ref: docs/anexos/lgpd/dpia-historico-copiloto.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,7 @@ blocks: [F6-S28]
 labels: [backend, ai-assistant, rbac, lgpd-impact]
 source_docs: [docs/anexos/lgpd/dpia-historico-copiloto.md]
 docs_required: false
+claimed_at: 2026-07-14T22:50:19Z
 ---
 
 # F6-S27 — Backend: hidratação viva
