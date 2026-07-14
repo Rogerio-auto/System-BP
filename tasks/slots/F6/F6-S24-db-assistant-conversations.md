@@ -3,7 +3,7 @@ id: F6-S24
 title: DB — schema de conversas e turnos do copiloto (sem PII em repouso)
 phase: F6
 task_ref: docs/anexos/lgpd/dpia-historico-copiloto.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,7 @@ blocks: [F6-S25, F6-S26, F6-S27]
 labels: [db, ai-assistant, lgpd-impact]
 source_docs: [docs/anexos/lgpd/dpia-historico-copiloto.md, docs/03-modelo-dados.md]
 docs_required: false
+claimed_at: 2026-07-14T21:18:23Z
 ---
 
 # F6-S24 — DB: conversas e turnos do copiloto
