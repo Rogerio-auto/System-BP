@@ -3,7 +3,7 @@ id: F6-S31
 title: Frontend — CTA "Escalar ao Crédito" no card de lead do copiloto (confirmação humana)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
@@ -13,6 +13,7 @@ labels: [frontend, ai-assistant, design-system]
 source_docs: [docs/18-design-system.md, docs/22-agente-interno-acoes.md]
 docs_required: false
 claimed_at: 2026-07-14T19:42:54Z
+completed_at: 2026-07-14T19:55:37Z
 ---
 
 # F6-S31 — Frontend: CTA de escalação no card de lead
