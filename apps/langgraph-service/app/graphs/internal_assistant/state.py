@@ -9,7 +9,7 @@ LGPD s17/s8.5:
 """
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, NotRequired
 
 from typing_extensions import TypedDict
 
@@ -46,6 +46,39 @@ class Principal(TypedDict):
     """null = escopo global; [] = sem cidade; [...] = IDs de cidades filtradas."""
 
 
+class BlockRef(TypedDict):
+    """Referencia de entidade de um bloco -- o que sera PERSISTIDO na Fase 2.
+
+    Deriva SEMPRE dos IDs de tool call (arg ou resultado da tool, ex.:
+    lead_id) -- NUNCA de heuristica sobre o texto da resposta. O DPIA
+    (docs/anexos/lgpd/dpia-historico-copiloto.md R5) rejeita ligacao por
+    heuristica (nivel B) por risco de referenciar a entidade errada; a
+    ligacao determinista pelos IDs das tool calls e a razao de escolher o
+    nivel A.
+    """
+
+    kind: Literal["lead", "none"]
+    lead_id: NotRequired[str]
+
+
+BlockType = Literal["lead_summary", "funnel_metrics", "lead_count", "analysis_status", "billing"]
+"""Tipos de bloco suportados (F6-S20). Cada tipo mapeia 1:1 a uma tool de leitura."""
+
+
+class Block(TypedDict):
+    """Bloco de dado de cliente referenciado por entidade (F6-S20).
+
+    `ref` e o que sera persistido na Fase 2 do historico (sem PII -- apenas
+    tipo + lead_id opaco). `value` e o dado hidratado para exibicao IMEDIATA
+    e sera DESCARTADO quando a persistencia entrar (Fase 2). Os dois campos
+    sao propositalmente distintos -- nunca colapse um no outro.
+    """
+
+    type: BlockType
+    ref: BlockRef
+    value: Any
+
+
 class InternalAssistantState(TypedDict, total=False):
     """Estado compartilhado por todos os nos do grafo internal_assistant.
 
@@ -56,7 +89,10 @@ class InternalAssistantState(TypedDict, total=False):
         - organization_id: extraido do principal para facilitar tool calls.
         - question: pergunta do usuario.
 
-    LGPD: nenhum PII e armazenado neste state (apenas IDs opacos e flags).
+    LGPD: nenhum PII e armazenado neste state (apenas IDs opacos e flags) --
+    exceto `blocks[].value`, que carrega dado de cliente hidratado para
+    exibicao imediata (efemero -- nunca logado, nunca persistido por este
+    grafo; ver Block acima).
     """
 
     # Principal do usuario -- obrigatorio, threaded em todas as tool calls
@@ -76,8 +112,16 @@ class InternalAssistantState(TypedDict, total=False):
     # Historico de mensagens para o LLM (format OpenAI)
     messages: list[dict[str, Any]]
 
-    # Resposta final a retornar ao chamador
-    answer: str
+    # Narrativa da resposta -- comentario/estrutura SEM PII de cliente
+    # (ex.: "lead em pre-qualificacao, aguardando analise"). Substitui o
+    # antigo campo `answer` (F6-S20); a retrocompat de `answer` e derivada
+    # no endpoint (app/api/internal_assistant.py), nao no state.
+    narrative: str
+
+    # Dados de cliente da resposta, referenciados por entidade (F6-S20).
+    # Cada bloco carrega ref (persistivel, sem PII) + value (efemero, so
+    # para exibicao imediata). Ver Block acima.
+    blocks: list[Block]
 
     # Fonte(s) dos dados utilizados na resposta
     sources: list[str]

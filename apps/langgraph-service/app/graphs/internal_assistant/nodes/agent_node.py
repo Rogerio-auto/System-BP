@@ -11,7 +11,14 @@ from typing import Any, Literal
 
 import structlog
 
-from app.graphs.internal_assistant.state import HistoryTurn, InternalAssistantState, Principal
+from app.graphs.internal_assistant.state import (
+    Block,
+    BlockRef,
+    BlockType,
+    HistoryTurn,
+    InternalAssistantState,
+    Principal,
+)
 from app.llm.factory import for_role, get_gateway
 from app.prompts.loader import PromptNotFoundError, load_active_prompt
 from app.tools.assistant_tools import (
@@ -37,6 +44,31 @@ MAX_TOOL_CALLS_PER_TURN: int = 6
 #: Cap defensivo de turnos de historico incluidos nas mensagens do LLM
 #: (o Node/endpoint ja capam em 10, mas o node nunca confia so no upstream).
 MAX_HISTORY_TURNS: int = 10
+
+#: Mapeamento tool -> tipo de bloco (F6-S20). 1:1 com as tools que devolvem
+#: dado de cliente pronto para exibicao. `find_lead` fica DE FORA de proposito:
+#: devolve uma LISTA de candidatos (referencia ambigua -- nao ha um lead_id
+#: unico e determinista para o `ref`), e serve apenas para o LLM resolver o
+#: lead_id que sera usado numa tool call subsequente (essa sim vira bloco).
+_TOOL_TO_BLOCK_TYPE: dict[str, BlockType] = {
+    "get_funnel_metrics": "funnel_metrics",
+    "get_lead_count": "lead_count",
+    "get_analysis_status": "analysis_status",
+    "get_billing_snapshot": "billing",
+    "summarize_lead_conversation": "lead_summary",
+}
+
+
+def _build_block_ref(tool_args: dict[str, Any], tool_result: dict[str, Any]) -> BlockRef:
+    """Deriva o `ref` de um bloco a partir dos IDs da tool call (arg ou resultado).
+
+    Determinista, NUNCA heuristico sobre texto (DPIA R5 -- rejeita nivel B).
+    Sem lead_id na chamada (ex.: metricas agregadas) -> ref kind='none'.
+    """
+    lead_id = tool_args.get("lead_id") or tool_result.get("lead_id")
+    if isinstance(lead_id, str) and lead_id:
+        return {"kind": "lead", "lead_id": lead_id}
+    return {"kind": "none"}
 
 
 async def _dispatch_tool(
@@ -102,7 +134,8 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
     sources: list[str] = []
     if not question:
         return {
-            "answer": "Nenhuma pergunta fornecida.",
+            "narrative": "Nenhuma pergunta fornecida.",
+            "blocks": [],
             "sources": [],
             "errors": errors,
             "metadata": {},
@@ -129,7 +162,8 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
         )
         errors.append({"node": "agent_node", "error": "PROMPT_NOT_FOUND"})
         return {
-            "answer": "Copiloto indisponivel (prompt nao configurado).",
+            "narrative": "Copiloto indisponivel (prompt nao configurado).",
+            "blocks": [],
             "sources": [],
             "errors": errors,
             "metadata": {"prompt_key": _PROMPT_KEY},
@@ -151,7 +185,8 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
         {"role": "user", "content": question},
     ]
     tool_call_count = 0
-    answer = ""
+    narrative = ""
+    blocks: list[Block] = []
     for _iteration in range(MAX_TOOL_CALLS_PER_TURN + 1):
         resp = await gateway.complete(
             model=model,
@@ -172,8 +207,8 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
         raw_msg = raw_choices[0].get("message", {}) if raw_choices else {}
         tool_calls: list[dict[str, Any]] = raw_msg.get("tool_calls") or []
         if not tool_calls:
-            answer = resp.content or ""
-            messages.append({"role": "assistant", "content": answer})
+            narrative = resp.content or ""
+            messages.append({"role": "assistant", "content": narrative})
             break
         # Cap de operacoes: checado ANTES de appender a mensagem com tool_calls.
         # Assim o historico nunca termina com tool_calls pendentes (estado invalido
@@ -185,11 +220,11 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
                 count=tool_call_count,
                 organization_id=organization_id,
             )
-            answer = resp.content or (
+            narrative = resp.content or (
                 "Nao consegui concluir a consulta agora (limite de operacoes atingido). "
                 "Tente reformular a pergunta de forma mais especifica."
             )
-            messages.append({"role": "assistant", "content": answer})
+            messages.append({"role": "assistant", "content": narrative})
             break
         messages.append({
             "role": "assistant",
@@ -215,14 +250,23 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
             tool_call_count += 1
             try:
                 tool_result_parsed = json.loads(tool_result)
-                if "error" not in tool_result_parsed:
+                if isinstance(tool_result_parsed, dict) and "error" not in tool_result_parsed:
                     sources.append(tool_name)
-                else:
+                    block_type = _TOOL_TO_BLOCK_TYPE.get(tool_name)
+                    if block_type is not None:
+                        blocks.append({
+                            "type": block_type,
+                            "ref": _build_block_ref(tool_args, tool_result_parsed),
+                            "value": tool_result_parsed,
+                        })
+                elif isinstance(tool_result_parsed, dict):
                     errors.append({
                         "node": "agent_node",
                         "tool": tool_name,
                         "error": tool_result_parsed.get("error", ""),
                     })
+                else:
+                    sources.append(tool_name)
             except json.JSONDecodeError:
                 sources.append(tool_name)
             messages.append({
@@ -233,7 +277,7 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
     else:
         for msg in reversed(messages):
             if msg.get("role") == "assistant" and msg.get("content"):
-                answer = str(msg["content"])
+                narrative = str(msg["content"])
                 break
     latency_ms = round((time.monotonic() - start) * 1000, 1)
     log.info(
@@ -241,10 +285,12 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
         organization_id=organization_id,
         user_id=principal["user_id"],
         tool_calls=tool_call_count,
+        blocks_count=len(blocks),
         latency_ms=latency_ms,
     )
     return {
-        "answer": answer,
+        "narrative": narrative,
+        "blocks": blocks,
         "sources": list(dict.fromkeys(sources)),
         "errors": errors,
         "messages": messages,

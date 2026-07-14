@@ -186,7 +186,7 @@ async def test_agent_node_no_tool_calls():
     gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
     with patch(lp, new=AsyncMock(return_value=mock_prompt)), patch(gw, return_value=mock_gw):
         result = await agent_node(_make_state())
-    assert result["answer"] == "Temos 42 leads."
+    assert result["narrative"] == "Temos 42 leads."
     assert result["sources"] == []
     assert result["errors"] == []
 
@@ -195,7 +195,7 @@ async def test_agent_node_no_tool_calls():
 async def test_agent_node_empty_question():
     """question vazia: retorna fallback sem chamar LLM."""
     result = await agent_node(_make_state(question=""))
-    assert "Nenhuma pergunta" in result["answer"]
+    assert "Nenhuma pergunta" in result["narrative"]
     assert result["sources"] == []
 
 
@@ -207,7 +207,7 @@ async def test_agent_node_prompt_not_found():
     err = PromptNotFoundError("internal_assistant")
     with patch(lp, new=AsyncMock(side_effect=err)):
         result = await agent_node(_make_state())
-    assert "Copiloto indisponivel" in result["answer"]
+    assert "Copiloto indisponivel" in result["narrative"]
     assert result["sources"] == []
     assert any(e.get("error") == "PROMPT_NOT_FOUND" for e in result["errors"])
 
@@ -248,7 +248,7 @@ async def test_agent_node_tool_call_principal_threaded():
     assert len(calls) == 1, "call_lead_count deve ser chamada 1x"
     assert calls[0]["principal"]["organization_id"] == ORG_ID
     assert calls[0]["principal"]["user_id"] == USER_ID
-    assert result["answer"] == "Ha 99 leads."
+    assert result["narrative"] == "Ha 99 leads."
 
 
 @pytest.mark.asyncio
@@ -408,7 +408,7 @@ async def test_agent_node_find_lead_error_handled_gracefully():
     assert parsed_tool_msg["message"] == "tool execution failed"
     assert "boom" not in tool_msg, "detalhe interno da excecao nunca deve vazar ao LLM"
     assert "find_lead" not in result["sources"]
-    assert result["answer"] == "Nao encontrei o lead."
+    assert result["narrative"] == "Nao encontrei o lead."
 
 
 # ---------------------------------------------------------------------------
@@ -463,7 +463,7 @@ async def test_agent_node_injection_cannot_override_principal():
     assert seen[0]["organization_id"] == ORG_ID
     assert seen[0]["organization_id"] != forged_org
     assert seen[0]["permissions"] == ["assistant:query"]
-    assert result["answer"] == "Resposta."
+    assert result["narrative"] == "Resposta."
 
 
 @pytest.mark.asyncio
@@ -496,8 +496,8 @@ async def test_agent_node_tool_loop_cap_graceful():
     ):
         result = await agent_node(_make_state())
     # Resposta graciosa, nunca string vazia
-    assert result["answer"], "answer nao deve ser vazio ao atingir o cap"
-    assert "limite" in result["answer"].lower()
+    assert result["narrative"], "narrative nao deve ser vazio ao atingir o cap"
+    assert "limite" in result["narrative"].lower()
     # tool_call_count respeita o cap
     assert result["metadata"]["tool_call_count"] <= 6
     # Historico nao termina com tool_calls pendentes
@@ -543,7 +543,7 @@ async def test_agent_node_includes_history_between_system_and_question():
     assert sent[2] == {"role": "assistant", "content": "Temos 10 leads."}
     assert sent[3] == {"role": "user", "content": "E hoje?"}
     assert len(sent) == 4
-    assert result["answer"] == "E hoje temos 12 leads."
+    assert result["narrative"] == "E hoje temos 12 leads."
 
 
 @pytest.mark.asyncio
@@ -571,7 +571,7 @@ async def test_agent_node_no_history_compat():
         {"role": "system", "content": "Voce e o copiloto."},
         {"role": "user", "content": "Quantos leads temos?"},
     ]
-    assert result["answer"] == "Temos 42 leads."
+    assert result["narrative"] == "Temos 42 leads."
 
 
 @pytest.mark.asyncio
@@ -667,3 +667,270 @@ async def test_assistant_query_request_history_optional_defaults_none():
         question="E agora?",
     )
     assert payload.history is None
+
+
+# ---------------------------------------------------------------------------
+# Testes da resposta estruturada narrative + blocks (F6-S20)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_agent_node_aggregate_tool_produces_block_with_none_ref():
+    """Tool sem lead_id (agregada, ex.: get_lead_count) -> block com ref kind='none'.
+
+    ref NUNCA e inferido do texto -- so existe kind='lead' quando ha um
+    lead_id explicito no arg/resultado da tool call."""
+    import json as _json
+
+    tc = {
+        "id": "call_1",
+        "function": {"name": "get_lead_count", "arguments": _json.dumps({"range": "last30d"})},
+    }
+
+    async def mock_lead_count(principal, range_value, city_ids=None, client=None):
+        return {"total": 99}
+
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    mock_gw.complete = AsyncMock(
+        side_effect=[_llm_resp("", tool_calls=[tc]), _llm_resp("Ha 99 leads.")]
+    )
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    lc = "app.graphs.internal_assistant.nodes.agent_node.call_lead_count"
+    with (
+        patch(lp, new=AsyncMock(return_value=mock_prompt)),
+        patch(gw, return_value=mock_gw),
+        patch(lc, side_effect=mock_lead_count),
+    ):
+        result = await agent_node(_make_state())
+
+    assert len(result["blocks"]) == 1
+    block = result["blocks"][0]
+    assert block["type"] == "lead_count"
+    assert block["ref"] == {"kind": "none"}
+    assert block["value"] == {"total": 99}
+    assert result["narrative"] == "Ha 99 leads."
+    # narrative permanece limpa -- o dado de cliente vive so no block.value
+    assert "99" not in result["narrative"] or result["narrative"] == "Ha 99 leads."
+
+
+@pytest.mark.asyncio
+async def test_agent_node_lead_scoped_tool_derives_ref_from_tool_call_arg():
+    """get_analysis_status com lead_id no arg -> block ref kind='lead' com o
+    MESMO lead_id do arg (deterministico -- vem do ID da tool call, nunca de
+    heuristica sobre texto, per DPIA R5)."""
+    import json as _json
+
+    tc = {
+        "id": "call_1",
+        "function": {
+            "name": "get_analysis_status",
+            "arguments": _json.dumps({"lead_id": "lead-42"}),
+        },
+    }
+
+    async def mock_analysis_status(principal, lead_id, client=None):
+        return {"lead_id": lead_id, "status": "em_analise"}
+
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    mock_gw.complete = AsyncMock(
+        side_effect=[_llm_resp("", tool_calls=[tc]), _llm_resp("A analise esta em andamento.")]
+    )
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    ca = "app.graphs.internal_assistant.nodes.agent_node.call_analysis_status"
+    with (
+        patch(lp, new=AsyncMock(return_value=mock_prompt)),
+        patch(gw, return_value=mock_gw),
+        patch(ca, side_effect=mock_analysis_status),
+    ):
+        result = await agent_node(_make_state(question="Status da analise do lead-42?"))
+
+    assert len(result["blocks"]) == 1
+    block = result["blocks"][0]
+    assert block["type"] == "analysis_status"
+    assert block["ref"] == {"kind": "lead", "lead_id": "lead-42"}
+    # value e o dado hidratado completo -- campo DISTINTO do ref (efemero,
+    # sera descartado quando a persistencia (Fase 2) entrar).
+    assert block["value"] == {"lead_id": "lead-42", "status": "em_analise"}
+    assert result["narrative"] == "A analise esta em andamento."
+
+
+@pytest.mark.asyncio
+async def test_agent_node_find_lead_produces_no_block():
+    """find_lead fica de fora do mapeamento tool->block: devolve candidatos
+    (lista ambigua, sem um lead_id unico e determinista) -- e so um passo de
+    resolucao de nome para uma tool subsequente, nao um dado a exibir."""
+    import json as _json
+
+    tc = {
+        "id": "call_1",
+        "function": {"name": "find_lead", "arguments": _json.dumps({"name": "Maria"})},
+    }
+
+    async def mock_find_lead(principal, name, client=None):
+        return {"candidates": [{"lead_id": "lead-1", "name": "Maria Silva", "city_name": "PVH"}]}
+
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    mock_gw.complete = AsyncMock(
+        side_effect=[_llm_resp("", tool_calls=[tc]), _llm_resp("Encontrei a Maria Silva.")]
+    )
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    fl = "app.graphs.internal_assistant.nodes.agent_node.call_find_lead"
+    with (
+        patch(lp, new=AsyncMock(return_value=mock_prompt)),
+        patch(gw, return_value=mock_gw),
+        patch(fl, side_effect=mock_find_lead),
+    ):
+        result = await agent_node(_make_state(question="Resuma a conversa da Maria"))
+
+    assert result["blocks"] == []
+    assert "find_lead" in result["sources"]
+
+
+@pytest.mark.asyncio
+async def test_agent_node_summarize_lead_conversation_produces_lead_summary_block():
+    """summarize_lead_conversation com lead_id no arg -> block type='lead_summary'
+    com ref kind='lead' derivado do arg da tool call."""
+    import json as _json
+
+    tc = {
+        "id": "call_1",
+        "function": {
+            "name": "summarize_lead_conversation",
+            "arguments": _json.dumps({"lead_id": "lead-7"}),
+        },
+    }
+
+    async def mock_summarize(principal, lead_id, client=None):
+        message = {"direction": "in", "content": "Ola", "created_at": "2026-07-01T10:00:00Z"}
+        return {"lead_id": lead_id, "messages": [message]}
+
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    mock_gw.complete = AsyncMock(
+        side_effect=[_llm_resp("", tool_calls=[tc]), _llm_resp("Resumo pronto.")]
+    )
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    sc = "app.graphs.internal_assistant.nodes.agent_node.call_summarize_lead_conversation"
+    with (
+        patch(lp, new=AsyncMock(return_value=mock_prompt)),
+        patch(gw, return_value=mock_gw),
+        patch(sc, side_effect=mock_summarize),
+    ):
+        result = await agent_node(_make_state(question="Resuma a conversa do lead-7"))
+
+    assert len(result["blocks"]) == 1
+    block = result["blocks"][0]
+    assert block["type"] == "lead_summary"
+    assert block["ref"] == {"kind": "lead", "lead_id": "lead-7"}
+    assert block["value"]["messages"][0]["content"] == "Ola"
+
+
+@pytest.mark.asyncio
+async def test_agent_node_tool_error_produces_no_block():
+    """Tool que falha (error no resultado) nao vira bloco -- so entra em errors."""
+    import json as _json
+
+    tc = {
+        "id": "call_1",
+        "function": {
+            "name": "get_analysis_status",
+            "arguments": _json.dumps({"lead_id": "lead-1"}),
+        },
+    }
+
+    async def mock_analysis_status_raises(principal, lead_id, client=None):
+        raise RuntimeError("boom")
+
+    mock_prompt = MagicMock()
+    mock_prompt.body = "Voce e o copiloto."
+    mock_prompt.temperature = None
+    mock_prompt.max_tokens = None
+    mock_prompt.model_recommended = None
+    mock_gw = MagicMock()
+    mock_gw.complete = AsyncMock(
+        side_effect=[_llm_resp("", tool_calls=[tc]), _llm_resp("Nao consegui verificar.")]
+    )
+    lp = "app.graphs.internal_assistant.nodes.agent_node.load_active_prompt"
+    gw = "app.graphs.internal_assistant.nodes.agent_node.get_gateway"
+    ca = "app.graphs.internal_assistant.nodes.agent_node.call_analysis_status"
+    with (
+        patch(lp, new=AsyncMock(return_value=mock_prompt)),
+        patch(gw, return_value=mock_gw),
+        patch(ca, side_effect=mock_analysis_status_raises),
+    ):
+        result = await agent_node(_make_state(question="Status do lead-1?"))
+
+    assert result["blocks"] == []
+    assert any(e.get("tool") == "get_analysis_status" for e in result["errors"])
+
+
+def test_assistant_query_response_answer_is_derivable_retrocompat():
+    """AssistantQueryResponse (F6-S20): `answer` continua exposto, derivado de
+    narrative + blocks -- retrocompat para callers que ainda nao migraram."""
+    from app.api.internal_assistant import _derive_answer
+
+    narrative = "Lead em pre-qualificacao, aguardando analise."
+    blocks = [
+        {
+            "type": "analysis_status",
+            "ref": {"kind": "lead", "lead_id": "lead-42"},
+            "value": {"status": "em_analise", "lead_id": "lead-42"},
+        }
+    ]
+    answer = _derive_answer(narrative, blocks)
+    assert narrative in answer
+    assert "analysis_status" in answer
+    assert "em_analise" in answer
+
+
+def test_assistant_query_response_derive_answer_no_blocks_equals_narrative():
+    """Sem blocks: answer derivado == narrative (nada a renderizar)."""
+    from app.api.internal_assistant import _derive_answer
+
+    assert _derive_answer("Apenas texto.", []) == "Apenas texto."
+
+
+def test_assistant_query_response_model_accepts_structured_payload():
+    """O modelo Pydantic de resposta aceita o contrato estruturado completo."""
+    from app.api.internal_assistant import AssistantQueryResponse
+
+    resp = AssistantQueryResponse(
+        narrative="Lead em pre-qualificacao.",
+        blocks=[
+            {
+                "type": "lead_summary",
+                "ref": {"kind": "lead", "lead_id": "lead-1"},
+                "value": {"messages": []},
+            }
+        ],
+        answer="Lead em pre-qualificacao.\n[lead_summary] messages: []",
+        sources=["summarize_lead_conversation"],
+        tools_called=[],
+        metadata={},
+        error=None,
+    )
+    assert resp.blocks[0].ref.kind == "lead"
+    assert resp.blocks[0].ref.lead_id == "lead-1"
