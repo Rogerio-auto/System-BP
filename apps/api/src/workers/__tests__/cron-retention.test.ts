@@ -13,6 +13,9 @@
 //   4. runRetention retorna success=true sem erros quando sem dados
 //   5. retention_runs é inserido com started_at e affected_counts
 //   6. Erros parciais em anonimização → success=false + errors populados
+//   7. Histórico do copiloto (F6-S26): soma deletedSoft+deletedStale no
+//      contador assistant_history_deleted; dryRun repassado ao módulo;
+//      erro do módulo → success=false + errors populados
 // =============================================================================
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
@@ -77,6 +80,20 @@ const mockAnonymizeLead = vi.fn().mockResolvedValue('lead-id');
 vi.mock('../../services/lgpd/anonymize.js', () => ({
   anonymizeCustomer: (...args: unknown[]) => mockAnonymizeCustomer(...args),
   anonymizeLead: (...args: unknown[]) => mockAnonymizeLead(...args),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock assistant-history retention module (F6-S26) — mockado como unidade
+// (mesmo padrão de anonymizeLead/anonymizeCustomer acima), desacoplado do
+// mock de db.client baseado em sequência de chamadas de select() abaixo.
+// ---------------------------------------------------------------------------
+const mockPurgeExpiredAssistantHistory = vi
+  .fn()
+  .mockResolvedValue({ deletedSoft: 0, deletedStale: 0 });
+
+vi.mock('../../modules/assistant-history/retention.js', () => ({
+  ASSISTANT_HISTORY_RETENTION_DAYS: 90,
+  purgeExpiredAssistantHistory: (...args: unknown[]) => mockPurgeExpiredAssistantHistory(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -183,6 +200,8 @@ describe('cron-retention', () => {
     dbState.insertedRetentionRuns = [];
     mockAnonymizeCustomer.mockClear();
     mockAnonymizeLead.mockClear();
+    mockPurgeExpiredAssistantHistory.mockClear();
+    mockPurgeExpiredAssistantHistory.mockResolvedValue({ deletedSoft: 0, deletedStale: 0 });
     Object.values(mockLogger).forEach((fn) => {
       if (typeof fn === 'function') fn.mockClear?.();
     });
@@ -287,5 +306,62 @@ describe('cron-retention', () => {
     expect(err.entity_type).toBe('lead');
     expect(err.entity_id).toBe('lead-fail-01');
     expect(err.error).toContain('FK constraint violation');
+  });
+
+  // ---- 7. Histórico do copiloto (F6-S26) ----
+  it('7a. Soma deletedSoft+deletedStale em assistant_history_deleted', async () => {
+    mockPurgeExpiredAssistantHistory.mockResolvedValueOnce({ deletedSoft: 2, deletedStale: 5 });
+
+    const { runRetention } = await import('../cron-retention.js');
+    const result = await runRetention(mockLogger as unknown as Parameters<typeof runRetention>[0], {
+      dryRun: false,
+    });
+
+    expect(result.counts.assistant_history_deleted).toBe(7);
+    expect(mockPurgeExpiredAssistantHistory).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ dryRun: false }),
+    );
+  });
+
+  it('7b. dryRun=true é repassado ao módulo de histórico do copiloto', async () => {
+    mockPurgeExpiredAssistantHistory.mockResolvedValueOnce({ deletedSoft: 1, deletedStale: 1 });
+
+    const { runRetention } = await import('../cron-retention.js');
+    await runRetention(mockLogger as unknown as Parameters<typeof runRetention>[0], {
+      dryRun: true,
+    });
+
+    expect(mockPurgeExpiredAssistantHistory).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ dryRun: true }),
+    );
+  });
+
+  it('7c. Erro no módulo de histórico do copiloto → success=false + errors populados', async () => {
+    mockPurgeExpiredAssistantHistory.mockRejectedValueOnce(new Error('conexão perdida'));
+
+    const { runRetention } = await import('../cron-retention.js');
+    const result = await runRetention(mockLogger as unknown as Parameters<typeof runRetention>[0], {
+      dryRun: false,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.counts.assistant_history_deleted).toBe(0);
+    const err = result.errors.find(
+      (e) => (e as { entity_type: string }).entity_type === 'assistant_history',
+    ) as { entity_type: string; entity_id: string; error: string } | undefined;
+    expect(err).toBeDefined();
+    expect(err?.error).toContain('conexão perdida');
+  });
+
+  it('7d. Tabela de histórico vazia (flag off) → assistant_history_deleted=0, sem erro', async () => {
+    const { runRetention } = await import('../cron-retention.js');
+    const result = await runRetention(mockLogger as unknown as Parameters<typeof runRetention>[0], {
+      dryRun: false,
+    });
+
+    expect(result.counts.assistant_history_deleted).toBe(0);
+    expect(result.success).toBe(true);
   });
 });
