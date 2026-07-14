@@ -17,11 +17,19 @@
 //
 // Contrato estruturado narrativa + blocos (F6-S21):
 //   - O LangGraph (F6-S20) devolve `{ narrative, blocks, answer, sources }`.
-//     Este service so repassa -- nenhuma persistencia de `blocks` (Fase 2,
-//     atras do parecer do DPO). `blocks[].value` pode conter dado de cliente
-//     e NUNCA e logado -- o pino redact abaixo cobre `blocks` e `narrative`
-//     como cinto-de-seguranca (o codigo hoje so loga campos escalares, nunca
-//     o objeto de resposta inteiro).
+//     Este service repassa a resposta ao caller sem alteracao. `blocks[].value`
+//     pode conter dado de cliente e NUNCA e logado -- o pino redact abaixo
+//     cobre `blocks` e `narrative` como cinto-de-seguranca (o codigo hoje so
+//     loga campos escalares, nunca o objeto de resposta inteiro).
+//
+// Historico persistente (F6-S25, atras da flag assistant.history.enabled):
+//   - Apos responder, tenta persistir o turno via
+//     modules/assistant-history/service.ts:persistAssistantTurn. Com a flag
+//     OFF (default -- gate do DPO, ver docs/anexos/lgpd/dpia-historico-copiloto.md),
+//     persistAssistantTurn e no-op puro: nenhuma query de escrita e emitida.
+//   - Falha de persistencia (infra, bug) NUNCA bloqueia a resposta ao
+//     operador -- mesmo padrao best-effort do insert em assistant_queries
+//     abaixo. Nunca loga question/narrative/blocks no catch.
 // =============================================================================
 import { randomUUID } from 'node:crypto';
 
@@ -32,6 +40,7 @@ import { db } from '../../db/client.js';
 import { assistantQueries } from '../../db/schema/assistantQueries.js';
 import { redactPii } from '../../lib/dlp.js';
 import { ExternalServiceError } from '../../shared/errors.js';
+import { persistAssistantTurn } from '../assistant-history/service.js';
 
 import type {
   AssistantHistoryTurn,
@@ -189,6 +198,32 @@ export async function handleAssistantQuery(
     );
   }
 
+  // 6. Historico persistente do copiloto (F6-S25) -- no-op puro com a flag
+  //    assistant.history.enabled desligada (ver cabecalho do arquivo).
+  //    `questionRedacted` ja passou por DLP (passo 1); persistAssistantTurn
+  //    reaplica sanitizeForPersistence (DLP + mascaramento de nome) por
+  //    conta propria -- defesa em profundidade, nunca confia que o caller
+  //    ja higienizou o suficiente.
+  try {
+    await persistAssistantTurn(
+      db,
+      { userId: actor.userId, organizationId: actor.organizationId },
+      {
+        question: questionRedacted,
+        narrative: lgResponse.narrative,
+        blocks: lgResponse.blocks,
+        sources: lgResponse.sources,
+      },
+    );
+  } catch (persistErr) {
+    // Falha de persistencia do historico nao bloqueia a resposta ao operador.
+    // Nunca loga question/narrative/blocks -- so a mensagem de erro tecnica.
+    logger.error(
+      { correlationId, userId: actor.userId, error: (persistErr as Error).message },
+      'assistant_history_persist_failed',
+    );
+  }
+
   logger.info(
     {
       correlationId,
@@ -202,7 +237,8 @@ export async function handleAssistantQuery(
   // Repassa a forma estruturada do LangGraph (F6-S20) sem alteracao. `answer`
   // e derivado/legado (o LangGraph ja o entrega pronto) -- mantido so para
   // nao quebrar callers que ainda leem apenas `answer` durante a transicao.
-  // Nenhuma persistencia de narrative/blocks aqui (Fase 2, atras do DPO).
+  // Persistencia do historico (Fase 2) ja aconteceu no passo 6 acima -- no-op
+  // com a flag assistant.history.enabled desligada.
   return {
     narrative: lgResponse.narrative,
     blocks: lgResponse.blocks,
