@@ -29,7 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 28    | 1   | 7   | 0   | 0   | 0   | 20  |
+| F6   | 28    | 7   | 1   | 0   | 0   | 0   | 20  |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -480,13 +480,13 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F6-S20 | LangGraph — resposta estruturada do copiloto (narrativa sem PII + blocos referenciados)    | ✅ done      | medium     | F6-S18          |
 | F6-S21 | Backend — contrato de resposta estruturada do copiloto (narrativa + blocos)                | ✅ done      | medium     | F6-S20          |
 | F6-S22 | Frontend — render de resposta estruturada (narrativa + cards de dados)                     | ✅ done      | medium     | F6-S21          |
-| F6-S23 | Gate — parecer do DPO oficial sobre o histórico persistente (bloqueia Fases 2–4)           | ⏸️ blocked   | high       | —               |
-| F6-S24 | DB — schema de conversas e turnos do copiloto (sem PII em repouso)                         | ⏸️ blocked   | medium     | F6-S23, F6-S20  |
-| F6-S25 | Backend — persistência + CRUD das conversas do copiloto (nomeação por intenção)            | ⏸️ blocked   | medium     | F6-S24, F6-S21  |
-| F6-S26 | Backend — retenção (90d) e exclusão do histórico do copiloto                               | ⏸️ blocked   | medium     | F6-S24          |
-| F6-S27 | Backend — hidratação viva das conversas do histórico (RBAC no momento)                     | ⏸️ blocked   | medium     | F6-S24          |
-| F6-S28 | Frontend — abrir conversa do histórico (narrativa + cards hidratados)                      | ⏸️ blocked   | medium     | F6-S27, F6-S22  |
-| F6-S29 | Frontend — barra lateral de histórico do copiloto (listar, abrir, continuar, renomear)     | ⏸️ blocked   | medium     | F6-S25, F6-S28  |
+| F6-S23 | Gate — parecer do DPO oficial antes de LIGAR o histórico persistente em produção           | ⏸️ blocked   | high       | —               |
+| F6-S24 | DB — schema de conversas e turnos do copiloto (sem PII em repouso)                         | 🟢 available | medium     | F6-S20          |
+| F6-S25 | Backend — persistência + CRUD das conversas do copiloto (nomeação por intenção)            | 🟢 available | medium     | F6-S24, F6-S21  |
+| F6-S26 | Backend — retenção (90d) e exclusão do histórico do copiloto                               | 🟢 available | medium     | F6-S24          |
+| F6-S27 | Backend — hidratação viva das conversas do histórico (RBAC no momento)                     | 🟢 available | medium     | F6-S24          |
+| F6-S28 | Frontend — abrir conversa do histórico (narrativa + cards hidratados)                      | 🟢 available | medium     | F6-S27, F6-S22  |
+| F6-S29 | Frontend — barra lateral de histórico do copiloto (listar, abrir, continuar, renomear)     | 🟢 available | medium     | F6-S25, F6-S28  |
 | F6-S30 | Backend — escalar lead ao Departamento de Crédito (human-in-the-loop, via notificação)     | ✅ done      | medium     | F6-S08, F24-S06 |
 | F6-S31 | Frontend — CTA "Escalar ao Crédito" no card de lead do copiloto (confirmação humana)       | ✅ done      | medium     | F6-S30, F6-S22  |
 | F6-S32 | Docs — escalação ao Crédito (doc 22 normativo + RoPA/LGPD)                                 | ✅ done      | low        | —               |

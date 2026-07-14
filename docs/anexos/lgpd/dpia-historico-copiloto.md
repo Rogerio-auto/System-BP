@@ -2,13 +2,21 @@
 
 > Relatório de Impacto à Proteção de Dados (LGPD Art. 38). Artefato **normativo** da Fase 0.
 > Segue o conteúdo mínimo do `docs/17-lgpd-protecao-dados.md` §11.2.
-> **Status: em elaboração — pendente parecer do DPO oficial antes de qualquer PERSISTÊNCIA (Fases 2–4).**
+> **Status: em elaboração — pendente parecer do DPO oficial antes de LIGAR a persistência em produção.**
 >
-> **Escopo do portão:** o que este DPIA protege é a **persistência** de dados derivados de PII. A **Fase 1**
-> (reformular a resposta em narrativa + blocos referenciados) **não persiste nada, não muda o fluxo ao
-> suboperador e não altera a DLP** — é refactor de formato sem novo impacto de proteção de dados, e **pode
-> ser desenvolvida em paralelo** para ganhar tempo. As **Fases 2–4** (armazenar, hidratar de histórico,
-> barra lateral) ficam **bloqueadas** até o parecer do DPO oficial (§6).
+> **Escopo do portão (revisado em 2026-07-14):** o que este DPIA protege é o **tratamento** de dados
+> pessoais — isto é, o momento em que o sistema **efetivamente grava** o histórico. O portão incide sobre a
+> **ativação da flag `assistant.history.enabled` em produção**, não sobre a escrita do código.
+>
+> - **Fase 1** (resposta em narrativa + blocos referenciados) não persiste nada, não muda o fluxo ao
+>   suboperador e não altera a DLP — refactor de formato, sem novo impacto. **Em produção desde 2026-07-14.**
+> - **Fases 2–4** (armazenar, hidratar de histórico, barra lateral) podem ser **construídas, revisadas,
+>   testadas e deployadas com a flag DESLIGADA** — nesse estado a persistência é **no-op** e nenhum dado
+>   pessoal é tratado (invariante imposto e testado no slot F6-S25).
+> - **Ligar a flag em produção** exige o parecer do DPO oficial (§6). Sem parecer, ninguém liga — nem para
+>   teste. Ligar a flag sem DPIA aprovado é tratamento sem avaliação prévia (violação do doc 17).
+>
+> Se o invariante do no-op cair (persistência que grava com a flag off), o portão volta a travar o merge.
 >
 > - Controlador: Banco do Povo de Rondônia / SEDEC-RO
 > - Operador: Elemento
@@ -110,10 +118,15 @@ Recomendação **favorável**, condicionada à implementação integral das salv
 RBAC-bound com re-avaliação de escopo; (c) mascaramento de nome na pergunta e no título. O nível A é o
 desenho de menor risco residual entre as alternativas viáveis, e alinhado à minimização (Art. 6º III).
 
-Ressalva: como envolve **persistência de novo conjunto de dados** derivado de tratamento com IA, as
-**Fases 2–4 (persistência, hidratação de histórico, barra lateral) não devem iniciar** antes do parecer
-do DPO oficial abaixo. A **Fase 1** (refactor da resposta em narrativa + blocos, sem qualquer persistência
-e sem alteração de fluxo ao suboperador ou de DLP) está fora do escopo deste portão e pode prosseguir.
+Ressalva: como envolve **persistência de novo conjunto de dados** derivado de tratamento com IA, o
+**início efetivo do tratamento** — isto é, ligar a flag `assistant.history.enabled` em produção — **não deve
+ocorrer** antes do parecer do DPO oficial abaixo.
+
+A construção das Fases 2–4 com a flag **desligada** não constitui tratamento: nenhum dado pessoal é gravado
+(a persistência é no-op verificável por teste, F6-S25). Por isso o portão incide sobre a **ativação**, não
+sobre o desenvolvimento — separação que preserva a exigência do Art. 38 (avaliação **prévia ao tratamento**)
+sem paralisar a engenharia. A **Fase 1** (refactor da resposta, sem persistência e sem alteração de fluxo ao
+suboperador ou de DLP) está fora do escopo deste portão e já se encontra em produção.
 
 ## 6. Parecer do DPO oficial
 
