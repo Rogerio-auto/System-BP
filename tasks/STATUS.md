@@ -29,7 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
-| F6   | 25    | 3   | 7   | 0   | 0   | 1   | 14  |
+| F6   | 25    | 3   | 7   | 0   | 0   | 0   | 15  |
 | F7   | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
 | F8   | 18    | 0   | 0   | 0   | 0   | 0   | 18  |
 | F9   | 12    | 0   | 0   | 0   | 0   | 0   | 12  |
@@ -477,7 +477,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F6-S17 | Backend — copiloto aceita histórico de conversa (memória de sessão)                        | ✅ done      | high       | F6-S08         |
 | F6-S18 | LangGraph — copiloto usa histórico da sessão nas mensagens do LLM                          | ✅ done      | high       | F6-S07         |
 | F6-S19 | Frontend — copiloto envia o histórico da sessão (memória de conversa)                      | ✅ done      | high       | F6-S17         |
-| F6-S20 | LangGraph — resposta estruturada do copiloto (narrativa sem PII + blocos referenciados)    | 🟣 review    | medium     | F6-S18         |
+| F6-S20 | LangGraph — resposta estruturada do copiloto (narrativa sem PII + blocos referenciados)    | ✅ done      | medium     | F6-S18         |
 | F6-S21 | Backend — contrato de resposta estruturada do copiloto (narrativa + blocos)                | 🟢 available | medium     | F6-S20         |
 | F6-S22 | Frontend — render de resposta estruturada (narrativa + cards de dados)                     | 🟢 available | medium     | F6-S21         |
 | F6-S23 | Gate — parecer do DPO oficial sobre o histórico persistente (bloqueia Fases 2–4)           | ⏸️ blocked   | high       | —              |

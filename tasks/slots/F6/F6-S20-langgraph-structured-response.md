@@ -3,7 +3,7 @@ id: F6-S20
 title: LangGraph — resposta estruturada do copiloto (narrativa sem PII + blocos referenciados)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: L
 agent_id: null
