@@ -3,7 +3,7 @@ id: F6-S30
 title: Backend — escalar lead ao Departamento de Crédito (human-in-the-loop, via notificação)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: medium
 estimated_size: L
 agent_id: null

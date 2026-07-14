@@ -3,7 +3,7 @@ id: F6-S32
 title: Docs — escalação ao Crédito (doc 22 normativo + RoPA/LGPD)
 phase: F6
 task_ref: docs/22-agente-interno-acoes.md
-status: review
+status: done
 priority: low
 estimated_size: S
 agent_id: null
