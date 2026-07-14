@@ -16,6 +16,7 @@ import { Badge } from '../../../components/ui/Badge';
 
 import { BlockCardShell } from './BlockCardShell';
 import { BlockCardUnavailable } from './BlockCardUnavailable';
+import { EscalateToCreditButton } from './EscalateToCreditButton';
 import { formatDateBR, formatTimeBR } from './format';
 import { isLeadSummaryValue } from './guards';
 import { MessageIcon } from './icons';
@@ -71,6 +72,9 @@ export function LeadSummaryCard({ value }: LeadSummaryCardProps): React.JSX.Elem
           ))}
         </div>
       )}
+
+      {/* Ação secundária — não compete com a leitura do card (F6-S31) */}
+      <EscalateToCreditButton leadId={value.lead_id} />
     </BlockCardShell>
   );
 }
