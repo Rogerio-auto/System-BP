@@ -17,46 +17,49 @@
 // Memória de conversa (F6-S19): cada pergunta enviada ao backend carrega os
 // turnos anteriores bem-sucedidos (buildAssistantHistory), para o copiloto
 // ter continuidade — sem persistir nada além do useState acima.
+//
+// Abrir conversa salva do histórico (F6-S28): quando `conversationId` é
+// informado, busca a conversa (narrativa + cards já hidratados ao vivo pelo
+// backend, F6-S27) e semeia os turnos uma única vez
+// (useAssistantWorkspaceTurns) — depois disso o usuário continua a conversa
+// normalmente, com os turnos reabertos alimentando a memória de sessão.
+// Trocar de conversa deve remontar este componente (prop `key` no caller) —
+// o estado vive só em useState, não há lógica de "trocar conversa em
+// andamento".
 // =============================================================================
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 
-import {
-  classifyAssistantError,
-  useAssistantQuery,
-  type AssistantErrorKind,
-} from '../../../hooks/assistant/useAssistantQuery';
+import { useAssistantConversation } from '../../../hooks/assistant/useAssistantConversation';
 import { cn } from '../../../lib/cn';
-import { buildAssistantHistory } from '../history';
-import type { AssistantTurn } from '../types';
+import { useAssistantWorkspaceTurns } from '../hooks/useAssistantWorkspaceTurns';
 
 import { AssistantComposer } from './AssistantComposer';
-import { AssistantTurnItem } from './AssistantTurnItem';
-import { AssistantWorkspaceEmptyState } from './AssistantWorkspaceEmptyState';
+import { AssistantWorkspaceBody } from './AssistantWorkspaceBody';
 import { AssistantWorkspaceHeader } from './AssistantWorkspaceHeader';
 
 interface AssistantWorkspaceModalProps {
   onClose: () => void;
   hasPermission: (permission: string) => boolean;
+  /** Abre a conversa salva com este id (F6-S28). `null`/omitido = conversa nova. */
+  conversationId?: string | null;
 }
 
 export function AssistantWorkspaceModal({
   onClose,
   hasPermission,
+  conversationId = null,
 }: AssistantWorkspaceModalProps): React.JSX.Element {
-  const [turns, setTurns] = React.useState<AssistantTurn[]>([]);
-  const [draft, setDraft] = React.useState('');
-  const { ask, isPending } = useAssistantQuery();
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-  const isMountedRef = React.useRef(true);
+  const {
+    data: conversation,
+    isLoading: isLoadingConversation,
+    isNotFound: isConversationNotFound,
+  } = useAssistantConversation(conversationId);
 
-  React.useEffect(
-    () => () => {
-      isMountedRef.current = false;
-    },
-    [],
-  );
+  const { turns, isPending, sendQuestion, retry } = useAssistantWorkspaceTurns(conversation);
+  const [draft, setDraft] = React.useState('');
+  const scrollRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -70,68 +73,19 @@ export function AssistantWorkspaceModal({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  function runTurn(id: string, question: string): void {
-    // `turns` aqui é o estado ANTES deste turno ser adicionado (sendQuestion)
-    // ou o estado com este turno ainda em 'error'/'pending' (handleRetry) —
-    // em ambos os casos buildAssistantHistory exclui o turno atual e
-    // qualquer turno que não tenha terminado com sucesso.
-    const history = buildAssistantHistory(turns, id);
-    ask(question, history)
-      .then((res) => {
-        if (!isMountedRef.current) return;
-        setTurns((prev) =>
-          prev.map((t) =>
-            t.id === id
-              ? {
-                  ...t,
-                  status: 'success',
-                  narrative: res.narrative,
-                  blocks: res.blocks,
-                  sources: res.sources,
-                  answer: res.answer,
-                }
-              : t,
-          ),
-        );
-      })
-      .catch((err: unknown) => {
-        if (!isMountedRef.current) return;
-        const classified = classifyAssistantError(err);
-        setTurns((prev) =>
-          prev.map((t) =>
-            t.id === id
-              ? {
-                  ...t,
-                  status: 'error',
-                  errorKind: classified.kind as AssistantErrorKind,
-                  errorMessage: classified.message,
-                }
-              : t,
-          ),
-        );
-      });
-  }
-
-  function sendQuestion(question: string): void {
-    const trimmed = question.trim();
-    if (!trimmed || isPending) return;
-
-    const id = crypto.randomUUID();
-    setTurns((prev) => [...prev, { id, question: trimmed, status: 'pending' }]);
-    runTurn(id, trimmed);
-  }
-
   function handleSubmit(): void {
     if (!draft.trim() || isPending) return;
     sendQuestion(draft);
     setDraft('');
   }
 
-  function handleRetry(turn: AssistantTurn): void {
-    if (isPending) return;
-    setTurns((prev) => prev.map((t) => (t.id === turn.id ? { ...t, status: 'pending' } : t)));
-    runTurn(turn.id, turn.question);
-  }
+  // Só relevantes enquanto os turnos da conversa salva ainda não chegaram —
+  // depois de semeados, a conversa segue como um chat normal mesmo que a
+  // query recarregue em segundo plano.
+  const isOpeningConversation =
+    conversationId !== null && isLoadingConversation && turns.length === 0;
+  const isConversationUnavailable =
+    conversationId !== null && isConversationNotFound && turns.length === 0;
 
   return createPortal(
     <div
@@ -159,29 +113,25 @@ export function AssistantWorkspaceModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <AssistantWorkspaceHeader onClose={onClose} />
+        <AssistantWorkspaceHeader onClose={onClose} conversationTitle={conversation?.title} />
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-5 min-h-0">
-          {turns.length === 0 ? (
-            <AssistantWorkspaceEmptyState
-              hasPermission={hasPermission}
-              onSelectChip={sendQuestion}
-              disabled={isPending}
-            />
-          ) : (
-            <div className="flex flex-col gap-4 max-w-[860px] mx-auto">
-              {turns.map((turn) => (
-                <AssistantTurnItem key={turn.id} turn={turn} onRetry={handleRetry} />
-              ))}
-            </div>
-          )}
-        </div>
+        <AssistantWorkspaceBody
+          scrollRef={scrollRef}
+          isOpeningConversation={isOpeningConversation}
+          isConversationUnavailable={isConversationUnavailable}
+          turns={turns}
+          hasPermission={hasPermission}
+          onSelectChip={sendQuestion}
+          onRetry={retry}
+          onClose={onClose}
+          disabled={isPending}
+        />
 
         <AssistantComposer
           value={draft}
           onChange={setDraft}
           onSubmit={handleSubmit}
-          disabled={isPending}
+          disabled={isPending || isConversationUnavailable}
         />
       </div>
     </div>,

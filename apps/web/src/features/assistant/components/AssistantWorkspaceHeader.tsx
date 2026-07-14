@@ -3,6 +3,10 @@
 // workspace fullscreen do copiloto interno (F6-S12): ícone + título + botão
 // de fechar (X). Extraído de AssistantWorkspaceModal para manter o
 // componente principal abaixo de 200 linhas.
+//
+// `conversationTitle` (F6-S28): quando o workspace abre uma conversa salva do
+// histórico, o título dela substitui o subtítulo padrão — sinaliza ao
+// usuário que ele está vendo uma conversa anterior, não uma nova.
 // =============================================================================
 
 import * as React from 'react';
@@ -13,10 +17,13 @@ import { SparkleIcon } from './SparkleIcon';
 
 interface AssistantWorkspaceHeaderProps {
   onClose: () => void;
+  /** Título da conversa salva aberta (F6-S28) — ausente em uma conversa nova. */
+  conversationTitle?: string | undefined;
 }
 
 export function AssistantWorkspaceHeader({
   onClose,
+  conversationTitle,
 }: AssistantWorkspaceHeaderProps): React.JSX.Element {
   return (
     <div
@@ -40,7 +47,9 @@ export function AssistantWorkspaceHeader({
           <h2 className="font-sans font-semibold text-ink text-base leading-tight truncate">
             Assistente interno
           </h2>
-          <p className="font-sans text-xs text-ink-3">Copiloto sobre seus dados</p>
+          <p className="font-sans text-xs text-ink-3 truncate">
+            {conversationTitle?.trim() ? conversationTitle : 'Copiloto sobre seus dados'}
+          </p>
         </div>
       </div>
 
