@@ -91,3 +91,14 @@ export function InboxOffIcon({ className }: IconProps): React.JSX.Element {
     </svg>
   );
 }
+
+/** CTA "Escalar ao Crédito" (F6-S31) — envio/encaminhamento */
+export function SendToIcon({ className }: IconProps): React.JSX.Element {
+  return (
+    <svg {...commonProps} className={className}>
+      <path d="M4 12h13" />
+      <path d="M12 5l7 7-7 7" />
+      <path d="M4 5.5v13" strokeOpacity={0.5} />
+    </svg>
+  );
+}
