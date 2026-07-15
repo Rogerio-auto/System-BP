@@ -7,63 +7,38 @@
 // clique fora / botão X. Renderizado via portal (document.body) para não
 // herdar containing block de ancestral com transform/filter na Topbar.
 //
-// Estado inicial (sem turnos): AssistantWorkspaceEmptyState mostra chips de
-// sugestão por permissão — clicar num chip envia a pergunta pronta.
+// Barra lateral de histórico (F6-S29, último slot da Fase 2): duas colunas —
+// AssistantHistorySidebar (lista/nova/renomear/excluir conversas salvas) +
+// AssistantWorkspaceChat (a conversa ativa). A seleção de conversa vive
+// aqui (`selectedConversationId`) e é passada como `key` para
+// AssistantWorkspaceChat — trocar de conversa precisa REMONTAR a coluna de
+// chat, porque todo o estado de turnos vive em useState (nunca persistido,
+// LGPD doc 17), sem lógica de "trocar conversa em andamento".
 //
-// Histórico de turnos vive só em React state (useState) — desmonta ao
-// fechar (o caller condiciona a renderização), então nunca sobrevive em
-// localStorage/sessionStorage (LGPD doc 17).
-//
-// Memória de conversa (F6-S19): cada pergunta enviada ao backend carrega os
-// turnos anteriores bem-sucedidos (buildAssistantHistory), para o copiloto
-// ter continuidade — sem persistir nada além do useState acima.
-//
-// Abrir conversa salva do histórico (F6-S28): quando `conversationId` é
-// informado, busca a conversa (narrativa + cards já hidratados ao vivo pelo
-// backend, F6-S27) e semeia os turnos uma única vez
-// (useAssistantWorkspaceTurns) — depois disso o usuário continua a conversa
-// normalmente, com os turnos reabertos alimentando a memória de sessão.
-// Trocar de conversa deve remontar este componente (prop `key` no caller) —
-// o estado vive só em useState, não há lógica de "trocar conversa em
-// andamento".
+// Responsivo: em telas ≥ sm a barra lateral é persistente (coluna fixa); em
+// telas estreitas fica atrás de um overlay, aberto pelo ícone de histórico
+// no cabeçalho do chat (AssistantWorkspaceHeader).
 // =============================================================================
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 
-import { useAssistantConversation } from '../../../hooks/assistant/useAssistantConversation';
 import { cn } from '../../../lib/cn';
-import { useAssistantWorkspaceTurns } from '../hooks/useAssistantWorkspaceTurns';
 
-import { AssistantComposer } from './AssistantComposer';
-import { AssistantWorkspaceBody } from './AssistantWorkspaceBody';
-import { AssistantWorkspaceHeader } from './AssistantWorkspaceHeader';
+import { AssistantHistorySidebar } from './AssistantHistorySidebar';
+import { AssistantWorkspaceChat } from './AssistantWorkspaceChat';
 
 interface AssistantWorkspaceModalProps {
   onClose: () => void;
   hasPermission: (permission: string) => boolean;
-  /** Abre a conversa salva com este id (F6-S28). `null`/omitido = conversa nova. */
-  conversationId?: string | null;
 }
 
 export function AssistantWorkspaceModal({
   onClose,
   hasPermission,
-  conversationId = null,
 }: AssistantWorkspaceModalProps): React.JSX.Element {
-  const {
-    data: conversation,
-    isLoading: isLoadingConversation,
-    isNotFound: isConversationNotFound,
-  } = useAssistantConversation(conversationId);
-
-  const { turns, isPending, sendQuestion, retry } = useAssistantWorkspaceTurns(conversation);
-  const [draft, setDraft] = React.useState('');
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [turns]);
+  const [selectedConversationId, setSelectedConversationId] = React.useState<string | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
 
   React.useEffect(() => {
     function onKey(e: KeyboardEvent): void {
@@ -72,20 +47,6 @@ export function AssistantWorkspaceModal({
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
-
-  function handleSubmit(): void {
-    if (!draft.trim() || isPending) return;
-    sendQuestion(draft);
-    setDraft('');
-  }
-
-  // Só relevantes enquanto os turnos da conversa salva ainda não chegaram —
-  // depois de semeados, a conversa segue como um chat normal mesmo que a
-  // query recarregue em segundo plano.
-  const isOpeningConversation =
-    conversationId !== null && isLoadingConversation && turns.length === 0;
-  const isConversationUnavailable =
-    conversationId !== null && isConversationNotFound && turns.length === 0;
 
   return createPortal(
     <div
@@ -101,7 +62,7 @@ export function AssistantWorkspaceModal({
         aria-modal="true"
         aria-label="Assistente interno"
         className={cn(
-          'relative z-50 flex flex-col',
+          'relative z-50 flex',
           'w-[92vw] sm:w-[85vw] h-[88vh] sm:h-[85vh]',
           'max-w-[1200px] max-h-[880px] min-h-[420px]',
           'rounded-lg border border-border overflow-hidden',
@@ -113,25 +74,21 @@ export function AssistantWorkspaceModal({
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <AssistantWorkspaceHeader onClose={onClose} conversationTitle={conversation?.title} />
-
-        <AssistantWorkspaceBody
-          scrollRef={scrollRef}
-          isOpeningConversation={isOpeningConversation}
-          isConversationUnavailable={isConversationUnavailable}
-          turns={turns}
-          hasPermission={hasPermission}
-          onSelectChip={sendQuestion}
-          onRetry={retry}
-          onClose={onClose}
-          disabled={isPending}
+        <AssistantHistorySidebar
+          selectedId={selectedConversationId}
+          onSelect={setSelectedConversationId}
+          onNewConversation={() => setSelectedConversationId(null)}
+          onSelectedConversationDeleted={() => setSelectedConversationId(null)}
+          mobileOpen={mobileSidebarOpen}
+          onCloseMobile={() => setMobileSidebarOpen(false)}
         />
 
-        <AssistantComposer
-          value={draft}
-          onChange={setDraft}
-          onSubmit={handleSubmit}
-          disabled={isPending || isConversationUnavailable}
+        <AssistantWorkspaceChat
+          key={selectedConversationId ?? 'new'}
+          conversationId={selectedConversationId}
+          hasPermission={hasPermission}
+          onClose={onClose}
+          onOpenHistoryMobile={() => setMobileSidebarOpen(true)}
         />
       </div>
     </div>,

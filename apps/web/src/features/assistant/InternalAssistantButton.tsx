@@ -6,7 +6,9 @@
 // workspace fullscreen do copiloto (AssistantWorkspaceModal, F6-S12 —
 // substitui o drawer lateral de F6-S09) consumindo
 // POST /api/internal-assistant/query. Caso contrário, mantém o teaser
-// honesto ("em breve") — comportamento original desta superfície (F1).
+// honesto ("em breve") — comportamento original desta superfície (F1). O
+// workspace já inclui a barra lateral de histórico (F6-S29) — a seleção de
+// conversa é gerenciada internamente pelo próprio modal.
 //
 // Gating é defesa em profundidade: o backend também aplica authorize() +
 // featureGate() na rota (fonte de verdade).

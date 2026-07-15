@@ -7,6 +7,10 @@
 // `conversationTitle` (F6-S28): quando o workspace abre uma conversa salva do
 // histórico, o título dela substitui o subtítulo padrão — sinaliza ao
 // usuário que ele está vendo uma conversa anterior, não uma nova.
+//
+// `onOpenHistoryMobile` (F6-S29): em telas estreitas (< sm) a barra lateral
+// de histórico fica atrás de um overlay — este botão (visível só em mobile)
+// a abre. Em telas maiores a barra já é persistente, então o botão some.
 // =============================================================================
 
 import * as React from 'react';
@@ -19,11 +23,32 @@ interface AssistantWorkspaceHeaderProps {
   onClose: () => void;
   /** Título da conversa salva aberta (F6-S28) — ausente em uma conversa nova. */
   conversationTitle?: string | undefined;
+  /** Abre a barra lateral de histórico em telas estreitas (F6-S29). */
+  onOpenHistoryMobile?: () => void;
+}
+
+function HistoryIcon(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-4 h-4"
+      aria-hidden="true"
+    >
+      <path d="M2 8a6 6 0 1 0 1.8-4.3M2 2.5v3.2h3.2" />
+      <path d="M8 5v3.2l2.2 1.3" />
+    </svg>
+  );
 }
 
 export function AssistantWorkspaceHeader({
   onClose,
   conversationTitle,
+  onOpenHistoryMobile,
 }: AssistantWorkspaceHeaderProps): React.JSX.Element {
   return (
     <div
@@ -31,6 +56,21 @@ export function AssistantWorkspaceHeader({
       style={{ borderColor: 'var(--border-subtle)', background: 'var(--bg-elev-2)' }}
     >
       <div className="flex items-center gap-3 min-w-0">
+        {onOpenHistoryMobile && (
+          <button
+            type="button"
+            onClick={onOpenHistoryMobile}
+            aria-label="Abrir histórico de conversas"
+            className={cn(
+              'sm:hidden w-9 h-9 flex items-center justify-center rounded-sm shrink-0',
+              'text-ink-3 hover:text-ink hover:bg-surface-hover',
+              'transition-all duration-fast ease',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20',
+            )}
+          >
+            <HistoryIcon />
+          </button>
+        )}
         <span
           className="inline-flex items-center justify-center shrink-0"
           style={{
