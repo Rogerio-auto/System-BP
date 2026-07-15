@@ -59,6 +59,8 @@ export interface AssistantConversationDetail {
 
 export const assistantConversationKeys = {
   all: ['assistant', 'conversations'] as const,
+  /** Lista das conversas do usuário (barra lateral, F6-S29). */
+  list: () => [...assistantConversationKeys.all, 'list'] as const,
   detail: (id: string) => [...assistantConversationKeys.all, id] as const,
 };
 
