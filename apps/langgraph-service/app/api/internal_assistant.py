@@ -92,10 +92,18 @@ class AssistantQueryRequest(BaseModel, extra="forbid"):
 
 class BlockRefPayload(BaseModel):
     """Referencia de entidade de um bloco -- o que sera persistido na Fase 2
-    do historico (docs/anexos/lgpd/dpia-historico-copiloto.md). Sem PII."""
+    do historico (docs/anexos/lgpd/dpia-historico-copiloto.md). Sem PII.
 
-    kind: Literal["lead", "none"]
+    kind='aggregate' (funnel_metrics/lead_count/billing): nao referencia entidade,
+    mas carrega os parametros NAO-PESSOAIS de reconstrucao (range + city_ids) para
+    re-hidratar a consulta ao vivo na leitura do historico (DPIA sec4.3)."""
+
+    kind: Literal["lead", "none", "aggregate"]
     lead_id: str | None = Field(None, description="UUID do lead (so quando kind='lead')")
+    range: str | None = Field(None, description="Bucket temporal do agregado (so kind='aggregate')")
+    city_ids: list[str] | None = Field(
+        None, description="Filtro de cidades do agregado (so kind='aggregate')"
+    )
 
 
 class BlockPayload(BaseModel):
