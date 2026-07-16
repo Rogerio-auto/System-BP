@@ -311,6 +311,9 @@ export async function processMessage(
           messageType: message.type,
           // Humano assumiu? Se a conversa tem agente atribuido, a IA cala.
           assignedUserId: conversation.assignedUserId,
+          // Fora de 'open' (pending/resolved/snoozed): humano no controle ou
+          // conversa encerrada — IA nao responde nem re-dispara handoff.
+          status: conversation.status,
         });
 
         if (aiShouldRespond) {

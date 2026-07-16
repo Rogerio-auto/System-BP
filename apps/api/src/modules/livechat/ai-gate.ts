@@ -8,7 +8,8 @@
 //   1. Flag `ai.livechat_agent.enabled` ligada (global, por org).
 //   2. Mensagem eh inbound (direction == inbound).
 //   3. Tipo de mensagem eh texto (messageType == 'text').
-//   4. Allowlist: se AI_LIVECHAT_ALLOWLIST nao vazia, contactRemoteId deve
+//   4. Conversa esta com status 'open' (humano nao assumiu nem encerrou).
+//   5. Allowlist: se AI_LIVECHAT_ALLOWLIST nao vazia, contactRemoteId deve
 //      estar na lista (gate de seguranca para homologacao).
 //
 // Uso em livechat-inbound.ts:
@@ -54,6 +55,15 @@ export interface ShouldAiRespondInput {
    * atendimento (evita IA e humano respondendo juntos e silencia o handoff).
    */
   assignedUserId?: string | null;
+  /**
+   * Status atual da conversa (open | pending | resolved | snoozed).
+   * So 'open' deixa a IA responder — pending/resolved/snoozed significam
+   * que um humano ja assumiu (handoff ja disparado) ou a conversa foi
+   * encerrada/pausada. Bug de producao corrigido: sem essa checagem, toda
+   * mensagem inbound apos o handoff re-disparava a IA e ela reenviava o
+   * fallback em loop (migration 0091).
+   */
+  status: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,17 +78,26 @@ export interface ShouldAiRespondInput {
  * Criterios:
  *   1. Flag `ai.livechat_agent.enabled` habilitada.
  *   2. messageType === 'text'.
- *   3. Allowlist: se AI_LIVECHAT_ALLOWLIST nao vazia, contactRemoteId deve
+ *   3. status === 'open'.
+ *   4. Allowlist: se AI_LIVECHAT_ALLOWLIST nao vazia, contactRemoteId deve
  *      estar na lista (gate de homologacao seguro).
  *
  * Falhas de I/O (DB) sao tratadas como gate=false + warning — nao devem
  * quebrar o pipeline de inbound.
  */
 export async function shouldAiRespond(input: ShouldAiRespondInput): Promise<boolean> {
-  const { db, organizationId, contactRemoteId, messageType, assignedUserId } = input;
+  const { db, organizationId, contactRemoteId, messageType, assignedUserId, status } = input;
 
   // Criterio 2: apenas mensagens de texto disparam a IA
   if (messageType !== 'text') {
+    return false;
+  }
+
+  // Criterio: conversa fora de 'open' — humano assumiu o controle (pending/
+  // resolved/snoozed apos handoff ou acao manual) ou a conversa foi
+  // encerrada. A IA cala: sem resposta e sem novo handoff (evita o loop de
+  // re-disparo a cada mensagem inbound apos o primeiro handoff).
+  if (status !== 'open') {
     return false;
   }
 

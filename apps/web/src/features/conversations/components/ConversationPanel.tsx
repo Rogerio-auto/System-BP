@@ -362,7 +362,10 @@ export function ConversationPanel({
   }, [convDetail]);
 
   // ── Realtime ───────────────────────────────────────────────────────────────
-  useConversationSocket({ conversationId });
+  // scope 'detail': dona do cache de detalhe/mensagens desta conversa + sala
+  // socket (join/leave). ChatList (scope 'list') cuida do cache da lista —
+  // ver cabeçalho de useConversationSocket.ts (bug do contador em dobro).
+  useConversationSocket({ conversationId, scope: 'detail' });
 
   // ── Flatten mensagens (infinite query = páginas) ───────────────────────────
   // pages[0] = primeira fetch (mensagens mais recentes), pages[N] = mais antigas (load-more).

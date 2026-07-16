@@ -55,6 +55,7 @@ function makeConversation(
     unreadCount: 0,
     metadata: null,
     cityId: null,
+    aiHandoffAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,

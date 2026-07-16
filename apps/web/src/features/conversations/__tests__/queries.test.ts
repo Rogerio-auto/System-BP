@@ -12,7 +12,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { conversationKeys } from '../queries';
+import { conversationKeys, nextCursorParam } from '../queries';
 
 describe('conversationKeys', () => {
   describe('all', () => {
@@ -40,6 +40,28 @@ describe('conversationKeys', () => {
     it('mesmos params geram mesmo key', () => {
       const params = { status: 'open' as const, limit: 50 };
       expect(conversationKeys.list(params)).toEqual(conversationKeys.list(params));
+    });
+  });
+
+  describe('listInfinite (regressão: colisão flat×infinite)', () => {
+    it('NÃO colide com a key flat list() para os mesmos params', () => {
+      // Regressão: quando list() (shape flat {data,nextCursor}) e a infinite
+      // query (shape {pages,pageParams}) compartilhavam a mesma key, o
+      // InfiniteQueryObserver crashava em getNextPageParam ao ler uma entrada
+      // flat legada. A key infinite DEVE ser distinta.
+      const params = { status: 'open' as const, limit: 25 };
+      expect(conversationKeys.listInfinite(params)).not.toEqual(conversationKeys.list(params));
+    });
+
+    it('mantém o prefixo ["conversations","list"] p/ setQueriesData/invalidate do realtime', () => {
+      const key = conversationKeys.listInfinite({ status: 'open' });
+      expect(key.slice(0, 2)).toEqual(['conversations', 'list']);
+    });
+
+    it('params diferentes geram keys diferentes (cache por status)', () => {
+      const a = conversationKeys.listInfinite({ status: 'open' });
+      const b = conversationKeys.listInfinite({ status: 'snoozed' });
+      expect(a).not.toEqual(b);
     });
   });
 
@@ -83,6 +105,16 @@ describe('conversationKeys', () => {
       expect(conversationKeys.messages('conv-1', params)).toEqual(
         conversationKeys.messages('conv-1', params),
       );
+    });
+  });
+
+  describe('nextCursorParam (paginação — scroll infinito para no cursor null)', () => {
+    it('retorna o nextCursor quando presente (há mais páginas)', () => {
+      expect(nextCursorParam({ nextCursor: 'cursor-abc' })).toBe('cursor-abc');
+    });
+
+    it('retorna undefined quando nextCursor é null (getNextPageParam → hasNextPage=false)', () => {
+      expect(nextCursorParam({ nextCursor: null })).toBeUndefined();
     });
   });
 

@@ -9,6 +9,10 @@
 //   5. Flag on + allowlist vazia + messageType != 'text' → false
 //   6. Flag on + isFlagEnabled lanca erro → false (seguro por defeito)
 //   7. Normalizacao: numero com + na allowlist eh normalizado para digitos
+//   8. status='pending' + sem agente atribuido → false (bug de producao:
+//      handoff ja disparado, humano no controle — IA nao re-responde)
+//   9. status='open' + sem agente atribuido → true (short-circuit da checagem
+//      de status nao bloqueia o caso normal)
 // =============================================================================
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -72,6 +76,7 @@ describe('shouldAiRespond — gate da IA no livechat', () => {
       organizationId: 'org-1',
       contactRemoteId: '5569999990000',
       messageType: 'text',
+      status: 'open',
     });
 
     expect(result).toBe(false);
@@ -89,6 +94,7 @@ describe('shouldAiRespond — gate da IA no livechat', () => {
       organizationId: 'org-1',
       contactRemoteId: '5569999990000',
       messageType: 'text',
+      status: 'open',
     });
 
     expect(result).toBe(true);
@@ -105,6 +111,7 @@ describe('shouldAiRespond — gate da IA no livechat', () => {
       organizationId: 'org-1',
       contactRemoteId: '5569999990000',
       messageType: 'text',
+      status: 'open',
     });
 
     expect(result).toBe(true);
@@ -121,6 +128,7 @@ describe('shouldAiRespond — gate da IA no livechat', () => {
       organizationId: 'org-1',
       contactRemoteId: '5569911110000', // numero diferente
       messageType: 'text',
+      status: 'open',
     });
 
     expect(result).toBe(false);
@@ -137,6 +145,7 @@ describe('shouldAiRespond — gate da IA no livechat', () => {
       organizationId: 'org-1',
       contactRemoteId: '5569999990000',
       messageType: 'image', // nao eh texto
+      status: 'open',
     });
 
     expect(result).toBe(false);
@@ -154,6 +163,7 @@ describe('shouldAiRespond — gate da IA no livechat', () => {
       organizationId: 'org-1',
       contactRemoteId: '5569999990000',
       messageType: 'text',
+      status: 'open',
     });
 
     expect(result).toBe(false);
@@ -172,6 +182,47 @@ describe('shouldAiRespond — gate da IA no livechat', () => {
       organizationId: 'org-1',
       contactRemoteId: '+5569999990000', // tem + que sera removido
       messageType: 'text',
+      status: 'open',
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it(
+    "8. status='pending' + sem agente atribuido → false (handoff ja disparado, " +
+      'humano no controle — bug de producao corrigido)',
+    async () => {
+      mockIsFlagEnabled.mockResolvedValue({ enabled: true, status: 'enabled' });
+
+      const { shouldAiRespond } = await import('../ai-gate.js');
+
+      const result = await shouldAiRespond({
+        db: mockDb,
+        organizationId: 'org-1',
+        contactRemoteId: '5569999990000',
+        messageType: 'text',
+        assignedUserId: null,
+        status: 'pending',
+      });
+
+      expect(result).toBe(false);
+      // Deve retornar false antes de checar a flag (short-circuit por status)
+      expect(mockIsFlagEnabled).not.toHaveBeenCalled();
+    },
+  );
+
+  it("9. status='open' + sem agente atribuido → true (caso normal nao e bloqueado)", async () => {
+    mockIsFlagEnabled.mockResolvedValue({ enabled: true, status: 'enabled' });
+
+    const { shouldAiRespond } = await import('../ai-gate.js');
+
+    const result = await shouldAiRespond({
+      db: mockDb,
+      organizationId: 'org-1',
+      contactRemoteId: '5569999990000',
+      messageType: 'text',
+      assignedUserId: null,
+      status: 'open',
     });
 
     expect(result).toBe(true);
