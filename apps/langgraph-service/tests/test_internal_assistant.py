@@ -944,3 +944,41 @@ def test_assistant_query_response_model_accepts_structured_payload():
     )
     assert resp.blocks[0].ref.kind == "lead"
     assert resp.blocks[0].ref.lead_id == "lead-1"
+
+
+def test_assistant_query_response_model_accepts_aggregate_ref():
+    """Regressao (2026-07-16): o modelo Pydantic de resposta deve aceitar
+    ref kind='aggregate' com range + city_ids -- senao a query inteira estoura
+    com 500/502 quando o agent_node emite um bloco agregado."""
+    from app.api.internal_assistant import AssistantQueryResponse
+
+    resp = AssistantQueryResponse(
+        narrative="Metricas do funil dos ultimos 30 dias.",
+        blocks=[
+            {
+                "type": "funnel_metrics",
+                "ref": {
+                    "kind": "aggregate",
+                    "lead_id": None,
+                    "range": "last30d",
+                    "city_ids": None,
+                },
+                "value": {"overview": {"total": 10}},
+            },
+            {
+                "type": "billing",
+                "ref": {"kind": "aggregate", "lead_id": None, "city_ids": ["city-1"]},
+                "value": {"snapshotLabel": "Carteira atual"},
+            },
+        ],
+        answer="Metricas do funil.",
+        sources=["get_funnel_metrics", "get_billing_snapshot"],
+        tools_called=[],
+        metadata={},
+        error=None,
+    )
+    assert resp.blocks[0].ref.kind == "aggregate"
+    assert resp.blocks[0].ref.range == "last30d"
+    assert resp.blocks[1].ref.kind == "aggregate"
+    assert resp.blocks[1].ref.city_ids == ["city-1"]
+    assert resp.blocks[1].ref.range is None
