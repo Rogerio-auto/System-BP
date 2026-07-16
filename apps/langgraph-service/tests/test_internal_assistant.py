@@ -283,9 +283,13 @@ async def test_agent_node_billing_dispatch_no_range():
         patch(gw, return_value=mock_gw),
         patch(bs, side_effect=mock_billing),
     ):
-        await agent_node(_make_state())
+        result = await agent_node(_make_state())
     assert len(billing_calls) == 1
     assert "range" not in billing_calls[0], "range nao deve ser passado para call_billing_snapshot"
+    # billing e agregado, mas snapshot atual: ref kind='aggregate' SEM range.
+    block = result["blocks"][0]
+    assert block["ref"] == {"kind": "aggregate", "lead_id": None, "city_ids": None}
+    assert "range" not in block["ref"], "billing nunca persiste range (nao aplicavel)"
 
 
 @pytest.mark.asyncio
@@ -675,11 +679,12 @@ async def test_assistant_query_request_history_optional_defaults_none():
 
 
 @pytest.mark.asyncio
-async def test_agent_node_aggregate_tool_produces_block_with_none_ref():
-    """Tool sem lead_id (agregada, ex.: get_lead_count) -> block com ref kind='none'.
+async def test_agent_node_aggregate_tool_produces_block_with_aggregate_ref():
+    """Tool sem lead_id (agregada, ex.: get_lead_count) -> block com ref kind='aggregate'.
 
-    ref NUNCA e inferido do texto -- so existe kind='lead' quando ha um
-    lead_id explicito no arg/resultado da tool call."""
+    ref NUNCA e inferido do texto -- kind='lead' so quando ha lead_id explicito;
+    tool agregada carrega range + city_ids (NAO-PII) para re-hidratacao ao vivo
+    do historico (DPIA sec4.3)."""
     import json as _json
 
     tc = {
@@ -712,7 +717,12 @@ async def test_agent_node_aggregate_tool_produces_block_with_none_ref():
     assert len(result["blocks"]) == 1
     block = result["blocks"][0]
     assert block["type"] == "lead_count"
-    assert block["ref"] == {"kind": "none"}
+    assert block["ref"] == {
+        "kind": "aggregate",
+        "lead_id": None,
+        "city_ids": None,
+        "range": "last30d",
+    }
     assert block["value"] == {"total": 99}
     assert result["narrative"] == "Ha 99 leads."
     # narrative permanece limpa -- o dado de cliente vive so no block.value

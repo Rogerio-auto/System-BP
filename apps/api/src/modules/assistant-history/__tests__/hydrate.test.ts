@@ -5,7 +5,7 @@
 // dispatch por `type`/`ref.kind` e o mapeamento de erro -> `value: null`,
 // sem depender de Postgres — roda sempre, mesmo sem DB local.
 // =============================================================================
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('pg', () => {
   const mockQuery = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
@@ -21,11 +21,20 @@ vi.mock('pg', () => {
 vi.mock('../../internal/assistant/service.js', () => ({
   getAnalysisStatus: vi.fn(),
   getLeadConversation: vi.fn(),
+  getFunnelMetrics: vi.fn(),
+  getLeadCount: vi.fn(),
+  getBillingUpcoming: vi.fn(),
 }));
 
 import { db } from '../../../db/client.js';
-import { ForbiddenError, NotFoundError } from '../../../shared/errors.js';
-import { getAnalysisStatus, getLeadConversation } from '../../internal/assistant/service.js';
+import { AppError, ForbiddenError, NotFoundError } from '../../../shared/errors.js';
+import {
+  getAnalysisStatus,
+  getBillingUpcoming,
+  getFunnelMetrics,
+  getLeadConversation,
+  getLeadCount,
+} from '../../internal/assistant/service.js';
 import { hydrateBlocks } from '../hydrate.js';
 import type { HydrationActor } from '../hydrate.js';
 import type { StoredBlock } from '../schemas.js';
@@ -44,6 +53,14 @@ function block(type: string, ref: StoredBlock['ref']): StoredBlock {
 }
 
 describe('hydrateBlocks (F6-S27)', () => {
+  // Zera o histórico de chamadas entre os casos — as asserções de
+  // `not.toHaveBeenCalled()`/`toHaveBeenCalledWith` dependem de mock limpo;
+  // sem isso, chamadas de casos anteriores acumulam e o diff de falha tenta
+  // serializar o objeto `db` inteiro (RangeError: Invalid string length).
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('ref.kind="none" -> value null, nunca chama nenhum hidratador', async () => {
     const [result] = await hydrateBlocks(db, ACTOR, [
       block('funnel_metrics', { kind: 'none', lead_id: null }),
@@ -140,6 +157,140 @@ describe('hydrateBlocks (F6-S27)', () => {
 
     await expect(
       hydrateBlocks(db, ACTOR, [block('analysis_status', { kind: 'lead', lead_id: LEAD_ID })]),
+    ).rejects.toThrow('db connection lost');
+  });
+
+  // ── Agregados re-hidratados ao vivo (kind='aggregate') ──────────────────────
+
+  it('kind="aggregate" funnel_metrics -> re-executa getFunnelMetrics com range + city_ids do ref e principal do actor', async () => {
+    const mockValue = {
+      source: 'assistant.funnel-metrics' as const,
+      stages: [],
+      overview: {
+        total: 10,
+        newInPeriod: 3,
+        closedWon: 1,
+        closedLost: 0,
+        conversionRate: 100,
+        rangeLabel: 'Ultimos 30 dias',
+      },
+    };
+    vi.mocked(getFunnelMetrics).mockResolvedValueOnce(mockValue);
+
+    const [result] = await hydrateBlocks(db, ACTOR, [
+      block('funnel_metrics', {
+        kind: 'aggregate',
+        lead_id: null,
+        range: 'last30d',
+        city_ids: null,
+      }),
+    ]);
+
+    expect(result?.value).toEqual(mockValue);
+    expect(getFunnelMetrics).toHaveBeenCalledWith(
+      db,
+      {
+        user_id: ACTOR.userId,
+        organization_id: ACTOR.organizationId,
+        permissions: ACTOR.permissions,
+        city_scope_ids: ACTOR.cityScopeIds,
+      },
+      { range: 'last30d', cityIds: undefined },
+    );
+  });
+
+  it('kind="aggregate" lead_count -> re-executa getLeadCount repassando city_ids do ref', async () => {
+    const CITY = '44444444-4444-4444-4444-444444444444';
+    vi.mocked(getLeadCount).mockResolvedValueOnce({
+      source: 'assistant.lead-count',
+      total: 5,
+      newInPeriod: 2,
+      conversionRate: 0,
+      rangeLabel: 'Hoje',
+    });
+
+    await hydrateBlocks(db, ACTOR, [
+      block('lead_count', { kind: 'aggregate', lead_id: null, range: 'today', city_ids: [CITY] }),
+    ]);
+
+    expect(getLeadCount).toHaveBeenCalledWith(db, expect.anything(), {
+      range: 'today',
+      cityIds: [CITY],
+    });
+  });
+
+  it('kind="aggregate" billing -> re-executa getBillingUpcoming (sem range, é snapshot)', async () => {
+    vi.mocked(getBillingUpcoming).mockResolvedValueOnce({
+      source: 'assistant.billing-upcoming',
+      totalDues: 0,
+      overdueCount: 0,
+      upcomingCount: 0,
+      totalAmountBrl: 0,
+      snapshotLabel: 'Carteira atual',
+    });
+
+    const [result] = await hydrateBlocks(db, ACTOR, [
+      block('billing', { kind: 'aggregate', lead_id: null, city_ids: null }),
+    ]);
+
+    expect(result?.value).not.toBeNull();
+    expect(getBillingUpcoming).toHaveBeenCalledWith(db, expect.anything(), undefined);
+    expect(getFunnelMetrics).not.toHaveBeenCalled();
+  });
+
+  it('kind="aggregate" ForbiddenError (perdeu permissão/escopo) -> value null', async () => {
+    vi.mocked(getFunnelMetrics).mockRejectedValueOnce(new ForbiddenError('sem dashboard:read'));
+
+    const [result] = await hydrateBlocks(db, ACTOR, [
+      block('funnel_metrics', {
+        kind: 'aggregate',
+        lead_id: null,
+        range: 'last30d',
+        city_ids: null,
+      }),
+    ]);
+
+    expect(result?.value).toBeNull();
+  });
+
+  it('kind="aggregate" range não reconstruível ("custom") -> value null, nunca chama o serviço', async () => {
+    const [result] = await hydrateBlocks(db, ACTOR, [
+      block('funnel_metrics', {
+        kind: 'aggregate',
+        lead_id: null,
+        range: 'custom',
+        city_ids: null,
+      }),
+    ]);
+
+    expect(result?.value).toBeNull();
+    expect(getFunnelMetrics).not.toHaveBeenCalled();
+  });
+
+  it('kind="aggregate" AppError 400 (range inválido no serviço) -> value null, nunca lança', async () => {
+    vi.mocked(getLeadCount).mockRejectedValueOnce(
+      new AppError(400, 'VALIDATION_ERROR', 'range invalido'),
+    );
+
+    const [result] = await hydrateBlocks(db, ACTOR, [
+      block('lead_count', { kind: 'aggregate', lead_id: null, range: 'last7d', city_ids: null }),
+    ]);
+
+    expect(result?.value).toBeNull();
+  });
+
+  it('kind="aggregate" erro de infraestrutura propaga -- nunca mascarado', async () => {
+    vi.mocked(getFunnelMetrics).mockRejectedValueOnce(new Error('db connection lost'));
+
+    await expect(
+      hydrateBlocks(db, ACTOR, [
+        block('funnel_metrics', {
+          kind: 'aggregate',
+          lead_id: null,
+          range: 'last30d',
+          city_ids: null,
+        }),
+      ]),
     ).rejects.toThrow('db connection lost');
   });
 

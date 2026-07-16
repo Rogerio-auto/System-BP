@@ -57,8 +57,15 @@ class BlockRef(TypedDict):
     nivel A.
     """
 
-    kind: Literal["lead", "none"]
-    lead_id: NotRequired[str]
+    kind: Literal["lead", "none", "aggregate"]
+    lead_id: NotRequired[str | None]
+    # Parametros de reconstrucao de um bloco AGREGADO (kind='aggregate':
+    # funnel_metrics/lead_count/billing). NAO sao PII: range e um bucket
+    # temporal (enum) e city_ids sao UUIDs de cidade ja dentro do escopo do
+    # usuario. Persistidos no historico (DPIA sec4.3) para re-executar a
+    # consulta ao vivo na leitura, com o RBAC atual -- nunca o resultado.
+    range: NotRequired[str | None]
+    city_ids: NotRequired[list[str] | None]
 
 
 BlockType = Literal["lead_summary", "funnel_metrics", "lead_count", "analysis_status", "billing"]

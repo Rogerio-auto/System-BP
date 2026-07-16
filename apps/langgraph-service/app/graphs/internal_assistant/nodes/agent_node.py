@@ -59,16 +59,44 @@ _TOOL_TO_BLOCK_TYPE: dict[str, BlockType] = {
 }
 
 
-def _build_block_ref(tool_args: dict[str, Any], tool_result: dict[str, Any]) -> BlockRef:
-    """Deriva o `ref` de um bloco a partir dos IDs da tool call (arg ou resultado).
+#: Tools cujo bloco e AGREGADO (nao referencia um lead): reconstrutivel a
+#: partir de parametros nao-pessoais (range + city_ids) persistidos no ref,
+#: para re-executar a consulta ao vivo na leitura do historico (DPIA sec4.3).
+_AGGREGATE_TOOLS: frozenset[str] = frozenset(
+    {"get_funnel_metrics", "get_lead_count", "get_billing_snapshot"}
+)
+
+
+def _build_block_ref(
+    tool_name: str,
+    tool_args: dict[str, Any],
+    tool_result: dict[str, Any],
+) -> BlockRef:
+    """Deriva o `ref` de um bloco a partir dos IDs/parametros da tool call.
 
     Determinista, NUNCA heuristico sobre texto (DPIA R5 -- rejeita nivel B).
-    Sem lead_id na chamada (ex.: metricas agregadas) -> ref kind='none'.
+    - lead_id presente (arg ou resultado) -> kind='lead'.
+    - tool agregada (funil/contagem/cobranca) -> kind='aggregate' com os
+      parametros de reconstrucao NAO-PESSOAIS (range + city_ids). billing NAO
+      aceita range (contrato F6-S06 M-1).
+    - caso contrario -> kind='none'.
+    `lead_id` e sempre emitido (null quando ausente) para casar com o
+    BlockRefSchema do Node (Zod exige a chave presente).
     """
     lead_id = tool_args.get("lead_id") or tool_result.get("lead_id")
     if isinstance(lead_id, str) and lead_id:
         return {"kind": "lead", "lead_id": lead_id}
-    return {"kind": "none"}
+    if tool_name in _AGGREGATE_TOOLS:
+        city_ids = tool_args.get("city_ids")
+        ref: BlockRef = {
+            "kind": "aggregate",
+            "lead_id": None,
+            "city_ids": city_ids if city_ids else None,
+        }
+        if tool_name != "get_billing_snapshot":
+            ref["range"] = tool_args.get("range", "last30d")
+        return ref
+    return {"kind": "none", "lead_id": None}
 
 
 async def _dispatch_tool(
@@ -256,7 +284,7 @@ async def agent_node(state: InternalAssistantState) -> dict[str, Any]:
                     if block_type is not None:
                         blocks.append({
                             "type": block_type,
-                            "ref": _build_block_ref(tool_args, tool_result_parsed),
+                            "ref": _build_block_ref(tool_name, tool_args, tool_result_parsed),
                             "value": tool_result_parsed,
                         })
                 elif isinstance(tool_result_parsed, dict):

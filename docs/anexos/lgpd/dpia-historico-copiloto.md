@@ -45,14 +45,14 @@ Decisão de arquitetura (ver `docs/anexos/lgpd/` e o plano de entrega): **persis
 conversa e referências de entidade; buscar o dado sensível em tempo real** no momento da leitura, com a
 permissão atual do usuário. Nenhuma PII de cliente é gravada.
 
-| Categoria                                     | Persistido em repouso?   | Forma                                                                 |
-| --------------------------------------------- | ------------------------ | --------------------------------------------------------------------- |
-| Pergunta do usuário                           | Sim, **higienizada**     | CPF/telefone via DLP; **nome também mascarado**                       |
-| Narrativa da resposta                         | Sim, **sem PII**         | comentário/estrutura ("lead em pré-qualificação, aguardando análise") |
-| Dados de cliente (nome, cidade, CPF, valores) | **Não**                  | apenas como **referência de entidade** (ex.: `lead_id`, ID opaco)     |
-| Blocos de dados da resposta                   | Sim, **só a referência** | `{ tipo, lead_id }` — o valor é buscado ao vivo                       |
-| Metadados                                     | Sim                      | timestamps, usuário dono, título por **intenção** (sem nome)          |
-| Rastro de tools                               | Sim                      | quais tools + IDs de entidade consultados                             |
+| Categoria                                     | Persistido em repouso?   | Forma                                                                                                 |
+| --------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Pergunta do usuário                           | Sim, **higienizada**     | CPF/telefone via DLP; **nome também mascarado**                                                       |
+| Narrativa da resposta                         | Sim, **sem PII**         | comentário/estrutura ("lead em pré-qualificação, aguardando análise")                                 |
+| Dados de cliente (nome, cidade, CPF, valores) | **Não**                  | apenas como **referência de entidade** (ex.: `lead_id`, ID opaco)                                     |
+| Blocos de dados da resposta                   | Sim, **só a referência** | `{ tipo, lead_id }`, ou para agregados `{ tipo, range, city_ids }` (§4.3) — o valor é buscado ao vivo |
+| Metadados                                     | Sim                      | timestamps, usuário dono, título por **intenção** (sem nome)                                          |
+| Rastro de tools                               | Sim                      | quais tools + IDs de entidade consultados                                                             |
 
 No momento da leitura, o sistema **re-busca** as entidades referenciadas pelos endpoints internos
 RBAC-bound, **re-avaliando** a permissão e o escopo de cidade do usuário no momento. Sem acesso →
@@ -108,6 +108,26 @@ re-hidratada, e a conversa continua.
 8. **DLP inalterada** — nenhuma nova exposição ao suboperador; o `reverse_map` segue efêmero e não
    persistido (doc 17 §8.4).
 9. **Auditoria** — criação/abertura de conversa registrável conforme necessidade.
+
+### 4.3 Blocos agregados — reconstrução por parâmetro não-pessoal
+
+Blocos **agregados** (`funnel_metrics`, `lead_count`, `billing`) não referenciam uma entidade (`lead_id`),
+então o esquema original do nível A (`{ tipo, lead_id }`) não tinha como re-hidratá-los — reabriam sempre
+como "dado indisponível". Para restaurar o histórico estável desses blocos **sem** violar o invariante de
+"nenhum dado pessoal em repouso", a referência do bloco agregado passa a persistir **apenas os parâmetros de
+reconstrução da consulta**, nunca o resultado:
+
+- `range` — bucket temporal (enum: `today`/`last7d`/`last30d`/…). Não é dado pessoal.
+- `city_ids` — UUIDs de cidade. Identificadores de município (dado público/organizacional), **não** dado de
+  titular; e são **re-validados contra o escopo de cidade atual** do usuário na hidratação
+  (`assertCityInScope`) — um `city_id` fora do escopo de hoje resulta em "dado indisponível".
+
+As **contagens/valores** do agregado (o `value`) continuam **nunca** persistidos — são re-executados ao vivo
+pela mesma função de serviço RBAC-bound (`getFunnelMetrics`/`getLeadCount`/`getBillingUpcoming`), com a
+permissão (`dashboard:read`/`leads:read`/`billing:read`) re-avaliada no momento da leitura. O `CHECK`
+`chk_assistant_turns_blocks_no_value` (proibição de `value` em repouso) permanece em vigor e cobre também
+esses blocos. Risco residual: **Baixo** — nenhum dado de titular é adicionado ao repouso; a mudança apenas
+torna o agregado tão reconstruível quanto um bloco de lead já era.
 
 ---
 
