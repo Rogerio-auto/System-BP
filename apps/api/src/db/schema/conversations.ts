@@ -124,6 +124,15 @@ export const conversations = pgTable(
     /** Contador de mensagens nao lidas do contato (incrementado em inbound). */
     unreadCount: integer('unread_count').notNull().default(0),
 
+    /**
+     * Timestamp do PRIMEIRO handoff da IA disparado para esta conversa.
+     * NULL = handoff ainda nao ocorreu. Setado via UPDATE atomico (WHERE
+     * ai_handoff_at IS NULL) em triggerLivechatHandoff — garante disparo
+     * unico do fallback + notificacao mesmo sob mensagens concorrentes
+     * (migration 0091, correcao do loop de handoff em producao).
+     */
+    aiHandoffAt: timestamp('ai_handoff_at', { withTimezone: true }),
+
     /** Metadados extras (ex: referral data, entrypoint). */
     metadata: text('metadata'),
 
