@@ -113,15 +113,44 @@ export type LangGraphAssistantRequest = z.infer<typeof LangGraphAssistantRequest
 /**
  * Referência de entidade de um bloco -- o que será persistido na Fase 2 do
  * histórico (docs/anexos/lgpd/dpia-historico-copiloto.md). Sem PII: apenas
- * `kind` + o UUID da entidade.
+ * `kind` + o UUID da entidade (ou, para agregados, os parâmetros não-pessoais
+ * de reconstrução).
+ *
+ * `kind='aggregate'` (funnel_metrics/lead_count/billing): o bloco não referencia
+ * uma entidade, mas o resultado é reconstruível a partir de parâmetros que NÃO
+ * são dado pessoal -- `range` (bucket temporal, enum) e `city_ids` (UUIDs de
+ * cidade já dentro do escopo do usuário). Persistimos SÓ como refazer a consulta
+ * (nunca o resultado/contagens), para re-executá-la ao vivo na leitura do
+ * histórico com o RBAC atual (hydrate.ts). Ver DPIA §4.3.
  */
 export const BlockRefSchema = z.object({
-  kind: z.enum(['lead', 'none']).describe('Tipo de entidade referenciada pelo bloco'),
+  kind: z.enum(['lead', 'none', 'aggregate']).describe('Tipo de entidade referenciada pelo bloco'),
   lead_id: z
     .string()
     .uuid()
     .nullable()
     .describe("UUID do lead (presente apenas quando kind='lead')"),
+  /**
+   * Bucket temporal do agregado (ex.: 'last30d'). Só presente com
+   * kind='aggregate'; ausente/nulo para blocos legados e não-agregados.
+   * 'custom' não é reconstruível (a tool não persiste datas) -> hidrata null.
+   */
+  range: z
+    .string()
+    .min(1)
+    .nullable()
+    .optional()
+    .describe("Bucket temporal do agregado; só kind='aggregate'"),
+  /**
+   * Filtro de cidades do agregado (UUIDs). Só presente com kind='aggregate'.
+   * Não é PII: identificadores de cidade, revalidados contra o escopo ATUAL do
+   * usuário na hidratação (assertCityInScope).
+   */
+  city_ids: z
+    .array(z.string().uuid())
+    .nullable()
+    .optional()
+    .describe("Filtro de cidades do agregado; só kind='aggregate'"),
 });
 
 export type BlockRef = z.infer<typeof BlockRefSchema>;

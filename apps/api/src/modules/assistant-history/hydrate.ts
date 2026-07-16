@@ -35,9 +35,15 @@
 // Forbidden/NotFound) para o caller tratar, sem envolver dado de cliente.
 // =============================================================================
 import type { Database } from '../../db/client.js';
-import { ForbiddenError, NotFoundError } from '../../shared/errors.js';
+import { AppError, ForbiddenError, NotFoundError } from '../../shared/errors.js';
 import type { Principal } from '../internal/assistant/schemas.js';
-import { getAnalysisStatus, getLeadConversation } from '../internal/assistant/service.js';
+import {
+  getAnalysisStatus,
+  getBillingUpcoming,
+  getFunnelMetrics,
+  getLeadConversation,
+  getLeadCount,
+} from '../internal/assistant/service.js';
 import type { Block } from '../internal-assistant/schemas.js';
 
 import type { StoredBlock } from './schemas.js';
@@ -89,6 +95,51 @@ async function fetchLeadScopedValue(
 }
 
 /**
+ * Buckets temporais reconstruíveis de um agregado. `custom` fica de fora de
+ * propósito: a tool do copiloto nunca persiste `dateFrom`/`dateTo` (o schema da
+ * tool só expõe `range` como enum), então um `custom` não teria como ser
+ * reconstruído — hidrata `null` em vez de estourar `getFunnelMetrics` (400).
+ */
+const REHYDRATABLE_RANGES = new Set([
+  'today',
+  'last7d',
+  'last30d',
+  'last90d',
+  'thisMonth',
+  'lastMonth',
+]);
+
+/**
+ * Reconstrói o valor de um bloco AGREGADO re-executando a mesma função de
+ * serviço RBAC-bound (city-scope + permissão revalidados AGORA), a partir dos
+ * parâmetros não-pessoais persistidos no `ref` (range + city_ids). Nunca
+ * fabrica uma forma: `type` sem agregador mapeado, ou `range` não
+ * reconstruível, -> `null`.
+ */
+async function fetchAggregateValue(
+  db: Database,
+  principal: Principal,
+  type: string,
+  range: string | null | undefined,
+  cityIds: string[] | null | undefined,
+): Promise<unknown> {
+  const cityArg = cityIds ?? undefined;
+  switch (type) {
+    case 'billing':
+      // billing-upcoming é snapshot atual — não aceita range (contrato F6-S06 M-1).
+      return getBillingUpcoming(db, principal, cityArg ? { cityIds: cityArg } : undefined);
+    case 'funnel_metrics':
+      if (!range || !REHYDRATABLE_RANGES.has(range)) return null;
+      return getFunnelMetrics(db, principal, { range, cityIds: cityArg });
+    case 'lead_count':
+      if (!range || !REHYDRATABLE_RANGES.has(range)) return null;
+      return getLeadCount(db, principal, { range, cityIds: cityArg });
+    default:
+      return null;
+  }
+}
+
+/**
  * Re-hidrata um único bloco a partir da referência persistida.
  *
  * Nunca lança para o caller por falta de acesso: `ForbiddenError`
@@ -99,10 +150,37 @@ async function fetchLeadScopedValue(
  * mascarado como "sem acesso".
  */
 async function hydrateOne(db: Database, principal: Principal, block: StoredBlock): Promise<Block> {
+  if (block.ref.kind === 'aggregate') {
+    // Agregado: reconstruível a partir dos parâmetros não-pessoais do ref
+    // (range + city_ids), re-executando a consulta com o RBAC atual. Sem
+    // acesso (Forbidden) / cidade fora do escopo hoje (Forbidden via
+    // assertCityInScope) / range inválido (AppError 400 de computeRange) ->
+    // value:null, nunca vaza nem estoura. Erro de infra propaga.
+    try {
+      const value = await fetchAggregateValue(
+        db,
+        principal,
+        block.type,
+        block.ref.range,
+        block.ref.city_ids,
+      );
+      return { type: block.type, ref: block.ref, value };
+    } catch (err) {
+      if (
+        err instanceof ForbiddenError ||
+        err instanceof NotFoundError ||
+        (err instanceof AppError && err.statusCode === 400)
+      ) {
+        return { type: block.type, ref: block.ref, value: null };
+      }
+      throw err;
+    }
+  }
+
   if (block.ref.kind !== 'lead' || block.ref.lead_id === null) {
-    // Agregado (sem entidade referenciada) — nunca teve um `value`
-    // reconstituível a partir só de `{ type, ref }` (sem range/cityIds
-    // persistidos). Nunca lança.
+    // Bloco legado sem entidade nem parâmetros de agregado (kind='none', ou
+    // agregado gravado antes de range/city_ids existirem no ref) — não há como
+    // reconstituir um `value`. Nunca lança.
     return { type: block.type, ref: block.ref, value: null };
   }
 
