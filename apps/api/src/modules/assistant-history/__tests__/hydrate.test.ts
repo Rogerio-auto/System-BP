@@ -5,7 +5,7 @@
 // dispatch por `type`/`ref.kind` e o mapeamento de erro -> `value: null`,
 // sem depender de Postgres — roda sempre, mesmo sem DB local.
 // =============================================================================
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('pg', () => {
   const mockQuery = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
@@ -53,6 +53,14 @@ function block(type: string, ref: StoredBlock['ref']): StoredBlock {
 }
 
 describe('hydrateBlocks (F6-S27)', () => {
+  // Zera o histórico de chamadas entre os casos — as asserções de
+  // `not.toHaveBeenCalled()`/`toHaveBeenCalledWith` dependem de mock limpo;
+  // sem isso, chamadas de casos anteriores acumulam e o diff de falha tenta
+  // serializar o objeto `db` inteiro (RangeError: Invalid string length).
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('ref.kind="none" -> value null, nunca chama nenhum hidratador', async () => {
     const [result] = await hydrateBlocks(db, ACTOR, [
       block('funnel_metrics', { kind: 'none', lead_id: null }),
