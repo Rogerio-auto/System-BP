@@ -44,6 +44,19 @@ export const conversationKeys = {
   all: ['conversations'] as const,
   /** Lista com filtros — stale ao receber message:new na workspace room. */
   list: (params: ConversationsQueryParams) => ['conversations', 'list', params] as const,
+  /**
+   * Lista como INFINITE QUERY (inbox). Key distinta de `list` (segmento
+   * 'infinite') por DOIS motivos:
+   *   1. O shape do cache é InfiniteData (`{ pages, pageParams }`), incompatível
+   *      com o shape flat (`{ data, nextCursor }`) que `list` usava. Compartilhar
+   *      a key faria o InfiniteQueryObserver ler uma entrada flat legada e
+   *      CRASHAR em getNextPageParam (`data.pages` undefined) — lista quebrada
+   *      permanentemente até hard-reload. A key separada torna isso impossível.
+   *   2. O prefixo `['conversations','list']` (usado por setQueriesData/invalidate
+   *      no realtime) continua casando — o realtime segue funcionando.
+   */
+  listInfinite: (params: ConversationsQueryParams) =>
+    ['conversations', 'list', 'infinite', params] as const,
   /** Detalhe de uma conversa + composerState. */
   detail: (id: string) => ['conversations', 'detail', id] as const,
   /** Lista de mensagens infinita (cursor backward). */
@@ -93,21 +106,57 @@ async function fetchMessages(
 }
 
 // ---------------------------------------------------------------------------
+// Paginação — helper puro testável
+// ---------------------------------------------------------------------------
+
+/**
+ * nextCursorParam — deriva o próximo pageParam a partir de `nextCursor` da
+ * última página carregada.
+ *
+ * Retorna `undefined` quando `nextCursor` é `null` → `hasNextPage` do TanStack
+ * fica `false` e o scroll infinito PARA (sem loop de fetch de páginas vazias).
+ * Extraído como função pura (em vez de arrow inline em `getNextPageParam`)
+ * para ser testável isoladamente — ver `__tests__/queries.test.ts`.
+ */
+export function nextCursorParam(lastPage: {
+  readonly nextCursor: string | null;
+}): string | undefined {
+  return lastPage.nextCursor ?? undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Hooks de leitura
 // ---------------------------------------------------------------------------
 
 /**
- * useConversations — lista paginada (cursor-based) do inbox.
+ * useConversationsInfinite — lista paginada (cursor-based) como INFINITE QUERY.
  *
- * @param params Filtros opcionais. Default: status=open.
+ * Substitui o padrão manual de `cursor` state + `accumulated` state + query key
+ * por-cursor que causava lista-vazia ao alternar filtros e scroll travado
+ * (regressão da migração abas→StatusSideMenu, ver git 5129b5c6 + 3 fixes).
  *
- * Invalidado por eventos `message:new` (via useConversationSocket) quando
- * o hook está ativo na lista do inbox.
+ * Por que infinite query resolve na raiz:
+ *   - A queryKey é POR STATUS (não por cursor) → cada aba é uma query isolada
+ *     que o TanStack cacheia com TODAS as suas páginas. Voltar para uma aba
+ *     restaura instantaneamente as páginas já carregadas — sem flash de vazio,
+ *     sem reset manual, sem race entre effects.
+ *   - `getNextPageParam` retorna undefined quando nextCursor é null → hasNextPage
+ *     fica false e o scroll infinito para (sem loop de fetch de páginas vazias).
+ *   - Acumulação de páginas é interna (`data.pages`) — nada de merge manual.
+ *
+ * @param params Filtros (status/channelId/assignedUserId/limit). SEM cursor —
+ *               o cursor é gerenciado internamente via pageParam.
  */
-export function useConversations(params: ConversationsQueryParams = {}) {
-  return useQuery({
-    queryKey: conversationKeys.list(params),
-    queryFn: () => fetchConversations(params),
+export function useConversationsInfinite(params: ConversationsQueryParams = {}) {
+  return useInfiniteQuery({
+    queryKey: conversationKeys.listInfinite(params),
+    queryFn: ({ pageParam }) => {
+      const fetchParams: ConversationsQueryParams =
+        typeof pageParam === 'string' ? { ...params, cursor: pageParam } : { ...params };
+      return fetchConversations(fetchParams);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: nextCursorParam,
     // staleTime herdado do QueryClient global (30s)
   });
 }
@@ -151,7 +200,7 @@ export function useMessages(conversationId: string, params: MessagesQueryParams 
       return fetchMessages(conversationId, fetchParams);
     },
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    getNextPageParam: nextCursorParam,
     enabled: conversationId.length > 0,
   });
 }

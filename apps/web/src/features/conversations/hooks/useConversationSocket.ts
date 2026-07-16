@@ -10,16 +10,31 @@
 //   conversation:updated → mudança de view_status outbound ou status da conversa
 //                          (worker livechat-inbound S08 + send.service S13)
 //
+// scope — DUAS montagens coexistem quando uma conversa está aberta (ChatList
+// sempre montado + ConversationPanel montado enquanto há seleção), ambas
+// recebendo o MESMO evento global (não há filtragem por sala para
+// message:new/conversation:updated). Historicamente as duas processavam a
+// LISTA inteira, então um inbound em conversa de fundo incrementava o
+// unreadCount DUAS VEZES (bug do contador). `scope` isola a responsabilidade:
+//   'list'   — dono do cache da LISTA (reordenar, unreadCount, badge-zero ao
+//              selecionar). Deve haver EXATAMENTE UMA instância montada com
+//              scope 'list' por vez — ChatList.
+//   'detail' — dono do cache de DETALHE/MENSAGENS da conversa aberta e da
+//              sala socket (conversation:join/leave para eventos de
+//              granularidade fina) — ConversationPanel.
+//
 // Estratégia de atualização:
-//   message:new:
-//     1. Invalida a lista de conversas (unreadCount mudou).
-//     2. Se a conversa está aberta (detalhe carregado), invalida o detalhe.
-//     3. Invalida a query de mensagens da conversa — re-fetch automático.
-//        (Em S17, trocaremos invalidação por setQueryData para melhor UX.)
+//   message:new (scope 'list'):
+//     1. Atualização cirúrgica do cache da lista (reordena + unreadCount).
+//     2. Conversa não encontrada em nenhuma página → invalida a lista (1º contato).
+//   message:new (scope 'detail'):
+//     3. Se a mensagem é da conversa aberta, agenda refetch (debounced) do
+//        detalhe + mensagens.
 //
 //   conversation:updated:
-//     1. Invalida o detalhe da conversa (viewStatus de mensagem outbound).
-//     2. Invalida a query de mensagens (viewStatus atualizado nas bolhas).
+//     - Payload com unreadCount (scope 'list' apenas) → set direto no cache.
+//     - Demais mudanças (status/atribuição) → cada scope invalida sua fatia
+//       (lista em 'list', detalhe+mensagens em 'detail' quando é a conversa aberta).
 //
 // Por que invalidar em vez de setQueryData aqui:
 //   - S15 é fundação — invalidação é simples, correta e segura.
@@ -31,13 +46,14 @@
 //   - Não logamos payloads recebidos.
 //
 // Uso:
-//   // No componente que exibe a lista (S16):
-//   useConversationSocket({ conversationId: activeConversationId });
+//   // No componente que exibe a lista (ChatList) — dono do cache da lista:
+//   useConversationSocket({ conversationId: selectedId ?? undefined, scope: 'list' });
 //
-//   // No componente de chat aberto (S17):
-//   useConversationSocket({ conversationId: id });
+//   // No componente de chat aberto (ConversationPanel) — dono do detalhe:
+//   useConversationSocket({ conversationId: id, scope: 'detail' });
 // =============================================================================
 
+import type { InfiniteData } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 
@@ -51,17 +67,109 @@ import type {
 } from '../types';
 
 // ---------------------------------------------------------------------------
+// Helpers puros de update do cache da lista (INFINITE QUERY)
+//
+// A lista do inbox usa useInfiniteQuery → o cache tem shape
+// InfiniteData<ConversationListResponse> = { pages: [{ data, nextCursor }...] }.
+// Estes helpers operam sobre TODAS as páginas e são exportados para teste
+// isolado (ver __tests__/realtime.test.ts) — a lógica testada é a REAL.
+// ---------------------------------------------------------------------------
+
+/** Cache da lista de conversas como infinite query (ou undefined se não carregada). */
+export type ConversationListCache = InfiniteData<ConversationListResponse> | undefined;
+
+/**
+ * Atualiza o unreadCount de uma conversa em TODAS as páginas (in place, sem reordenar).
+ * Retorna a MESMA referência se a conversa não estiver em nenhuma página (evita
+ * refetch/re-render desnecessário — preserva a semântica do teste #3).
+ */
+export function applyUnreadCountToList(
+  old: ConversationListCache,
+  conversationId: string,
+  unreadCount: number,
+): ConversationListCache {
+  // Guarda contra entradas de shape flat legado (`{data,nextCursor}`) que o
+  // prefixo ['conversations','list'] do setQueriesData ainda casa — sem `pages`
+  // não é infinite: retorna intacto (não é nossa query).
+  if (!old || !Array.isArray(old.pages)) return old;
+  let changed = false;
+  const pages = old.pages.map((page) => {
+    if (!Array.isArray(page.data) || !page.data.some((c) => c.id === conversationId)) return page;
+    changed = true;
+    return {
+      ...page,
+      data: page.data.map((c) => (c.id === conversationId ? { ...c, unreadCount } : c)),
+    };
+  });
+  return changed ? { ...old, pages } : old;
+}
+
+/**
+ * Aplica um evento message:new à lista: move a conversa para o TOPO (página 0),
+ * atualiza timestamps e incrementa unreadCount (apenas inbound em conversa não aberta).
+ *
+ * Retorna `{ next, found }`. Se a conversa não estiver em nenhuma página carregada
+ * (`found=false`), o chamador invalida a lista para que ela apareça (1º contato).
+ */
+export function applyMessageNewToList(
+  old: ConversationListCache,
+  payload: MessageNewPayload,
+  isOpen: boolean,
+): { next: ConversationListCache; found: boolean } {
+  // Guarda contra shape flat legado (ver applyUnreadCountToList).
+  if (!old || !Array.isArray(old.pages)) return { next: old, found: false };
+
+  let existing: Conversation | undefined;
+  for (const page of old.pages) {
+    if (!Array.isArray(page.data)) continue;
+    const hit = page.data.find((c) => c.id === payload.conversationId);
+    if (hit) {
+      existing = hit;
+      break;
+    }
+  }
+  if (!existing) return { next: old, found: false };
+
+  const updated: Conversation = {
+    ...existing,
+    lastMessageAt: payload.createdAt,
+    lastInboundAt: payload.direction === 'inbound' ? payload.createdAt : existing.lastInboundAt,
+    unreadCount:
+      payload.direction === 'inbound' && !isOpen ? existing.unreadCount + 1 : existing.unreadCount,
+  };
+
+  // Remove de todas as páginas e prepende na página 0.
+  const pages = old.pages.map((page) => ({
+    ...page,
+    data: Array.isArray(page.data)
+      ? page.data.filter((c) => c.id !== payload.conversationId)
+      : page.data,
+  }));
+  const firstPage = pages[0] ?? { data: [], nextCursor: null };
+  pages[0] = { ...firstPage, data: [updated, ...firstPage.data] };
+
+  return { next: { ...old, pages }, found: true };
+}
+
+// ---------------------------------------------------------------------------
 // Opções do hook
 // ---------------------------------------------------------------------------
 
 export interface UseConversationSocketOptions {
   /**
-   * UUID da conversa aberta no momento.
-   * Quando definido, os eventos dessa conversa também invalidam
-   * as queries de detalhe e mensagens desta conversa específica.
-   * undefined = apenas a lista geral é mantida atualizada.
+   * UUID da conversa atualmente aberta na UI (selecionada), independente do
+   * `scope` desta montagem. Usado para decidir se um `message:new` deve
+   * incrementar o badge (scope 'list') ou disparar refetch de detalhe/mensagens
+   * (scope 'detail'). undefined = nenhuma conversa aberta.
    */
   readonly conversationId?: string;
+  /**
+   * Qual fatia do cache esta montagem do hook possui:
+   *   'list'   — cache da LISTA de conversas (ChatList). Uma instância só.
+   *   'detail' — cache de detalhe/mensagens da conversa aberta + sala socket
+   *              (ConversationPanel).
+   */
+  readonly scope: 'list' | 'detail';
 }
 
 // ---------------------------------------------------------------------------
@@ -76,38 +184,40 @@ export interface UseConversationSocketOptions {
  *
  * Depende do SocketProvider estar montado acima na árvore.
  */
-export function useConversationSocket(options: UseConversationSocketOptions = {}): void {
-  const { conversationId } = options;
+export function useConversationSocket(options: UseConversationSocketOptions): void {
+  const { conversationId, scope } = options;
   const socket = useSocket();
   const qc = useQueryClient();
+  const isListOwner = scope === 'list';
+  const isDetailOwner = scope === 'detail';
 
-  // Debounce para coalescer rajadas de conversation:updated. Sem isso, cada
-  // evento dispara 3 invalidacoes (lista + detalhe + mensagens) -> refetch storm
+  // Debounce para coalescer rajadas de conversation:updated/message:new. Sem
+  // isso, cada evento dispara invalidações a cada disparo -> refetch storm
   // que estoura o rate-limit (429) quando o backend emite muitos eventos em
   // sequencia (ex.: reprocessamento apos restart). Coalescemos numa janela curta.
-  const cuFlushTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cuListDirty = React.useRef(false);
-  const cuOpenDirty = React.useRef(false);
+  //
+  // dirty refs SEPARADOS por fatia (list vs detail) — cada montagem do hook só
+  // marca/consome a sua própria fatia (ver `scope` no cabeçalho do arquivo).
+  const flushTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listDirty = React.useRef(false);
+  const detailDirty = React.useRef(false);
 
-  // Flush debounced COMPARTILHADO por message:new e conversation:updated:
-  // coalesce rajadas (ex.: bot envia N mensagens => N eventos) num único
-  // conjunto de invalidações, evitando refetch storm da infinite query (429).
   const flushDirty = React.useCallback(() => {
-    cuFlushTimer.current = null;
-    if (cuListDirty.current) {
-      cuListDirty.current = false;
+    flushTimer.current = null;
+    if (isListOwner && listDirty.current) {
+      listDirty.current = false;
       void qc.invalidateQueries({ queryKey: ['conversations', 'list'] });
     }
-    if (cuOpenDirty.current && conversationId) {
-      cuOpenDirty.current = false;
+    if (isDetailOwner && detailDirty.current && conversationId) {
+      detailDirty.current = false;
       void qc.invalidateQueries({ queryKey: conversationKeys.detail(conversationId) });
       void qc.invalidateQueries({ queryKey: conversationKeys.messages(conversationId) });
     }
-  }, [qc, conversationId]);
+  }, [qc, conversationId, isListOwner, isDetailOwner]);
 
   const scheduleFlush = React.useCallback(() => {
-    if (cuFlushTimer.current) clearTimeout(cuFlushTimer.current);
-    cuFlushTimer.current = setTimeout(flushDirty, 350);
+    if (flushTimer.current) clearTimeout(flushTimer.current);
+    flushTimer.current = setTimeout(flushDirty, 350);
   }, [flushDirty]);
 
   // ── message:new ─────────────────────────────────────────────────────────
@@ -115,46 +225,42 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
     if (!socket) return;
 
     function handleMessageNew(payload: MessageNewPayload): void {
-      const isOpen = conversationId !== undefined && payload.conversationId === conversationId;
+      const isOpenConversation =
+        conversationId !== undefined && payload.conversationId === conversationId;
 
-      // 1. Atualização CIRÚRGICA da lista (sem refetch). A lista é ordenada por
-      //    lastMessageAt desc no servidor → movemos a conversa para o topo,
-      //    atualizamos o timestamp e incrementamos unreadCount (apenas inbound
-      //    em conversa NÃO aberta). O item da lista não tem preview de texto e o
-      //    payload não carrega content (LGPD) → nada fica stale; zero request.
-      let foundInList = false;
-      qc.setQueriesData<ConversationListResponse>(
-        { queryKey: ['conversations', 'list'], exact: false },
-        (old) => {
-          if (!old || !Array.isArray(old.data)) return old;
-          const idx = old.data.findIndex((c) => c.id === payload.conversationId);
-          if (idx === -1) return old;
-          const conv = old.data[idx];
-          if (!conv) return old;
-          foundInList = true;
-          const updated: Conversation = {
-            ...conv,
-            lastMessageAt: payload.createdAt,
-            lastInboundAt: payload.direction === 'inbound' ? payload.createdAt : conv.lastInboundAt,
-            unreadCount:
-              payload.direction === 'inbound' && !isOpen ? conv.unreadCount + 1 : conv.unreadCount,
-          };
-          const rest = [...old.data.slice(0, idx), ...old.data.slice(idx + 1)];
-          return { ...old, data: [updated, ...rest] };
-        },
-      );
+      // scope 'list': única dona do cache da LISTA. Sem isso duplicado em
+      // 'detail', um inbound em conversa de fundo não é mais contado 2x
+      // (bug do contador: ChatList + ConversationPanel processavam o MESMO
+      // evento global e cada um incrementava o unreadCount).
+      if (isListOwner) {
+        // 1. Atualização CIRÚRGICA da lista (sem refetch). A lista é ordenada por
+        //    lastMessageAt desc no servidor → movemos a conversa para o topo,
+        //    atualizamos o timestamp e incrementamos unreadCount (apenas inbound
+        //    em conversa NÃO aberta). O item da lista não tem preview de texto e o
+        //    payload não carrega content (LGPD) → nada fica stale; zero request.
+        //    A lista é infinite query → operamos sobre InfiniteData (todas as páginas).
+        let foundInList = false;
+        qc.setQueriesData<InfiniteData<ConversationListResponse>>(
+          { queryKey: ['conversations', 'list'], exact: false },
+          (old) => {
+            const { next, found } = applyMessageNewToList(old, payload, isOpenConversation);
+            if (found) foundInList = true;
+            return next;
+          },
+        );
 
-      // 2. Conversa nova (ainda não está em nenhuma lista carregada) → invalida
-      //    a lista só para ela aparecer. Acontece apenas no PRIMEIRO contato.
-      if (!foundInList) {
-        void qc.invalidateQueries({ queryKey: ['conversations', 'list'] });
+        // 2. Conversa nova (ainda não está em nenhuma lista carregada) → invalida
+        //    a lista só para ela aparecer. Acontece apenas no PRIMEIRO contato.
+        if (!foundInList) {
+          void qc.invalidateQueries({ queryKey: ['conversations', 'list'] });
+        }
       }
 
-      // 3. Conversa aberta → buscar a nova mensagem (com content). DEBOUNCED no
-      //    mesmo flush do conversation:updated: a rajada do bot (N mensagens =>
-      //    N eventos) colapsa num único refetch, evitando 429 no rate-limit.
-      if (isOpen) {
-        cuOpenDirty.current = true;
+      // scope 'detail': única dona do refetch de detalhe/mensagens da conversa
+      // aberta. DEBOUNCED: a rajada do bot (N mensagens => N eventos) colapsa
+      // num único refetch, evitando 429 no rate-limit.
+      if (isDetailOwner && isOpenConversation) {
+        detailDirty.current = true;
         scheduleFlush();
       }
     }
@@ -164,7 +270,7 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
     return () => {
       socket.off('message:new', handleMessageNew);
     };
-  }, [socket, qc, conversationId, scheduleFlush]);
+  }, [socket, qc, conversationId, scheduleFlush, isListOwner, isDetailOwner]);
 
   // ── conversation:updated ─────────────────────────────────────────────────
   React.useEffect(() => {
@@ -173,77 +279,69 @@ export function useConversationSocket(options: UseConversationSocketOptions = {}
     function handleConversationUpdated(payload: ConversationUpdatedPayload): void {
       // Se o payload tem unreadCount (F16-S26: markConversationRead via workspace room),
       // aplica atualizacao direta em TODOS os items da lista — nao invalida para evitar
-      // refetch desnecessario. Invalida apenas se nao for uma atualizacao de badge puro.
+      // refetch desnecessario. Apenas o dono da lista aplica (evita write duplicado).
       if (typeof payload.unreadCount === 'number') {
+        if (!isListOwner) return;
         // Escopo APENAS às queries de lista (['conversations','list',...]).
         // conversationKeys.all (['conversations']) com exact:false casaria também
-        // detail/messages, cujo `data` não é array → crash (.map de undefined).
-        qc.setQueriesData<ConversationListResponse>(
+        // detail/messages, cuja estrutura não é infinite → crash.
+        const unread = payload.unreadCount;
+        qc.setQueriesData<InfiniteData<ConversationListResponse>>(
           { queryKey: ['conversations', 'list'], exact: false },
-          (old) => {
-            if (!old || !Array.isArray(old.data)) return old;
-            return {
-              ...old,
-              data: old.data.map((c: Conversation) =>
-                c.id === payload.conversationId ? { ...c, unreadCount: payload.unreadCount! } : c,
-              ),
-            };
-          },
+          (old) => applyUnreadCountToList(old, payload.conversationId, unread),
         );
         return;
       }
 
-      // Status/atribuição/resolução mudaram. Marca dirty e agenda o flush
-      // debounced — uma rajada de N eventos colapsa em 1 conjunto de invalidações.
-      cuListDirty.current = true;
-      if (conversationId && payload.conversationId === conversationId) {
-        cuOpenDirty.current = true;
+      // Status/atribuição/resolução mudaram. Cada scope marca dirty a sua
+      // própria fatia e agenda o flush debounced — uma rajada de N eventos
+      // colapsa em 1 conjunto de invalidações por fatia.
+      if (isListOwner) {
+        listDirty.current = true;
+        scheduleFlush();
       }
-      scheduleFlush();
+      if (isDetailOwner && conversationId && payload.conversationId === conversationId) {
+        detailDirty.current = true;
+        scheduleFlush();
+      }
     }
 
     socket.on('conversation:updated', handleConversationUpdated);
 
     return () => {
       socket.off('conversation:updated', handleConversationUpdated);
-      if (cuFlushTimer.current) {
-        clearTimeout(cuFlushTimer.current);
-        cuFlushTimer.current = null;
+      if (flushTimer.current) {
+        clearTimeout(flushTimer.current);
+        flushTimer.current = null;
       }
     };
-  }, [socket, qc, conversationId, scheduleFlush]);
+  }, [socket, qc, conversationId, scheduleFlush, isListOwner, isDetailOwner]);
 
   // ── badge zero ao abrir conversa ─────────────────────────────────────────
   // Quando conversationId muda (conversa aberta), zeramos imediatamente o
   // unreadCount no cache local. O backend já zerou via GET /messages (F16-S26).
   // Nao esperamos o socket event — resposta imediata para o badge sumir.
+  // Apenas o dono da lista escreve (evita write duplicado em 'detail').
   React.useEffect(() => {
-    if (!conversationId) return;
-    qc.setQueriesData<ConversationListResponse>(
+    if (!isListOwner || !conversationId) return;
+    qc.setQueriesData<InfiniteData<ConversationListResponse>>(
       { queryKey: ['conversations', 'list'], exact: false },
-      (old) => {
-        if (!old || !Array.isArray(old.data)) return old;
-        return {
-          ...old,
-          data: old.data.map((c: Conversation) =>
-            c.id === conversationId ? { ...c, unreadCount: 0 } : c,
-          ),
-        };
-      },
+      (old) => applyUnreadCountToList(old, conversationId, 0),
     );
-  }, [conversationId, qc]);
+  }, [isListOwner, conversationId, qc]);
 
   // ── conversation:join / leave ────────────────────────────────────────────
-  // Quando uma conversa específica está aberta, entramos na sala para
-  // receber eventos de granularidade fina (ex: typing, view status por mensagem).
-  // O servidor valida que conversationId pertence à org do usuário.
+  // Só o dono do detalhe (conversa aberta) entra na sala — recebe eventos de
+  // granularidade fina (ex: typing, view status por mensagem). A lista não
+  // precisa: message:new/conversation:updated já chegam pela sala da
+  // organização. O servidor valida que conversationId pertence à org do usuário.
   React.useEffect(() => {
-    if (!socket || !conversationId) return;
+    if (!socket || !isDetailOwner || !conversationId) return;
 
     socket.emit('conversation:join', { conversationId });
 
     return () => {
       socket.emit('conversation:leave', { conversationId });
     };
-  }, [socket, conversationId]);
+  }, [socket, conversationId, isDetailOwner]);
 }

@@ -3,34 +3,32 @@
 //
 // Funcionalidades:
 //   - Busca debounced 300ms (filtra por contactName no cliente)
-//   - Filtro de status recebido via prop (estado hoistado em ConversationsLayout)
-//   - Scroll infinito com IntersectionObserver + cursor acumulado
-//   - Realtime via useConversationSocket (invalida cache em message:new)
+//   - Filtro de status: dropdown no header (ChatListFilters), estado local
+//     (default 'all' — todas), gerenciado aqui junto com useConversationCounts.
+//   - Scroll infinito via useInfiniteQuery + IntersectionObserver (paginação
+//     interna ao TanStack, cacheada por status — sem cursor/accumulated manual).
+//     O observer usa o próprio container de scroll como `root` (não o viewport)
+//     para disparar corretamente dentro do painel aninhado.
+//   - Realtime via useConversationSocket (scope 'list' — cache da lista)
 //   - Estados explícitos: loading (skeletons), empty, error
 //   - Acessível: aria-label, lista semântica
 //
-// Redesign (F24): statusFilter e useConversationCounts foram hoistados para
-// ConversationsLayout, que gerencia o StatusSideMenu (menu lateral vertical).
+// Redesign: statusFilter e useConversationCounts voltaram a viver aqui (o
+// dropdown de status é parte do header do ChatList — sem prop-drilling via
+// ConversationsLayout, que hoje só monta o shell de colunas).
 //
 // LGPD (doc 17 §8.1): contactName e contactRemoteId não são logados.
 // =============================================================================
 
-import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
-
 
 import { useChannels } from '../../../configuracoes/canais/useChannels';
 import {
   useConversationSocket,
   type UseConversationSocketOptions,
 } from '../../hooks/useConversationSocket';
-import { conversationKeys, useConversations } from '../../queries';
-import type {
-  Conversation,
-  ConversationListResponse,
-  ConversationsQueryParams,
-  ConversationStatus,
-} from '../../types';
+import { useConversationCounts, useConversationsInfinite } from '../../queries';
+import type { Conversation, ConversationsQueryParams, ConversationStatus } from '../../types';
 
 import type { StatusFilter } from './ChatListFilters';
 import { ChatListFilters } from './ChatListFilters';
@@ -51,12 +49,6 @@ export interface ChatListProps {
   readonly selectedConversationId: string | null;
   /** Callback quando o usuário seleciona uma conversa */
   readonly onSelectConversation: (id: string) => void;
-  /**
-   * Filtro de status atual — hoistado em ConversationsLayout.
-   * Alterado pelo StatusSideMenu; o ChatList reage via useEffect interno
-   * que reseta cursor e accumulated quando o valor muda.
-   */
-  readonly statusFilter: StatusFilter;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,49 +169,46 @@ function ErrorState({ onRetry }: ErrorStateProps): React.JSX.Element {
 // ---------------------------------------------------------------------------
 
 /**
- * ChatList — painel central do inbox (col 2 do layout de 4 colunas após redesign).
+ * ChatList — coluna da lista de conversas do inbox (Col 1 do layout de 3 colunas).
  *
- * O statusFilter vem de fora (hoistado em ConversationsLayout).
- * Integra busca debounced, scroll infinito e realtime.
+ * Gerencia o próprio statusFilter (dropdown no header) e useConversationCounts.
+ * Integra busca debounced, scroll infinito e realtime (scope 'list').
  * O SocketProvider deve estar montado acima na árvore.
  */
 export function ChatList({
   selectedConversationId,
   onSelectConversation,
-  statusFilter,
 }: ChatListProps): React.JSX.Element {
   // ── Estado local da busca ────────────────────────────────────────────────
   const [searchRaw, setSearchRaw] = React.useState('');
   const searchDebounced = useDebounce(searchRaw, 300);
 
-  // ── Cursor de paginação ──────────────────────────────────────────────────
-  const qc = useQueryClient();
-  const [cursor, setCursor] = React.useState<string | undefined>(undefined);
-
-  // Inicializa accumulated a partir do cache TanStack para que o primeiro
-  // render já tenha dados disponíveis — impede EmptyState ao voltar de uma
-  // aba sem conversas (ex.: Adiadas) para uma aba com conversas em cache.
-  const [accumulated, setAccumulated] = React.useState<Conversation[]>(() => {
-    const params: ConversationsQueryParams =
-      statusFilter !== 'all'
-        ? { limit: LIMIT, status: statusFilter as ConversationStatus }
-        : { limit: LIMIT };
-    const cached = qc.getQueryData<ConversationListResponse>(conversationKeys.list(params));
-    return cached?.data ?? [];
-  });
+  // ── Estado local do filtro de status — padrão 'all' (Todas) ───────────────
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
+  const { data: countsData } = useConversationCounts();
 
   const sentinelRef = React.useRef<HTMLDivElement | null>(null);
+  // Container de scroll — usado como `root` do IntersectionObserver (em vez do
+  // viewport) para que o sentinelo dispare corretamente dentro do painel
+  // aninhado (`flex-1 overflow-y-auto`). Ver efeito de scroll infinito abaixo.
+  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
 
-  // ── Query params ─────────────────────────────────────────────────────────
-  const queryParams: ConversationsQueryParams = React.useMemo(() => {
-    const base: ConversationsQueryParams =
+  // ── Query params (SEM cursor — a paginação é interna à infinite query) ────
+  // A queryKey é por-status → cada aba é uma query isolada, cacheada com todas
+  // as suas páginas. Alternar status é só trocar de query: o TanStack restaura
+  // as páginas já carregadas instantaneamente. Sem cursor state, sem accumulated,
+  // sem reset manual — a classe inteira de bugs de "lista vazia ao alternar" e
+  // "scroll travado" some na raiz.
+  const queryParams: ConversationsQueryParams = React.useMemo(
+    () =>
       statusFilter !== 'all'
         ? { limit: LIMIT, status: statusFilter as ConversationStatus }
-        : { limit: LIMIT };
-    return cursor !== undefined ? { ...base, cursor } : base;
-  }, [statusFilter, cursor]);
+        : { limit: LIMIT },
+    [statusFilter],
+  );
 
-  const { data, isLoading, isError, refetch } = useConversations(queryParams);
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useConversationsInfinite(queryParams);
 
   // Mapa channelId → nome do canal para exibir no item da lista
   const { channels } = useChannels();
@@ -229,73 +218,91 @@ export function ChatList({
     return map;
   }, [channels]);
 
-  // Acumula resultados quando a query retorna dados. O componente remonta
-  // a cada troca de statusFilter (key={statusFilter} no pai), portanto o
-  // cursor e accumulated já começam zerados — sem necessidade de reset aqui.
-  React.useEffect(() => {
-    if (!data) return;
-    if (cursor === undefined) {
-      setAccumulated(data.data);
-    } else {
-      setAccumulated((prev) => {
-        const existingIds = new Set(prev.map((c) => c.id));
-        const newItems = data.data.filter((c) => !existingIds.has(c.id));
-        return [...prev, ...newItems];
-      });
-    }
-  }, [data, cursor]);
-
   // ── Realtime ─────────────────────────────────────────────────────────────
+  // scope 'list': ChatList é a ÚNICA dona do cache da lista (badge, reordenação).
+  // Ver cabeçalho de useConversationSocket.ts — evita o bug do contador em
+  // dobro quando ConversationPanel também está montado (conversa aberta).
   const socketOptions: UseConversationSocketOptions =
-    selectedConversationId !== null ? { conversationId: selectedConversationId } : {};
+    selectedConversationId !== null
+      ? { conversationId: selectedConversationId, scope: 'list' }
+      : { scope: 'list' };
   useConversationSocket(socketOptions);
 
-  // ── Filtro de busca (cliente-side sobre dados acumulados) ────────────────
+  // ── Achata as páginas + filtro de busca (cliente-side) ────────────────────
+  // Guard Array.isArray(pages): defesa extra caso o cache tenha shape inesperado
+  // (a key 'infinite' já isola de entradas flat legadas — cinto e suspensório).
+  const allConversations: Conversation[] = React.useMemo(() => {
+    const pages = data?.pages;
+    if (!Array.isArray(pages)) return [];
+    return pages.flatMap((p) => (Array.isArray(p?.data) ? p.data : []));
+  }, [data]);
+
   const conversations: Conversation[] = React.useMemo(() => {
-    if (!searchDebounced.trim()) return accumulated;
+    if (!searchDebounced.trim()) return allConversations;
     const q = searchDebounced.trim().toLowerCase();
-    return accumulated.filter((c) => (c.contactName ?? '').toLowerCase().includes(q));
-  }, [accumulated, searchDebounced]);
+    return allConversations.filter((c) => (c.contactName ?? '').toLowerCase().includes(q));
+  }, [allConversations, searchDebounced]);
 
   // ── Scroll infinito ──────────────────────────────────────────────────────
-  const hasNextPage = data !== null && data !== undefined && data.nextCursor !== null;
-
+  // O sentinelo vive dentro do container `role="list"` (flex-1 overflow-y-auto)
+  // — um scroll container ANINHADO, não o viewport. Passar `root: null`
+  // (padrão) faz o observer computar a interseção contra o viewport do
+  // documento, que é ambíguo/instável quando o elemento real que rola é o
+  // container interno. Fix: usar o próprio container como `root` — a
+  // interseção passa a ser calculada dentro do painel que efetivamente rola,
+  // então o fetch da próxima página dispara de forma confiável assim que o
+  // sentinelo se aproxima do fundo visível da lista.
+  //
+  // getNextPageParam retorna undefined quando nextCursor é null → hasNextPage
+  // fica false e o observer para (sem sentinelo renderizado — ver JSX abaixo).
+  // Guard isFetchingNextPage evita disparos duplicados enquanto uma página
+  // carrega. O effect reobserva sempre que hasNextPage muda (nova página =
+  // sentinelo remontado) ou quando o container de scroll está pronto.
   React.useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel || !hasNextPage) return;
+    const root = scrollContainerRef.current;
+    if (!sentinel || !root || !hasNextPage) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const first = entries[0];
-        if (first?.isIntersecting && data?.nextCursor) {
-          setCursor(data.nextCursor);
+        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          void fetchNextPage();
         }
       },
-      { threshold: 0.1 },
+      { root, threshold: 0.1, rootMargin: '120px' },
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasNextPage, data]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--bg-elev-1)' }}>
-      {/* Barra de busca (apenas) */}
-      <ChatListFilters search={searchRaw} onSearchChange={setSearchRaw} />
+      {/* Busca + dropdown de status */}
+      <ChatListFilters
+        search={searchRaw}
+        onSearchChange={setSearchRaw}
+        status={statusFilter}
+        onStatusChange={setStatusFilter}
+        counts={countsData}
+      />
 
       {/* Lista de conversas */}
       <div
+        ref={scrollContainerRef}
         role="list"
         aria-label="Conversas"
         className="flex-1 overflow-y-auto"
         style={{ overscrollBehavior: 'contain' }}
       >
-        {isLoading && accumulated.length === 0 && <ChatListSkeleton />}
+        {conversations.length === 0 && !isError && isLoading && <ChatListSkeleton />}
 
         {isError && !isLoading && <ErrorState onRetry={() => void refetch()} />}
 
-        {!isLoading && !isError && conversations.length === 0 && <EmptyState />}
+        {!isLoading && !isError && data !== undefined && conversations.length === 0 && (
+          <EmptyState />
+        )}
 
         {conversations.length > 0 && (
           <>
@@ -310,7 +317,7 @@ export function ChatList({
               </div>
             ))}
 
-            {/* Sentinel para scroll infinito */}
+            {/* Sentinel para scroll infinito — dispara fetchNextPage ao entrar na viewport */}
             {hasNextPage && (
               <div
                 ref={sentinelRef}
@@ -318,17 +325,11 @@ export function ChatList({
                 className="flex justify-center py-3"
                 style={{ color: 'var(--text-3)', fontSize: 'var(--text-xs)' }}
               >
-                Carregando mais...
-              </div>
-            )}
-
-            {/* Loading de página seguinte */}
-            {isLoading && accumulated.length > 0 && (
-              <div
-                className="flex justify-center py-3"
-                style={{ color: 'var(--text-3)', fontSize: 'var(--text-xs)' }}
-              >
-                <span className="animate-pulse">Carregando...</span>
+                {isFetchingNextPage ? (
+                  <span className="animate-pulse">Carregando mais...</span>
+                ) : (
+                  'Role para carregar mais'
+                )}
               </div>
             )}
           </>
@@ -336,7 +337,7 @@ export function ChatList({
       </div>
 
       {/* Rodapé: contagem */}
-      {!isError && accumulated.length > 0 && (
+      {!isError && conversations.length > 0 && (
         <div
           className="flex items-center justify-between px-4 py-2"
           style={{
