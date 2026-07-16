@@ -3,7 +3,7 @@
 // fullscreen do copiloto interno (F6-S12).
 //
 // Substitui o drawer lateral de F6-S09 por um modal flutuante fullscreen
-// (~85% da viewport), chat-centric: backdrop escurecido, fecha em Esc /
+// (~93-95% da viewport), chat-centric: backdrop escurecido, fecha em Esc /
 // clique fora / botão X. Renderizado via portal (document.body) para não
 // herdar containing block de ancestral com transform/filter na Topbar.
 //
@@ -50,7 +50,7 @@ export function AssistantWorkspaceModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-8"
+      className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4"
       style={{ background: 'rgba(10, 18, 40, 0.5)', backdropFilter: 'blur(3px)' }}
       role="presentation"
       onClick={(e) => {
@@ -63,8 +63,8 @@ export function AssistantWorkspaceModal({
         aria-label="Assistente interno"
         className={cn(
           'relative z-50 flex',
-          'w-[92vw] sm:w-[85vw] h-[88vh] sm:h-[85vh]',
-          'max-w-[1200px] max-h-[880px] min-h-[420px]',
+          'w-[95vw] sm:w-[94vw] h-[94vh] sm:h-[93vh]',
+          'max-w-[1760px] max-h-[1200px] min-h-[420px]',
           'rounded-lg border border-border overflow-hidden',
         )}
         style={{
