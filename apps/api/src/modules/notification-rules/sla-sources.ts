@@ -50,6 +50,7 @@ import {
   creditSimulations,
   customers,
   kanbanCards,
+  kanbanStages,
   leads,
   paymentDues,
 } from '../../db/schema/index.js';
@@ -86,6 +87,17 @@ export interface SlaEligibleEntity {
   leadId: string | null;
   /** Timestamp relevante para diagnóstico (ex: entered_stage_at, due_date). */
   sinceAt: Date;
+  /**
+   * Contexto extra por eixo para os placeholders do TRIGGER_CATALOG que o
+   * worker (`notification-sla-scan.ts`) não consegue derivar sozinho (F26-S02,
+   * doc 23 §12.3). `lead_id` e `hours_stalled` são injetados centralmente pelo
+   * worker (a partir de `leadId`/`sinceAt`) — não precisam estar aqui.
+   *
+   * LGPD §8.5: apenas IDs opacos e nomes de configuração operacional (ex:
+   * `stage_name`, que é um rótulo de fluxo de trabalho definido pelo Admin —
+   * nunca dado do cidadão). Nunca CPF/telefone/nome de lead.
+   */
+  templateContext: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -141,9 +153,13 @@ export async function findStagnantKanbanCards(
       leadId: kanbanCards.leadId,
       cityId: leads.cityId,
       enteredStageAt: kanbanCards.enteredStageAt,
+      // stage_name (F26-S02): rótulo de fluxo de trabalho configurado pelo
+      // Admin — não é PII. Alimenta o placeholder {{stage_name}} do catálogo.
+      stageName: kanbanStages.name,
     })
     .from(kanbanCards)
     .innerJoin(leads, eq(kanbanCards.leadId, leads.id))
+    .innerJoin(kanbanStages, eq(kanbanCards.stageId, kanbanStages.id))
     .where(and(...conditions));
 
   return rows.map((r) => ({
@@ -152,6 +168,7 @@ export async function findStagnantKanbanCards(
     cityId: r.cityId ?? null,
     leadId: r.leadId,
     sinceAt: r.enteredStageAt,
+    templateContext: { card_id: r.cardId, stage_name: r.stageName },
   }));
 }
 
@@ -179,6 +196,9 @@ export async function findStalledHandoffRequests(
       leadId: chatwootHandoffs.leadId,
       cityId: leads.cityId,
       createdAt: chatwootHandoffs.createdAt,
+      // chatwoot_conversation_id (F26-S02): ID técnico do provedor externo —
+      // não é PII. Alimenta o placeholder homônimo do catálogo.
+      chatwootConversationId: chatwootHandoffs.chatwootConversationId,
     })
     .from(chatwootHandoffs)
     .leftJoin(leads, eq(chatwootHandoffs.leadId, leads.id))
@@ -197,6 +217,7 @@ export async function findStalledHandoffRequests(
     cityId: r.cityId ?? null,
     leadId: r.leadId,
     sinceAt: r.createdAt,
+    templateContext: { chatwoot_conversation_id: r.chatwootConversationId },
   }));
 }
 
@@ -244,6 +265,7 @@ export async function findStalledSimulations(
       cityId: r.cityId ?? null,
       leadId: r.leadId,
       sinceAt: r.sentAt,
+      templateContext: { simulation_id: r.simulationId },
     }));
 }
 
@@ -286,6 +308,7 @@ export async function findStalledAnalyses(
     cityId: r.cityId ?? null,
     leadId: r.leadId,
     sinceAt: r.updatedAt,
+    templateContext: { analysis_id: r.analysisId },
   }));
 }
 
@@ -309,6 +332,7 @@ export async function findStalledDraftContracts(
   const rows = await db
     .select({
       contractId: contracts.id,
+      customerId: contracts.customerId,
       leadId: customers.primaryLeadId,
       cityId: leads.cityId,
       createdAt: contracts.createdAt,
@@ -331,6 +355,7 @@ export async function findStalledDraftContracts(
     cityId: r.cityId ?? null,
     leadId: r.leadId,
     sinceAt: r.createdAt,
+    templateContext: { contract_id: r.contractId, customer_id: r.customerId },
   }));
 }
 
@@ -354,6 +379,7 @@ export async function findOverduePaymentDues(
   const rows = await db
     .select({
       paymentDueId: paymentDues.id,
+      customerId: paymentDues.customerId,
       leadId: customers.primaryLeadId,
       cityId: leads.cityId,
       dueDate: paymentDues.dueDate,
@@ -377,6 +403,7 @@ export async function findOverduePaymentDues(
     // due_date é `date` (string 'YYYY-MM-DD') — normaliza para Date à meia-noite UTC
     // apenas para o diagnóstico sinceAt; nunca usado em comparação SQL.
     sinceAt: new Date(`${r.dueDate}T00:00:00.000Z`),
+    templateContext: { payment_due_id: r.paymentDueId, customer_id: r.customerId },
   }));
 }
 
@@ -423,6 +450,11 @@ export async function findStalledConversations(
       cityId: r.cityId ?? null,
       leadId: r.leadId,
       sinceAt: r.lastInboundAt,
+      // O catálogo declara {{chatwoot_conversation_id}} para este eixo (chave
+      // herdada de quando só existia integração Chatwoot). O live chat nativo
+      // (F16) não tem um ID de Chatwoot equivalente — reusa o próprio UUID da
+      // conversa nativa, que já é o ID opaco e estável usado no deep-link.
+      templateContext: { chatwoot_conversation_id: r.conversationId },
     }));
 }
 

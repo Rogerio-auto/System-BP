@@ -130,6 +130,10 @@ const BASE_ENTITY = {
   cityId: null,
   leadId: LEAD_ID,
   sinceAt: new Date(Date.now() - 48 * 60 * 60 * 1_000),
+  // F26-S02: contexto extra por eixo (card_id/stage_name/etc.) — vazio aqui
+  // pois estes testes não verificam o texto renderizado, só efeitos
+  // colaterais (disparo, destinatários, severity).
+  templateContext: {},
 };
 
 function setupFullFlow(rules: unknown[], hasDelivery: boolean): void {
@@ -200,6 +204,51 @@ describe('runSlaScanTick', () => {
     expect(r.entitiesEligible).toBe(1);
     expect(mockSendInApp).toHaveBeenCalledOnce();
   });
+
+  // ---------------------------------------------------------------------------
+  // F26-S02: contexto enriquecido (hours_stalled/lead_id/templateContext por eixo)
+  // ---------------------------------------------------------------------------
+
+  it(
+    'F26-S02: renderiza {{hours_stalled}}/{{lead_id}}/{{stage_name}}/{{card_id}} com ' +
+      'valores reais — nunca token literal',
+    async () => {
+      const sinceAt = new Date(Date.now() - 30 * 60 * 60 * 1_000); // ~30h atrás
+      const enrichedEntity = {
+        ...BASE_ENTITY,
+        sinceAt,
+        templateContext: { card_id: CARD_ID, stage_name: 'Documentação' },
+      };
+      setupFullFlow(
+        [
+          {
+            ...BASE_RULE,
+            titleTemplate: 'Parado {{hours_stalled}}h em {{stage_name}}',
+            bodyTemplate: 'Lead {{lead_id}} card {{card_id}}',
+          },
+        ],
+        false,
+      );
+      mockFindSlaSources.mockResolvedValue([enrichedEntity]);
+      mockResolveRecipients.mockResolvedValue([
+        {
+          userId: USER_ID,
+          organizationId: ORG_ID,
+          displayName: 'A',
+          channels: ['in_app' as const],
+        },
+      ]);
+
+      await runSlaScanTick(mockDb);
+
+      expect(mockSendInApp).toHaveBeenCalledOnce();
+      const [, params] = mockSendInApp.mock.calls[0] as [unknown, { title: string; body: string }];
+      expect(params.title).not.toContain('{{');
+      expect(params.body).not.toContain('{{');
+      expect(params.title).toMatch(/^Parado \d+h em Documentação$/);
+      expect(params.body).toBe(`Lead ${LEAD_ID} card ${CARD_ID}`);
+    },
+  );
 
   it('repassa leadId da entidade (nao mais entityType==="lead") para resolveRuleRecipients', async () => {
     setupFullFlow([BASE_RULE], false);

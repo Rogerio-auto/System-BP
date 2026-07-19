@@ -153,10 +153,58 @@ async function resolveCityName(db: Database, cityId: string | null): Promise<str
   return rows[0]?.name ?? null;
 }
 
+// ---------------------------------------------------------------------------
+// Enriquecimento do corpo da notificação (F26-S02, doc 23 §12.3/§14 — G4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Rótulos legíveis para o motivo do handoff (catálogo doc 06 §7.4 +
+ * 'ai_requested' — fallback usado pelo worker de livechat quando o grafo
+ * sinaliza handoff.required sem reason). Motivo desconhecido/futuro cai no
+ * rótulo genérico — nunca ecoa a string bruta do LLM sem checagem contra o
+ * catálogo conhecido (defesa contra valor inesperado no corpo da notificação).
+ */
+const HANDOFF_REASON_LABELS: Readonly<Record<string, string>> = {
+  ai_unavailable: 'IA indisponível',
+  ai_requested: 'atendimento humano solicitado pela IA',
+  cliente_solicitou_atendente: 'cliente pediu para falar com atendente',
+  consultar_andamento: 'cliente quer saber o andamento',
+  cobranca: 'assunto de cobrança',
+  reclamacao: 'reclamação',
+  nao_entendeu: 'IA não entendeu a solicitação',
+  fora_de_escopo: 'fora do escopo do assistente',
+  loop_detected: 'loop de conversa detectado',
+  tool_error: 'falha técnica em uma ação da IA',
+};
+
+/** Traduz o `reason` do handoff em texto curto para o corpo da notificação. */
+function describeHandoffReason(reason: string): string {
+  return HANDOFF_REASON_LABELS[reason] ?? 'atendimento humano solicitado';
+}
+
+/**
+ * Formata a duração de espera em texto curto e não-sensível (só números
+ * derivados de timestamps já existentes — LGPD §8.5, sem PII).
+ */
+function formatWaitDuration(sinceMs: number): string {
+  const minutes = Math.floor(sinceMs / 60_000);
+  if (minutes < 1) return 'menos de 1 minuto';
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    const remMinutes = minutes % 60;
+    return remMinutes > 0 ? `${hours}h${remMinutes}min` : `${hours}h`;
+  }
+  const days = Math.floor(hours / 24);
+  return `${days} dia${days > 1 ? 's' : ''}`;
+}
+
 /**
  * Despacha a notificação in-app de handoff a cada destinatário.
  *
- * LGPD §8.5: body cita, no máximo, o nome do município (dado público) —
+ * LGPD §8.5: body cita, no máximo, o nome do município (dado público), o
+ * motivo do handoff (catálogo fechado — não é PII) e o tempo de espera
+ * (derivado de `conversations.last_inbound_at`, um timestamp operacional) —
  * NUNCA telefone, CPF ou nome do contato. try/catch isolado por
  * destinatário: falha de notificação não deve derrubar o handoff (já
  * concluído — fallback enviado, status atualizado, audit registrado).
@@ -167,17 +215,27 @@ async function dispatchHandoffNotifications(
     organizationId: string;
     conversationId: string;
     cityId: string | null;
+    reason: string;
+    /** Último inbound do cidadão — base do "tempo esperando". null = desconhecido. */
+    waitingSince: Date | null;
     recipients: ResolvedRecipient[];
   },
 ): Promise<void> {
   if (params.recipients.length === 0) return;
 
   const cityName = await resolveCityName(db, params.cityId);
+  const reasonLabel = describeHandoffReason(params.reason);
+  const waitLabel =
+    params.waitingSince !== null
+      ? formatWaitDuration(Date.now() - params.waitingSince.getTime())
+      : null;
+
   const title = 'Atendimento precisa de humano';
+  const locationPart = cityName !== null ? ` (${cityName})` : '';
+  const waitPart = waitLabel !== null ? ` — aguardando há ${waitLabel}` : '';
   const body =
-    cityName !== null
-      ? `Uma conversa no WhatsApp (${cityName}) precisa de atendimento humano.`
-      : 'Uma conversa no WhatsApp precisa de atendimento humano.';
+    `Uma conversa no WhatsApp${locationPart} precisa de atendimento humano. ` +
+    `Motivo: ${reasonLabel}${waitPart}.`;
 
   for (const recipient of params.recipients) {
     try {
@@ -248,6 +306,11 @@ export async function triggerLivechatHandoff(db: Database, opts: HandoffOptions)
       id: conversations.id,
       cityId: conversations.cityId,
       assignedUserId: conversations.assignedUserId,
+      // Base do "tempo esperando" no corpo da notificação (F26-S02) — último
+      // inbound do cidadão antes deste UPDATE (a própria mensagem que
+      // disparou o handoff, no caso do gatilho do grafo). Timestamp
+      // operacional, não PII.
+      lastInboundAt: conversations.lastInboundAt,
     });
 
   const claim = claimed[0];
@@ -344,6 +407,8 @@ export async function triggerLivechatHandoff(db: Database, opts: HandoffOptions)
       organizationId,
       conversationId,
       cityId: claim.cityId,
+      reason,
+      waitingSince: claim.lastInboundAt,
       recipients,
     });
   } catch (notifyErr) {

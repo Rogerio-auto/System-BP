@@ -3,7 +3,7 @@ id: F26-S02
 title: Backend — enriquecer contexto das notificações (handoff, escalação, SLA)
 phase: F26
 task_ref: docs/sessions/2026-07-19-notificacoes-arquitetura-e-gaps.md
-status: available
+status: review
 priority: high
 estimated_size: M
 agent_id: null
@@ -17,8 +17,8 @@ source_docs:
     docs/sessions/2026-07-19-notificacoes-arquitetura-e-gaps.md,
   ]
 docs_required: false
-claimed_at: null
-completed_at: null
+claimed_at: 2026-07-19T17:28:47Z
+completed_at: 2026-07-19T17:58:02Z
 ---
 
 # F26-S02 — Backend: enriquecer contexto das notificações

@@ -112,9 +112,17 @@ describe('computeCutoffDateString', () => {
 // ---------------------------------------------------------------------------
 
 describe('findStagnantKanbanCards', () => {
-  it('mapeia entityId=cardId, entityType do catálogo, cityId e leadId', async () => {
+  it('mapeia entityId=cardId, entityType do catálogo, cityId, leadId e templateContext', async () => {
     const enteredStageAt = new Date(Date.now() - 48 * 60 * 60 * 1_000);
-    const db = makeDb([{ cardId: CARD_ID, leadId: LEAD_ID, cityId: CITY_ID, enteredStageAt }]);
+    const db = makeDb([
+      {
+        cardId: CARD_ID,
+        leadId: LEAD_ID,
+        cityId: CITY_ID,
+        enteredStageAt,
+        stageName: 'Estagio Teste',
+      },
+    ]);
     const result = await findStagnantKanbanCards(db, ORG_ID, 24, null, 'kanban_card');
     expect(result).toEqual([
       {
@@ -123,6 +131,8 @@ describe('findStagnantKanbanCards', () => {
         cityId: CITY_ID,
         leadId: LEAD_ID,
         sinceAt: enteredStageAt,
+        // F26-S02: templateContext alimenta {{card_id}}/{{stage_name}} do catálogo.
+        templateContext: { card_id: CARD_ID, stage_name: 'Estagio Teste' },
       },
     ]);
   });
@@ -136,11 +146,17 @@ describe('findStagnantKanbanCards', () => {
     expect(stageCalls).toHaveLength(1);
   });
 
-  it("stageId=null ('*') -> NÃO filtra por stage_id", async () => {
+  it("stageId=null ('*') -> NÃO filtra por stage_id no WHERE (só o JOIN com kanban_stages)", async () => {
     const db = makeDb([]);
     await findStagnantKanbanCards(db, ORG_ID, 24, null, 'kanban_card');
-    const stageCalls = vi.mocked(eq).mock.calls.filter(([col]) => col === kanbanCards.stageId);
-    expect(stageCalls).toHaveLength(0);
+    // F26-S02: o JOIN com kanban_stages (para {{stage_name}}) sempre chama
+    // eq(kanbanCards.stageId, kanbanStages.id) — segundo argumento é uma
+    // coluna, não o STAGE_ID (string) do filtro WHERE condicional. Filtra só
+    // chamadas com valor string para isolar o WHERE do JOIN.
+    const stageWhereCalls = vi
+      .mocked(eq)
+      .mock.calls.filter(([col, val]) => col === kanbanCards.stageId && typeof val === 'string');
+    expect(stageWhereCalls).toHaveLength(0);
   });
 
   it('cityId ausente (leads.cityId null) -> mapeado como null', async () => {
@@ -151,13 +167,19 @@ describe('findStagnantKanbanCards', () => {
     expect(entity?.cityId).toBeNull();
   });
 
-  it('sem PII: apenas as 5 chaves esperadas no resultado', async () => {
+  it('sem PII: apenas as 6 chaves esperadas no resultado', async () => {
     const db = makeDb([
-      { cardId: CARD_ID, leadId: LEAD_ID, cityId: CITY_ID, enteredStageAt: new Date() },
+      {
+        cardId: CARD_ID,
+        leadId: LEAD_ID,
+        cityId: CITY_ID,
+        enteredStageAt: new Date(),
+        stageName: 'Estagio Teste',
+      },
     ]);
     const [entity] = await findStagnantKanbanCards(db, ORG_ID, 24, null, 'kanban_card');
     expect(Object.keys(entity ?? {}).sort()).toEqual(
-      ['cityId', 'entityId', 'entityType', 'leadId', 'sinceAt'].sort(),
+      ['cityId', 'entityId', 'entityType', 'leadId', 'sinceAt', 'templateContext'].sort(),
     );
   });
 });
@@ -174,9 +196,17 @@ describe('findStalledHandoffRequests', () => {
     expect(vi.mocked(isNull)).toHaveBeenCalledWith(chatwootHandoffs.deletedAt);
   });
 
-  it('mapeia entityId=handoffId, entityType=conversation (do catálogo)', async () => {
+  it('mapeia entityId=handoffId, entityType=conversation (do catálogo) e templateContext', async () => {
     const createdAt = new Date(Date.now() - 3 * 60 * 60 * 1_000);
-    const db = makeDb([{ handoffId: 'h1', leadId: LEAD_ID, cityId: CITY_ID, createdAt }]);
+    const db = makeDb([
+      {
+        handoffId: 'h1',
+        leadId: LEAD_ID,
+        cityId: CITY_ID,
+        createdAt,
+        chatwootConversationId: 'cw-conv-1',
+      },
+    ]);
     const result = await findStalledHandoffRequests(db, ORG_ID, 2, 'conversation');
     expect(result).toEqual([
       {
@@ -185,6 +215,8 @@ describe('findStalledHandoffRequests', () => {
         cityId: CITY_ID,
         leadId: LEAD_ID,
         sinceAt: createdAt,
+        // F26-S02: templateContext alimenta {{chatwoot_conversation_id}} do catálogo.
+        templateContext: { chatwoot_conversation_id: 'cw-conv-1' },
       },
     ]);
   });
@@ -208,7 +240,7 @@ describe('findStalledSimulations', () => {
     expect(vi.mocked(isNotNull)).toHaveBeenCalledWith(creditSimulations.sentAt);
   });
 
-  it('mapeia entityId=simulationId, entityType=simulation', async () => {
+  it('mapeia entityId=simulationId, entityType=simulation e templateContext', async () => {
     const sentAt = new Date(Date.now() - 30 * 60 * 60 * 1_000);
     const db = makeDb([{ simulationId: 's1', leadId: LEAD_ID, cityId: CITY_ID, sentAt }]);
     const result = await findStalledSimulations(db, ORG_ID, 24, 'simulation');
@@ -219,6 +251,8 @@ describe('findStalledSimulations', () => {
         cityId: CITY_ID,
         leadId: LEAD_ID,
         sinceAt: sentAt,
+        // F26-S02: templateContext alimenta {{simulation_id}} do catálogo.
+        templateContext: { simulation_id: 's1' },
       },
     ]);
   });
@@ -242,7 +276,7 @@ describe('findStalledAnalyses', () => {
     expect(vi.mocked(lt)).toHaveBeenCalledWith(creditAnalyses.updatedAt, expect.any(Date));
   });
 
-  it('mapeia entityId=analysisId, entityType=credit_analysis', async () => {
+  it('mapeia entityId=analysisId, entityType=credit_analysis e templateContext', async () => {
     const updatedAt = new Date(Date.now() - 30 * 60 * 60 * 1_000);
     const db = makeDb([{ analysisId: 'a1', leadId: LEAD_ID, cityId: CITY_ID, updatedAt }]);
     const result = await findStalledAnalyses(db, ORG_ID, 24, 'credit_analysis');
@@ -253,6 +287,8 @@ describe('findStalledAnalyses', () => {
         cityId: CITY_ID,
         leadId: LEAD_ID,
         sinceAt: updatedAt,
+        // F26-S02: templateContext alimenta {{analysis_id}} do catálogo.
+        templateContext: { analysis_id: 'a1' },
       },
     ]);
   });
@@ -270,20 +306,28 @@ describe('findStalledDraftContracts', () => {
     expect(vi.mocked(isNull)).toHaveBeenCalledWith(contracts.signedAt);
   });
 
-  it('mapeia entityId=contractId, entityType=contract, leadId via customers.primary_lead_id', async () => {
-    const createdAt = new Date(Date.now() - 30 * 60 * 60 * 1_000);
-    const db = makeDb([{ contractId: 'c1', leadId: LEAD_ID, cityId: CITY_ID, createdAt }]);
-    const result = await findStalledDraftContracts(db, ORG_ID, 24, 'contract');
-    expect(result).toEqual([
-      {
-        entityId: 'c1',
-        entityType: 'contract',
-        cityId: CITY_ID,
-        leadId: LEAD_ID,
-        sinceAt: createdAt,
-      },
-    ]);
-  });
+  it(
+    'mapeia entityId=contractId, entityType=contract, leadId via ' +
+      'customers.primary_lead_id e templateContext',
+    async () => {
+      const createdAt = new Date(Date.now() - 30 * 60 * 60 * 1_000);
+      const db = makeDb([
+        { contractId: 'c1', customerId: 'cust1', leadId: LEAD_ID, cityId: CITY_ID, createdAt },
+      ]);
+      const result = await findStalledDraftContracts(db, ORG_ID, 24, 'contract');
+      expect(result).toEqual([
+        {
+          entityId: 'c1',
+          entityType: 'contract',
+          cityId: CITY_ID,
+          leadId: LEAD_ID,
+          sinceAt: createdAt,
+          // F26-S02: templateContext alimenta {{contract_id}}/{{customer_id}}.
+          templateContext: { contract_id: 'c1', customer_id: 'cust1' },
+        },
+      ]);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -297,21 +341,33 @@ describe('findOverduePaymentDues', () => {
     expect(vi.mocked(inArray)).toHaveBeenCalledWith(paymentDues.status, ['pending', 'overdue']);
   });
 
-  it('mapeia entityId=paymentDueId, entityType=payment_due, sinceAt a partir de due_date (string)', async () => {
-    const db = makeDb([
-      { paymentDueId: 'p1', leadId: LEAD_ID, cityId: CITY_ID, dueDate: '2026-06-01' },
-    ]);
-    const result = await findOverduePaymentDues(db, ORG_ID, 24, 'payment_due');
-    expect(result).toEqual([
-      {
-        entityId: 'p1',
-        entityType: 'payment_due',
-        cityId: CITY_ID,
-        leadId: LEAD_ID,
-        sinceAt: new Date('2026-06-01T00:00:00.000Z'),
-      },
-    ]);
-  });
+  it(
+    'mapeia entityId=paymentDueId, entityType=payment_due, sinceAt a partir de ' +
+      'due_date (string) e templateContext',
+    async () => {
+      const db = makeDb([
+        {
+          paymentDueId: 'p1',
+          customerId: 'cust1',
+          leadId: LEAD_ID,
+          cityId: CITY_ID,
+          dueDate: '2026-06-01',
+        },
+      ]);
+      const result = await findOverduePaymentDues(db, ORG_ID, 24, 'payment_due');
+      expect(result).toEqual([
+        {
+          entityId: 'p1',
+          entityType: 'payment_due',
+          cityId: CITY_ID,
+          leadId: LEAD_ID,
+          sinceAt: new Date('2026-06-01T00:00:00.000Z'),
+          // F26-S02: templateContext alimenta {{payment_due_id}}/{{customer_id}}.
+          templateContext: { payment_due_id: 'p1', customer_id: 'cust1' },
+        },
+      ]);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -327,7 +383,7 @@ describe('findStalledConversations', () => {
     expect(vi.mocked(isNull)).toHaveBeenCalledWith(conversations.deletedAt);
   });
 
-  it('mapeia cityId direto de conversations.city_id (sem JOIN)', async () => {
+  it('mapeia cityId direto de conversations.city_id (sem JOIN) e templateContext', async () => {
     const lastInboundAt = new Date(Date.now() - 5 * 60 * 60 * 1_000);
     const db = makeDb([
       { conversationId: 'conv1', leadId: LEAD_ID, cityId: CITY_ID, lastInboundAt },
@@ -340,6 +396,9 @@ describe('findStalledConversations', () => {
         cityId: CITY_ID,
         leadId: LEAD_ID,
         sinceAt: lastInboundAt,
+        // F26-S02: reusa o próprio UUID da conversa nativa (sem chatwoot_conversation_id
+        // real equivalente — ver comentário em sla-sources.ts).
+        templateContext: { chatwoot_conversation_id: 'conv1' },
       },
     ]);
   });
