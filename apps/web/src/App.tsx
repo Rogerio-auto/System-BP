@@ -5,6 +5,7 @@
 //   /login          → público
 //   /               → protegido (AuthGuard > AppLayout > DashboardPage)
 //   /tarefas        → protegido (F15-S10: painel minhas tarefas)
+//   /notificacoes   → protegido (F26-S04: central de notificações)
 //   /conversas      → protegido (F16-S15: inbox live chat — UI em S16/S17)
 //   /leads etc.     → protegido (placeholder)
 //   *               → redireciona /login
@@ -58,6 +59,7 @@ import { ProductsPage } from './pages/admin/Products';
 import { TutoriaisPage } from './pages/admin/Tutoriais';
 import { UsersPage } from './pages/admin/Users';
 import { ConversasPage } from './pages/ConversasPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { SimulatorPage } from './pages/simulator/SimulatorPage';
 
 // Code-split: ApiReferencePage não está no main bundle — só carregado quando
@@ -194,6 +196,8 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/conversas" element={<ConversasPage />} />
           {/* F15-S10: Painel de tarefas */}
           <Route path="/tarefas" element={<TasksPage />} />
+          {/* F26-S04: Central de notificações (além das 10 do dropdown) */}
+          <Route path="/notificacoes" element={<NotificationsPage />} />
           {/* F10-S02: Central de Ajuda */}
           <Route path="/ajuda" element={<HelpHomePage />} />
           {/* F10-S10: API Reference — ANTES do wildcard /ajuda/* */}

@@ -1,0 +1,97 @@
+---
+title: Central de notificações
+description: Como ver todas as suas notificações, filtrar por categoria e status, e marcar como lidas em lote na página /notificacoes.
+order: 10
+keywords: [notificações, central, sino, severidade, categoria, filtro, marcar como lida, lote]
+---
+
+# Central de notificações
+
+Use esta página quando precisar rever notificações mais antigas que as 10 mostradas no sino, filtrar por categoria ou status, ou marcar várias notificações como lidas de uma vez.
+
+## O que é
+
+O sino no topo da tela mostra suas 10 notificações mais recentes. A **Central de notificações**
+(`/notificacoes`) reúne o histórico completo, com:
+
+- **Filtro por categoria** — Estagnação de lead, Atribuição, Crédito, Cobrança, Transferência ou Sistema.
+- **Filtro por status** — todas, não lidas ou lidas.
+- **Severidade visual** — uma faixa colorida à esquerda de cada item indica se é informativo, um
+  alerta ou algo crítico que pede atenção imediata.
+- **Ações em lote** — selecione várias notificações não lidas e marque todas de uma vez, ou marque
+  todas as não lidas em um clique.
+- **Carregar mais** — a lista cresce sob demanda conforme você rola a página, sem carregar tudo de uma vez.
+
+## Quando usar
+
+- Você lembra de ter recebido um alerta, mas ele já saiu das 10 mais recentes do sino.
+- Quer revisar só notificações de uma categoria (ex.: só Cobrança) antes de começar o dia.
+- Acabou de voltar de férias e quer limpar dezenas de notificações não lidas de uma vez.
+
+## Passo a passo
+
+<Step number={1} title="Abra a central">
+  Clique no sino no canto superior direito da tela e, no rodapé do painel que abre, clique em
+  **Ver todas as notificações**. Você também pode acessar diretamente por `/notificacoes`.
+</Step>
+
+<Step number={2} title="Filtre por categoria ou status">
+  Use os seletores **Categoria** e **Status** no topo da lista. Os dois filtros combinam — por
+  exemplo, "Cobrança" + "Não lidas" mostra só cobranças pendentes de leitura. Clique em
+  **Limpar filtros** para voltar a ver tudo.
+</Step>
+
+<Step number={3} title="Entenda a severidade e a categoria de cada item">
+  Cada notificação mostra um ícone colorido (severidade) e, logo abaixo do horário, o rótulo da
+  categoria. A cor da faixa à esquerda segue o mesmo padrão do sino: azul/verde para informativo,
+  amarelo para atenção, vermelho para crítico.
+</Step>
+
+<Step number={4} title="Marque notificações selecionadas como lidas">
+  Marque a caixa de seleção das notificações não lidas que quiser (ou clique na caixa no topo da
+  lista para selecionar todas as visíveis) e clique em **Marcar selecionadas como lidas**.
+</Step>
+
+<Step number={5} title="Marque tudo como lido de uma vez">
+  Clique em **Marcar todas como lidas** para zerar o contador de não lidas — essa ação afeta
+  todas as suas notificações, não só as visíveis na tela no momento.
+</Step>
+
+<Step number={6} title="Abra a entidade relacionada">
+  Clique no título ou no corpo de uma notificação vinculada a um lead, análise, contrato ou
+  cobrança para ser levado direto até ela. Notificações sem entidade vinculada só expandem o texto
+  completo ao clicar na seta.
+</Step>
+
+## Erros comuns
+
+### A lista parece vazia mesmo com notificações não lidas no sino
+
+**Causa:** um filtro de categoria ou status ficou ativo de uma visita anterior.
+
+**Solução:** clique em **Limpar filtros** no topo da lista.
+
+### "Marcar selecionadas como lidas" está desabilitado
+
+**Causa:** nenhuma notificação não lida está selecionada — o botão só habilita com ao menos uma
+seleção.
+
+**Solução:** marque a caixa de seleção de pelo menos uma notificação não lida, ou use **Marcar
+todas como lidas** para o efeito completo de uma vez.
+
+### Notificações antigas não aparecem
+
+**Causa:** elas ainda não foram carregadas — a central busca em lotes conforme você rola a página.
+
+**Solução:** clique em **Carregar mais** no fim da lista até encontrar o período desejado.
+
+<Callout type="info" title="Filtros funcionam sobre o que já foi carregado">
+  Categoria e status filtram as notificações já trazidas para a tela. Se um filtro parecer
+  incompleto, clique em **Carregar mais** para trazer notificações mais antigas antes de
+  filtrar novamente.
+</Callout>
+
+## Veja também
+
+- [Preferências de notificação](/ajuda/guias/notificacoes-preferencias) — escolha quais categorias e canais você recebe.
+- [Regras de Notificação](/ajuda/guias/admin/notificacoes) — como administradores configuram os gatilhos que geram notificações.

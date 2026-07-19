@@ -4,11 +4,24 @@
 
 export { NotificationDropdown } from './NotificationDropdown';
 export { NotificationItem } from './NotificationItem';
-export { useNotifications, useMarkRead, useMarkAllRead } from './hooks';
+export {
+  useNotifications,
+  useNotificationsInfinite,
+  useMarkRead,
+  useMarkAllRead,
+  useMarkManyRead,
+} from './hooks';
 export { useNotificationSocket } from './useNotificationSocket';
 export type {
   NotificationSocketPayload,
   NotificationSocketSeverity,
   NotificationToast,
 } from './useNotificationSocket';
-export { resolveNotificationHref, getNotificationActionLabel } from './navigation';
+export {
+  resolveNotificationHref,
+  getNotificationActionLabel,
+  resolveNotificationCategory,
+  getNotificationCategoryLabel,
+  NOTIFICATION_CATEGORIES,
+} from './navigation';
+export { SEVERITY_STYLE, SeverityIcon, getSeverityLabel } from './severity';

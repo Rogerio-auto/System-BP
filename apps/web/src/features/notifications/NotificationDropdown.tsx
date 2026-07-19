@@ -9,6 +9,10 @@
 // componente vive uma única vez na Topbar (AppLayout, fora do <Outlet>). O
 // socket alimenta badge+lista ao vivo (via cache TanStack) e uma pilha de
 // toasts por severidade, renderizada em portal abaixo da Topbar.
+//
+// F26-S04: estilo/ícone de severidade dos toasts vêm de `./severity` (fonte
+// única, reusada também por NotificationItem/NotificationMeta — sem cópia
+// local divergente). Rodapé ganhou link "ver todas" -> /notificacoes (central).
 // =============================================================================
 
 import * as React from 'react';
@@ -19,7 +23,8 @@ import { cn } from '../../lib/cn';
 
 import { useMarkAllRead, useMarkRead, useNotifications } from './hooks';
 import { NotificationItem } from './NotificationItem';
-import type { NotificationSocketSeverity, NotificationToast } from './useNotificationSocket';
+import { SEVERITY_STYLE, SeverityIcon } from './severity';
+import type { NotificationToast } from './useNotificationSocket';
 import { useNotificationSocket } from './useNotificationSocket';
 
 const DROPDOWN_PAGE_SIZE = 10;
@@ -80,78 +85,8 @@ function UnreadBadge({ count }: UnreadBadgeProps): React.JSX.Element | null {
 }
 
 // ---------------------------------------------------------------------------
-// Toast por severidade (tempo real)
+// Toast por severidade (tempo real) — estilo/ícone vêm de ./severity
 // ---------------------------------------------------------------------------
-
-function ToastIcon({ severity }: { severity: NotificationSocketSeverity }): React.JSX.Element {
-  if (severity === 'critical') {
-    return (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-    );
-  }
-
-  if (severity === 'warning') {
-    return (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-        <line x1="12" y1="9" x2="12" y2="13" />
-        <line x1="12" y1="17" x2="12.01" y2="17" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="16" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12.01" y2="8" />
-    </svg>
-  );
-}
-
-/** Cor de borda/ícone/fundo por severidade — sempre tokens do DS, nunca hex. */
-const TOAST_SEVERITY_STYLE: Record<
-  NotificationSocketSeverity,
-  { border: string; bg: string; fg: string }
-> = {
-  info: { border: 'var(--info)', bg: 'var(--info-bg)', fg: 'var(--info)' },
-  warning: { border: 'var(--warning)', bg: 'var(--warning-bg)', fg: 'var(--warning)' },
-  critical: { border: 'var(--danger)', bg: 'var(--danger-bg)', fg: 'var(--danger)' },
-};
 
 interface NotificationToastStackProps {
   toasts: readonly NotificationToast[];
@@ -181,7 +116,7 @@ function NotificationToastStack({
       style={{ top: 72, zIndex: 200, width: 320 }}
     >
       {toasts.map((t) => {
-        const style = TOAST_SEVERITY_STYLE[t.severity];
+        const style = SEVERITY_STYLE[t.severity];
         return (
           <div key={t.id} className="animate-[fade-up_var(--dur-slow)_var(--ease-out)_both]">
             <div
@@ -199,7 +134,7 @@ function NotificationToastStack({
               onClick={() => onOpen(t)}
             >
               <span className="shrink-0 mt-0.5" style={{ color: style.fg }} aria-hidden="true">
-                <ToastIcon severity={t.severity} />
+                <SeverityIcon severity={t.severity} size={16} />
               </span>
               <div className="flex-1 min-w-0">
                 <p
@@ -443,18 +378,36 @@ export function NotificationDropdown(): React.JSX.Element {
             )}
           </div>
 
-          {/* Footer */}
-          {data !== undefined && data.total > DROPDOWN_PAGE_SIZE && (
+          {/* Footer — F26-S04: "ver todas" leva à central (/notificacoes) */}
+          {data !== undefined && data.data.length > 0 && (
             <div
-              className="px-4 py-2.5 shrink-0 text-center"
+              className="px-4 py-2.5 shrink-0 flex flex-col items-center gap-1"
               style={{ borderTop: '1px solid var(--border-subtle)' }}
             >
-              <span
-                className="font-sans"
-                style={{ fontSize: 'var(--text-xs)', color: 'var(--text-3)' }}
+              {data.total > DROPDOWN_PAGE_SIZE && (
+                <span
+                  className="font-sans"
+                  style={{ fontSize: 'var(--text-xs)', color: 'var(--text-3)' }}
+                >
+                  Mostrando {DROPDOWN_PAGE_SIZE} de {data.total} notificações
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/notificacoes');
+                }}
+                className={cn(
+                  'font-sans font-medium',
+                  'outline-none focus-visible:ring-2 focus-visible:ring-azul/40 rounded-sm px-1',
+                  'transition-colors duration-[150ms]',
+                  'hover:text-azul',
+                )}
+                style={{ fontSize: 'var(--text-xs)', color: 'var(--brand-azul)' }}
               >
-                Mostrando {DROPDOWN_PAGE_SIZE} de {data.total} notificações
-              </span>
+                Ver todas as notificações →
+              </button>
             </div>
           )}
         </div>
