@@ -61,7 +61,14 @@ def _make_gateway(content: str, finish_reason: str = "stop") -> MagicMock:
         model="moonshot/kimi-k2",
         usage=TokenUsage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
         finish_reason=finish_reason,
-        raw={"choices": [{"message": {"content": content, "tool_calls": None}, "finish_reason": finish_reason}]},
+        raw={
+            "choices": [
+                {
+                    "message": {"content": content, "tool_calls": None},
+                    "finish_reason": finish_reason,
+                }
+            ]
+        },
     ))
     return gw
 
@@ -105,9 +112,11 @@ async def test_agent_turn_happy_path():
     prompt = _make_prompt()
     gw = _make_gateway("Ola! Sou a Ana Clara.")
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+    ):
+        result = await agent_turn(state)
 
     assert result.get("handoff_required") is False
     assert result.get("reply", {}).get("content") == "Ola! Sou a Ana Clara."
@@ -124,29 +133,55 @@ async def test_agent_turn_with_tool_call():
     prompt = _make_prompt()
     tc_args_json = '{"lead_id": "lead-uuid-test"}'
 
-    from app.llm.gateway import LLMResponse, TokenUsage
-
     tool_call_response = LLMResponse(
         content="",
         model="moonshot/kimi-k2",
         usage=TokenUsage(),
         finish_reason="tool_calls",
-        raw={"choices": [{"message": {"content": "", "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "get_customer_context", "arguments": tc_args_json}}]}, "finish_reason": "tool_calls"}]},
+        raw={
+            "choices": [
+                {
+                    "message": {
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_customer_context",
+                                    "arguments": tc_args_json,
+                                },
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        },
     )
     final_response = LLMResponse(
         content="Encontrei seu cadastro.",
         model="moonshot/kimi-k2",
         usage=TokenUsage(),
         finish_reason="stop",
-        raw={"choices": [{"message": {"content": "Encontrei seu cadastro.", "tool_calls": None}, "finish_reason": "stop"}]},
+        raw={
+            "choices": [
+                {
+                    "message": {"content": "Encontrei seu cadastro.", "tool_calls": None},
+                    "finish_reason": "stop",
+                }
+            ]
+        },
     )
     gw = MagicMock()
     gw.complete = AsyncMock(side_effect=[tool_call_response, final_response])
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{ok: true}')):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{ok: true}')),
+    ):
+        result = await agent_turn(state)
 
     assert result.get("reply", {}).get("content") == "Encontrei seu cadastro."
     tr = result.get("tool_results", [])
@@ -162,9 +197,11 @@ async def test_agent_turn_gateway_error_triggers_handoff():
     gw = MagicMock()
     gw.complete = AsyncMock(side_effect=RuntimeError("Gateway timeout"))
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+    ):
+        result = await agent_turn(state)
 
     assert result.get("handoff_required") is True
     assert "agent_turn falhou" in result.get("handoff_reason", "")
@@ -177,7 +214,9 @@ async def test_agent_turn_prompt_not_found_triggers_handoff():
     from app.prompts.loader import PromptNotFoundError
     state = _make_state()
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(side_effect=PromptNotFoundError("pre_attendance_agent"))):
+    with patch(
+        _LOAD_PROMPT_PATCH, new=AsyncMock(side_effect=PromptNotFoundError("pre_attendance_agent"))
+    ):
         result = await agent_turn(state)
 
     assert result.get("handoff_required") is True
@@ -255,7 +294,17 @@ async def test_agent_turn_tool_cap_batch_5_dispatches_at_most_4():
         model="moonshot/kimi-k2",
         usage=TokenUsage(),
         finish_reason="stop",
-        raw={"choices": [{"message": {"content": "Atingi o limite de acoes por turno.", "tool_calls": None}, "finish_reason": "stop"}]},
+        raw={
+            "choices": [
+                {
+                    "message": {
+                        "content": "Atingi o limite de acoes por turno.",
+                        "tool_calls": None,
+                    },
+                    "finish_reason": "stop",
+                }
+            ]
+        },
     )
     gw = MagicMock()
     gw.complete = AsyncMock(side_effect=[batch_response, cap_response])
@@ -266,10 +315,12 @@ async def test_agent_turn_tool_cap_batch_5_dispatches_at_most_4():
         dispatched.append(tool_name)
         return '{"ok": true}'
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, side_effect=_mock_dispatch):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, side_effect=_mock_dispatch),
+    ):
+        result = await agent_turn(state)
 
     # Apenas 4 tools devem ter sido despachadas (cap = MAX_TOOL_CALLS_PER_TURN)
     real_dispatches = [t for t in dispatched if t != "log_ai_decision"]
@@ -300,12 +351,16 @@ async def test_agent_turn_audit_called_even_without_llm_log_tool():
             assert "decision" in tool_args
         return '{"ok": true}'
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, side_effect=_mock_dispatch):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, side_effect=_mock_dispatch),
+    ):
+        result = await agent_turn(state)
 
-    assert len(audit_calls) >= 1, "log_ai_decision deve ser chamada incondicionalmente ao fim do turno"
+    assert len(audit_calls) >= 1, (
+        "log_ai_decision deve ser chamada incondicionalmente ao fim do turno"
+    )
     assert result.get("handoff_required") is False
 
 
@@ -317,9 +372,11 @@ async def test_agent_turn_empty_org_id_triggers_handoff_without_gateway():
     gw = MagicMock()
     gw.complete = AsyncMock()
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+    ):
+        result = await agent_turn(state)
 
     assert result.get("handoff_required") is True
     assert "organization_id ausente" in result.get("handoff_reason", "")

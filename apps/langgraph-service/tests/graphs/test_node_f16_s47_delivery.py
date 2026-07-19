@@ -19,7 +19,6 @@ import pytest
 from app.api.process import _extract_messages
 from app.graphs.whatsapp_pre_attendance.nodes.persist_state import persist_state
 
-
 # ---------------------------------------------------------------------------
 # BUG-2: _extract_messages (process.py)
 # ---------------------------------------------------------------------------

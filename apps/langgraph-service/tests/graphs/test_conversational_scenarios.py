@@ -68,7 +68,9 @@ def _make_prompt() -> ActivePrompt:
     )
 
 
-def _llm_response(content: str = "", finish_reason: str = "stop", tool_calls: list | None = None) -> Any:
+def _llm_response(
+    content: str = "", finish_reason: str = "stop", tool_calls: list | None = None
+) -> Any:
     from app.llm.gateway import LLMResponse, TokenUsage
     raw_tc = tool_calls or []
     return LLMResponse(
@@ -131,10 +133,12 @@ async def test_s45_cenario_01_saudacao_sem_tool_credito():
     prompt = _make_prompt()
     gw = _make_gateway(_llm_response("Ola! Sou a Ana Clara. Qual e o seu nome?"))
     dispatch_mock = _make_dispatch()
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, side_effect=dispatch_mock):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, side_effect=dispatch_mock),
+    ):
+        result = await agent_turn(state)
     assert result.get("handoff_required") is False
     reply = result.get("reply", {})
     assert reply.get("type") == "text"
@@ -171,16 +175,20 @@ async def test_s45_cenario_02_simulacao_sem_taxa_com_avalista():
     )
     gw = _make_gateway(sim_tc, final_resp)
     dispatch_mock = _make_dispatch({"generate_credit_simulation": sim_result})
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, side_effect=dispatch_mock):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, side_effect=dispatch_mock),
+    ):
+        result = await agent_turn(state)
     assert result.get("handoff_required") is False
     content = result.get("reply", {}).get("content", "")
     import re
     assert not re.search(r"\d+[,.]?\d*\s*%", content), f"BUG taxa: {content!r}"
     assert "avalista" in content.lower(), f"BUG avalista: {content!r}"
-    sim_calls = [c for c in dispatch_mock.await_args_list if c.args[0] == "generate_credit_simulation"]
+    sim_calls = [
+        c for c in dispatch_mock.await_args_list if c.args[0] == "generate_credit_simulation"
+    ]
     assert len(sim_calls) >= 1
 
 
@@ -194,17 +202,25 @@ async def test_s45_cenario_03_cidade_nao_atendida():
     """Cenario 3: Porto Velho (nao atendida) -- explica; nao simula."""
     state = _make_state(messages=[{"role": "user", "content": "Sou de Porto Velho, quero credito"}])
     prompt = _make_prompt()
-    city_tc = _tool_call_response("identify_city", {"city_text": "Porto Velho", "organization_id": _ORG})
-    city_result = {"matched": True, "city_id": "city-pv", "city_name": "Porto Velho", "served": False}
+    city_tc = _tool_call_response(
+        "identify_city", {"city_text": "Porto Velho", "organization_id": _ORG}
+    )
+    city_result = {
+        "matched": True, "city_id": "city-pv", "city_name": "Porto Velho", "served": False
+    }
     final_resp = _llm_response("Infelizmente Porto Velho ainda nao esta na cobertura.")
     gw = _make_gateway(city_tc, final_resp)
     dispatch_mock = _make_dispatch({"identify_city": city_result})
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, side_effect=dispatch_mock):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, side_effect=dispatch_mock),
+    ):
+        result = await agent_turn(state)
     assert result.get("handoff_required") is False
-    sim_calls = [c for c in dispatch_mock.await_args_list if c.args[0] == "generate_credit_simulation"]
+    sim_calls = [
+        c for c in dispatch_mock.await_args_list if c.args[0] == "generate_credit_simulation"
+    ]
     assert len(sim_calls) == 0, "BUG: simulacao chamada para cidade nao atendida"
 
 # Cenario 4: Curriculo -- handoff imediato
@@ -222,10 +238,12 @@ async def test_s45_cenario_04_curriculo_handoff_imediato():
     final_resp = _llm_response("Vou te conectar.")
     gw = _make_gateway(handoff_tc, final_resp)
     dispatch_mock = _make_dispatch({"request_handoff": {"ok": True}})
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, side_effect=dispatch_mock):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, side_effect=dispatch_mock),
+    ):
+        result = await agent_turn(state)
     assert result.get("handoff_required") is True
     hf_calls = [c for c in dispatch_mock.await_args_list if c.args[0] == "request_handoff"]
     assert len(hf_calls) >= 1
@@ -243,10 +261,12 @@ async def test_s45_cenario_05_boleto_handoff_prioridade():
     final_resp = _llm_response("Te conecto com financeiro.")
     gw = _make_gateway(handoff_tc, final_resp)
     dispatch_mock = _make_dispatch({"request_handoff": {"ok": True}})
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, side_effect=dispatch_mock):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, side_effect=dispatch_mock),
+    ):
+        result = await agent_turn(state)
     assert result.get("handoff_required") is True
     hf_calls = [c for c in dispatch_mock.await_args_list if c.args[0] == "request_handoff"]
     assert len(hf_calls) >= 1
@@ -265,9 +285,11 @@ async def test_s45_cenario_07_erro_gateway_fallback_handoff():
     prompt = _make_prompt()
     gw = MagicMock()
     gw.complete = AsyncMock(side_effect=TimeoutError("timeout"))
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+    ):
+        result = await agent_turn(state)
     assert result.get("handoff_required") is True
     assert result.get("handoff_reason")
     errors = result.get("errors", [])
@@ -292,10 +314,12 @@ async def test_s45_cenario_08_cap_de_tool_calls():
         dispatched.append(tn)
         return json.dumps({"ok": True})
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, side_effect=_mock_dispatch):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, side_effect=_mock_dispatch),
+    ):
+        result = await agent_turn(state)
     real = [t for t in dispatched if t != "log_ai_decision"]
     assert len(real) <= MAX_TOOL_CALLS_PER_TURN, f"BUG cap: {len(real)} > {MAX_TOOL_CALLS_PER_TURN}"
     assert "limite" in result.get("reply", {}).get("content", "")
@@ -307,9 +331,11 @@ async def test_s45_cenario_09_org_id_vazio_handoff_sem_gateway():
     prompt = _make_prompt()
     gw = MagicMock()
     gw.complete = AsyncMock()
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+    ):
+        result = await agent_turn(state)
     assert result.get("handoff_required") is True
     hr = result.get("handoff_reason", "")
     assert "organization_id ausente" in hr, f"BUG reason: {hr}"
@@ -323,9 +349,11 @@ async def test_s45_reply_sem_quebras_excessivas():
     state = _make_state()
     prompt = _make_prompt()
     gw = _make_gateway(_llm_response("Ola! Posso te ajudar."))
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+    ):
+        result = await agent_turn(state)
     content = result.get("reply", {}).get("content", "")
     assert chr(10) * 3 not in content
     assert len(content) <= 2000

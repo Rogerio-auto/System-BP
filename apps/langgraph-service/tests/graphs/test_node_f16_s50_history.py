@@ -15,7 +15,6 @@ import pytest
 
 from app.graphs.whatsapp_pre_attendance.nodes.load_state import _merge_messages
 
-
 # ---------------------------------------------------------------------------
 # BUG 1: _merge_messages
 # ---------------------------------------------------------------------------
@@ -79,7 +78,14 @@ def _make_gateway(json_content: str) -> MagicMock:
         model="anthropic/claude-sonnet-4",
         usage=TokenUsage(prompt_tokens=50, completion_tokens=40, total_tokens=90),
         finish_reason="stop",
-        raw={"choices": [{"message": {"content": json_content, "tool_calls": None}, "finish_reason": "stop"}]},
+        raw={
+            "choices": [
+                {
+                    "message": {"content": json_content, "tool_calls": None},
+                    "finish_reason": "stop",
+                }
+            ]
+        },
     ))
     return gw
 
@@ -96,13 +102,15 @@ async def test_agent_turn_persists_full_reply_in_history() -> None:
     json_output = '{"messages": ["Olá! Tudo bem?", "Sou a Ana Clara.", "Qual seu nome completo?"]}'
     gw = _make_gateway(json_output)
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=_make_prompt())):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')):
-                result = await __import__(
-                    "app.graphs.whatsapp_pre_attendance.nodes.agent_turn",
-                    fromlist=["agent_turn"],
-                ).agent_turn(state)  # type: ignore[arg-type]
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=_make_prompt())),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')),
+    ):
+        result = await __import__(
+            "app.graphs.whatsapp_pre_attendance.nodes.agent_turn",
+            fromlist=["agent_turn"],
+        ).agent_turn(state)  # type: ignore[arg-type]
 
     hist = result.get("messages", [])
     assistant_msgs = [m for m in hist if m.get("role") == "assistant"]

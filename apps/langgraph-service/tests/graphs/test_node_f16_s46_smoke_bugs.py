@@ -101,7 +101,14 @@ def _make_gateway_with_json_output(json_content: str) -> MagicMock:
         model="anthropic/claude-sonnet-4",
         usage=TokenUsage(prompt_tokens=50, completion_tokens=108, total_tokens=158),
         finish_reason="stop",
-        raw={"choices": [{"message": {"content": json_content, "tool_calls": None}, "finish_reason": "stop"}]},
+        raw={
+            "choices": [
+                {
+                    "message": {"content": json_content, "tool_calls": None},
+                    "finish_reason": "stop",
+                }
+            ]
+        },
     ))
     return gw
 
@@ -155,7 +162,7 @@ class TestParseAgentOutput:
         -> json.loads falha. O envelope cru '{"messages": [' NUNCA deve vazar pro
         cliente; salva o texto limpo via regex."""
         raw = '{"messages": ["Entendi! Temos a linha X.\nEssa exige garantia.\nQual seu nome?"]}'
-        fin, msgs = _parse_agent_output(raw)
+        _fin, msgs = _parse_agent_output(raw)
         assert msgs, "deveria salvar ao menos 1 mensagem"
         joined = "\n".join(msgs)
         assert '"messages":' not in joined and '{"messages"' not in joined
@@ -165,7 +172,7 @@ class TestParseAgentOutput:
         """Regressao: aspa de fechamento faltando -> json.loads falha. Nao vaza o
         envelope e descarta lixo de fronteira (virgula solta capturada)."""
         raw = '{"messages": ["Garantia Real., "Essa exige garantia.", "Qual seu nome?"]}'
-        fin, msgs = _parse_agent_output(raw)
+        _fin, msgs = _parse_agent_output(raw)
         joined = " ".join(msgs)
         assert '{"messages"' not in joined and '"messages":' not in joined
         assert all(
@@ -226,13 +233,15 @@ async def test_agent_turn_parses_json_messages_output() -> None:
     json_output = '{"messages": ["Ola! Sou a Ana Clara, assistente do Banco do Povo."]}'
     gw = _make_gateway_with_json_output(json_output)
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')):
-                result = await __import__(
-                    "app.graphs.whatsapp_pre_attendance.nodes.agent_turn",
-                    fromlist=["agent_turn"],
-                ).agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')),
+    ):
+        result = await __import__(
+            "app.graphs.whatsapp_pre_attendance.nodes.agent_turn",
+            fromlist=["agent_turn"],
+        ).agent_turn(state)
 
     reply = result.get("reply", {})
     assert reply.get("type") == "text", (
@@ -262,10 +271,12 @@ async def test_agent_turn_json_multiple_messages_joined() -> None:
     json_output = '{"messages": ["Ola! Sou a Ana Clara.", "Como posso ajudar?"]}'
     gw = _make_gateway_with_json_output(json_output)
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')),
+    ):
+        result = await agent_turn(state)
 
     reply = result.get("reply", {})
     assert reply.get("type") == "text"
@@ -285,10 +296,12 @@ async def test_agent_turn_json_in_markdown_block_parses_correctly() -> None:
     json_output = '```json\n{"messages": ["Mensagem em bloco markdown."]}\n```'
     gw = _make_gateway_with_json_output(json_output)
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')),
+    ):
+        result = await agent_turn(state)
 
     reply = result.get("reply", {})
     assert reply.get("type") == "text"
@@ -305,10 +318,12 @@ async def test_agent_turn_plain_text_still_works_as_fallback() -> None:
     plain_text = "Ola, sou a Ana Clara. Como posso ajudar?"
     gw = _make_gateway_with_json_output(plain_text)
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=prompt)),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')),
+    ):
+        result = await agent_turn(state)
 
     reply = result.get("reply", {})
     assert reply.get("type") == "text"
@@ -485,7 +500,7 @@ class TestPersistStateBugC:
             route = respx.put(put_url).mock(
                 return_value=httpx.Response(200, json={"ok": True})
             )
-            result = await persist_state(state)
+            await persist_state(state)
 
         assert route.called
         body = json.loads(route.calls.last.request.content)
@@ -514,7 +529,7 @@ class TestPersistStateBugC:
             route = respx.put(put_url).mock(
                 return_value=httpx.Response(200, json={"ok": True})
             )
-            result = await persist_state(state)
+            await persist_state(state)
 
         assert route.called
         body = json.loads(route.calls.last.request.content)
@@ -562,7 +577,7 @@ class TestPersistStateBugC:
             route = respx.put(put_url).mock(
                 return_value=httpx.Response(200, json={"ok": True})
             )
-            result = await persist_state(state)
+            await persist_state(state)
 
         body = json.loads(route.calls.last.request.content)
         assert "organization_id" not in body or body.get("organization_id"), (
