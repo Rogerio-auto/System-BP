@@ -1,10 +1,18 @@
 from __future__ import annotations
+
 from typing import Any
 from unittest.mock import AsyncMock, patch
+
 import pytest
+
 from app.graphs.whatsapp_pre_attendance.nodes.identify_or_create_lead import identify_or_create_lead
 from app.graphs.whatsapp_pre_attendance.nodes.receive_message import receive_message
-from app.graphs.whatsapp_pre_attendance.state import ConversationState, _KNOWN_KEYS, deserialize_state, serialize_state
+from app.graphs.whatsapp_pre_attendance.state import (
+    _KNOWN_KEYS,
+    ConversationState,
+    deserialize_state,
+    serialize_state,
+)
 from app.tools.leads_tools import GetOrCreateLeadSuccess
 
 _PHONE = "+5569999999999"

@@ -38,7 +38,7 @@ def test_graph_timeout_sec_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GRAPH_TIMEOUT_SEC", raising=False)
     _reload_settings({})
 
-    import app.config as cfg  # noqa: PLC0415
+    import app.config as cfg
 
     # Precisa reimportar após reload
     importlib.reload(cfg)
@@ -50,7 +50,7 @@ def test_graph_timeout_sec_override(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GRAPH_TIMEOUT_SEC", "30")
     _reload_settings({"GRAPH_TIMEOUT_SEC": "30"})
 
-    import app.config as cfg  # noqa: PLC0415
+    import app.config as cfg
 
     importlib.reload(cfg)
     assert cfg.settings.graph_timeout_sec == pytest.approx(30.0)
@@ -61,7 +61,7 @@ def test_graph_timeout_sec_float(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GRAPH_TIMEOUT_SEC", "12.5")
     _reload_settings({"GRAPH_TIMEOUT_SEC": "12.5"})
 
-    import app.config as cfg  # noqa: PLC0415
+    import app.config as cfg
 
     importlib.reload(cfg)
     assert cfg.settings.graph_timeout_sec == pytest.approx(12.5)

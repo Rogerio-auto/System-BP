@@ -121,16 +121,20 @@ async def test_recovers_message_written_alongside_toolcall_when_final_empty() ->
         ]
     )
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=_make_prompt())):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=_make_prompt())),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')),
+    ):
+        result = await agent_turn(state)
 
     reply = result.get("reply", {})
     assert reply.get("type") == "text", (
         f"reply.type deveria ser 'text' (recuperado), foi '{reply.get('type')}'"
     )
-    assert "Ana Clara" in reply.get("content", ""), "conteudo do turno do tool_call nao foi recuperado"
+    assert "Ana Clara" in reply.get("content", ""), (
+        "conteudo do turno do tool_call nao foi recuperado"
+    )
     assert result.get("handoff_required") is not True, "nao deve handoff: a resposta foi recuperada"
 
 
@@ -146,11 +150,15 @@ async def test_handoff_safety_net_when_truly_empty() -> None:
         ]
     )
 
-    with patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=_make_prompt())):
-        with patch(_GET_GATEWAY_PATCH, return_value=gw):
-            with patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')):
-                result = await agent_turn(state)
+    with (
+        patch(_LOAD_PROMPT_PATCH, new=AsyncMock(return_value=_make_prompt())),
+        patch(_GET_GATEWAY_PATCH, return_value=gw),
+        patch(_DISPATCH_TOOL_PATCH, new=AsyncMock(return_value='{"ok": true}')),
+    ):
+        result = await agent_turn(state)
 
     reply = result.get("reply", {})
     assert reply.get("type") == "none", "sem texto em lugar nenhum -> reply none"
-    assert result.get("handoff_required") is True, "resposta vazia deve disparar handoff de seguranca"
+    assert result.get("handoff_required") is True, (
+        "resposta vazia deve disparar handoff de seguranca"
+    )

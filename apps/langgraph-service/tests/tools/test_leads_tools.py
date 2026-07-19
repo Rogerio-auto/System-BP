@@ -671,7 +671,9 @@ async def test_update_success_multiple_fields() -> None:
     # Verifica que o payload enviado contém os campos corretos
     sent = _json.loads(route.calls.last.request.content)
     assert sent.get("city_id") == "city-0001"
-    assert sent.get("requested_amount") == "8000.00"
+    # A tool coage requested_amount para number (contrato /internal: schemas.ts z.number());
+    # ver fix 6366c346. O payload enviado é 8000.0, não a string original "8000.00".
+    assert sent.get("requested_amount") == 8000.0
     assert sent.get("requested_term_months") == 24
     assert "name" not in sent  # não fornecido → não deve aparecer
 

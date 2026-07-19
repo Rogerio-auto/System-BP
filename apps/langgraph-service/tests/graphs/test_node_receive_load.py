@@ -292,23 +292,23 @@ class TestReceiveMessage:
         nao tinha o que preservar e logava organization_id: "<missing>", e
         todas as escritas /internal falhavam com 400.
         """
-        _ORG_ID = "org-uuid-1111-0000-0000-000000000001"
+        org_id = "org-uuid-1111-0000-0000-000000000001"
         payload = _base_payload()
-        payload["organization_id"] = _ORG_ID
+        payload["organization_id"] = org_id
         result = receive_message(_empty_state(), payload=payload)
 
-        assert result.get("organization_id") == _ORG_ID, (
+        assert result.get("organization_id") == org_id, (
             f"organization_id perdido em receive_message: got {result.get('organization_id')!r}"
         )
 
     def test_organization_id_missing_from_payload_uses_state_fallback(self) -> None:
         """Payload sem organization_id deve usar o valor do state como fallback."""
-        _ORG_ID = "org-fallback-2222-0000-0000-000000000002"
+        org_id = "org-fallback-2222-0000-0000-000000000002"
         existing: ConversationState = {
             "conversation_id": _CONVERSATION_ID,
             "phone": _PHONE,
             "chatwoot_conversation_id": _CW_CONV_ID,
-            "organization_id": _ORG_ID,
+            "organization_id": org_id,
             "handoff_required": False,
             "missing_fields": [],
             "messages": [],
@@ -319,17 +319,17 @@ class TestReceiveMessage:
         payload = _base_payload()  # sem organization_id
         result = receive_message(existing, payload=payload)
 
-        assert result.get("organization_id") == _ORG_ID
+        assert result.get("organization_id") == org_id
 
     def test_organization_id_payload_takes_precedence_over_state(self) -> None:
         """Quando payload e state tem org_id, o payload e autoritativo."""
-        _ORG_PAYLOAD = "org-payload-aaaa-0000-0000-000000000001"
-        _ORG_STATE = "org-state-bbbb-0000-0000-000000000002"
+        org_payload = "org-payload-aaaa-0000-0000-000000000001"
+        org_state = "org-state-bbbb-0000-0000-000000000002"
         existing: ConversationState = {
             "conversation_id": _CONVERSATION_ID,
             "phone": _PHONE,
             "chatwoot_conversation_id": _CW_CONV_ID,
-            "organization_id": _ORG_STATE,
+            "organization_id": org_state,
             "handoff_required": False,
             "missing_fields": [],
             "messages": [],
@@ -338,10 +338,10 @@ class TestReceiveMessage:
             "actions_emitted": [],
         }
         payload = _base_payload()
-        payload["organization_id"] = _ORG_PAYLOAD
+        payload["organization_id"] = org_payload
         result = receive_message(existing, payload=payload)
 
-        assert result.get("organization_id") == _ORG_PAYLOAD
+        assert result.get("organization_id") == org_payload
 
 
 # ===========================================================================
@@ -586,13 +586,13 @@ class TestLoadState:
         que veio no state de entrada (request). Isso causava 400 em todas as escritas
         /internal a jusante (identify_or_create_lead, persist_state, log_decision).
         """
-        _ORG_ID = "org-uuid-1111-0000-0000-000000000001"
+        org_id = "org-uuid-1111-0000-0000-000000000001"
 
         current_state: ConversationState = {
             "conversation_id": _CONVERSATION_ID,
             "phone": _PHONE,
             "chatwoot_conversation_id": _CW_CONV_ID,
-            "organization_id": _ORG_ID,
+            "organization_id": org_id,
             "handoff_required": False,
             "missing_fields": [],
             "messages": [
@@ -612,21 +612,21 @@ class TestLoadState:
             )
             result = await load_state(current_state)
 
-        assert result.get("organization_id") == _ORG_ID, (
+        assert result.get("organization_id") == org_id, (
             f"organization_id perdido no caminho merge: got {result.get('organization_id')!r}"
         )
 
     @pytest.mark.asyncio()
     async def test_200_org_id_request_takes_precedence_over_persisted(self) -> None:
         """Caminho merge (200): request e autoritativo — sobrescreve org_id persistido."""
-        _ORG_ID_REQUEST = "org-request-1111-0000-0000-000000000001"
-        _ORG_ID_PERSISTED = "org-persisted-2222-0000-0000-000000000002"
+        org_id_request = "org-request-1111-0000-0000-000000000001"
+        org_id_persisted = "org-persisted-2222-0000-0000-000000000002"
 
         current_state: ConversationState = {
             "conversation_id": _CONVERSATION_ID,
             "phone": _PHONE,
             "chatwoot_conversation_id": _CW_CONV_ID,
-            "organization_id": _ORG_ID_REQUEST,
+            "organization_id": org_id_request,
             "handoff_required": False,
             "missing_fields": [],
             "messages": [],
@@ -635,7 +635,7 @@ class TestLoadState:
             "actions_emitted": [],
         }
         persisted_with_diff_org = _persisted_state_body(
-            extra={"organization_id": _ORG_ID_PERSISTED}
+            extra={"organization_id": org_id_persisted}
         )
 
         with respx.mock:
@@ -644,18 +644,18 @@ class TestLoadState:
             )
             result = await load_state(current_state)
 
-        assert result.get("organization_id") == _ORG_ID_REQUEST
+        assert result.get("organization_id") == org_id_request
 
     @pytest.mark.asyncio()
     async def test_404_preserves_org_id_from_request(self) -> None:
         """Caminho 404 (primeira interacao): organization_id do request nao regride."""
-        _ORG_ID = "org-uuid-1111-0000-0000-000000000001"
+        org_id = "org-uuid-1111-0000-0000-000000000001"
 
         current_state: ConversationState = {
             "conversation_id": _CONVERSATION_ID,
             "phone": _PHONE,
             "chatwoot_conversation_id": _CW_CONV_ID,
-            "organization_id": _ORG_ID,
+            "organization_id": org_id,
             "handoff_required": False,
             "missing_fields": [],
             "messages": [
@@ -671,7 +671,7 @@ class TestLoadState:
             )
             result = await load_state(current_state)
 
-        assert result.get("organization_id") == _ORG_ID
+        assert result.get("organization_id") == org_id
 
 
     # -----------------------------------------------------------------------
@@ -689,16 +689,17 @@ class TestLoadState:
 
         Historico de elos perdidos:
           - S35: payload->process.py nao incluia org_id (corrigido).
-          - S36: load_state descartava org_id do state de entrada ao mesclar com persistido (corrigido).
+          - S36: load_state descartava org_id do state de entrada ao mesclar
+            com persistido (corrigido).
           - S37: receive_message nao extraia org_id do payload (este fix).
         """
-        _ORG_ID = "org-uuid-propagation-0000-000000000037"
+        org_id = "org-uuid-propagation-0000-000000000037"
         payload = _base_payload()
-        payload["organization_id"] = _ORG_ID
+        payload["organization_id"] = org_id
 
         # Passo 1: receive_message({}, payload) — estado inicial
         state_after_receive = receive_message(_empty_state(), payload=payload)
-        assert state_after_receive.get("organization_id") == _ORG_ID, (
+        assert state_after_receive.get("organization_id") == org_id, (
             "PASSO 1 FALHOU: receive_message nao copiou org_id do payload"
         )
 
@@ -712,8 +713,9 @@ class TestLoadState:
             )
             final_state = await load_state(state_after_receive)
 
-        assert final_state.get("organization_id") == _ORG_ID, (
-            f"PASSO 2 FALHOU: load_state descartou org_id. got {final_state.get('organization_id')!r}"
+        assert final_state.get("organization_id") == org_id, (
+            "PASSO 2 FALHOU: load_state descartou org_id. "
+            f"got {final_state.get('organization_id')!r}"
         )
 
     @pytest.mark.asyncio()
@@ -723,12 +725,12 @@ class TestLoadState:
         Verifica que receive_message → load_state (404, conversa nova) preserva
         organization_id do payload em toda a cadeia.
         """
-        _ORG_ID = "org-uuid-propagation-404-00000000037"
+        org_id = "org-uuid-propagation-404-00000000037"
         payload = _base_payload()
-        payload["organization_id"] = _ORG_ID
+        payload["organization_id"] = org_id
 
         state_after_receive = receive_message(_empty_state(), payload=payload)
-        assert state_after_receive.get("organization_id") == _ORG_ID
+        assert state_after_receive.get("organization_id") == org_id
 
         with respx.mock:
             respx.get(_state_url()).mock(
@@ -736,6 +738,7 @@ class TestLoadState:
             )
             final_state = await load_state(state_after_receive)
 
-        assert final_state.get("organization_id") == _ORG_ID, (
-            f"PASSO 404 FALHOU: org_id perdido apos load_state 404. got {final_state.get('organization_id')!r}"
+        assert final_state.get("organization_id") == org_id, (
+            "PASSO 404 FALHOU: org_id perdido apos load_state 404. "
+            f"got {final_state.get('organization_id')!r}"
         )
