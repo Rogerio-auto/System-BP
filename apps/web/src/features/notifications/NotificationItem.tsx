@@ -15,6 +15,12 @@
 //
 // `resolveNotificationHref`/`getNotificationActionLabel` vêm de `./navigation`
 // — mesma fonte usada pelo toast em tempo real (sem duplicação, G2).
+//
+// F26-S04: severidade (faixa esquerda 3px + ícone, DS §9.6 Alert pattern) e
+// categoria (rótulo textual, derivada de entity_type — ver navigation.ts)
+// exibidas em TODO uso do item — dropdown compacto e central em página cheia
+// reusam o mesmo componente (não duplicar). `selectable` habilita o checkbox
+// de seleção em lote, usado só pela central (dropdown não passa a prop).
 // =============================================================================
 
 import type { Notification } from '@elemento/shared-schemas';
@@ -26,65 +32,28 @@ import { cn } from '../../lib/cn';
 
 import { useMarkRead } from './hooks';
 import { getNotificationActionLabel, resolveNotificationHref } from './navigation';
+import { ChevronIcon, CheckIcon } from './NotificationItemIcons';
+import { NotificationMeta } from './NotificationMeta';
+import { SEVERITY_STYLE } from './severity';
 
 interface NotificationItemProps {
   notification: Notification;
-}
-
-function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'agora';
-  if (mins < 60) return `há ${mins}min`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `há ${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `há ${days}d`;
-}
-
-function ChevronIcon({ expanded }: { expanded: boolean }): React.JSX.Element {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="transition-transform duration-[150ms]"
-      style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
-
-function CheckIcon(): React.JSX.Element {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
+  /** Habilita checkbox de seleção em lote (só a central usa — F26-S04). */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 /**
  * Item de notificação no dropdown — acionável (F26-S01).
  * Hover bg-surface-hover (DS §6 Ghost pattern) no conteúdo clicável.
  */
-export function NotificationItem({ notification }: NotificationItemProps): React.JSX.Element {
+export function NotificationItem({
+  notification,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+}: NotificationItemProps): React.JSX.Element {
   const navigate = useNavigate();
   const markRead = useMarkRead();
   const [expanded, setExpanded] = React.useState(false);
@@ -92,6 +61,7 @@ export function NotificationItem({ notification }: NotificationItemProps): React
   const isUnread = notification.read_at === null;
   const href = resolveNotificationHref(notification.entity_type, notification.entity_id);
   const actionLabel = getNotificationActionLabel(notification.entity_type);
+  const severityStyle = SEVERITY_STYLE[notification.severity];
 
   const markAsReadIfNeeded = (): void => {
     if (isUnread && !markRead.isPending) markRead.mutate(notification.id);
@@ -124,11 +94,32 @@ export function NotificationItem({ notification }: NotificationItemProps): React
       className="border-b last:border-b-0"
       style={{
         borderColor: 'var(--border-subtle)',
+        borderLeft: `3px solid ${severityStyle.border}`,
         background: isUnread ? 'var(--info-bg)' : 'transparent',
         transition: 'background 150ms',
       }}
     >
       <div className="flex items-start gap-2 px-4 py-3">
+        {/* Checkbox de seleção em lote — só na central (F26-S04) */}
+        {selectable && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect?.(notification.id)}
+            aria-label={`Selecionar notificação: ${notification.title}`}
+            className={cn(
+              'mt-1.5 shrink-0 rounded-sm border cursor-pointer',
+              'outline-none focus-visible:ring-2 focus-visible:ring-azul/40',
+            )}
+            style={{
+              width: 16,
+              height: 16,
+              accentColor: 'var(--brand-azul)',
+              borderColor: 'var(--border-strong)',
+            }}
+          />
+        )}
+
         {/* Dot indicador de não-lida — puramente visual */}
         <span
           className="mt-2 shrink-0 rounded-full"
@@ -173,13 +164,8 @@ export function NotificationItem({ notification }: NotificationItemProps): React
               {notification.body}
             </p>
           )}
-          <p
-            className="font-mono mt-1"
-            style={{ fontSize: '0.65rem', color: 'var(--text-4)', letterSpacing: '-0.01em' }}
-            title={new Date(notification.created_at).toLocaleString('pt-BR')}
-          >
-            {formatRelativeTime(notification.created_at)}
-          </p>
+          {/* Severidade (ícone) + horário + categoria — F26-S04 */}
+          <NotificationMeta notification={notification} />
         </button>
 
         {/* Controles explícitos: expandir + marcar como lida (independentes de navegar) */}

@@ -1,15 +1,23 @@
 // =============================================================================
-// features/notifications/__tests__/navigation.test.ts — F26-S01
+// features/notifications/__tests__/navigation.test.ts — F26-S01 + F26-S04
 //
 // Cobertura:
 //   1. resolveNotificationHref: mapeamento entity_type -> rota (fonte única
 //      reusada por lista e toast — doc 23 §14, gap G2).
 //   2. getNotificationActionLabel: rótulo do CTA por entity_type (gap G5).
+//   3. resolveNotificationCategory/getNotificationCategoryLabel: derivação de
+//      categoria a partir de entity_type (F26-S04, central de notificações).
 // =============================================================================
 
 import { describe, expect, it } from 'vitest';
 
-import { getNotificationActionLabel, resolveNotificationHref } from '../navigation';
+import {
+  getNotificationActionLabel,
+  getNotificationCategoryLabel,
+  NOTIFICATION_CATEGORIES,
+  resolveNotificationCategory,
+  resolveNotificationHref,
+} from '../navigation';
 
 // ---------------------------------------------------------------------------
 // resolveNotificationHref
@@ -113,5 +121,55 @@ describe('getNotificationActionLabel', () => {
   it('desconhecido/null -> "Abrir" (fallback genérico)', () => {
     expect(getNotificationActionLabel('unknown_type')).toBe('Abrir');
     expect(getNotificationActionLabel(null)).toBe('Abrir');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveNotificationCategory / getNotificationCategoryLabel (F26-S04)
+// ---------------------------------------------------------------------------
+
+describe('resolveNotificationCategory', () => {
+  it('payment_due -> billing (única categoria no catálogo p/ este entity_type)', () => {
+    expect(resolveNotificationCategory('payment_due')).toBe('billing');
+  });
+
+  it('billing -> billing', () => {
+    expect(resolveNotificationCategory('billing')).toBe('billing');
+  });
+
+  it('kanban_card -> lifecycle_stalled', () => {
+    expect(resolveNotificationCategory('kanban_card')).toBe('lifecycle_stalled');
+  });
+
+  it('task -> system', () => {
+    expect(resolveNotificationCategory('task')).toBe('system');
+  });
+
+  it('conversation -> handoff (primeira ocorrência no catálogo, ver nota de cabeçalho)', () => {
+    expect(resolveNotificationCategory('conversation')).toBe('handoff');
+  });
+
+  it('entity_type desconhecido -> null', () => {
+    expect(resolveNotificationCategory('unknown_type')).toBeNull();
+  });
+
+  it('entity_type null -> null', () => {
+    expect(resolveNotificationCategory(null)).toBeNull();
+  });
+});
+
+describe('getNotificationCategoryLabel', () => {
+  it('mapeia as 6 categorias do DS para rótulos PT-BR não vazios', () => {
+    for (const cat of NOTIFICATION_CATEGORIES) {
+      expect(getNotificationCategoryLabel(cat).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('billing -> "Cobrança"', () => {
+    expect(getNotificationCategoryLabel('billing')).toBe('Cobrança');
+  });
+
+  it('null -> "Geral" (fallback)', () => {
+    expect(getNotificationCategoryLabel(null)).toBe('Geral');
   });
 });

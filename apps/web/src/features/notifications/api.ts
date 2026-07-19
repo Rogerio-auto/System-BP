@@ -18,6 +18,15 @@ export interface NotificationsQueryParams {
   per_page?: number;
 }
 
+/**
+ * Tamanho de página buscado por vez na central (/notificacoes, F26-S04).
+ * A API não suporta filtro server-side por categoria/lidas (só paginação) —
+ * um lote maior que o do dropdown (10) reduz o número de "carregar mais"
+ * necessários para um filtro client-side encontrar itens relevantes, sem
+ * se aproximar do teto do endpoint (`per_page` máx. 100).
+ */
+export const NOTIFICATIONS_CENTER_PAGE_SIZE = 30;
+
 // ---------------------------------------------------------------------------
 // Endpoints
 // ---------------------------------------------------------------------------
