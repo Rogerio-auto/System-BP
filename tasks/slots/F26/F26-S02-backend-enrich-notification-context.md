@@ -3,7 +3,7 @@ id: F26-S02
 title: Backend — enriquecer contexto das notificações (handoff, escalação, SLA)
 phase: F26
 task_ref: docs/sessions/2026-07-19-notificacoes-arquitetura-e-gaps.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
@@ -19,6 +19,7 @@ source_docs:
 docs_required: false
 claimed_at: 2026-07-19T17:28:47Z
 completed_at: 2026-07-19T17:58:02Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/424
 ---
 
 # F26-S02 — Backend: enriquecer contexto das notificações

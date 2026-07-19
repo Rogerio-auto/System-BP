@@ -3,7 +3,7 @@ id: F26-S01
 title: Frontend — lista do sino acionável (navegar + ação + ler ao abrir)
 phase: F26
 task_ref: docs/sessions/2026-07-19-notificacoes-arquitetura-e-gaps.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
@@ -19,6 +19,7 @@ source_docs:
 docs_required: false
 claimed_at: 2026-07-19T17:34:41Z
 completed_at: 2026-07-19T17:39:36Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/423
 ---
 
 # F26-S01 — Frontend: lista do sino acionável
