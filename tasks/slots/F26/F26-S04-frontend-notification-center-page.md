@@ -3,7 +3,7 @@ id: F26-S04
 title: Frontend — central de notificações (/notificacoes) + severidade na lista
 phase: F26
 task_ref: docs/sessions/2026-07-19-notificacoes-arquitetura-e-gaps.md
-status: available
+status: in-progress
 priority: medium
 estimated_size: M
 agent_id: null
@@ -18,7 +18,7 @@ source_docs:
   ]
 docs_required: true
 docs_artifacts: [docs/help/guias/notificacoes/central-de-notificacoes.mdx]
-claimed_at: null
+claimed_at: 2026-07-19T18:23:32Z
 completed_at: null
 ---
 

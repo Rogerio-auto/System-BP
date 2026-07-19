@@ -26,7 +26,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F23  | 13    | 0   | 0   | 0   | 0   | 0   | 13  |
 | F24  | 21    | 0   | 0   | 0   | 0   | 0   | 21  |
 | F25  | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
-| F26  | 4     | 1   | 0   | 0   | 0   | 0   | 3   |
+| F26  | 4     | 0   | 0   | 0   | 1   | 0   | 3   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -385,12 +385,12 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 26 —
 
-| ID      | Título                                                                   | Status       | Prioridade | Depende de       |
-| ------- | ------------------------------------------------------------------------ | ------------ | ---------- | ---------------- |
-| F26-S01 | Frontend — lista do sino acionável (navegar + ação + ler ao abrir)       | ✅ done      | high       | —                |
-| F26-S02 | Backend — enriquecer contexto das notificações (handoff, escalação, SLA) | ✅ done      | high       | —                |
-| F26-S03 | Backend — persistir severidade na linha da notificação + expor no REST   | ✅ done      | medium     | —                |
-| F26-S04 | Frontend — central de notificações (/notificacoes) + severidade na lista | 🟢 available | medium     | F26-S01, F26-S03 |
+| ID      | Título                                                                   | Status         | Prioridade | Depende de       |
+| ------- | ------------------------------------------------------------------------ | -------------- | ---------- | ---------------- |
+| F26-S01 | Frontend — lista do sino acionável (navegar + ação + ler ao abrir)       | ✅ done        | high       | —                |
+| F26-S02 | Backend — enriquecer contexto das notificações (handoff, escalação, SLA) | ✅ done        | high       | —                |
+| F26-S03 | Backend — persistir severidade na linha da notificação + expor no REST   | ✅ done        | medium     | —                |
+| F26-S04 | Frontend — central de notificações (/notificacoes) + severidade na lista | 🔵 in-progress | medium     | F26-S01, F26-S03 |
 
 ## Fase 3 — Agentes IA
 
