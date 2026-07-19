@@ -84,20 +84,22 @@ function makeUuid(prefix: string): string {
   return `${prefix.slice(0, 8)}-0000-0000-0000-${pad}`;
 }
 
-const ORG_ID = makeUuid('ah100001');
-const CITY_A_ID = makeUuid('ah200001');
-const CITY_B_ID = makeUuid('ah200002');
-const CHANNEL_ID = makeUuid('ah300001');
+// Prefixos usam apenas [0-9a-f] — Postgres `uuid` rejeita caracteres fora do
+// alfabeto hexadecimal (ex.: 'ah...' falha com "invalid input syntax for type uuid").
+const ORG_ID = makeUuid('ac100001');
+const CITY_A_ID = makeUuid('ac200001');
+const CITY_B_ID = makeUuid('ac200002');
+const CHANNEL_ID = makeUuid('ac300001');
 
-const USER_ADMIN_ID = makeUuid('ah600001'); // role admin -- notificado sempre
-const USER_GESTOR_GERAL_ID = makeUuid('ah600002'); // role gestor_geral -- notificado sempre
-const USER_REGIONAL_A_ID = makeUuid('ah600003'); // gestor_regional, escopo CITY_A
-const USER_REGIONAL_B_ID = makeUuid('ah600004'); // gestor_regional, escopo CITY_B
-const USER_AGENT_ASSIGNED_ID = makeUuid('ah600005'); // atribuído à conversa (sem role especial)
+const USER_ADMIN_ID = makeUuid('ac600001'); // role admin -- notificado sempre
+const USER_GESTOR_GERAL_ID = makeUuid('ac600002'); // role gestor_geral -- notificado sempre
+const USER_REGIONAL_A_ID = makeUuid('ac600003'); // gestor_regional, escopo CITY_A
+const USER_REGIONAL_B_ID = makeUuid('ac600004'); // gestor_regional, escopo CITY_B
+const USER_AGENT_ASSIGNED_ID = makeUuid('ac600005'); // atribuído à conversa (sem role especial)
 
-const CONV_CITY_A_ID = makeUuid('ah400001'); // cityId=CITY_A, assignedUserId=agente
-const CONV_NO_CITY_ID = makeUuid('ah400002'); // cityId=null, sem assignee
-const CONV_WAIT_ID = makeUuid('ah400003'); // lastInboundAt setado — testa enriquecimento (F26-S02)
+const CONV_CITY_A_ID = makeUuid('ac400001'); // cityId=CITY_A, assignedUserId=agente
+const CONV_NO_CITY_ID = makeUuid('ac400002'); // cityId=null, sem assignee
+const CONV_WAIT_ID = makeUuid('ac400003'); // lastInboundAt setado — testa enriquecimento (F26-S02)
 
 const roleIdByKey = new Map<string, string>();
 
@@ -330,7 +332,7 @@ describe.runIf(dbAvailable)(
         await triggerLivechatHandoff(db, {
           organizationId: ORG_ID,
           conversationId: CONV_CITY_A_ID,
-          messageId: makeUuid('ah500001'),
+          messageId: makeUuid('ac500001'),
           reason: 'ai_requested',
         });
 
@@ -389,7 +391,7 @@ describe.runIf(dbAvailable)(
         await triggerLivechatHandoff(db, {
           organizationId: ORG_ID,
           conversationId: CONV_CITY_A_ID,
-          messageId: makeUuid('ah500002'),
+          messageId: makeUuid('ac500002'),
           reason: 'ai_requested',
         });
 
@@ -428,7 +430,7 @@ describe.runIf(dbAvailable)(
         await triggerLivechatHandoff(db, {
           organizationId: ORG_ID,
           conversationId: CONV_NO_CITY_ID,
-          messageId: makeUuid('ah500003'),
+          messageId: makeUuid('ac500003'),
           reason: 'ai_unavailable',
         });
 
@@ -476,7 +478,7 @@ describe.runIf(dbAvailable)(
         await triggerLivechatHandoff(db, {
           organizationId: ORG_ID,
           conversationId: CONV_WAIT_ID,
-          messageId: makeUuid('ah500004'),
+          messageId: makeUuid('ac500004'),
           reason: 'cobranca',
         });
 

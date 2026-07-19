@@ -23,7 +23,7 @@
 // Adaptado para os InboundEvent schemas de packages/shared-schemas/src/livechat.ts.
 // =============================================================================
 
-import type { InboundEvent } from '@elemento/shared-schemas';
+import type { ChannelProvider, InboundEvent } from '@elemento/shared-schemas';
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
@@ -263,6 +263,13 @@ export interface ParseInboundOptions {
   readonly organizationId: string;
   /** UUID do canal (channels.id no DB). */
   readonly channelId: string;
+  /**
+   * Provider real do canal resolvido pelo dispatcher (meta_whatsapp ou meta_instagram).
+   * Este parser é compartilhado entre os dois — sem este campo, todo InboundEvent
+   * era rotulado incorretamente como 'meta_whatsapp', mesmo vindo de um canal
+   * meta_instagram (achado ao investigar CI vermelho pré-existente).
+   */
+  readonly provider: ChannelProvider;
 }
 
 // ---------------------------------------------------------------------------
@@ -333,11 +340,11 @@ function parseMessage(
   opts: ParseInboundOptions,
   contactName?: string,
 ): InboundEvent | null {
-  const { organizationId, channelId } = opts;
+  const { organizationId, channelId, provider } = opts;
   const base = {
     organizationId,
     channelId,
-    provider: 'meta_whatsapp' as const,
+    provider,
     contactRemoteId: msg.from,
     contactName,
     externalId: msg.id,
@@ -501,7 +508,7 @@ function parseMessage(
         type: 'reaction',
         organizationId,
         channelId,
-        provider: 'meta_whatsapp' as const,
+        provider,
         contactRemoteId: msg.from,
         targetExternalId: msg.reaction.message_id,
         emoji: msg.reaction.emoji,
@@ -543,7 +550,7 @@ function parseStatus(status: MetaStatus, opts: ParseInboundOptions): InboundEven
     type: 'status',
     organizationId: opts.organizationId,
     channelId: opts.channelId,
-    provider: 'meta_whatsapp' as const,
+    provider: opts.provider,
     externalId: status.id,
     status: status.status,
     rawTimestamp: status.timestamp,

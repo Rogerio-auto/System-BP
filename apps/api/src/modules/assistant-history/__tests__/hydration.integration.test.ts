@@ -16,6 +16,7 @@
 // pool.query('SELECT 1'); describe.runIf(dbAvailable) pula limpo sem DB.
 // =============================================================================
 import { eq, inArray } from 'drizzle-orm';
+import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { db, pool } from '../../../db/client.js';
@@ -31,6 +32,10 @@ import {
   organizations,
   users,
 } from '../../../db/schema/index.js';
+import {
+  acquireGlobalFlagTestLock,
+  releaseGlobalFlagTestLock,
+} from '../../../test/globalFlagTestLock.js';
 import { invalidateFlagCache } from '../../featureFlags/service.js';
 import type {
   AnalysisStatusResponse,
@@ -61,14 +66,16 @@ function makeUuid(prefix: string): string {
   return `${prefix.slice(0, 8)}-0000-0000-0000-${pad}`;
 }
 
-const ORG_ID = makeUuid('hy100001');
-const CITY_LEAD_ID = makeUuid('hy200001'); // cidade real do lead
-const CITY_OTHER_ID = makeUuid('hy200002'); // cidade fora do escopo do ator restrito
-const LEAD_ID = makeUuid('hy300001');
-const ANALYSIS_ID = makeUuid('hy400001');
-const CHANNEL_ID = makeUuid('hy500001');
-const CONVERSATION_ID = makeUuid('hy600001');
-const OWNER_USER_ID = makeUuid('hy700001');
+// Prefixos usam apenas [0-9a-f] — Postgres `uuid` rejeita caracteres fora do
+// alfabeto hexadecimal (ex.: 'hy...' falha com "invalid input syntax for type uuid").
+const ORG_ID = makeUuid('da100001');
+const CITY_LEAD_ID = makeUuid('da200001'); // cidade real do lead
+const CITY_OTHER_ID = makeUuid('da200002'); // cidade fora do escopo do ator restrito
+const LEAD_ID = makeUuid('da300001');
+const ANALYSIS_ID = makeUuid('da400001');
+const CHANNEL_ID = makeUuid('da500001');
+const CONVERSATION_ID = makeUuid('da600001');
+const OWNER_USER_ID = makeUuid('da700001');
 
 const LEAD_NAME_SENTINEL = 'Fulano De Tal Hidratacao';
 const MESSAGE_CONTENT_SENTINEL = 'SEGREDO_MENSAGEM_' + RUN_SUFFIX;
@@ -116,12 +123,19 @@ async function disableHistoryFlag(): Promise<void> {
 
 let conversationId = '';
 
+// Advisory lock dedicado — serializa contra outros arquivos de integração que
+// também fazem enable/disableHistoryFlag() na MESMA flag global
+// `assistant.history.enabled` (ver test/globalFlagTestLock.ts).
+let flagLockClient: pg.PoolClient | undefined;
+
 // ---------------------------------------------------------------------------
 // beforeAll — seed: org, cidades, lead, análise, canal, conversa+mensagens,
 // usuário dono, conversa/turno do histórico com blocos referenciando o lead.
 // ---------------------------------------------------------------------------
 beforeAll(async () => {
   if (!dbAvailable) return;
+
+  flagLockClient = await acquireGlobalFlagTestLock(pool);
 
   await enableHistoryFlag();
 
@@ -272,6 +286,9 @@ afterAll(async () => {
     await db.delete(cities).where(inArray(cities.id, [CITY_LEAD_ID, CITY_OTHER_ID]));
     await db.delete(organizations).where(eq(organizations.id, ORG_ID));
     await disableHistoryFlag();
+    if (flagLockClient !== undefined) {
+      await releaseGlobalFlagTestLock(flagLockClient);
+    }
   } finally {
     await pool.end();
   }

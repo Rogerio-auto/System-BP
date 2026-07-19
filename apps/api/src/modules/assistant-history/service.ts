@@ -138,13 +138,22 @@ async function toHydratedAssistantTurn(
   // no fluxo HTTP real — controller.ts sempre popula os dois a partir de
   // request.user) hidrata como "sem nenhuma permissão", nunca como acesso
   // total — todo bloco referenciando lead vira `unavailable`.
+  //
+  // IMPORTANTE: `cityScopeIds` distingue AUSENTE (undefined, fail-closed ->
+  // []) de `null` (valor explícito e deliberado que significa "sem
+  // restrição de cidade" em todo o resto do RBAC — ver auth/middlewares/
+  // scope.ts). Usar `??` aqui colapsava os dois casos, fazendo um ator com
+  // escopo GLOBAL (cityScopeIds: null, ex.: admin/gestor_geral) hidratar
+  // como se tivesse ZERO cidades no escopo — todo bloco referenciando lead
+  // virava `value: null` mesmo com permissão total (bug real, achado ao
+  // investigar CI vermelho pré-existente).
   const blocks = await hydrateBlocks(
     db,
     {
       userId: actor.userId,
       organizationId: actor.organizationId,
       permissions: actor.permissions ?? [],
-      cityScopeIds: actor.cityScopeIds ?? [],
+      cityScopeIds: actor.cityScopeIds === undefined ? [] : actor.cityScopeIds,
     },
     storedBlocks,
   );

@@ -165,7 +165,15 @@ function makeWaPayload(wabaId = WABA_ID): object {
               metadata: { display_phone_number: '5569900000000', phone_number_id: 'ph-id-001' },
               messages: [
                 // LGPD: número e texto são PII — nunca logados (apenas IDs técnicos nos logs)
-                { id: 'wamid.test', from: '5569988887777', type: 'text', text: { body: 'oi' } },
+                // `timestamp` é obrigatório em MetaMessageSchema (webhook.parser.ts) — sem ele
+                // o parse falha silenciosamente (catch em dispatchWebhook) e published fica 0.
+                {
+                  id: 'wamid.test',
+                  from: '5569988887777',
+                  timestamp: '1700000000',
+                  type: 'text',
+                  text: { body: 'oi' },
+                },
               ],
             },
             field: 'messages',
@@ -504,12 +512,34 @@ describe('POST /api/webhooks/meta', () => {
   it('processa evento instagram com provider correto', async () => {
     setupSelectMocksForHappyPath({ provider: 'meta_instagram' });
 
+    // O parser (webhook.parser.ts) é compartilhado entre WhatsApp e Instagram —
+    // ambos os providers são normalizados pelo mesmo MetaValueSchema/MetaMessageSchema
+    // (value.messages[] com id/from/timestamp/type). O payload precisa respeitar
+    // esse contrato para que o evento seja de fato parseado e publicado (published=1);
+    // um `value.sender` solto (formato Messenger cru) não bate com o schema e o
+    // evento é silenciosamente descartado (0 eventos, sem erro).
     const igPayload = {
       object: 'instagram',
       entry: [
         {
           id: 'ig-page-id-001',
-          changes: [{ field: 'messages', value: { sender: { id: 'ig-user-123' } } }],
+          changes: [
+            {
+              field: 'messages',
+              value: {
+                messaging_product: 'instagram',
+                messages: [
+                  {
+                    id: 'ig-mid-test',
+                    from: 'ig-user-123',
+                    timestamp: '1700000000',
+                    type: 'text',
+                    text: { body: 'oi via instagram' },
+                  },
+                ],
+              },
+            },
+          ],
         },
       ],
     };

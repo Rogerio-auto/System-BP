@@ -104,6 +104,7 @@ vi.mock('../../../config/env.js', async (importOriginal) => {
 // ---------------------------------------------------------------------------
 import { db, pool } from '../../../db/client.js';
 import { notificationPreferences, organizations, users } from '../../../db/schema/index.js';
+import { invalidateFlagCache } from '../../featureFlags/service.js';
 import {
   getNotificationPreferences,
   isCategoryChannelEnabled,
@@ -260,6 +261,9 @@ describe.runIf(dbAvailable)('[INTEGRATION] sendEmail — SQL real + Resend mocka
       sql`INSERT INTO feature_flags (key, status) VALUES ('notifications.email.enabled', 'enabled')
           ON CONFLICT (key) DO UPDATE SET status = 'enabled'`,
     );
+    // Escrita direta via SQL bypassa o service layer — invalida o cache in-process
+    // de featureFlags/service.ts (TTL 30s) para o toggle ter efeito imediato.
+    invalidateFlagCache();
 
     await sendEmail(
       {
@@ -284,6 +288,7 @@ describe.runIf(dbAvailable)('[INTEGRATION] sendEmail — SQL real + Resend mocka
       sql`INSERT INTO feature_flags (key, status) VALUES ('notifications.email.enabled', 'disabled')
           ON CONFLICT (key) DO UPDATE SET status = 'disabled'`,
     );
+    invalidateFlagCache();
 
     await sendEmail(
       {
@@ -303,6 +308,7 @@ describe.runIf(dbAvailable)('[INTEGRATION] sendEmail — SQL real + Resend mocka
     await db.execute(
       sql`UPDATE feature_flags SET status = 'enabled' WHERE key = 'notifications.email.enabled'`,
     );
+    invalidateFlagCache();
   });
 
   it('LGPD: redact.paths declarado no logger cobre email/recipientEmail/title/body/subject', async () => {

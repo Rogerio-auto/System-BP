@@ -69,6 +69,7 @@ import {
   userRoles,
   users,
 } from '../../db/schema/index.js';
+import { invalidateFlagCache } from '../../modules/featureFlags/service.js';
 import { handleFanoutNotification } from '../fanout-notification.js';
 
 // ---------------------------------------------------------------------------
@@ -150,6 +151,11 @@ async function setFlag(key: string, status: 'enabled' | 'disabled'): Promise<voi
     .insert(featureFlags)
     .values({ key, status })
     .onConflictDoUpdate({ target: featureFlags.key, set: { status } });
+  // Escreve direto no banco (bypassa o service layer), então o cache in-process
+  // de featureFlags/service.ts (TTL 30s) precisa ser invalidado manualmente —
+  // sem isso, um teste anterior que já leu a flag como 'enabled' mantém esse
+  // valor em cache e o toggle para 'disabled' não tem efeito na mesma execução.
+  invalidateFlagCache();
 }
 
 async function countNotifications(entityId: string): Promise<number> {
@@ -445,18 +451,29 @@ describe.runIf(dbAvailable)('[INTEGRATION] handleFanoutNotification — SQL real
 
   it('severity da regra chega ao payload publicado no socket relay (fila mockada)', async () => {
     await setFlag(FLAG_REALTIME_ENABLED, 'enabled');
-    queueMocks.mockPublish.mockClear();
+    try {
+      queueMocks.mockPublish.mockClear();
 
-    const event = buildEvent();
-    await insertEvent(event);
-    await handleFanoutNotification(event, db);
+      const event = buildEvent();
+      await insertEvent(event);
+      await handleFanoutNotification(event, db);
 
-    expect(queueMocks.mockPublish).toHaveBeenCalled();
-    const [, envelope] = queueMocks.mockPublish.mock.calls[0] as [
-      unknown,
-      { payload: { data: { severity: string; entityId: string } } },
-    ];
-    expect(envelope.payload.data.severity).toBe('critical');
-    expect(envelope.payload.data.entityId).toBe(event.aggregateId);
+      expect(queueMocks.mockPublish).toHaveBeenCalled();
+      const [, envelope] = queueMocks.mockPublish.mock.calls[0] as [
+        unknown,
+        { payload: { data: { severity: string; entityId: string } } },
+      ];
+      expect(envelope.payload.data.severity).toBe('critical');
+      expect(envelope.payload.data.entityId).toBe(event.aggregateId);
+    } finally {
+      // `notifications.realtime.enabled` é uma flag GLOBAL (sem escopo por
+      // organização) — sem restaurar para 'disabled' (default de produção,
+      // migration 0077), outros arquivos de integração que rodam depois
+      // deste no MESMO processo `vitest run` (mesmo Postgres de teste)
+      // herdam realtime ligado e passam a publicar eventos extras no socket
+      // relay que não esperam (achado ao investigar CI vermelho pré-existente:
+      // ai-handoff.integration.test.ts via cross-file pollution).
+      await setFlag(FLAG_REALTIME_ENABLED, 'disabled');
+    }
   });
 });

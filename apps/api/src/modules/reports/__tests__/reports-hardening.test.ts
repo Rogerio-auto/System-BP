@@ -43,46 +43,40 @@ vi.mock('../repository.js', () => ({
     .fn()
     .mockResolvedValue({ conversationsOpened: 0, conversationsResolved: 0, messagesTotal: 0 }),
   getAttendanceByChannel: vi.fn().mockResolvedValue([]),
-  getAttendanceTimings: vi
-    .fn()
-    .mockResolvedValue({
-      avgFirstResponseSec: 0,
-      p90FirstResponseSec: 0,
-      avgResolutionSec: 0,
-      p90ResolutionSec: 0,
-    }),
-  getCreditAggregate: vi
-    .fn()
-    .mockResolvedValue({
-      simulations: 0,
-      analyses: 0,
-      analysesApproved: 0,
-      analysesRefused: 0,
-      analysesInProgress: 0,
-      contracts: 0,
-      contractsActive: 0,
-      contractsSettled: 0,
-      contractsDefaulted: 0,
-      simulationsAmountSum: 0,
-      simulationsAmountAvg: 0,
-      simulationsTermAvg: 0,
-      analysesApprovedAmountAvg: 0,
-      contractsPrincipalSum: 0,
-    }),
+  getAttendanceTimings: vi.fn().mockResolvedValue({
+    avgFirstResponseSec: 0,
+    p90FirstResponseSec: 0,
+    avgResolutionSec: 0,
+    p90ResolutionSec: 0,
+  }),
+  getCreditAggregate: vi.fn().mockResolvedValue({
+    simulations: 0,
+    analyses: 0,
+    analysesApproved: 0,
+    analysesRefused: 0,
+    analysesInProgress: 0,
+    contracts: 0,
+    contractsActive: 0,
+    contractsSettled: 0,
+    contractsDefaulted: 0,
+    simulationsAmountSum: 0,
+    simulationsAmountAvg: 0,
+    simulationsTermAvg: 0,
+    analysesApprovedAmountAvg: 0,
+    contractsPrincipalSum: 0,
+  }),
   getCreditByProduct: vi.fn().mockResolvedValue([]),
-  getCollectionWallet: vi
-    .fn()
-    .mockResolvedValue({
-      pending: 0,
-      pendingAmountSum: 0,
-      overdue: 0,
-      overdueAmountSum: 0,
-      paid: 0,
-      paidAmountSum: 0,
-      renegotiated: 0,
-      cancelled: 0,
-      avgDaysOverdue: 0,
-    }),
+  getCollectionWallet: vi.fn().mockResolvedValue({
+    pending: 0,
+    pendingAmountSum: 0,
+    overdue: 0,
+    overdueAmountSum: 0,
+    paid: 0,
+    paidAmountSum: 0,
+    renegotiated: 0,
+    cancelled: 0,
+    avgDaysOverdue: 0,
+  }),
   getCollectionJobsStats: vi
     .fn()
     .mockResolvedValue({ scheduled: 0, sent: 0, failed: 0, paidBeforeSend: 0 }),
@@ -119,6 +113,11 @@ vi.mock('../../auth/middlewares/authenticate.js', () => ({
 }));
 vi.mock('../../auth/middlewares/authorize.js', () => ({
   authorize: () => async () => {
+    /* no-op: permissoes injetadas pelo request.user mockado */
+  },
+  // routes.ts usa authorizeAny() (semantica OR) nas rotas agregadas do dashboard —
+  // sem este export o registro do plugin falha ("No authorizeAny export...").
+  authorizeAny: () => async () => {
     /* no-op: permissoes injetadas pelo request.user mockado */
   },
 }));
