@@ -113,7 +113,11 @@ export async function dispatchWebhook(
   try {
     const events = parseMetaWebhookEnvelope(
       { object: body.object, entry: [rawEntry] },
-      { organizationId: channel.organizationId, channelId: channel.channelId },
+      {
+        organizationId: channel.organizationId,
+        channelId: channel.channelId,
+        provider: channel.provider,
+      },
     );
     for (const event of events) {
       const envelope = makeEnvelope(QUEUES.inboundMessage, channel.organizationId, event);

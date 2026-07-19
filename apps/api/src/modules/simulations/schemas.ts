@@ -140,6 +140,12 @@ export type SimulationListResponse = z.infer<typeof SimulationListResponseSchema
  * Se omitido ou null, resolveChannelForSend usa o canal padrão (is_default=true)
  * ou o primeiro canal ativo da organização.
  *
+ * `.nullable()` (além de `.optional()`) é necessário porque o Fastify normaliza
+ * o body de um POST sem Content-Type e sem payload para `null` (não `undefined`)
+ * — sem isso, o Zod rejeitava a requisição com "body/ Expected object, received
+ * null" antes mesmo de chegar ao controller, quebrando o caso majoritário de
+ * envio sem `channelId` explícito (achado ao investigar CI vermelho pré-existente).
+ *
  * LGPD: channelId é ID técnico — não é PII; pode ser logado.
  */
 export const SendSimulationBodySchema = z
@@ -151,6 +157,7 @@ export const SendSimulationBodySchema = z
       .optional()
       .describe('UUID do canal WhatsApp a usar — omitir para usar o canal padrão da org'),
   })
+  .nullable()
   .optional();
 
 export type SendSimulationBody = z.infer<typeof SendSimulationBodySchema>;

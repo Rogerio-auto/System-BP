@@ -49,6 +49,12 @@ const mocks = vi.hoisted(() => {
     ack: vi.fn(),
     nack: vi.fn(),
     close: vi.fn().mockResolvedValue(undefined),
+    // startSocketRelay() chama assertTopology(channel) antes de consumir (fix de
+    // boot com broker fresco em CI) — sem estes métodos o mock quebra com
+    // "channel.assertExchange is not a function".
+    assertExchange: vi.fn().mockResolvedValue(undefined),
+    assertQueue: vi.fn().mockResolvedValue(undefined),
+    bindQueue: vi.fn().mockResolvedValue(undefined),
   };
 
   const mockConnection = {

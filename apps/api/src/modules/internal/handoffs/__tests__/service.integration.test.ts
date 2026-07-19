@@ -27,6 +27,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { db, pool } from '../../../../db/client.js';
 import {
   channels,
+  chatwootHandoffs,
   conversations,
   eventOutbox,
   leads,
@@ -54,13 +55,15 @@ function makeUuid(prefix: string): string {
   return `${prefix.slice(0, 8)}-0000-0000-0000-${pad}`;
 }
 
-const ORG_ID = makeUuid('ih100001');
-const CHANNEL_ID = makeUuid('ih300001');
+// Prefixos usam apenas [0-9a-f] — Postgres `uuid` rejeita caracteres fora do
+// alfabeto hexadecimal (ex.: 'ih...' falha com "invalid input syntax for type uuid").
+const ORG_ID = makeUuid('de100001');
+const CHANNEL_ID = makeUuid('de300001');
 
-const LEAD_WITH_CONV_ID = makeUuid('ih400001'); // tem conversation nativa vinculada
-const LEAD_NO_CONV_ID = makeUuid('ih400002'); // sem conversation nativa — fallback 'lead'
+const LEAD_WITH_CONV_ID = makeUuid('de400001'); // tem conversation nativa vinculada
+const LEAD_NO_CONV_ID = makeUuid('de400002'); // sem conversation nativa — fallback 'lead'
 
-const CONV_ID = makeUuid('ih500001'); // vinculada a LEAD_WITH_CONV_ID
+const CONV_ID = makeUuid('de500001'); // vinculada a LEAD_WITH_CONV_ID
 
 const noopLogger = { warn: (): void => {} };
 
@@ -132,6 +135,9 @@ afterAll(async () => {
   if (!dbAvailable) return;
   try {
     await db.delete(eventOutbox).where(eq(eventOutbox.organizationId, ORG_ID));
+    // requestHandoff() grava em chatwoot_handoffs (legado) — FK para organizations
+    // bloqueia o DELETE abaixo se não for limpo primeiro.
+    await db.delete(chatwootHandoffs).where(eq(chatwootHandoffs.organizationId, ORG_ID));
     await db.delete(conversations).where(eq(conversations.id, CONV_ID));
     await db.delete(leads).where(inArray(leads.id, [LEAD_WITH_CONV_ID, LEAD_NO_CONV_ID]));
     await db.delete(channels).where(eq(channels.id, CHANNEL_ID));

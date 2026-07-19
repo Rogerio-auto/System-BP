@@ -20,6 +20,7 @@
 // pool.query('SELECT 1'); describe.runIf(dbAvailable) pula limpo sem DB.
 // =============================================================================
 import { and, eq, inArray } from 'drizzle-orm';
+import type pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { db, pool } from '../../../db/client.js';
@@ -31,6 +32,10 @@ import {
   users,
 } from '../../../db/schema/index.js';
 import { NotFoundError } from '../../../shared/errors.js';
+import {
+  acquireGlobalFlagTestLock,
+  releaseGlobalFlagTestLock,
+} from '../../../test/globalFlagTestLock.js';
 import { invalidateFlagCache } from '../../featureFlags/service.js';
 import type { Block } from '../../internal-assistant/schemas.js';
 import { DEFAULT_CONVERSATION_TITLE } from '../sanitize.js';
@@ -65,9 +70,11 @@ function makeUuid(prefix: string): string {
   return `${prefix.slice(0, 8)}-0000-0000-0000-${pad}`;
 }
 
-const ORG_ID = makeUuid('ah100001');
-const USER_OWNER_ID = makeUuid('ah600001');
-const USER_OTHER_ID = makeUuid('ah600002');
+// Prefixos usam apenas [0-9a-f] — Postgres `uuid` rejeita caracteres fora do
+// alfabeto hexadecimal (ex.: 'ah...' falha com "invalid input syntax for type uuid").
+const ORG_ID = makeUuid('a5100001');
+const USER_OWNER_ID = makeUuid('a5600001');
+const USER_OTHER_ID = makeUuid('a5600002');
 
 const PII_SENTINEL = 'SEGREDO_LEAD_VALUE_HIDRATADO_' + RUN_SUFFIX;
 const NAME_SENTINEL_QUESTION = 'Quantos leads o João Pedro da Silva tem no funil?';
@@ -117,11 +124,18 @@ async function disableHistoryFlag(): Promise<void> {
   invalidateFlagCache();
 }
 
+// Advisory lock dedicado — serializa contra outros arquivos de integração que
+// também fazem enable/disableHistoryFlag() na MESMA flag global
+// `assistant.history.enabled` (ver test/globalFlagTestLock.ts).
+let flagLockClient: pg.PoolClient | undefined;
+
 // ---------------------------------------------------------------------------
 // beforeAll — seed mínimo (1 org, 2 usuários; flag ausente = OFF)
 // ---------------------------------------------------------------------------
 beforeAll(async () => {
   if (!dbAvailable) return;
+
+  flagLockClient = await acquireGlobalFlagTestLock(pool);
 
   await disableHistoryFlag();
 
@@ -163,6 +177,9 @@ afterAll(async () => {
     await db.delete(users).where(inArray(users.id, [USER_OWNER_ID, USER_OTHER_ID]));
     await db.delete(organizations).where(eq(organizations.id, ORG_ID));
     await disableHistoryFlag();
+    if (flagLockClient !== undefined) {
+      await releaseGlobalFlagTestLock(flagLockClient);
+    }
   } finally {
     await pool.end();
   }

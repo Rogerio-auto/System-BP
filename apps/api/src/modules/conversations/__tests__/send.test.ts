@@ -119,7 +119,10 @@ function makeActorContext(
   }> = {},
 ) {
   return {
-    userId: overrides.userId ?? USER_ID,
+    // `??` colapsaria um override explícito de `userId: null` de volta para USER_ID
+    // (null é nullish) — quebrando silenciosamente o teste do actor de sistema/bot
+    // (userId=null). Precisa checar `undefined` explicitamente, como cityScopeIds abaixo.
+    userId: overrides.userId !== undefined ? overrides.userId : USER_ID,
     organizationId: overrides.organizationId ?? ORG_ID,
     role: overrides.role ?? 'attendant',
     cityScopeIds: overrides.cityScopeIds !== undefined ? overrides.cityScopeIds : null,

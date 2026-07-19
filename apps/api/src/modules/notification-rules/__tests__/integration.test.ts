@@ -258,6 +258,12 @@ afterAll(async () => {
       sql`DELETE FROM users WHERE id IN (${USER_A_ADMIN_ID}, ${USER_A_AGENT_ID}, ${USER_B_ADMIN_ID})`,
     );
     await db.execute(sql`DELETE FROM cities WHERE id IN (${CITY_A_ID}, ${CITY_B_ID})`);
+    // audit_logs.organization_id tem FK para organizations — sem esta linha o DELETE
+    // de organizations abaixo falha com fk_audit_logs_organization quando o fluxo
+    // testado grava auditoria (ex.: notification-rules criadas via POST /test).
+    await db.execute(
+      sql`DELETE FROM audit_logs WHERE organization_id IN (${ORG_A_ID}, ${ORG_B_ID})`,
+    );
     await db.execute(sql`DELETE FROM organizations WHERE id IN (${ORG_A_ID}, ${ORG_B_ID})`);
   } finally {
     await pool.end();

@@ -56,9 +56,12 @@ function makeUuid(prefix: string): string {
   return `${prefix.slice(0, 8)}-0000-0000-0000-${pad}`;
 }
 
-const ORG_ID = makeUuid('rt100001');
-const USER_A_ID = makeUuid('rt600001');
-const USER_B_ID = makeUuid('rt600002');
+// Prefixos usam apenas [0-9a-f] — Postgres `uuid` rejeita caracteres fora do
+// alfabeto hexadecimal (ex.: 'rt...'/'cv...' com letras fora de a-f falham com
+// "invalid input syntax for type uuid").
+const ORG_ID = makeUuid('c7100001');
+const USER_A_ID = makeUuid('c7600001');
+const USER_B_ID = makeUuid('c7600002');
 
 function daysAgo(days: number): Date {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -159,7 +162,7 @@ afterAll(async () => {
 
 describe.runIf(dbAvailable)('[INTEGRATION] F6-S26 — retenção e exclusão do histórico', () => {
   it('purga conversa ativa além dos 90 dias (deletedStale) — turno cascade junto', async () => {
-    const staleId = makeUuid('cvstale1');
+    const staleId = makeUuid('ca100001');
     await insertConversation({
       id: staleId,
       userId: USER_A_ID,
@@ -177,7 +180,7 @@ describe.runIf(dbAvailable)('[INTEGRATION] F6-S26 — retenção e exclusão do 
   });
 
   it('preserva conversa ativa dentro da janela de 90 dias', async () => {
-    const freshId = makeUuid('cvfresh1');
+    const freshId = makeUuid('ca100002');
     await insertConversation({ id: freshId, userId: USER_A_ID, updatedAt: daysAgo(1) });
 
     await purgeExpiredAssistantHistory(db);
@@ -186,7 +189,7 @@ describe.runIf(dbAvailable)('[INTEGRATION] F6-S26 — retenção e exclusão do 
   });
 
   it('purga soft-deletada de IMEDIATO, mesmo com updated_at recente (dentro da janela)', async () => {
-    const softId = makeUuid('cvsoft001');
+    const softId = makeUuid('ca100003');
     await insertConversation({
       id: softId,
       userId: USER_A_ID,
@@ -201,13 +204,13 @@ describe.runIf(dbAvailable)('[INTEGRATION] F6-S26 — retenção e exclusão do 
   });
 
   it('dryRun=true apenas conta — nenhuma linha é deletada', async () => {
-    const staleId = makeUuid('cvdry0001');
+    const staleId = makeUuid('ca100004');
     await insertConversation({
       id: staleId,
       userId: USER_A_ID,
       updatedAt: daysAgo(ASSISTANT_HISTORY_RETENTION_DAYS + 5),
     });
-    const softId = makeUuid('cvdry0002');
+    const softId = makeUuid('ca100005');
     await insertConversation({
       id: softId,
       userId: USER_A_ID,
@@ -230,9 +233,9 @@ describe.runIf(dbAvailable)('[INTEGRATION] F6-S26 — retenção e exclusão do 
   });
 
   it('gancho de exclusão por usuário: remove TODAS as conversas do usuário, ativas e soft-deletadas', async () => {
-    const c1 = makeUuid('cvuser001');
-    const c2 = makeUuid('cvuser002');
-    const otherUserConv = makeUuid('cvuser003');
+    const c1 = makeUuid('ca100006');
+    const c2 = makeUuid('ca100007');
+    const otherUserConv = makeUuid('ca100008');
     await insertConversation({ id: c1, userId: USER_A_ID, updatedAt: daysAgo(1) });
     await insertConversation({
       id: c2,

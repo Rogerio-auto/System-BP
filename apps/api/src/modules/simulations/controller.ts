@@ -99,9 +99,11 @@ export async function sendSimulationController(
     'idempotency-key'
   ] as string;
 
-  // channelId vem do body opcional (F20-S05: multi-canal).
+  // channelId vem do body opcional (F20-S05: multi-canal). O body pode chegar como
+  // `null` (POST sem Content-Type/payload é normalizado pelo Fastify) — ver
+  // SendSimulationBodySchema.
   // `as` justificado: Zod schema da rota valida o body como SendSimulationBodySchema.
-  const body = request.body as { channelId?: string | null } | undefined;
+  const body = request.body as { channelId?: string | null } | null | undefined;
   const channelId = body?.channelId ?? null;
 
   const result = await sendSimulation(db, actor, simulationId, { idempotencyKey, channelId });

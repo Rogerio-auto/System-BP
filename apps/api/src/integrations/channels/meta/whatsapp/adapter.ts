@@ -27,7 +27,11 @@
 // Portado de packages/channels/src/meta/whatsapp/adapter.ts (tagix).
 // =============================================================================
 
-import type { InboundEvent as SharedInboundEvent, OutboundJob } from '@elemento/shared-schemas';
+import type {
+  ChannelProvider,
+  InboundEvent as SharedInboundEvent,
+  OutboundJob,
+} from '@elemento/shared-schemas';
 
 import type {
   ChannelCapabilities,
@@ -124,7 +128,11 @@ export class MetaWhatsAppAdapter
    */
   parseWebhookEnvelope(
     raw: unknown,
-    opts: { readonly organizationId: string; readonly channelId: string },
+    opts: {
+      readonly organizationId: string;
+      readonly channelId: string;
+      readonly provider: ChannelProvider;
+    },
   ): ReadonlyArray<SharedInboundEvent> {
     return parseMetaWebhookEnvelope(raw, opts);
   }

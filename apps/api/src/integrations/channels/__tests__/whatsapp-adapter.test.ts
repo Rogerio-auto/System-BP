@@ -85,6 +85,7 @@ import { ChannelError, SignatureError } from '../shared/errors.js';
 const TEST_OPTS: ParseInboundOptions = {
   organizationId: '11111111-1111-1111-1111-111111111111',
   channelId: '22222222-2222-2222-2222-222222222222',
+  provider: 'meta_whatsapp',
 };
 
 /** Constrói um envelope Meta mínimo com uma mensagem. Retorna unknown para passar ao parser Zod. */
@@ -922,6 +923,7 @@ describe('MetaWhatsAppAdapter', () => {
     const events = adapter.parseWebhookEnvelope(envelope, {
       organizationId: TEST_OPTS.organizationId,
       channelId: TEST_OPTS.channelId,
+      provider: TEST_OPTS.provider,
     });
     expect(events).toHaveLength(1);
     expect(events[0]?.type).toBe('message');
