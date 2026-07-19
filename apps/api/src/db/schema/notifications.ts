@@ -91,6 +91,22 @@ export const notifications = pgTable(
      */
     readAt: timestamp('read_at', { withTimezone: true }),
 
+    /**
+     * Severidade visual da notificação — mesmo domínio de valores de
+     * notification_rules.severity (0076) e NotificationSocketSeverity
+     * (realtime.ts, payload do socket).
+     * 'info'     — informativo (badge/borda azul).
+     * 'warning'  — atenção necessária (badge/borda amarelo).
+     * 'critical' — ação urgente (badge/borda vermelho, destaque no sino).
+     * DEFAULT 'info': linhas legadas (pré F26-S03) recebem o valor neutro
+     * sem necessidade de backfill (0092_notifications_severity.sql).
+     */
+    severity: text('severity', {
+      enum: ['info', 'warning', 'critical'],
+    })
+      .notNull()
+      .default('info'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({

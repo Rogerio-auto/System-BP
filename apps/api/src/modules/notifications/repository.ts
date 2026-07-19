@@ -69,6 +69,7 @@ function mapNotificationRow(row: NotificationRow): Notification {
     body: row.body,
     entity_type: row.entityType ?? null,
     entity_id: row.entityId ?? null,
+    severity: row.severity,
     read_at: row.readAt ? row.readAt.toISOString() : null,
     created_at: row.createdAt.toISOString(),
   };
@@ -87,6 +88,12 @@ export interface CreateNotificationInput {
   body: string;
   entityType?: string | null;
   entityId?: string | null;
+  /**
+   * Severidade da notificação — mesmo domínio de valores do payload do
+   * socket (NotificationSocketSeverity). Default 'info' quando o caller
+   * não especifica (retrocompat com senders que ainda não passam severity).
+   */
+  severity?: 'info' | 'warning' | 'critical';
 }
 
 export interface RecipientUser {
@@ -257,6 +264,7 @@ export async function createNotification(
       body: input.body,
       entityType: input.entityType ?? null,
       entityId: input.entityId ?? null,
+      severity: input.severity ?? 'info',
       readAt: null,
       createdAt: new Date(),
     })
