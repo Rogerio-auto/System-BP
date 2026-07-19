@@ -445,6 +445,11 @@ describe.runIf(dbAvailable)(
           ),
         );
       expect(notificationRows).toHaveLength(1);
+
+      // F26-S02: body enriquecido com cidade (dado público) + tempo no funil
+      // (derivado de leads.created_at) — sem PII do lead.
+      expect(notificationRows[0]?.body).toContain('AE IntCity FB Lead');
+      expect(notificationRows[0]?.body).toContain('no funil há');
     });
 
     it(

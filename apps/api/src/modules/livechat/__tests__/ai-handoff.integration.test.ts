@@ -97,6 +97,7 @@ const USER_AGENT_ASSIGNED_ID = makeUuid('ah600005'); // atribuído à conversa (
 
 const CONV_CITY_A_ID = makeUuid('ah400001'); // cityId=CITY_A, assignedUserId=agente
 const CONV_NO_CITY_ID = makeUuid('ah400002'); // cityId=null, sem assignee
+const CONV_WAIT_ID = makeUuid('ah400003'); // lastInboundAt setado — testa enriquecimento (F26-S02)
 
 const roleIdByKey = new Map<string, string>();
 
@@ -268,6 +269,18 @@ beforeAll(async () => {
         assignedUserId: null,
         status: 'open',
       },
+      {
+        id: CONV_WAIT_ID,
+        organizationId: ORG_ID,
+        cityId: CITY_A_ID,
+        channelId: CHANNEL_ID,
+        contactRemoteId: '5569' + RUN_SUFFIX + '2',
+        contactName: 'AH IntContato Wait',
+        assignedUserId: USER_AGENT_ASSIGNED_ID,
+        status: 'open',
+        // 2h atrás — base do "tempo esperando" no corpo enriquecido (F26-S02).
+        lastInboundAt: new Date(Date.now() - 2 * 60 * 60 * 1_000),
+      },
     ])
     .onConflictDoNothing();
 }, 30_000);
@@ -292,7 +305,7 @@ afterAll(async () => {
     await db.delete(auditLogs).where(inArray(auditLogs.organizationId, [ORG_ID]));
     await db
       .delete(conversations)
-      .where(inArray(conversations.id, [CONV_CITY_A_ID, CONV_NO_CITY_ID]));
+      .where(inArray(conversations.id, [CONV_CITY_A_ID, CONV_NO_CITY_ID, CONV_WAIT_ID]));
     await db.delete(userCityScopes).where(inArray(userCityScopes.userId, userIds));
     await db.delete(userRoles).where(inArray(userRoles.userId, userIds));
     await db.delete(users).where(inArray(users.id, userIds));
@@ -452,5 +465,40 @@ describe.runIf(dbAvailable)(
         expect(row.title).toBe('Atendimento precisa de humano');
       }
     });
+
+    // -------------------------------------------------------------------------
+    // F26-S02 — enriquecimento do corpo (motivo + tempo esperando)
+    // -------------------------------------------------------------------------
+    it(
+      'F26-S02: body enriquecido com motivo do handoff + tempo esperando ' +
+        '(derivado de last_inbound_at) — sem PII do contato',
+      async () => {
+        await triggerLivechatHandoff(db, {
+          organizationId: ORG_ID,
+          conversationId: CONV_WAIT_ID,
+          messageId: makeUuid('ah500004'),
+          reason: 'cobranca',
+        });
+
+        const rows = await db
+          .select({ title: notifications.title, body: notifications.body })
+          .from(notifications)
+          .where(
+            and(eq(notifications.organizationId, ORG_ID), eq(notifications.entityId, CONV_WAIT_ID)),
+          );
+
+        expect(rows.length).toBeGreaterThan(0);
+        for (const row of rows) {
+          // Motivo traduzido do catálogo (não a chave crua 'cobranca').
+          expect(row.body).toContain('assunto de cobrança');
+          // Tempo esperando derivado de last_inbound_at (~2h no seed) — não
+          // trava em um valor exato (execução assíncrona do teste), só
+          // confirma que o texto de espera foi incluído.
+          expect(row.body).toContain('aguardando há');
+          expect(row.body).not.toContain('AH IntContato Wait'); // nome do contato
+          expect(row.body).not.toContain(RUN_SUFFIX); // fragmento do telefone de teste
+        }
+      },
+    );
   },
 );

@@ -42,6 +42,7 @@ import {
   leads,
   notificationRuleDeliveries,
   notificationRules,
+  notifications,
   organizations,
   roles,
   userCityScopes,
@@ -93,6 +94,11 @@ const RULE_BROKEN_ID = makeUuid('c8000004'); // trigger_key inválido
 
 const THRESHOLD_HOURS = 1;
 const COOLDOWN_HOURS = 24;
+
+// F26-S02 — nomes usados nos templates para verificar renderização real dos
+// placeholders enriquecidos ({{stage_name}}, {{chatwoot_conversation_id}}).
+const STAGE_NAME = 'SLA IntStage ' + RUN_SUFFIX;
+const HANDOFF_CHATWOOT_CONVERSATION_ID = 'cw-sla-with-lead-' + RUN_SUFFIX;
 
 /** Logger de teste que captura chamadas de warn/error para assertar isolamento. */
 function buildCapturingLogger(): SlaScanLogger & {
@@ -221,7 +227,7 @@ beforeAll(async () => {
     .values({
       id: STAGE_ID,
       organizationId: ORG_ID,
-      name: 'SLA IntStage ' + RUN_SUFFIX,
+      name: STAGE_NAME,
       orderIndex: 0,
     })
     .onConflictDoNothing();
@@ -256,7 +262,7 @@ beforeAll(async () => {
         id: HANDOFF_WITH_LEAD_ID,
         organizationId: ORG_ID,
         leadId: LEAD_HANDOFF_ID,
-        chatwootConversationId: 'cw-sla-with-lead-' + RUN_SUFFIX,
+        chatwootConversationId: HANDOFF_CHATWOOT_CONVERSATION_ID,
         reason: 'cliente_solicitou_atendente',
         status: 'requested',
         idempotencyKey: 'sla-with-lead-' + RUN_SUFFIX,
@@ -289,8 +295,11 @@ beforeAll(async () => {
         recipientRoles: ['agente'],
         severity: 'warning',
         channels: ['in_app'],
-        titleTemplate: 'Parado {{hours_stalled}}h',
-        bodyTemplate: 'Card {{entity_id}}',
+        // F26-S02: {{stage_name}}/{{card_id}} exercitam o contexto enriquecido
+        // do eixo kanban_stage (sla-sources.ts) — antes deste slot, renderizavam
+        // o token literal (worker só injetava entity_id/entity_type/city_id).
+        titleTemplate: 'Parado {{hours_stalled}}h em {{stage_name}}',
+        bodyTemplate: 'Card {{entity_id}} ({{card_id}})',
         thresholdHours: THRESHOLD_HOURS,
         cooldownHours: COOLDOWN_HOURS,
         enabled: true,
@@ -307,8 +316,10 @@ beforeAll(async () => {
         recipientRoles: ['agente'],
         severity: 'critical',
         channels: ['in_app'],
+        // F26-S02: {{chatwoot_conversation_id}} exercita o contexto enriquecido
+        // do eixo handoff:requested.
         titleTemplate: 'Handoff parado {{hours_stalled}}h',
-        bodyTemplate: 'Handoff {{entity_id}}',
+        bodyTemplate: 'Handoff {{entity_id}} conversa {{chatwoot_conversation_id}}',
         thresholdHours: THRESHOLD_HOURS,
         cooldownHours: COOLDOWN_HOURS,
         enabled: true,
@@ -357,6 +368,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (!dbAvailable) return;
   try {
+    await db.execute(sql`DELETE FROM notifications WHERE organization_id = ${ORG_ID}`);
     await db.execute(
       sql`DELETE FROM notification_rule_deliveries WHERE organization_id = ${ORG_ID}`,
     );
@@ -407,6 +419,63 @@ describe.runIf(dbAvailable)('[INTEGRATION] runSlaScanTick — SQL real', () => {
   it('eixo handoff:requested: cria entrega com entityId = chatwoot_handoffs.id', async () => {
     expect(await countDeliveries(RULE_HANDOFF_OPEN_ID, HANDOFF_WITH_LEAD_ID)).toBe(1);
   });
+
+  // ---------------------------------------------------------------------------
+  // F26-S02 — contexto enriquecido do worker de SLA (doc 23 §12.3)
+  // ---------------------------------------------------------------------------
+
+  it(
+    'F26-S02: eixo kanban_stage renderiza {{hours_stalled}}/{{stage_name}}/{{card_id}} ' +
+      'com valores reais — nunca token literal',
+    async () => {
+      const rows = await db
+        .select({ title: notifications.title, body: notifications.body })
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.organizationId, ORG_ID),
+            eq(notifications.entityType, 'kanban_card'),
+            eq(notifications.entityId, CARD_STALE_ID),
+          ),
+        );
+
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(row.title).not.toContain('{{');
+        expect(row.body).not.toContain('{{');
+        // {{stage_name}} -> nome real do stage (não o UUID nem o token cru).
+        expect(row.title).toContain(STAGE_NAME);
+        // {{hours_stalled}} -> numérico real (card entrou há ~100h, threshold=1h).
+        expect(row.title).toMatch(/Parado \d+h em/);
+        // {{card_id}} -> UUID real de kanban_cards.id (mesmo de entity_id aqui).
+        expect(row.body).toContain(CARD_STALE_ID);
+      }
+    },
+  );
+
+  it(
+    'F26-S02: eixo handoff:requested renderiza {{chatwoot_conversation_id}} com o ' +
+      'valor real de chatwoot_handoffs.chatwoot_conversation_id — nunca token literal',
+    async () => {
+      const rows = await db
+        .select({ body: notifications.body })
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.organizationId, ORG_ID),
+            eq(notifications.entityType, 'conversation'),
+            eq(notifications.entityId, HANDOFF_WITH_LEAD_ID),
+          ),
+        );
+
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.every((r) => !r.body.includes('{{'))).toBe(true);
+      // Ao menos a regra RULE_HANDOFF_OPEN_ID usa {{chatwoot_conversation_id}}
+      // no template — RULE_HANDOFF_SCOPED_ID (mesmo eixo) usa um template mais
+      // simples e também dispara para esta mesma entidade.
+      expect(rows.some((r) => r.body.includes(HANDOFF_CHATWOOT_CONVERSATION_ID))).toBe(true);
+    },
+  );
 
   it(
     'SEGURANÇA fail-closed: regra com city_scope + handoff sem lead vinculado ' +

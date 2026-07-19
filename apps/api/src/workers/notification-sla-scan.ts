@@ -190,12 +190,41 @@ interface ProcessSlaRuleOptions {
    * e nunca mais é literalmente 'lead'.
    */
   leadId: string | null;
+  /**
+   * Timestamp de início da inatividade (SlaEligibleEntity.sinceAt) — base do
+   * placeholder {{hours_stalled}} (F26-S02, doc 23 §12.3). Calculado contra
+   * `now` do tick, não `new Date()` no momento do render (mantém as
+   * entidades de um mesmo tick consistentes entre si).
+   */
+  sinceAt: Date;
+  /** Referência temporal do tick — usada para calcular hours_stalled. */
+  now: Date;
+  /**
+   * Contexto extra por eixo (SlaEligibleEntity.templateContext) — IDs opacos
+   * e metadados operacionais que alimentam os placeholders declarados no
+   * TRIGGER_CATALOG além de entity_id/entity_type/city_id/lead_id/hours_stalled
+   * (ex: card_id, stage_name, chatwoot_conversation_id, simulation_id,
+   * analysis_id, contract_id, customer_id, payment_due_id).
+   */
+  templateContext: Record<string, string>;
   bucket: string;
   logger: SlaScanLogger;
 }
 
 async function processSlaRule(opts: ProcessSlaRuleOptions): Promise<void> {
-  const { db, rule, entityId, entityType, cityId, leadId, bucket, logger } = opts;
+  const {
+    db,
+    rule,
+    entityId,
+    entityType,
+    cityId,
+    leadId,
+    sinceAt,
+    now,
+    templateContext,
+    bucket,
+    logger,
+  } = opts;
   if (await hasDelivery(db, rule.id, entityType, entityId, bucket)) return;
   const filters = rule.filters as Record<string, unknown> | null;
   const cityScope = Array.isArray(filters?.['city_scope'])
@@ -237,10 +266,20 @@ async function processSlaRule(opts: ProcessSlaRuleOptions): Promise<void> {
     leadId,
   });
   if (recipients.length === 0) return;
+  // hours_stalled (F26-S02, doc 23 §12.3): horas decorridas desde sinceAt até o
+  // instante do tick — nunca negativo (defensivo contra clock skew/entidade
+  // recém-elegível). templateContext (por eixo) preenche os demais
+  // placeholders do catálogo (card_id, stage_name, chatwoot_conversation_id,
+  // simulation_id, analysis_id, contract_id, customer_id, payment_due_id) —
+  // apenas IDs opacos e metadados operacionais, nunca PII (LGPD §8.5).
+  const hoursStalled = Math.max(0, Math.floor((now.getTime() - sinceAt.getTime()) / 3_600_000));
   const ctx: Record<string, unknown> = {
     entity_id: entityId,
     entity_type: entityType,
     city_id: cityId ?? '',
+    lead_id: leadId ?? '',
+    hours_stalled: hoursStalled,
+    ...templateContext,
   };
   const renderedTitle = renderTemplate(rule.titleTemplate, ctx);
   const renderedBody = renderTemplate(rule.bodyTemplate, ctx);
@@ -317,6 +356,12 @@ export async function runSlaScanTick(
             entityType: entity.entityType,
             cityId: entity.cityId,
             leadId: entity.leadId,
+            sinceAt: entity.sinceAt,
+            now,
+            // `?? {}` — resiliente a mocks de teste antigos que não populam
+            // templateContext (campo novo). Em produção, findSlaSources
+            // sempre preenche este campo para as 7 fontes reais.
+            templateContext: entity.templateContext ?? {},
             bucket,
             logger,
           });

@@ -26,11 +26,18 @@
 //   - event_outbox.data carrega apenas IDs opacos + contagem (ver events/types.ts).
 //   - A nota do operador só entra no corpo da notificação in-app/email — nunca
 //     no outbox nem em audit_logs (ver dispatchEscalationNotifications abaixo).
+//   - Contexto de enriquecimento (F26-S02, doc 23 §12.3): nome do município
+//     (dado público) e tempo do lead no funil (timestamp operacional
+//     `leads.created_at`, já existente — nenhuma coluna nova) entram no corpo
+//     da notificação. Nunca CPF/telefone/nome do lead.
 // =============================================================================
+import { eq } from 'drizzle-orm';
 import pino from 'pino';
 
 import { env } from '../../config/env.js';
 import type { Database } from '../../db/client.js';
+import { cities } from '../../db/schema/cities.js';
+import { leads } from '../../db/schema/leads.js';
 import { emit } from '../../events/emit.js';
 import type { DrizzleTx } from '../../events/emit.js';
 import { auditLog } from '../../lib/audit.js';
@@ -118,6 +125,61 @@ async function resolveEscalationRecipients(
 }
 
 // ---------------------------------------------------------------------------
+// Contexto de enriquecimento do corpo (F26-S02, doc 23 §12.3/§14 — G4)
+// ---------------------------------------------------------------------------
+
+/** Contexto operacional não-sensível resolvido para enriquecer o corpo da notificação. */
+interface EscalationContext {
+  /** Nome do município do lead (dado público, não PII). null = sem cidade. */
+  cityName: string | null;
+  /** Timestamp de criação do lead — base do "tempo no funil". */
+  leadCreatedAt: Date | null;
+}
+
+/**
+ * Resolve o contexto de enriquecimento da notificação de escalação.
+ *
+ * O city-scope do lead já foi validado por `findLeadForEscalation` antes
+ * deste ponto (doc 10 §3.5) — esta consulta é só enriquecimento de texto,
+ * não uma segunda checagem de autorização. LGPD §8.5: retorna apenas o nome
+ * do município (dado público) e um timestamp operacional — nunca CPF,
+ * telefone ou nome do lead.
+ */
+async function resolveEscalationContext(db: Database, leadId: string): Promise<EscalationContext> {
+  const rows = await db
+    .select({ createdAt: leads.createdAt, cityName: cities.name })
+    .from(leads)
+    .leftJoin(cities, eq(leads.cityId, cities.id))
+    .where(eq(leads.id, leadId))
+    .limit(1);
+
+  const row = rows[0];
+  return {
+    cityName: row?.cityName ?? null,
+    leadCreatedAt: row?.createdAt ?? null,
+  };
+}
+
+/**
+ * Formata uma duração em texto curto e não-sensível (ex: "3h", "2 dias").
+ * Mesma lógica de `livechat/ai-handoff.ts` (formatWaitDuration) — duplicada
+ * intencionalmente: cada módulo fica dentro do seu próprio `files_allowed`
+ * sem depender de um util compartilhado fora do escopo deste slot.
+ */
+function formatElapsedDuration(sinceMs: number): string {
+  const minutes = Math.floor(sinceMs / 60_000);
+  if (minutes < 1) return 'menos de 1 minuto';
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    const remMinutes = minutes % 60;
+    return remMinutes > 0 ? `${hours}h${remMinutes}min` : `${hours}h`;
+  }
+  const days = Math.floor(hours / 24);
+  return `${days} dia${days > 1 ? 's' : ''}`;
+}
+
+// ---------------------------------------------------------------------------
 // Despacho de notificações (fora da transação — I/O de rede/DB isolado)
 // ---------------------------------------------------------------------------
 
@@ -127,6 +189,8 @@ interface DispatchParams {
   recipients: ResolvedRecipient[];
   /** Nota do operador, já validada/trim — null quando não informada. */
   note: string | null;
+  /** Contexto operacional não-sensível para enriquecer o corpo (F26-S02). */
+  context: EscalationContext;
 }
 
 /**
@@ -141,16 +205,24 @@ interface DispatchParams {
  * LGPD §8.5: title/body podem carregar a nota do operador (PII indireta,
  * responsabilidade do operador) — nunca entram no outbox. entityType/entityId
  * apontam para o lead (ID opaco) — o destinatário abre com o próprio escopo.
+ * cityName/leadCreatedAt são dado público/timestamp operacional (F26-S02).
  */
 async function dispatchEscalationNotifications(
   db: Database,
   params: DispatchParams,
 ): Promise<void> {
   const title = 'Lead encaminhado ao Departamento de Crédito';
+  const locationPart = params.context.cityName !== null ? ` (${params.context.cityName})` : '';
+  const agingPart =
+    params.context.leadCreatedAt !== null
+      ? ` — no funil há ${formatElapsedDuration(Date.now() - params.context.leadCreatedAt.getTime())}`
+      : '';
   const body =
     params.note !== null
-      ? `Um operador encaminhou um lead para análise de crédito. Nota do operador: ${params.note}`
-      : 'Um operador encaminhou um lead para análise de crédito. Abra o lead para mais detalhes.';
+      ? `Um operador encaminhou um lead${locationPart} para análise de crédito${agingPart}. ` +
+        `Nota do operador: ${params.note}`
+      : `Um operador encaminhou um lead${locationPart} para análise de crédito${agingPart}. ` +
+        'Abra o lead para mais detalhes.';
   const severity: NotificationSocketSeverity = 'warning';
 
   for (const recipient of params.recipients) {
@@ -287,11 +359,15 @@ export async function escalateLeadToCredit(
   });
 
   // 5. Notificações fora da transação (I/O externo/best-effort por canal).
+  //    Contexto de enriquecimento (F26-S02): cidade + tempo no funil, ambos
+  //    não-sensíveis — resolvido best-effort, nunca bloqueia a escalação.
+  const context = await resolveEscalationContext(db, input.leadId);
   await dispatchEscalationNotifications(db, {
     organizationId: actor.organizationId,
     leadId: input.leadId,
     recipients,
     note: notePresent ? trimmedNote : null,
+    context,
   });
 
   return {

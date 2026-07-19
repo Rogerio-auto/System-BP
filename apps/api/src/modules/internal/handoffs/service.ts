@@ -9,10 +9,12 @@
 //      Reenvio retorna o handoff existente sem reprocessar.
 //   2. Em transação DB:
 //      a. INSERT em chatwoot_handoffs — handoff_id é o id da linha persistida.
-//      b. Emitir 'chatwoot.handoff_requested' via outbox.
-//      c. Se card do lead estiver em stage 'pré-atendimento' ou 'simulação',
+//      b. Resolver a ref de agregado do outbox (lead vs. conversation nativa
+//         vinculada ao leadId — deep-link, F26-S02, doc 23 §13).
+//      c. Emitir 'chatwoot.handoff_requested' via outbox com essa ref.
+//      d. Se card do lead estiver em stage 'pré-atendimento' ou 'simulação',
 //         mover para o próximo stage (doc 05 §kanban).
-//      d. Inserir na idempotency_keys (cache rápido de resposta para reenvios).
+//      e. Inserir na idempotency_keys (cache rápido de resposta para reenvios).
 //   3. Chamar Chatwoot via ChatwootClient:
 //      a. Atualizar custom_attributes (lead_id, reason, handoff_id).
 //      b. Criar nota interna com summary (isPrivate=true).
@@ -35,11 +37,12 @@
 //   - idempotency_keys.response_body armazena apenas { handoff_id, status } —
 //     sem PII (LGPD: response_body nunca deve conter PII per schema comment).
 // =============================================================================
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 
 import type { Database } from '../../../db/client.js';
 import {
   chatwootHandoffs,
+  conversations,
   idempotencyKeys,
   kanbanCards,
   kanbanStages,
@@ -146,9 +149,10 @@ export async function requestHandoff(
   // -------------------------------------------------------------------------
   // 2. Executar mutações DB em transação
   //    a. INSERT em chatwoot_handoffs — handoff_id é o id da linha
-  //    b. Emitir evento no outbox
-  //    c. Mover card do kanban se aplicável
-  //    d. Inserir na idempotency_keys (cache rápido)
+  //    b. Resolver a ref de agregado do outbox (deep-link, F26-S02)
+  //    c. Emitir evento no outbox
+  //    d. Mover card do kanban se aplicável
+  //    e. Inserir na idempotency_keys (cache rápido)
   // -------------------------------------------------------------------------
   // handoffId será sempre preenchido pela transação (INSERT ... RETURNING).
   // Inicializado como string vazia para satisfazer strictPropertyInitialization;
@@ -187,12 +191,45 @@ export async function requestHandoff(
     // exatamente 1 linha quando não há erro — garantido pelo Drizzle + Postgres.
     handoffId = insertedRows[0]!.id;
 
-    // 2b. Emitir 'chatwoot.handoff_requested' no outbox
+    // 2b. Resolver a ref de agregado do outbox — deep-link (F26-S02, doc 23 §13).
+    //
+    //     Bug histórico: aggregateType='lead'/aggregateId=leadId, mesmo o
+    //     TRIGGER_CATALOG rotulando este gatilho como entityType='conversation'
+    //     (a notificação carrega entity_type='lead' e o resolvedor do frontend
+    //     não tem rota para 'lead' — o link fica morto).
+    //
+    //     Fix: este endpoint só recebe o ID numérico da conversa no Chatwoot
+    //     (body.conversationId) — não o UUID da nossa tabela `conversations`
+    //     nativa (F16), que não tem relação 1:1 com o Chatwoot. Buscamos a
+    //     conversa nativa mais recente vinculada ao mesmo leadId: se existir,
+    //     apontamos o deep-link para ela (aggregateType='conversation',
+    //     aggregateId=conversations.id) — mesmo tipo declarado pelo catálogo.
+    //     Sem conversa nativa correspondente (fluxo Chatwoot legado sem
+    //     equivalente em livechat nativo), preserva o fallback anterior
+    //     (aggregateType='lead') — nunca aponta para um UUID de tipo errado.
+    const nativeConversationRows = await (txRepo as Database)
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.leadId, body.leadId),
+          eq(conversations.organizationId, body.organizationId),
+          isNull(conversations.deletedAt),
+        ),
+      )
+      .orderBy(desc(conversations.lastMessageAt))
+      .limit(1);
+
+    const nativeConversation = nativeConversationRows[0];
+    const aggregateType = nativeConversation !== undefined ? 'conversation' : 'lead';
+    const aggregateId = nativeConversation !== undefined ? nativeConversation.id : body.leadId;
+
+    // 2c. Emitir 'chatwoot.handoff_requested' no outbox
     //     LGPD §8.5: payload contém apenas IDs opacos. summary NÃO vai no outbox.
     await emit(txEmit, {
       eventName: 'chatwoot.handoff_requested',
-      aggregateType: 'lead',
-      aggregateId: body.leadId,
+      aggregateType,
+      aggregateId,
       organizationId: body.organizationId,
       actor: { kind: 'ai', id: null, ip: null },
       // Chave determinística baseada no idempotency key do caller — garante
@@ -210,7 +247,7 @@ export async function requestHandoff(
       },
     });
 
-    // 2c. Mover card do kanban se ainda em stage movível
+    // 2d. Mover card do kanban se ainda em stage movível
     //     Doc 05: "chatwoot.handoff_requested → move para documentacao se ainda em pre/sim"
     //     Doc 06: "Move card no Kanban se ainda em pre_atendimento/simulacao"
     //     Estratégia: lookup do card pelo leadId, verificar slug do stage atual,
@@ -289,7 +326,7 @@ export async function requestHandoff(
       }
     }
 
-    // 2d. Inserir na idempotency_keys para reenvios rápidos via cache
+    // 2e. Inserir na idempotency_keys para reenvios rápidos via cache
     //     LGPD: response_body armazena apenas handoff_id + status — sem PII.
     const responseBody: InternalHandoffResponse = {
       handoff_id: handoffId,
