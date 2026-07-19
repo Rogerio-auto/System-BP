@@ -807,30 +807,39 @@ Doc canônico completo: [`docs/23-notificacoes.md`](23-notificacoes.md). Catálo
   destinatários, idempotência do fan-out e do worker de SLA, `pino.redact` de email/PII).
 - Checklist LGPD §14.2 (doc 17) revisado — regras tocam destinatários internos (dado de
   colaborador), não dado de cidadão, mas templates podem carregar PII indireta.
-- Ler **doc 23 §12** (divergências conhecidas) — em particular §12.4: o único eixo de
-  inatividade hoje implementável (`kanban_stage:*`) tem um bug de formato de chave que impede
-  qualquer regra criada pela API real de disparar. **Não ligar `notifications.sla.enabled` em
-  produção antes de corrigir esse bug** (fora do escopo deste slot de docs).
+- Ler **doc 23 §12** (estado atual + débito remanescente). Os bloqueadores anteriores foram
+  resolvidos com o fechamento da Fase F24: o bug de formato de chave do worker de estagnação
+  (`kanban_stage:*`) foi corrigido em **F24-S16**, e o push em tempo real foi entregue em
+  **F24-S08/S13**. O débito remanescente hoje é **de UX no frontend**, não de correção de bug de
+  disparo — ver doc 23 §13/§14: a lista persistente do sino não navega para a entidade e os
+  textos de handoff/escalação são genéricos. Isso **não bloqueia** o flip das flags (as
+  notificações disparam e são entregues), mas deve entrar como melhoria priorizada.
 
 ### 14.2 Ordem de flip recomendada
 
-1. **`notifications.email.enabled`** (flag de banco — hoje sem efeito real, ver doc 23 §12.1).
-   O gate que efetivamente controla o envio é a env var `NOTIFICATIONS_EMAIL_ENABLED` +
-   `RESEND_API_KEY` + `EMAIL_FROM` (+ `EMAIL_REPLY_TO` opcional) no ambiente da API. Validar
-   com 1 usuário de teste antes de expandir: criar uma regra de evento simples
-   (`simulations.generated`, canal `email`), habilitar, disparar o evento, confirmar
-   recebimento e checar logs (sem PII) por erro do Resend.
+1. **`notifications.email.enabled`** — gate de duas camadas (F24-S18): a flag de banco **e** a
+   env var `NOTIFICATIONS_EMAIL_ENABLED` (+ `RESEND_API_KEY` + `EMAIL_FROM`, `EMAIL_REPLY_TO`
+   opcional) precisam estar ligadas; qualquer uma desligada é no-op limpo, e falha na consulta da
+   flag é fail-closed. Validar com 1 usuário de teste antes de expandir: criar uma regra de
+   evento simples (`simulations.generated`, canal `email`), habilitar, disparar o evento,
+   confirmar recebimento e checar logs (sem PII) por erro do Resend.
 2. **`notifications.rules.enabled`** (flag mestre — liga o fan-out por evento). Observa
    `notification_rule_deliveries` por alguns dias para confirmar dedup (nenhuma duplicata por
    `(rule_id, entity_type, entity_id, bucket)`).
-3. **`notifications.realtime.enabled`** — **não ligar ainda**: não há código de push a gatear
-   (F24-S08 backend e F24-S13 frontend seguem `available` no board). Ligar essa flag hoje é
-   no-op — não quebra nada, mas também não entrega nada. Reavaliar quando os dois slots
-   fecharem.
-4. **`notifications.sla.enabled`** (worker de estagnação — maior volume, ligar por último).
-   **Bloqueado** até o bug de §14.1 ser corrigido — caso contrário, regras de estagnação ficam
-   habilitadas sem nunca disparar, o que é pior do que a flag desligada (falsa sensação de
-   cobertura operacional).
+3. **`notifications.realtime.enabled`** — liga o push em tempo real (`notification.new` na sala
+   `user:{userId}`, consumido pelo sino do frontend). Depende do relay de socket do live chat
+   estar de pé. Sem essa flag, o sino cai no modo poll (`GET /api/notifications`) — funcional,
+   porém sem toast instantâneo. Validar: disparar um evento e confirmar toast + incremento de
+   badge sem reload.
+4. **`notifications.sla.enabled`** (worker de estagnação — maior volume, ligar por último). Os 7
+   eixos de inatividade têm fonte de dados (`sla-sources.ts`); criar uma regra real via
+   `POST /api/notification-rules` (ex.: `kanban_stage:*`, `threshold_hours` baixo em staging) e
+   confirmar disparo idempotente por janela de cooldown. **Atenção de UX** (não bloqueia o flip,
+   mas comunique aos operadores): templates de SLA que referenciam `{{lead_id}}`,
+   `{{chatwoot_conversation_id}}`, `{{hours_stalled}}`, `{{stage_name}}` renderizam o token
+   **literal** — o worker só injeta `{entity_id, entity_type, city_id}` no contexto (doc 23
+   §12.3). Até o enriquecimento do contexto (backlog), instrua a escrever templates de SLA sem
+   esses placeholders.
 
 ### 14.3 Checklist de validação pós-flip
 
@@ -840,16 +849,19 @@ Doc canônico completo: [`docs/23-notificacoes.md`](23-notificacoes.md). Catálo
 - [ ] `notification_rule_deliveries` sem duplicatas após reprocesso de outbox (idempotência).
 - [ ] Preferências do usuário respeitadas (desabilitar uma categoria/canal e confirmar que a
       notificação correspondente não é despachada para esse usuário).
-- [ ] `notifications.sla.enabled`: **não marcar como pronto** até o bug de §14.1/doc 23 §12.4
-      ser corrigido e validado com uma regra real criada via `POST /api/notification-rules`.
+- [ ] `notifications.realtime.enabled`: toast + badge atualizam sem reload ao disparar um evento.
+- [ ] `notifications.sla.enabled`: regra criada via `POST /api/notification-rules` (ex.:
+      `kanban_stage:*`) dispara dentro da janela de `threshold_hours`/`cooldown_hours`, com dedup
+      por bucket de janela; template de SLA não usa placeholders ricos ainda não suportados.
 
 ---
 
 ## Histórico de revisões
 
-| Data       | Versão | Autor        | Mudança                                                                                                                                                                                                                                              |
-| ---------- | ------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-05-22 | 1.0    | Slot F7-S06  | Criação inicial a partir da auditoria pré-launch                                                                                                                                                                                                     |
-| 2026-05-25 | 1.1    | Slot F7-S06  | Consolidação completa: bloqueadores marcados done (F7-S01, F4-S01, F4-S02, F7-S02, F7-S03, F7-S04), seções expandidas (GO/NO-GO, rotação secrets, desfecho paralelo, playbooks detalhados, tabela de cutover, contatos), smoke-prod.ps1 referenciado |
-| 2026-05-26 | 1.2    | Slot F8-S17  | Seção 13: troubleshooting de migrations com CONCURRENTLY, journal drift e checklist de deploy com db:check-drift                                                                                                                                     |
-| 2026-07-10 | 1.3    | Slot F24-S15 | Seção 14: ordem de flip das 4 flags de notificações (Fase F24), pré-requisitos e checklist de validação pós-flip; aponta para divergências conhecidas em doc 23 §12                                                                                  |
+| Data       | Versão | Autor               | Mudança                                                                                                                                                                                                                                                      |
+| ---------- | ------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-05-22 | 1.0    | Slot F7-S06         | Criação inicial a partir da auditoria pré-launch                                                                                                                                                                                                             |
+| 2026-05-25 | 1.1    | Slot F7-S06         | Consolidação completa: bloqueadores marcados done (F7-S01, F4-S01, F4-S02, F7-S02, F7-S03, F7-S04), seções expandidas (GO/NO-GO, rotação secrets, desfecho paralelo, playbooks detalhados, tabela de cutover, contatos), smoke-prod.ps1 referenciado         |
+| 2026-05-26 | 1.2    | Slot F8-S17         | Seção 13: troubleshooting de migrations com CONCURRENTLY, journal drift e checklist de deploy com db:check-drift                                                                                                                                             |
+| 2026-07-10 | 1.3    | Slot F24-S15        | Seção 14: ordem de flip das 4 flags de notificações (Fase F24), pré-requisitos e checklist de validação pós-flip; aponta para divergências conhecidas em doc 23 §12                                                                                          |
+| 2026-07-19 | 1.4    | Sessão notificações | Seção 14 atualizada ao estado real: bug `kanban_stage:*` corrigido (F24-S16), realtime entregue (F24-S08/S13), 7 eixos de SLA com fonte de dados. Bloqueadores anteriores removidos; débito remanescente reclassificado como UX de frontend (doc 23 §13/§14) |

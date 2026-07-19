@@ -61,11 +61,14 @@ Auditoria em `feature_flag_audit`. Toda mudança via UI requer permissão `flags
 | `notifications.realtime.enabled`             | disabled          | ✓ (badge)      | Fase F24 — nota abaixo |
 
 > **Notificações (Fase F24) — leia antes de mexer:** as 4 flags acima foram seedadas na
-> migration `0077` mas **duas delas não são checadas por nenhum código** hoje:
-> `notifications.email.enabled` (o gate real do envio de email é a env var
-> `NOTIFICATIONS_EMAIL_ENABLED`, não a flag de banco) e `notifications.realtime.enabled` (a
-> feature de push em tempo real ainda não foi implementada — slots F24-S08/F24-S13 pendentes).
-> Detalhe completo, incluindo um bug conhecido no worker de estagnação, em
+> migration `0077`. Desde 2026-07-19 **as quatro são funcionais e gateiam código real** (Fase
+> F24 concluída — 21/21 slots): `notifications.rules.enabled` (fan-out por evento),
+> `notifications.sla.enabled` (worker de estagnação — os 7 eixos de inatividade agora têm fonte
+> de dados), `notifications.email.enabled` (envio de email, em série com a env var
+> `NOTIFICATIONS_EMAIL_ENABLED` — gate de duas camadas, F24-S18) e `notifications.realtime.enabled`
+> (push em tempo real via socket `notification.new`, sala `user:{userId}` — F24-S08/S13
+> entregues). O bug de formato de chave do worker de estagnação (`kanban_stage:*`) foi corrigido
+> em F24-S16. Detalhe completo e lacunas de UX remanescentes em
 > [`docs/23-notificacoes.md`](23-notificacoes.md) §9 e §12. Ordem de flip recomendada em
 > [`docs/19-runbook-go-live.md`](19-runbook-go-live.md) §14.
 

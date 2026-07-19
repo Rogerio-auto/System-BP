@@ -10,8 +10,10 @@
 > RBAC normativo: [`docs/10-seguranca-permissoes.md`](10-seguranca-permissoes.md).
 >
 > **Este documento descreve o comportamento REALMENTE implementado no código** (não apenas o
-> planejado). A seção 12 lista explicitamente onde a implementação diverge do planejamento
-> original ou está incompleta — leia-a antes de habilitar qualquer flag em produção.
+> planejado). Revisado em **2026-07-19** contra o código-fonte após o fechamento da Fase F24
+> (21/21 slots). A seção 12 registra o estado atual e o débito remanescente; a seção 13 documenta
+> o modelo de dado da notificação e a base de deep-link; a seção 14 mapeia as lacunas de UX do
+> sino no frontend — leia-as antes de habilitar qualquer flag ou planejar melhorias.
 
 ## 1. Por que existe
 
@@ -52,8 +54,9 @@ nos templates (sempre IDs opacos/metadados — nunca CPF, telefone ou nome de ci
 | `task.created`                   | system     | task            | task_id, assignee_role, type, city_id, entity_type, entity_id            |
 | `customer.law_firm_referred`     | system     | customer        | referral_id, customer_id, law_firm_id, channel, sent_at                  |
 
-**Inatividade (`kind: 'stage_inactivity'`)** — 7 chaves declaradas no catálogo (ver §12.3 para
-o estado real de implementação — só 1 das 7 tem fonte de dados no worker):
+**Inatividade (`kind: 'stage_inactivity'`)** — 7 chaves declaradas no catálogo. Desde F24-S16
+**as 7 têm fonte de dados no worker** (`sla-sources.ts`); ver §12.3 para o detalhe de contexto
+de template (o worker injeta um contexto mínimo, não os placeholders ricos do catálogo):
 
 | `key`                      | `category`        | `entityType`    | `timestampSource`               |
 | -------------------------- | ----------------- | --------------- | ------------------------------- |
@@ -127,18 +130,23 @@ Fluxo por evento recebido:
 ## 4. Worker de estagnação — `notification-sla-scan` (F24-S07)
 
 Loop standalone (`apps/api/src/workers/notification-sla-scan.ts`), registrado no supervisor de
-workers periódicos. Tick default de 1h (reusa `FOLLOWUP_SCHEDULER_TICK_MS`, sem env var própria
-— ver §12.4). A cada tick:
+workers periódicos. Tick default de 1h (reusa `FOLLOWUP_SCHEDULER_TICK_MS`, sem env var própria).
+A cada tick:
 
 1. `requireFlag(db, 'notifications.sla.enabled')` — se off, dorme e tenta de novo no próximo
    tick (não sai do loop).
 2. Busca `notification_rules` com `trigger_kind='stage_inactivity'` e `enabled=true` — sem
    filtro por organização (varre todas as orgs num único tick).
-3. Para cada regra: `findSlaSources(db, orgId, thresholdHours, rule.triggerKey)` retorna as
-   entidades elegíveis (ver §12.3 — hoje só cobre inatividade de Kanban stage). Para cada
-   entidade: checa delivery existente no bucket da janela atual → filtro de `city_scope` →
-   resolve destinatários → renderiza (`entity_id`, `entity_type`, `city_id` — contexto mínimo,
-   **não** os placeholders ricos do catálogo de eventos) → despacha por canal → grava delivery.
+3. Para cada regra: `findSlaSources(db, orgId, thresholdHours, rule.triggerKey)` roteia pelo
+   `trigger_key` para a query da entidade elegível — os 7 eixos do catálogo estão implementados
+   (`sla-sources.ts`): `kanban_stage:*|<stageId>`, `handoff:requested`, `simulation:sent_no_reply`,
+   `analysis:pendente`, `contract:draft_unsigned`, `payment_due:overdue`, `conversation:no_reply`.
+   Para cada entidade: checa delivery existente no bucket da janela atual → filtro de `city_scope`
+   → resolve destinatários → renderiza com contexto **mínimo** (`entity_id`, `entity_type`,
+   `city_id` — **não** os placeholders ricos que o catálogo anuncia, ver §12.3) → despacha por
+   canal → grava delivery. A linha de `notifications` recebe `entity_type`/`entity_id` reais da
+   fonte (ex.: `conversation:no_reply` → `conversations.id`), o que habilita deep-link mesmo com
+   o texto mínimo (§13).
 
 Erros de uma regra ou entidade são isolados (`try/catch` silencioso) — não derrubam o tick.
 
@@ -147,8 +155,9 @@ Erros de uma regra ou entidade são isolados (`try/catch` silencioso) — não d
 ### 5.1 In-app (`senders/inApp.ts`)
 
 Persiste uma linha em `notifications` (tabela de F15) — é o dado que alimenta
-`GET /api/notifications` e o badge de não-lidas. **Não publica em socket/realtime** hoje — ver
-§12.2.
+`GET /api/notifications` e o badge de não-lidas. Após persistir, dispara **fire-and-forget** o
+push de tempo real (`publishNotificationSocket`, §5.3) — a falha do socket nunca derruba a
+persistência.
 
 ### 5.2 Email via Resend (F24-S03 — `senders/email.ts` + `email/resendClient.ts` +
 
@@ -168,10 +177,20 @@ consultada via `requireFlag`). Qualquer uma desligada resulta em no-op limpo (lo
 lançar). Se a consulta da flag falhar (ex.: banco indisponível), o envio é **fail-closed** — não
 envia — porque email é o único canal de notificação que sai da rede.
 
-### 5.3 Tempo real — NÃO IMPLEMENTADO
+### 5.3 Tempo real — IMPLEMENTADO (F24-S08/S13)
 
-O planejamento previa um socket relay (`user:{userId}` room + evento `notification.new`,
-reusando o relay do live chat). **Isso ainda não existe no código.** Ver §12.2.
+`apps/api/src/modules/notifications/realtime.ts` → `publishNotificationSocket` publica o evento
+`notification.new` na sala `user:{userId}` da fila `hm.q.socket.relay` (reusa o relay de socket
+do live chat), gateado pela flag `notifications.realtime.enabled` (no-op quando off). É chamado
+fire-and-forget pelo `senders/inApp.ts` logo após persistir a linha.
+
+Payload do socket (`NotificationSocketData`): `{ id, type, title, severity, entityType, entityId,
+createdAt }` — **sem `body`** (omitido por LGPD; o `body` só existe na linha do banco lida via
+REST). O frontend (`useNotificationSocket.ts`) escuta o evento, incrementa o badge de forma
+otimista, invalida a query da lista e empilha um **toast** (auto-dismiss por severidade). Sem a
+flag ligada, o sino cai no modo **poll** (`GET /api/notifications`) — funcional, sem push
+instantâneo. Ver §14 para a assimetria de UX entre o toast (navega) e a lista persistente (não
+navega).
 
 ## 6. Preferências do usuário (F24-S09 backend / F24-S12 frontend)
 
@@ -242,12 +261,12 @@ as mesmas rotas herdadas de F15).
 
 4 flags seedadas em migration `0077` — **todas nascem `disabled`**:
 
-| Flag                             | Camada que checa                                                                     | Status real                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------- |
-| `notifications.rules.enabled`    | Rotas `notification-rules` (`featureGate`) + fan-out (`requireFlag`, mestre)         | Funcional                                    |
-| `notifications.sla.enabled`      | Loop do worker `notification-sla-scan` (`requireFlag`)                               | Funcional                                    |
-| `notifications.email.enabled`    | `senders/email.ts` (`requireFlag`), em série com a env `NOTIFICATIONS_EMAIL_ENABLED` | Funcional (F24-S18)                          |
-| `notifications.realtime.enabled` | **Nenhuma** — não há código de realtime a gatear (F24-S08/S13 pendentes)             | **Flag morta / feature inexistente** — §12.2 |
+| Flag                             | Camada que checa                                                                     | Status real                    |
+| -------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------ |
+| `notifications.rules.enabled`    | Rotas `notification-rules` (`featureGate`) + fan-out (`requireFlag`, mestre)         | Funcional                      |
+| `notifications.sla.enabled`      | Loop do worker `notification-sla-scan` (`requireFlag`)                               | Funcional                      |
+| `notifications.email.enabled`    | `senders/email.ts` (`requireFlag`), em série com a env `NOTIFICATIONS_EMAIL_ENABLED` | Funcional (F24-S18)            |
+| `notifications.realtime.enabled` | `realtime.ts` (`publishNotificationSocket`) — push `notification.new` sala `user:{}` | Funcional (F24-S08/S13) — §5.3 |
 
 Ver §12 para o detalhe de cada divergência antes de decidir a estratégia de flip.
 
@@ -285,97 +304,138 @@ Ver §12 para o detalhe de cada divergência antes de decidir a estratégia de f
 `apps/web/src/features/notifications/preferences/` (F24-S12) — matriz categoria × canal com
 toggles, consumida na seção de Conta/Configurações do usuário.
 
-## 12. Divergências conhecidas / débito técnico
+## 12. Estado atual e débito remanescente
 
-**Leia esta seção antes de habilitar qualquer flag em produção.** Ela documenta onde a
-implementação real diverge do planejamento (`docs/planejamento-notificacoes.md`) ou está
-incompleta em relação aos 15 slots decompostos. Nenhum destes pontos é fictício — cada um foi
-confirmado lendo o código-fonte em 2026-07-10.
+**Leia esta seção antes de habilitar qualquer flag em produção.** A Fase F24 foi **concluída
+integralmente (21/21 slots)**; a maioria das divergências registradas na versão anterior deste
+doc (2026-07-10) foi resolvida. O que resta hoje é majoritariamente **débito de UX no frontend**
+(§14), não bug de disparo. Cada ponto abaixo foi reconfirmado lendo o código em 2026-07-19.
 
 ### 12.1 `notifications.email.enabled` — resolvido (F24-S18)
 
-Até 2026-07-10, a flag de banco `notifications.email.enabled` era seedada (migration `0077`) e
-aparecia na tela `/admin/feature-flags`, mas nenhum código a consultava — o gate real do envio de
-email era só a env var `NOTIFICATIONS_EMAIL_ENABLED`, tornando a flag morta no painel.
+`senders/email.ts` consulta `requireFlag(db, 'notifications.email.enabled', logger)` **em série**
+com a env var `NOTIFICATIONS_EMAIL_ENABLED`. Semântica de duas camadas: env =
+infraestrutura/credenciais do deploy (checada primeiro, sem I/O); flag de banco = decisão
+operacional por organização. As duas precisam estar ligadas para o email sair. Falha na consulta
+da flag (ex.: banco indisponível) é **fail-closed** — não envia, só loga o motivo.
 
-F24-S18 corrigiu: `senders/email.ts` agora consulta `requireFlag(db, 'notifications.email.enabled',
-logger)` **em série** com a env var. Semântica de duas camadas: env = infraestrutura/credenciais do
-deploy (checada primeiro, sem I/O — desligada evita a consulta de flag); flag de banco = decisão
-operacional por organização. As duas precisam estar ligadas para o email sair. Falha na consulta da
-flag (ex.: banco indisponível) é tratada fail-closed — não envia, só loga o motivo. O runbook (§14
-do doc 19) segue mandando virar a flag no go-live — agora isso tem efeito real.
+### 12.2 Tempo real (`notifications.realtime.enabled`) — resolvido (F24-S08/S13)
 
-### 12.2 Tempo real (`notifications.realtime.enabled`) — feature inexistente
+O push em tempo real **existe** e está descrito na §5.3: `realtime.ts` publica `notification.new`
+na sala `user:{userId}` (fila `hm.q.socket.relay`), o frontend escuta via `useNotificationSocket.ts`
+e mostra toast + badge otimista. A flag gateia o `publishNotificationSocket` (no-op quando off).
+Débito remanescente aqui é de **UX**, não de existência: a assimetria de deep-link entre o toast e
+a lista persistente do sino (§14).
 
-F24-S08 ("push em tempo real — sala `user:{}` + publish `notification.new`") e F24-S13 ("sino
-de notificações em tempo real — socket + toast + badge") **ainda estão `available`** no board
-(não implementados). Hoje:
+### 12.3 Worker de estagnação — 7 eixos com fonte, mas contexto de template mínimo
 
-- `apps/api/src/plugins/socket.ts` só tem as salas `workspace:{orgId}` e `conversation:{id}`
-  (do live chat) — não existe sala `user:{userId}`.
-- `senders/inApp.ts` só faz `INSERT` na tabela `notifications` — não publica nenhum evento de
-  socket.
-- A flag `notifications.email.enabled`... perdão, `notifications.realtime.enabled` é seedada
-  mas não é checada em lugar nenhum do código, porque não há nada para gatear ainda.
+**Resolvido em parte.** `findSlaSources()` (`sla-sources.ts`) roteia corretamente pelo
+`trigger_key` para os **7 eixos** do catálogo — `findStagnantKanbanCards`,
+`findStalledHandoffRequests`, `findStalledSimulations`, `findStalledAnalyses`,
+`findStalledDraftContracts`, `findOverduePaymentDues`, `findStalledConversations`. O gap
+"só 1 dos 7" da versão anterior **não existe mais**.
 
-Ou seja: hoje o sino/central de notificações só atualiza via **poll** do frontend
-(`GET /api/notifications`), como já funcionava em F15 — não há push. Isso é esperado (slots
-não fechados), mas não pode ser confundido com "flag desligada e pronta pra ligar depois": a
-feature não existe.
+**Débito remanescente (real, confirmado):** o worker (`notification-sla-scan.ts`) monta o
+contexto de renderização de template apenas com `{ entity_id, entity_type, city_id }`. Mas o
+`TRIGGER_CATALOG` anuncia placeholders ricos por eixo — ex.: `lead_id`,
+`chatwoot_conversation_id`, `hours_stalled`, `stage_name`. Como o `renderTemplate` deixa chaves
+desconhecidas **literais** (`{{key}}`), qualquer template de SLA que use esses placeholders
+renderiza o token cru no texto da notificação. Consequência prática: **é possível cadastrar um
+template de SLA "válido" (placeholders existem no catálogo) que produz texto quebrado**. A
+entidade em si é referenciada corretamente na linha (`entity_type`/`entity_id` reais da fonte),
+então o deep-link funciona; só o **texto** não enriquece. Correção pertence ao backlog (§14,
+item de enriquecimento de contexto).
 
-### 12.3 Worker de estagnação só cobre 1 dos 7 eixos de inatividade do catálogo
+### 12.4 Bug de formato de chave `kanban_stage:*` — corrigido (F24-S16)
 
-`findSlaSources()` (`modules/notification-rules/sla-sources.ts`) delega **incondicionalmente**
-para `findStagnantKanbanCards()`, independente do `trigger_key` da regra. Os outros 6 eixos
-declarados no `TRIGGER_CATALOG` (`handoff:requested`, `simulation:sent_no_reply`,
-`analysis:pendente`, `contract:draft_unsigned`, `payment_due:overdue`, `conversation:no_reply`)
-**passam na validação Zod ao criar a regra** (existem no catálogo) mas **nunca são avaliados
-pelo worker** — uma regra `stage_inactivity` com um desses `trigger_key` fica cadastrada,
-habilitada, e nunca dispara, silenciosamente. Não há erro, não há log de alerta — é um gap
-funcional, não uma exceção.
-
-### 12.4 Bug de formato de chave no único eixo implementado (`kanban_stage:*`)
-
-Este é o achado mais sério da revisão. `findStagnantKanbanCards(db, orgId, thresholdHours,
-triggerKey)` trata `triggerKey` como o **nome literal de um stage do Kanban** (ex.:
-`'Qualificação'`) ou o caractere `'*'` sozinho para "qualquer stage":
+O bug histórico (o worker comparava o `trigger_key` literal `'kanban_stage:*'` contra
+`kanbanStages.name`) foi corrigido. `sla-sources.ts` hoje faz o strip do prefixo e compara o
+`stage_id` (uuid), com `*` → `null` ("qualquer stage"):
 
 ```ts
-if (triggerKey !== '*') {
-  conditions.push(eq(kanbanStages.name, triggerKey));
+const KANBAN_STAGE_PREFIX = 'kanban_stage:';
+if (triggerKey.startsWith(KANBAN_STAGE_PREFIX)) {
+  const stageSelector = triggerKey.slice(KANBAN_STAGE_PREFIX.length);
+  const stageId = stageSelector === '*' ? null : stageSelector;
+  return findStagnantKanbanCards(db, organizationId, thresholdHours, stageId, entityType);
 }
 ```
 
-Mas a **única** entrada de inatividade de Kanban no `TRIGGER_CATALOG` — a única que o
-`superRefine` do schema de criação de regra aceita como `trigger_key` válido para esse eixo — é
-a string literal `'kanban_stage:*'` (com o prefixo). O frontend (`RuleDrawer.tsx`) envia esse
-valor verbatim. Logo, uma regra criada pelo caminho real (API validada + UI) grava
-`trigger_key = 'kanban_stage:*'`, e o worker compara `kanbanStages.name = 'kanban_stage:*'` —
-que nunca existe como nome de stage real. **Resultado: a única regra de inatividade que
-"funciona" na teoria nunca dispara na prática**, se criada pela API pública.
+`findStagnantKanbanCards` filtra `eq(kanbanCards.stageId, stageId)`. Regras criadas pela API real
+disparam.
 
-Os testes de `notification-sla-scan.test.ts` não pegam esse bug porque constroem o objeto de
-regra diretamente com `triggerKey: 'Qualificacao'` (nome de stage puro) — um valor que a
-validação Zod real (`notificationRuleCreateSchema`) rejeitaria, porque não existe no
-`TRIGGER_CATALOG`. Ou seja: o teste unitário valida a função `findStagnantKanbanCards`
-isoladamente, mas não cobre a integração real `POST /api/notification-rules` →
-`notification-sla-scan`.
+### 12.5 QA de integração fim-a-fim (F24-S14)
 
-**Isso precisa ser corrigido antes de ligar `notifications.sla.enabled` em produção** — ver
-checklist em doc 19 §14. Duas correções possíveis (decisão de implementação, não deste slot):
-(a) `findSlaSources` extrai o nome do stage de outro lugar (ex.: `filters.stage` na regra, hoje
-inexistente no schema) e passa só o nome puro para `findStagnantKanbanCards`; ou (b)
-`findStagnantKanbanCards` normaliza o prefixo `kanban_stage:` antes de comparar. Nenhuma das
-duas está implementada hoje.
+Cada slot backend (S01, S05, S06, S07, S09) trouxe testes do próprio módulo. Confirmar o estado
+do slot dedicado de cobertura fim-a-fim (engine + SLA + dedup + preferências + RBAC + email mock)
+no board antes de tratar a suíte como completa — não assumir que testes por módulo cobrem a
+integração `POST /api/notification-rules` → worker.
 
-### 12.5 QA de integração (F24-S14) ainda não fechado
+## 13. Modelo de dado da notificação e deep-link
 
-Cada slot backend (S01, S05, S06, S07, S09) trouxe testes unitários/integração do próprio
-módulo (mocks de DB), mas o slot dedicado a cobertura de integração fim-a-fim do sistema de
-notificações (engine + SLA + dedup + preferências + RBAC + email mock) segue `available` no
-board. Não tratar os testes existentes por módulo como equivalentes a essa cobertura fim-a-fim.
+A linha persistida em `notifications` (schema de F15, `db/schema/notifications.ts`) carrega:
 
-## 13. Ver também
+| Coluna            | Tipo              | Papel                                                                                                                              |
+| ----------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `id`              | uuid PK           | —                                                                                                                                  |
+| `organization_id` | uuid NOT NULL     | raiz multi-tenant                                                                                                                  |
+| `user_id`         | uuid NOT NULL     | destinatário (FK users, ON DELETE CASCADE)                                                                                         |
+| `type`            | text NOT NULL     | string livre — `<canal>:<evento>:<rule_id>`, `sla:<key>:<rule_id>`, ou literal ad-hoc (`livechat.handoff`, `assistant.escalation`) |
+| `title`           | text NOT NULL     | título renderizado                                                                                                                 |
+| `body`            | text NOT NULL     | corpo renderizado (texto puro — o frontend **não** parseia markdown)                                                               |
+| `entity_type`     | text **nullable** | tipo da entidade de origem (`conversation`, `lead`, `credit_analysis`, …) — **base do deep-link**                                  |
+| `entity_id`       | uuid **nullable** | id da entidade de origem                                                                                                           |
+| `read_at`         | timestamptz null  | marca de leitura                                                                                                                   |
+| `created_at`      | timestamptz       | —                                                                                                                                  |
+
+**Não existem** colunas `data`/`metadata` (jsonb), `link`/`url`, `severity` ou `category` na
+linha. `severity` é transiente (só no payload do socket). `category` vive na regra/preferência,
+não na linha. O escopo de tenant é `organization_id` + `user_id` (a notificação já é pessoal).
+
+**Deep-link:** o par `entity_type` + `entity_id` é a referência máquina-legível da origem,
+persistida por `createNotification` e propagada por **todos** os produtores (fan-out, SLA,
+handoff ad-hoc, escalação ad-hoc) e ecoada no payload do socket. **Não há URL armazenada** — o
+frontend mapeia `entity_type` → rota (`resolveNotificationHref`). Pegadinha a documentar: o
+fan-out de `chatwoot.handoff_requested` carimba `entity_type = 'lead'` / `entity_id = leadId`
+(via `aggregateType`/`aggregateId` do outbox), **não** a conversa — mesmo o catálogo rotulando o
+gatilho como `entityType: 'conversation'`. Quem for construir deep-link precisa considerar esse
+descasamento.
+
+## 14. Experiência no frontend (sino) e lacunas de UX
+
+O sino vive no `Topbar` (`NotificationDropdown.tsx`); a lista mostra até 10 itens, badge de
+não-lidas, "Marcar todas como lidas", e um **toast** para eventos em tempo real. O estado atual
+tem lacunas que reduzem a utilidade operacional — documentadas aqui como fonte para o backlog:
+
+1. **Clique na lista só marca como lida.** `NotificationItem` chama apenas
+   `markRead.mutate(id)` no `onClick` — **sem navegação, sem expandir, sem botão de ação**. Não
+   há como, a partir de um item do sino, abrir a conversa/lead/card de origem.
+2. **Deep-link só no toast efêmero.** `resolveNotificationHref(entityType, entityId)` mapeia
+   entidade → rota (`customer` → `/crm/:id`, `credit_analysis` → `/credit-analyses/:id`,
+   `conversation` → `/conversas`, `kanban_card` → `/crm?view=kanban`, etc.), mas **só o clique
+   no toast** navega (`handleToastOpen`). Depois que o toast some (5–10s) ou a página recarrega, o
+   mesmo item na lista persistente **não navega**. `entity_type`/`entity_id` chegam em todo
+   payload REST e são **ignorados** pela lista.
+3. **Marca-lida imediato no clique** — não há a opção de "abrir sem marcar" nem "marcar como lida
+   por ação explícita"; a leitura é efeito colateral obrigatório do único clique disponível.
+4. **Textos genéricos.** Os produtores ad-hoc têm corpo pobre em contexto:
+   - Handoff (`ai-handoff.ts`): _"Uma conversa no WhatsApp (\<cidade\>) precisa de atendimento
+     humano."_ — só o município; sem id da conversa, nome do lead ou resumo.
+   - Escalação (`assistant-escalation`): _"Um operador encaminhou um lead para análise de
+     crédito. Abra o lead para mais detalhes."_ (+ nota opcional do operador).
+     O deep-link resolveria "abrir o quê", mas o texto em si não diz "qual".
+5. **Sem severidade/ícone/categoria no item da lista** — o schema REST da notificação nem carrega
+   `severity` (só o socket/toast tem). Todos os itens da lista têm o mesmo peso visual.
+6. **Sem página "ver todas"** — o rodapé é texto estático ("Mostrando 10 de N"); não há rota de
+   central de notificações nem paginação. Notificação além das 10 mais recentes é inacessível na
+   UI.
+7. **Timestamp só até granularidade de dias**, sem tooltip de data absoluta.
+
+Rotas mapeadas por `resolveNotificationHref` que hoje caem em **lista** e não no registro
+específico: `conversation` → `/conversas`, `contract` → `/contratos`. Enriquecer o deep-link para
+o registro exato (ex.: abrir a conversa específica) é parte do backlog.
+
+## 15. Ver também
 
 - Ordem de flip das flags + checklist de go-live: [`docs/19-runbook-go-live.md`](19-runbook-go-live.md) §14.
 - Catálogo de flags: [`docs/09-feature-flags.md`](09-feature-flags.md) §3.
