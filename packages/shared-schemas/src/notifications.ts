@@ -8,6 +8,8 @@
 // =============================================================================
 import { z } from 'zod';
 
+import { notificationSeveritySchema } from './notification-rules.js';
+
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
@@ -22,6 +24,15 @@ export const NotificationChannelSchema = z.enum(['in_app', 'email', 'whatsapp'],
   errorMap: () => ({ message: 'channel inválido' }),
 });
 export type NotificationChannel = z.infer<typeof NotificationChannelSchema>;
+
+/**
+ * Severidade visual da notificação (F26-S03) — mesmo domínio de valores de
+ * notification_rules.severity e do payload do socket em tempo real
+ * (NotificationSocketSeverity, F24-S08). Reusa o schema canônico já definido
+ * em notification-rules.ts (evita dois enums divergentes do mesmo domínio
+ * de valores; `NotificationSeverity` já é exportado de lá via index.ts).
+ */
+export const NotificationSeveritySchema = notificationSeveritySchema;
 
 // ---------------------------------------------------------------------------
 // Response (campos da tabela notifications)
@@ -62,6 +73,13 @@ export const NotificationSchema = z.object({
    * null = notificação não vinculada a entidade específica.
    */
   entity_id: z.string().uuid().nullable(),
+
+  /**
+   * Severidade visual — diferencia crítico/aviso/informativo na lista.
+   * Persistida na linha desde F26-S03 (antes só existia no payload do socket
+   * e desaparecia no reload). Default 'info' cobre notificações legadas.
+   */
+  severity: NotificationSeveritySchema,
 
   /**
    * Timestamp em que o usuário marcou como lida.

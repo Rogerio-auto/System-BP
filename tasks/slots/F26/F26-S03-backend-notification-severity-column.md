@@ -3,7 +3,7 @@ id: F26-S03
 title: Backend — persistir severidade na linha da notificação + expor no REST
 phase: F26
 task_ref: docs/sessions/2026-07-19-notificacoes-arquitetura-e-gaps.md
-status: available
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
@@ -12,8 +12,8 @@ blocks: []
 labels: [backend, db-schema, notifications]
 source_docs: [docs/23-notificacoes.md, docs/sessions/2026-07-19-notificacoes-arquitetura-e-gaps.md]
 docs_required: false
-claimed_at: null
-completed_at: null
+claimed_at: 2026-07-19T17:28:54Z
+completed_at: 2026-07-19T17:43:28Z
 ---
 
 # F26-S03 — Backend: severidade persistida na notificação

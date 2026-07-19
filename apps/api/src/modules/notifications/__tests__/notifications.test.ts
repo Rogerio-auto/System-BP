@@ -150,6 +150,7 @@ const SAMPLE_NOTIFICATION = {
   body: 'Uma tarefa foi criada.',
   entity_type: 'task',
   entity_id: TASK_ID,
+  severity: 'info' as const,
   read_at: null,
   created_at: '2026-06-15T10:00:00.000Z',
 };

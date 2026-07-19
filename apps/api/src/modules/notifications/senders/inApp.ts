@@ -36,6 +36,10 @@ export interface InAppSenderInput {
  * Lança AppError 500 se INSERT falhar (tratado pelo consumer do outbox).
  */
 export async function sendInApp(db: Database, input: InAppSenderInput): Promise<void> {
+  // Mesma severidade recebida vai ao banco (F26-S03) e ao socket (F24-S08) —
+  // a linha persistida deixa de ficar dessincronizada do payload em tempo real.
+  const severity = input.severity ?? 'info';
+
   const notification = await createNotification(db, {
     organizationId: input.organizationId,
     userId: input.userId,
@@ -45,6 +49,7 @@ export async function sendInApp(db: Database, input: InAppSenderInput): Promise<
     body: input.body,
     entityType: input.entityType ?? null,
     entityId: input.entityId ?? null,
+    severity,
   });
 
   // Fire-and-forget: tempo real é um enhancement, não bloqueia a criação já persistida.
@@ -55,7 +60,7 @@ export async function sendInApp(db: Database, input: InAppSenderInput): Promise<
       id: notification.id,
       type: input.type,
       title: notification.title,
-      severity: input.severity ?? 'info',
+      severity,
       entityType: notification.entity_type,
       entityId: notification.entity_id,
       createdAt: notification.created_at,
