@@ -28,6 +28,7 @@ import * as React from 'react';
 import { useSocket } from '../../lib/realtime/useSocket';
 
 import { notificationKeys } from './hooks';
+import { resolveNotificationHref } from './navigation';
 
 // ---------------------------------------------------------------------------
 // Payload do evento (contrato do backend — F24-S08/F24-S19)
@@ -48,45 +49,12 @@ export interface NotificationSocketPayload {
 }
 
 // ---------------------------------------------------------------------------
-// Deep-link por entidade
-// ---------------------------------------------------------------------------
-
-/**
- * Resolve a rota de deep-link a partir de `entityType`/`entityId`.
- * Cobre os `entityType` do catálogo de gatilhos (`shared-schemas/notification-rules`).
- * Entidades sem rota endereçável por id (drawer inline, ex: contract/conversation)
- * caem na lista mais próxima. Tipo desconhecido → sem link (apenas dispensa o toast).
- */
-export function resolveNotificationHref(
-  entityType: string | null,
-  entityId: string | null,
-): string | null {
-  switch (entityType) {
-    case 'customer':
-      return entityId !== null ? `/crm/${entityId}` : '/crm';
-    case 'credit_analysis':
-      return entityId !== null ? `/credit-analyses/${entityId}` : '/credit-analyses';
-    case 'simulation':
-      return '/simulator';
-    case 'task':
-      return '/tarefas';
-    case 'contract':
-      return '/contratos';
-    case 'conversation':
-      return '/conversas';
-    case 'kanban_card':
-      return '/crm?view=kanban';
-    case 'payment_due':
-    case 'billing':
-      return '/admin/billing/dues';
-    default:
-      return null;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Fila de toasts
 // ---------------------------------------------------------------------------
+//
+// Deep-link (`resolveNotificationHref`) mora em `./navigation` — fonte única
+// reusada aqui e por `NotificationItem` (lista persistente), sem duplicação
+// (doc 23 §14, gap G2).
 
 export interface NotificationToast {
   readonly id: string;
