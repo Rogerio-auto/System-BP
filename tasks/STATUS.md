@@ -27,6 +27,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24  | 21    | 0   | 0   | 0   | 0   | 0   | 21  |
 | F25  | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F26  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
+| F27  | 8     | 8   | 0   | 0   | 0   | 0   | 0   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -391,6 +392,19 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F26-S02 | Backend — enriquecer contexto das notificações (handoff, escalação, SLA) | ✅ done | high       | —                |
 | F26-S03 | Backend — persistir severidade na linha da notificação + expor no REST   | ✅ done | medium     | —                |
 | F26-S04 | Frontend — central de notificações (/notificacoes) + severidade na lista | ✅ done | medium     | F26-S01, F26-S03 |
+
+## Fase 27 —
+
+| ID      | Título                                                                                      | Status       | Prioridade | Depende de                         |
+| ------- | ------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------------------------------- |
+| F27-S01 | Frontend — fundação PWA (vite-plugin-pwa injectManifest, manifest, SW base, página offline) | 🟢 available | high       | —                                  |
+| F27-S02 | Frontend — ícones e splash PWA (assets-generator, maskable, apple-touch)                    | 🟢 available | medium     | F27-S01                            |
+| F27-S03 | Frontend — shell responsivo (Sidebar→drawer, Topbar mobile, AppLayout fluido)               | 🟢 available | high       | —                                  |
+| F27-S04 | Frontend — superfícies densas responsivas (tabelas CRM/Relatórios → cards, forms)           | 🟢 available | medium     | F27-S03                            |
+| F27-S05 | DB — tabela push_subscriptions (migration 0093) + seed flag pwa.enabled                     | 🟢 available | high       | —                                  |
+| F27-S06 | Backend — Web Push (VAPID, sender, endpoints subscribe/unsubscribe, fan-out, LGPD)          | 🟢 available | high       | F27-S05                            |
+| F27-S07 | Frontend — push client (SW handlers + opt-in) + SocketProvider global                       | 🟢 available | high       | F27-S01, F27-S03, F27-S06          |
+| F27-S08 | QA — verificação PWA (installability/Lighthouse, offline, push e2e, auth standalone)        | 🟢 available | medium     | F27-S01, F27-S02, F27-S06, F27-S07 |
 
 ## Fase 3 — Agentes IA
 
