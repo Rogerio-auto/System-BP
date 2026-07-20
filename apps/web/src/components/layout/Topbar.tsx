@@ -8,6 +8,11 @@
 //   - bg-surface-1 com inset highlight superior
 //   - Logo à esquerda (Bricolage, tracking -0.03em)
 //   - ThemeToggle + UserMenu à direita
+//
+// Responsividade (F27-S03, doc 24 §6): compacta no mobile — botão de menu
+// (hambúrguer, `md:hidden`, alvo de toque 44×44) abre o `MobileNavDrawer`
+// via `useMobileNavStore`; gaps/paddings reduzem em telas pequenas; o sino
+// de notificações (`NotificationDropdown`) permanece sempre visível/acessível.
 // =============================================================================
 
 import * as React from 'react';
@@ -15,14 +20,66 @@ import * as React from 'react';
 import { InternalAssistantButton } from '../../features/assistant/InternalAssistantButton';
 import { HelpButton } from '../../features/help/HelpButton';
 import { NotificationDropdown } from '../../features/notifications';
+import { cn } from '../../lib/cn';
 import { ThemeToggle } from '../ui/ThemeToggle';
 
+import { useMobileNavStore } from './mobile-nav-store';
 import { UserMenu } from './UserMenu';
 
 interface TopbarProps {
   fullName: string;
   email: string;
   onLogout: () => void;
+}
+
+function IconMenu(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      className="w-5 h-5"
+      aria-hidden="true"
+    >
+      <path d="M3 6h14M3 10h14M3 14h14" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/**
+ * Botão hambúrguer — abre o drawer de navegação mobile.
+ * Registra sua ref no store para que o drawer devolva o foco ao fechar.
+ */
+function MobileNavToggle(): React.JSX.Element {
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const open = useMobileNavStore((s) => s.open);
+  const toggleDrawer = useMobileNavStore((s) => s.toggleDrawer);
+  const setTriggerRef = useMobileNavStore((s) => s.setTriggerRef);
+
+  React.useEffect(() => {
+    setTriggerRef(buttonRef as React.RefObject<HTMLButtonElement>);
+  }, [setTriggerRef]);
+
+  return (
+    <button
+      ref={buttonRef}
+      type="button"
+      onClick={toggleDrawer}
+      aria-label={open ? 'Fechar menu' : 'Abrir menu'}
+      aria-expanded={open}
+      aria-controls="mobile-nav-drawer"
+      className={cn(
+        'md:hidden w-11 h-11 -ml-2 shrink-0 flex items-center justify-center',
+        'rounded-sm text-ink-2',
+        'hover:text-ink hover:bg-surface-hover',
+        'transition-all duration-fast ease',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20',
+      )}
+    >
+      <IconMenu />
+    </button>
+  );
 }
 
 /**
@@ -32,17 +89,20 @@ interface TopbarProps {
 export function Topbar({ fullName, email, onLogout }: TopbarProps): React.JSX.Element {
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-40 h-14 flex items-center px-4 gap-4"
+      className="fixed top-0 left-0 right-0 z-40 h-14 flex items-center px-3 sm:px-4 gap-2 sm:gap-4"
       style={{
         background: 'var(--bg-elev-1)',
         borderBottom: '1px solid var(--border)',
         boxShadow: 'var(--elev-2)',
       }}
     >
+      {/* Menu mobile — abre o drawer de navegação (oculto a partir de `md`) */}
+      <MobileNavToggle />
+
       {/* Logo — Bricolage Grotesque, tracking negativo (DS §4.2) */}
-      <div className="flex items-center gap-2 mr-auto">
+      <div className="flex items-center gap-2 mr-auto min-w-0">
         <span
-          className="font-display font-bold text-ink"
+          className="font-display font-bold text-ink truncate"
           style={{
             fontSize: '1rem',
             letterSpacing: '-0.03em',
@@ -59,8 +119,8 @@ export function Topbar({ fullName, email, onLogout }: TopbarProps): React.JSX.El
         </span>
       </div>
 
-      {/* Ações à direita */}
-      <div className="flex items-center gap-2">
+      {/* Ações à direita — sino de notificações sempre acessível */}
+      <div className="flex items-center gap-1 sm:gap-2">
         {/* Assistente IA interno — visível-mas-desabilitado no MVP (doc 05 §7) */}
         <InternalAssistantButton />
         {/* Notificações — agora MEMBRO da topbar (antes flutuava por cima via
@@ -69,7 +129,7 @@ export function Topbar({ fullName, email, onLogout }: TopbarProps): React.JSX.El
         <HelpButton />
         <ThemeToggle />
         <div
-          className="w-px h-5 shrink-0"
+          className="hidden sm:block w-px h-5 shrink-0"
           style={{ background: 'var(--border)' }}
           aria-hidden="true"
         />
