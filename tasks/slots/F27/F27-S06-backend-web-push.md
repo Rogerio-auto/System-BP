@@ -3,7 +3,7 @@ id: F27-S06
 title: Backend — Web Push (VAPID, sender, endpoints subscribe/unsubscribe, fan-out, LGPD)
 phase: F27
 task_ref: docs/24-pwa.md
-status: available
+status: in-progress
 priority: high
 estimated_size: L
 agent_id: null
@@ -18,8 +18,9 @@ source_docs:
     docs/10-seguranca-permissoes.md,
   ]
 docs_required: false
----
+claimed_at: 2026-07-20T13:30:09Z
 
+---
 # F27-S06 — Web Push backend
 
 ## Objetivo
