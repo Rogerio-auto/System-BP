@@ -243,6 +243,9 @@ const LEAD_COLUMNS: ResponsiveTableColumn<LeadResponse>[] = [
     key: 'email',
     header: 'E-mail',
     hideBelow: 'lg',
+    // LGPD (mínima exposição): e-mail só no desktop largo, como antes — não
+    // ampliar a superfície de exibição para o card mobile (F27-S04 review).
+    hideInCard: true,
     // LGPD: SEMPRE truncateEmail() em listagens.
     cell: (lead) =>
       lead.email ? (
