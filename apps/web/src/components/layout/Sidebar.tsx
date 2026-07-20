@@ -3,373 +3,32 @@
 //
 // DS:
 //   - elev-1 (sidebar fundo)
-//   - Hover Lift nos nav-links: translateY(-2px) + sobe de elev-0 a elev-2
-//   - Indicador ativo: borda esquerda azul + bg verde com glow verde sutil
-//   - Logo/marca com gradient da bandeira (--grad-rondonia)
-//   - Nav labels em caption-style (Geist, uppercase, tracking, text-ink-3)
 //   - Colapsado: mostra apenas ícones (64px), expandido: ícone + label (240px)
 //
-// Fonte de dados: APP_NAV + FOOTER_NAV de app/navigation.ts (F4-S07).
-// Permission gate: useAuth().hasPermission(item.permission).
-// Feature flag gate: useFeatureFlag(item.featureFlag).enabled.
+// Responsividade (F27-S03, doc 24 §6):
+//   - Este componente é a sidebar FIXA de desktop (visível a partir de `md`,
+//     controlada pelo wrapper `hidden md:flex` em AppLayout — inalterado).
+//   - No mobile, `MobileNavDrawer` (portalizado para `document.body`) assume
+//     a navegação como drawer off-canvas — montado aqui para não exigir
+//     nenhuma mudança em AppLayout.tsx (fora de `files_allowed` deste slot).
+//   - Conteúdo de navegação (marca + links) é compartilhado via
+//     `SidebarNavList`/`SidebarBrand` — nunca duplicar rotas.
+//
+// Fonte de dados: APP_NAV + FOOTER_NAV de app/navigation.ts (F4-S07), via
+// sidebar-nav-data.ts.
 // =============================================================================
 
 import * as React from 'react';
-import { NavLink } from 'react-router-dom';
 
-import { APP_NAV, FOOTER_NAV } from '../../app/navigation';
-import type { NavItem as NavItemMeta } from '../../app/navigation';
-import iconeUrl from '../../assets/brand/icone-bp.png';
-import logoUrl from '../../assets/brand/logo.webp';
-import { useFeatureFlags } from '../../hooks/useFeatureFlag';
-import { useAuth } from '../../lib/auth-store';
 import { cn } from '../../lib/cn';
 
-// ─── Tipos internos (com icon JSX resolvido) ──────────────────────────────────
+import { MobileNavDrawer } from './MobileNavDrawer';
+import { useFooterNav, useNavSections } from './sidebar-nav-data';
+import { SidebarBrand, SidebarNavList } from './SidebarNavList';
 
-interface ResolvedNavItem {
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-}
-
-interface ResolvedNavSection {
-  heading?: string;
-  items: ResolvedNavItem[];
-}
-
-// ─── Ícones SVG inline (20×20) ───────────────────────────────────────────────
-
-function IconDashboard(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      <rect x="2" y="2" width="7" height="7" rx="1.5" />
-      <rect x="11" y="2" width="7" height="7" rx="1.5" />
-      <rect x="2" y="11" width="7" height="7" rx="1.5" />
-      <rect x="11" y="11" width="7" height="7" rx="1.5" />
-    </svg>
-  );
-}
-
-function IconAnalise(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      <path d="M2 15l4.5-5.5 4 3.5 3.5-5 4 3.5" />
-      <rect x="2" y="2" width="16" height="16" rx="2" />
-    </svg>
-  );
-}
-
-function IconCrm(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      <path d="M13 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-      <path d="M7 10a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" />
-      <path d="M1 17c0-2.8 2.69-5 6-5h6c3.31 0 6 2.2 6 5" />
-    </svg>
-  );
-}
-
-function IconContratos(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      <path d="M6 2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" />
-      <path d="M8 6h4M8 10h4M8 14h2" />
-    </svg>
-  );
-}
-
-function IconRelatorios(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      <rect x="2" y="2" width="16" height="16" rx="2" />
-      <path d="M6 14V9M10 14V6M14 14v-3" />
-    </svg>
-  );
-}
-
-function IconConfiguracoes(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      <circle cx="10" cy="10" r="2.5" />
-      <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" />
-    </svg>
-  );
-}
-
-function IconHelp(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      <circle cx="10" cy="10" r="7.5" />
-      <path d="M7.6 7.5a2.4 2.4 0 1 1 3.6 2.07c-.7.4-1.2.85-1.2 1.68v.25" strokeLinecap="round" />
-      <circle cx="10" cy="14.6" r="0.6" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function IconConversas(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      <path d="M17 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3v3l4-3h7a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1Z" />
-      <path d="M6 8h8M6 11h5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconSimulator(): React.JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      className="w-5 h-5 shrink-0"
-    >
-      {/* Calculadora */}
-      <rect x="4" y="2" width="12" height="16" rx="2" />
-      <rect x="6.5" y="4.5" width="7" height="3.5" rx="1" />
-      <circle cx="7" cy="11" r="0.8" fill="currentColor" stroke="none" />
-      <circle cx="10" cy="11" r="0.8" fill="currentColor" stroke="none" />
-      <circle cx="13" cy="11" r="0.8" fill="currentColor" stroke="none" />
-      <circle cx="7" cy="14.5" r="0.8" fill="currentColor" stroke="none" />
-      <circle cx="10" cy="14.5" r="0.8" fill="currentColor" stroke="none" />
-      <circle cx="13" cy="14.5" r="0.8" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-// ─── Mapa iconKey → JSX ───────────────────────────────────────────────────────
-//
-// Fonte canônica: navigation.ts declara iconKey (string); aqui resolvemos para
-// o JSX correspondente. Adicionar entradas ao crescer o APP_NAV.
-
-const ICON_MAP: Record<string, React.ReactNode> = {
-  dashboard: <IconDashboard />,
-  crm: <IconCrm />,
-  analise: <IconAnalise />,
-  contratos: <IconContratos />,
-  conversas: <IconConversas />,
-  relatorios: <IconRelatorios />,
-  simulator: <IconSimulator />,
-  configuracoes: <IconConfiguracoes />,
-  help: <IconHelp />,
-};
-
-/** Resolve iconKey para JSX; fallback neutro se a chave não estiver no mapa. */
-function resolveIcon(iconKey: string): React.ReactNode {
-  return (
-    ICON_MAP[iconKey] ?? (
-      <svg
-        viewBox="0 0 20 20"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.6}
-        className="w-5 h-5 shrink-0"
-        aria-hidden="true"
-      >
-        <circle cx="10" cy="10" r="7" />
-      </svg>
-    )
-  );
-}
-
-// ─── Helpers de gate (exportados para teste) ──────────────────────────────────
-
-/**
- * Verifica se um NavItem deve ser exibido dado o estado de permissões e flags.
- * Puro — recebe os mapas por parâmetro para facilitar testes unitários.
- */
-export function isNavItemVisible(
-  item: NavItemMeta,
-  opts: {
-    hasPermission: (perm: string) => boolean;
-    flagEnabled: (key: string) => boolean;
-  },
-): boolean {
-  if (item.permission !== undefined && !opts.hasPermission(item.permission)) {
-    return false;
-  }
-  if (item.featureFlag !== undefined && !opts.flagEnabled(item.featureFlag)) {
-    return false;
-  }
-  return true;
-}
-
-// ─── Hook principal ───────────────────────────────────────────────────────────
-
-/**
- * Deriva as nav sections de APP_NAV aplicando gates de permissão e feature flag.
- * Remove seções cujos items foram todos filtrados.
- */
-function useNavSections(): ResolvedNavSection[] {
-  const { hasPermission } = useAuth();
-  const { flags } = useFeatureFlags();
-
-  return React.useMemo(() => {
-    const flagEnabled = (key: string): boolean => {
-      const status = flags[key];
-      return status === 'enabled' || status === 'internal_only';
-    };
-
-    const resolved: ResolvedNavSection[] = [];
-
-    for (const section of APP_NAV) {
-      const visibleItems = section.items
-        .filter((item) => isNavItemVisible(item, { hasPermission, flagEnabled }))
-        .map((item) => ({
-          href: item.href,
-          label: item.label,
-          icon: resolveIcon(item.iconKey),
-        }));
-
-      // Remove seções vazias
-      if (visibleItems.length > 0) {
-        const resolvedSection: ResolvedNavSection = { items: visibleItems };
-        if (section.heading !== undefined) {
-          resolvedSection.heading = section.heading;
-        }
-        resolved.push(resolvedSection);
-      }
-    }
-
-    return resolved;
-  }, [hasPermission, flags]);
-}
-
-/** Resolve FOOTER_NAV (sem gates — Configurações é sempre visível). */
-function useFooterNav(): ResolvedNavItem[] {
-  return React.useMemo(
-    () =>
-      FOOTER_NAV.map((item) => ({
-        href: item.href,
-        label: item.label,
-        icon: resolveIcon(item.iconKey),
-      })),
-    [],
-  );
-}
-
-// ─── Marca da sidebar ─────────────────────────────────────────────────────────
-
-function SidebarBrand({ collapsed }: { collapsed: boolean }): React.JSX.Element {
-  return (
-    <div className={cn('flex items-center px-4 py-4 shrink-0', 'border-b border-border')}>
-      {collapsed ? (
-        /* Colapsado: apenas o ícone em container com sombra */
-        <div
-          className="w-8 h-8 rounded-sm shrink-0 flex items-center justify-center overflow-hidden"
-          style={{ boxShadow: 'var(--elev-2)' }}
-        >
-          <img
-            src={iconeUrl}
-            alt="Banco do Povo"
-            loading="eager"
-            className="w-full h-full object-contain"
-          />
-        </div>
-      ) : (
-        /* Expandido: logo completa */
-        <img
-          src={logoUrl}
-          alt="Banco do Povo de Rondônia"
-          loading="eager"
-          style={{ height: '32px', width: 'auto', maxWidth: '168px', objectFit: 'contain' }}
-        />
-      )}
-    </div>
-  );
-}
-
-// ─── Nav link individual ──────────────────────────────────────────────────────
-
-function SidebarNavLink({
-  item,
-  collapsed,
-}: {
-  item: ResolvedNavItem;
-  collapsed: boolean;
-}): React.JSX.Element {
-  return (
-    <NavLink
-      to={item.href}
-      end={item.href === '/'}
-      title={collapsed ? item.label : undefined}
-      className={({ isActive }) =>
-        cn(
-          // Base
-          'group relative flex items-center gap-3',
-          'rounded-sm mx-2 px-3 py-2.5',
-          'font-sans text-sm font-medium',
-          'transition-all duration-fast ease',
-          // Hover: Lift (translateY -2px) + sobe elev-0 → elev-2 (DS §8)
-          'hover:-translate-y-0.5',
-          'hover:shadow-e2',
-          // Default state
-          isActive
-            ? [
-                // Ativo: bg verde suave + glow verde + borda esquerda azul
-                'text-azul bg-verde/10',
-                'shadow-[var(--glow-verde),inset_4px_0_0_var(--brand-azul)]',
-              ]
-            : ['text-ink-2 hover:text-ink', 'hover:bg-surface-hover'],
-          // Collapsed: centralizado
-          collapsed && 'justify-center px-2',
-        )
-      }
-    >
-      {item.icon}
-      {!collapsed && <span className="truncate">{item.label}</span>}
-    </NavLink>
-  );
-}
+// Re-exportado para compatibilidade com testes existentes
+// (__tests__/Sidebar.test.tsx importa `isNavItemVisible` de `../Sidebar`).
+export { isNavItemVisible } from './sidebar-nav-data';
 
 // ─── Sidebar principal ────────────────────────────────────────────────────────
 
@@ -379,84 +38,68 @@ interface SidebarProps {
 }
 
 /**
- * Sidebar colapsável.
+ * Sidebar colapsável (desktop) + drawer off-canvas (mobile, portalizado).
  * - Expandida: 240px (w-60)
  * - Colapsada: 64px (w-16)
  * - DS: elev-1, borda direita, brand em topo, nav sections com headings.
- * - Fonte de dados: APP_NAV de app/navigation.ts (F4-S07).
  */
 export function Sidebar({ collapsed, onToggle }: SidebarProps): React.JSX.Element {
   const navSections = useNavSections();
   const footerNav = useFooterNav();
 
   return (
-    <aside
-      aria-label="Navegação principal"
-      className={cn(
-        'flex flex-col h-full',
-        'bg-surface-1 border-r border-border',
-        'transition-[width] duration-[250ms] ease-out',
-        'overflow-hidden shrink-0',
-        collapsed ? 'w-16' : 'w-60',
-      )}
-      style={{ boxShadow: 'var(--elev-1)' }}
-    >
-      <SidebarBrand collapsed={collapsed} />
+    <>
+      <aside
+        aria-label="Navegação principal"
+        className={cn(
+          'flex flex-col h-full',
+          'bg-surface-1 border-r border-border',
+          'transition-[width] duration-[250ms] ease-out',
+          'overflow-hidden shrink-0',
+          collapsed ? 'w-16' : 'w-60',
+        )}
+        style={{ boxShadow: 'var(--elev-1)' }}
+      >
+        <SidebarBrand collapsed={collapsed} />
 
-      {/* Nav sections */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 flex flex-col gap-4">
-        {navSections.map((section, sIdx) => (
-          <div key={sIdx} className="flex flex-col gap-0.5">
-            {section.heading && !collapsed && (
-              <p className="px-5 pb-1 font-sans text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-                {section.heading}
-              </p>
-            )}
-            {section.items.map((item) => (
-              <SidebarNavLink key={item.href} item={item} collapsed={collapsed} />
-            ))}
-          </div>
-        ))}
-      </nav>
+        <SidebarNavList navSections={navSections} footerNav={footerNav} collapsed={collapsed} />
 
-      {/* Configurações — item isolado no rodapé (padrão Linear/F8-S08) */}
-      <div className="shrink-0 border-t border-border pt-2 px-0">
-        {footerNav.map((item) => (
-          <SidebarNavLink key={item.href} item={item} collapsed={collapsed} />
-        ))}
-      </div>
-
-      {/* Toggle collapse — botão na base */}
-      <div className="shrink-0 border-t border-border p-2">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={collapsed ? 'Expandir menu' : 'Colapsar menu'}
-          className={cn(
-            'w-full flex items-center justify-center gap-2',
-            'rounded-sm py-2 px-3',
-            'font-sans text-xs font-medium text-ink-3',
-            'hover:text-ink hover:bg-surface-hover',
-            'transition-all duration-fast ease',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20',
-          )}
-        >
-          <svg
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.6}
+        {/* Toggle collapse — botão na base (apenas desktop; o drawer mobile fecha via X/backdrop/ESC) */}
+        <div className="shrink-0 border-t border-border p-2">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={collapsed ? 'Expandir menu' : 'Colapsar menu'}
             className={cn(
-              'w-4 h-4 transition-transform duration-[250ms] ease-out',
-              collapsed ? 'rotate-180' : 'rotate-0',
+              'w-full flex items-center justify-center gap-2 min-h-11',
+              'rounded-sm py-2 px-3',
+              'font-sans text-xs font-medium text-ink-3',
+              'hover:text-ink hover:bg-surface-hover',
+              'transition-all duration-fast ease',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20',
             )}
-            aria-hidden="true"
           >
-            <path d="M13 5l-5 5 5 5" />
-          </svg>
-          {!collapsed && <span>Colapsar</span>}
-        </button>
-      </div>
-    </aside>
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.6}
+              className={cn(
+                'w-4 h-4 transition-transform duration-[250ms] ease-out',
+                collapsed ? 'rotate-180' : 'rotate-0',
+              )}
+              aria-hidden="true"
+            >
+              <path d="M13 5l-5 5 5 5" />
+            </svg>
+            {!collapsed && <span>Colapsar</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Drawer off-canvas mobile — portalizado, independente da visibilidade
+          `hidden md:flex` desta aside desktop. */}
+      <MobileNavDrawer navSections={navSections} footerNav={footerNav} />
+    </>
   );
 }

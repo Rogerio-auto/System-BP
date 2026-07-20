@@ -3,7 +3,7 @@ id: F27-S03
 title: Frontend — shell responsivo (Sidebar→drawer, Topbar mobile, AppLayout fluido)
 phase: F27
 task_ref: docs/24-pwa.md
-status: available
+status: done
 priority: high
 estimated_size: M
 agent_id: null
@@ -12,6 +12,9 @@ blocks: []
 labels: [frontend, ux, design-system, pwa]
 source_docs: [docs/24-pwa.md, docs/18-design-system.md]
 docs_required: false
+claimed_at: 2026-07-20T13:21:36Z
+completed_at: 2026-07-20T14:13:21Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/432
 ---
 
 # F27-S03 — Shell responsivo (mobile + desktop)

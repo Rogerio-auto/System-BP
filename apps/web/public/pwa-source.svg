@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Manager — Banco do Povo">
+  <!--
+    Arte-fonte única do PWA (F27-S02, doc 24 §3.3).
+
+    Reusa a identidade do DS v2 (docs/18-design-system.md §3), sem redesenho de marca:
+    - Fundo: token de gradiente "grad-rondonia" (linear-gradient(135deg, azul 0% 45%,
+      verde 45% 100%)), o gradiente institucional já documentado para "elementos que
+      carregam identidade do estado" (avatares, separadores). Split rígido em 45%, cores
+      exatas dos tokens brand-azul (#1B3A8C) e brand-verde (#2E9B3E).
+    - Estrela branca centralizada: "branco da estrela", o terceiro elemento da paleta da
+      bandeira, citado explicitamente no DS junto de azul/verde/amarelo.
+    - Acento brand-amarelo (#F5C518) como destaque pontual atrás da ponta superior da
+      estrela, fechando as 3 cores da bandeira de Rondônia sem poluir a leitura em tamanhos
+      pequenos (favicon 16 a 32px).
+
+    Safe-zone maskable (doc 24 §3.3 / DoD): todo o conteúdo em primeiro plano (estrela e
+    acento) fica a no máximo raio 176 do centro (256,256), dentro do círculo de segurança
+    de raio 204.8 (80% de 512). O fundo é full-bleed (0,0 a 512,512) para não deixar
+    "faixa morta" na máscara circular/squircle.
+  -->
+  <defs>
+    <linearGradient id="grad-rondonia" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1B3A8C" />
+      <stop offset="45%" stop-color="#1B3A8C" />
+      <stop offset="45%" stop-color="#2E9B3E" />
+      <stop offset="100%" stop-color="#2E9B3E" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#grad-rondonia)" />
+
+  <circle cx="256" cy="96" r="16" fill="#F5C518" />
+
+  <path
+    fill="#FFFFFF"
+    d="M256,106 L300.1,195.3 L398.7,209.6 L327.3,279.2 L344.2,377.4 L256,331 L167.8,377.4 L184.7,279.2 L113.3,209.6 L211.9,195.3 Z"
+  />
+</svg>
