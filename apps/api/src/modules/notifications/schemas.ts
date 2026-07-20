@@ -11,7 +11,14 @@
 // =============================================================================
 import 'zod-openapi/extend';
 
-import { notificationCategorySchema } from '@elemento/shared-schemas';
+import {
+  notificationCategorySchema,
+  PushPublicKeyResponseSchema,
+  PushSubscriptionAckSchema,
+  PushSubscriptionRequestSchema,
+  PushUnsubscribeAckSchema,
+  PushUnsubscribeQuerySchema,
+} from '@elemento/shared-schemas';
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
@@ -35,6 +42,12 @@ export type {
   NotificationPreferenceUpdate,
   // F24-S09
   NotificationCategory,
+  // F27-S06 — Web Push
+  PushSubscriptionRequest,
+  PushSubscriptionAck,
+  PushUnsubscribeQuery,
+  PushUnsubscribeAck,
+  PushPublicKeyResponse,
 } from '@elemento/shared-schemas';
 
 // ---------------------------------------------------------------------------
@@ -149,3 +162,39 @@ export const NotificationPreferencesListSchema = z
   });
 
 export type NotificationPreferencesList = z.infer<typeof NotificationPreferencesListSchema>;
+
+// ---------------------------------------------------------------------------
+// Web Push (F27-S06) — decoração OpenAPI local sobre o contrato compartilhado
+// de @elemento/shared-schemas (mesmo padrão de NotificationListQuerySchema
+// acima: schema local com `.openapi({ example })` sobre tipos re-exportados).
+// ---------------------------------------------------------------------------
+
+export const PushSubscriptionBodySchema = PushSubscriptionRequestSchema.openapi({
+  example: {
+    endpoint: 'https://fcm.googleapis.com/fcm/send/abc123-device-endpoint',
+    keys: {
+      p256dh:
+        'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM',
+      auth: 'tBHItJI5svbpez7KI4CCXg',
+    },
+    userAgent: 'Chrome 128 / Windows 11',
+  },
+});
+
+export const PushSubscriptionAckResponseSchema = PushSubscriptionAckSchema.openapi({
+  example: { subscribed: true },
+});
+
+export const PushUnsubscribeQuerySchemaLocal = PushUnsubscribeQuerySchema.openapi({
+  example: { endpoint: 'https://fcm.googleapis.com/fcm/send/abc123-device-endpoint' },
+});
+
+export const PushUnsubscribeAckResponseSchema = PushUnsubscribeAckSchema.openapi({
+  example: { unsubscribed: true },
+});
+
+export const PushPublicKeyResponseSchemaLocal = PushPublicKeyResponseSchema.openapi({
+  example: {
+    public_key: 'BExamplePublicVapidKeyBase64UrlSafe0000000000000000000000',
+  },
+});

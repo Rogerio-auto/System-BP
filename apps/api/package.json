@@ -75,6 +75,7 @@
     "pino": "9.4.0",
     "pino-pretty": "11.2.2",
     "socket.io": "^4.7.5",
+    "web-push": "^3.6.7",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "3.23.8",
     "zod-openapi": "^4.2.4"
@@ -90,6 +91,7 @@
     "@types/node": "20.16.10",
     "@types/pdfkit": "^0.17.6",
     "@types/pg": "8.11.10",
+    "@types/web-push": "^3.6.4",
     "concurrently": "^9.2.1",
     "drizzle-kit": "0.31.10",
     "eslint": "9.11.1",

@@ -290,6 +290,35 @@ const envSchema = z
     // Quando ausente, Reply-To não é enviado no header do email.
     // Ex: "suporte@bancodopovoderondonia.org.br"
     EMAIL_REPLY_TO: z.string().email().optional(),
+
+    // ---- Web Push / VAPID (F27-S06 — doc 24 §5) ------------------------------
+    // Liga/desliga o quarto sender do motor de notificações (Web Push).
+    // Camada de infra/credenciais — a camada operacional é a feature flag
+    // `pwa.enabled` (F27-S05), consultada em runtime pelo sender/rotas.
+    // As duas precisam estar ligadas para o push funcionar (mesmo padrão do
+    // NOTIFICATIONS_EMAIL_ENABLED acima).
+    NOTIFICATIONS_PUSH_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
+
+    // Par de chaves VAPID (RFC 8292) gerado uma vez (ex.: `npx web-push generate-vapid-keys`).
+    // VAPID_PUBLIC_KEY não é segredo — pode ser exposta ao frontend via
+    // GET /api/notifications/push/public-key.
+    // Obrigatória quando NOTIFICATIONS_PUSH_ENABLED=true.
+    VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+
+    // Chave privada VAPID — SEGREDO. Nunca commitada, nunca no bundle do
+    // frontend, nunca logada. Usada apenas pelo sender (`web-push`) para
+    // assinar o payload cifrado enviado ao push service (FCM/Mozilla/Apple).
+    // Obrigatória quando NOTIFICATIONS_PUSH_ENABLED=true.
+    VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+
+    // Contato do mantenedor exigido pelo protocolo VAPID — usado pelos push
+    // services para notificar o operador em caso de abuso. Formato:
+    // "mailto:contato@dominio.com" ou "https://dominio.com".
+    // Obrigatória quando NOTIFICATIONS_PUSH_ENABLED=true.
+    VAPID_SUBJECT: z.string().min(1).optional(),
   })
   .refine(
     (data) => {
@@ -324,6 +353,34 @@ const envSchema = z
       message:
         'NOTIFICATIONS_EMAIL_ENABLED=true exige RESEND_API_KEY e EMAIL_FROM configurados. ' +
         'Ver .env.example para detalhes.',
+    },
+  )
+  .refine(
+    (data) => {
+      // Guard: NOTIFICATIONS_PUSH_ENABLED=true exige as 3 vars VAPID_*
+      if (data.NOTIFICATIONS_PUSH_ENABLED) {
+        return (
+          data.VAPID_PUBLIC_KEY !== undefined &&
+          data.VAPID_PRIVATE_KEY !== undefined &&
+          data.VAPID_SUBJECT !== undefined
+        );
+      }
+      return true;
+    },
+    {
+      message:
+        'NOTIFICATIONS_PUSH_ENABLED=true exige VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY e ' +
+        'VAPID_SUBJECT configurados. Ver .env.example para detalhes.',
+    },
+  )
+  .refine(
+    (data) => {
+      // Guard: VAPID_SUBJECT precisa seguir o formato exigido pelo RFC 8292.
+      if (data.VAPID_SUBJECT === undefined) return true;
+      return data.VAPID_SUBJECT.startsWith('mailto:') || data.VAPID_SUBJECT.startsWith('https://');
+    },
+    {
+      message: 'VAPID_SUBJECT deve começar com "mailto:" ou "https://" (RFC 8292).',
     },
   );
 

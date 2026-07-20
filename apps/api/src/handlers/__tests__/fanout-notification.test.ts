@@ -124,6 +124,11 @@ vi.mock('../../modules/notifications/senders/email.js', () => ({
   sendEmail: (...args: unknown[]) => mockSendEmail(...args),
 }));
 
+const mockSendWebPush = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../modules/notifications/senders/webPush.js', () => ({
+  sendWebPush: (...args: unknown[]) => mockSendWebPush(...args),
+}));
+
 // ---------------------------------------------------------------------------
 // Import da função sob teste (após todos os mocks)
 // ---------------------------------------------------------------------------
@@ -263,6 +268,7 @@ describe('handleFanoutNotification()', () => {
     mockIsCategoryChannelEnabled.mockResolvedValue(true);
     mockSendInApp.mockResolvedValue(undefined);
     mockSendEmail.mockResolvedValue(undefined);
+    mockSendWebPush.mockResolvedValue(undefined);
   });
 
   // ── 1. Feature flag off ───────────────────────────────────────────────────
@@ -581,5 +587,67 @@ describe('handleFanoutNotification()', () => {
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
     const emailArgs = mockSendEmail.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(emailArgs).not.toHaveProperty('severity');
+  });
+
+  // ── 17. Web Push espelha in_app (F27-S06) ──────────────────────────────────
+
+  it('canal in_app → também despacha Web Push com o mesmo destinatário/título', async () => {
+    const db = makeDb({ rules: [BASE_RULE], hasDelivery: false });
+
+    await handleFanoutNotification(BASE_EVENT, db as never);
+
+    expect(mockSendWebPush).toHaveBeenCalledTimes(1);
+    expect(mockSendWebPush).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        organizationId: ORG_ID,
+        userId: USER_ID,
+        title: `Simulação ${AGGREGATE_ID} gerada`,
+        severity: 'info',
+        entityType: 'simulation',
+        entityId: AGGREGATE_ID,
+      }),
+    );
+  });
+
+  it('canal in_app → payload do Web Push nunca inclui `body` (LGPD doc 24 §5.3)', async () => {
+    const db = makeDb({ rules: [BASE_RULE], hasDelivery: false });
+
+    await handleFanoutNotification(BASE_EVENT, db as never);
+
+    const pushArgs = mockSendWebPush.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(pushArgs).not.toHaveProperty('body');
+  });
+
+  it('canal email → NÃO despacha Web Push (push só espelha in_app)', async () => {
+    const ruleEmail = { ...BASE_RULE, channels: ['email'] };
+    const recipientEmail = { ...BASE_RECIPIENT, channels: ['email'] as ('in_app' | 'email')[] };
+    mockResolveRuleRecipients.mockResolvedValue([recipientEmail]);
+    const db = makeDb({ rules: [ruleEmail], hasDelivery: false });
+
+    await handleFanoutNotification(BASE_EVENT, db as never);
+
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockSendWebPush).not.toHaveBeenCalled();
+  });
+
+  it('canal in_app desabilitado por preferência → também não despacha Web Push', async () => {
+    mockIsCategoryChannelEnabled.mockResolvedValue(false);
+    const db = makeDb({ rules: [BASE_RULE], hasDelivery: false });
+
+    await handleFanoutNotification(BASE_EVENT, db as never);
+
+    expect(mockSendInApp).not.toHaveBeenCalled();
+    expect(mockSendWebPush).not.toHaveBeenCalled();
+  });
+
+  it('falha isolada do Web Push não impede o dispatch de in_app (delivery gravado)', async () => {
+    mockSendWebPush.mockRejectedValue(new Error('push service unreachable'));
+    const db = makeDb({ rules: [BASE_RULE], hasDelivery: false });
+
+    await expect(handleFanoutNotification(BASE_EVENT, db as never)).resolves.toBeUndefined();
+
+    expect(mockSendInApp).toHaveBeenCalledTimes(1);
+    expect(db.insert).toHaveBeenCalledTimes(1);
   });
 });

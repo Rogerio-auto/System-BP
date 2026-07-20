@@ -19,12 +19,17 @@ import type {
   NotificationIdParam,
   NotificationListQuery,
   NotificationPreferencesBatchUpdate,
+  PushSubscriptionRequest,
+  PushUnsubscribeQuery,
 } from './schemas.js';
 import {
   getPreferencesService,
+  getPushPublicKeyService,
   listNotificationsService,
   markAllNotificationsReadService,
   markNotificationReadService,
+  subscribePushService,
+  unsubscribePushService,
   updatePreferencesService,
 } from './service.js';
 
@@ -44,6 +49,32 @@ function getUserContext(request: FastifyRequest): UserContext {
   return {
     organizationId: request.user.organizationId,
     userId: request.user.id,
+  };
+}
+
+/**
+ * Contexto completo de ator (audit) — mesmo padrão de modules/users/controller.ts:
+ * role snapshot derivado da primeira permissão (request.user não tem campo `role`
+ * dedicado, ver shared/fastify.d.ts).
+ */
+function getActorContext(request: FastifyRequest): {
+  organizationId: string;
+  userId: string;
+  role: string;
+  ip: string | null;
+  userAgent: string | null;
+} {
+  const { organizationId, userId } = getUserContext(request);
+  // `as` justificado: request.user já foi verificado não-nulo em getUserContext.
+  const permissions = (request.user as { permissions: string[] }).permissions;
+  const role = permissions[0] ?? 'unknown';
+
+  return {
+    organizationId,
+    userId,
+    role,
+    ip: request.ip,
+    userAgent: request.headers['user-agent'] ?? null,
   };
 }
 
@@ -112,5 +143,45 @@ export async function updatePreferencesController(
   const { organizationId, userId } = getUserContext(request);
   const body = typedBody<NotificationPreferencesBatchUpdate>(request);
   const result = await updatePreferencesService(db, organizationId, userId, body);
+  await reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/notifications/push/public-key — chave pública VAPID (F27-S06)
+// ---------------------------------------------------------------------------
+
+export async function getPushPublicKeyController(
+  _request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const result = await getPushPublicKeyService(db);
+  await reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/notifications/push/subscription — registrar subscription (F27-S06)
+// ---------------------------------------------------------------------------
+
+export async function subscribePushController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const body = typedBody<PushSubscriptionRequest>(request);
+  const result = await subscribePushService(db, actor, body);
+  await reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /api/notifications/push/subscription — remover subscription (F27-S06)
+// ---------------------------------------------------------------------------
+
+export async function unsubscribePushController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const { endpoint } = typedQuery<PushUnsubscribeQuery>(request);
+  const result = await unsubscribePushService(db, actor, endpoint);
   await reply.status(200).send(result);
 }

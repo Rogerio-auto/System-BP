@@ -18,6 +18,8 @@
 //         - Checar isCategoryChannelEnabled (com fallback opt-out).
 //         - Renderizar title_template / body_template (sem PII bruta).
 //         - Despachar via sender (in_app ou email).
+//         - F27-S06: canal in_app também despacha Web Push (VAPID) — espelha
+//           o mesmo destinatário/preferência do in_app, sem regra própria.
 //         - Falha de canal isolada — não derruba outros.
 //      e. Gravar delivery após despacho bem-sucedido de ao menos 1 canal.
 //
@@ -46,6 +48,7 @@ import type { NotificationSocketSeverity } from '../modules/notifications/realti
 import { isCategoryChannelEnabled } from '../modules/notifications/repository.js';
 import { sendEmail } from '../modules/notifications/senders/email.js';
 import { sendInApp } from '../modules/notifications/senders/inApp.js';
+import { sendWebPush } from '../modules/notifications/senders/webPush.js';
 
 // ---------------------------------------------------------------------------
 // Logger — redact LGPD §8.5
@@ -233,6 +236,23 @@ async function dispatchToChannel(
         entityId: params.entityId,
         severity: params.severity,
       });
+
+      // F27-S06 (doc 24 §5): Web Push ESPELHA o in-app — mesmo destinatário,
+      // mesma preferência já verificada acima (isCategoryChannelEnabled para
+      // 'in_app'). Não cria destinatário novo nem regra de fan-out própria.
+      // Payload LGPD-mínimo: mesmo `title` do in-app (templates só aceitam
+      // placeholders de IDs opacos — sem PII), sem `body` (doc 24 §5.3).
+      // sendWebPush nunca lança (mesmo contrato de sendEmail) — falha de push
+      // não deve derrubar o dispatch de in_app, que já teve sucesso acima.
+      await sendWebPush(db, {
+        organizationId: params.organizationId,
+        userId: params.userId,
+        title: params.title,
+        severity: params.severity,
+        entityType: params.entityType,
+        entityId: params.entityId,
+      });
+
       return true;
     }
 
