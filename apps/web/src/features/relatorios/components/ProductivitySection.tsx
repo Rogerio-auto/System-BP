@@ -6,8 +6,12 @@
 import type { CommonReportQuery, ProductivityResponse } from '@elemento/shared-schemas';
 import * as React from 'react';
 
+import type { ResponsiveTableColumn } from '../../../components/ui/ResponsiveTable';
+import { ResponsiveTable } from '../../../components/ui/ResponsiveTable';
 import { Stat } from '../../../components/ui/Stat';
 import { useReportsProductivity } from '../hooks/useReportsProductivity';
+
+type AgentRow = ProductivityResponse['agents'][number];
 function fmtNumber(n: number): string {
   return n.toLocaleString('pt-BR');
 }
@@ -142,6 +146,64 @@ function SelfView({ data }: { data: ProductivityResponse }): React.JSX.Element {
     </div>
   );
 }
+// Colunas do ranking (ResponsiveTable — DS §9.7 + doc 24 §6): tabela no
+// desktop, cards empilhados no mobile, a partir da MESMA definição.
+const RANKING_COLUMNS: ResponsiveTableColumn<AgentRow>[] = [
+  {
+    key: 'agent',
+    header: 'Agente',
+    primary: true,
+    cell: (agent, idx) => (
+      <span className="font-sans text-sm font-semibold text-ink">
+        <span className="font-mono text-ink-4 mr-1.5" style={{ fontSize: '0.7rem' }}>
+          #{idx + 1}
+        </span>
+        {agent.displayName ?? '--'}
+      </span>
+    ),
+  },
+  {
+    key: 'leads',
+    header: 'Leads',
+    align: 'right',
+    cell: (agent) => (
+      <span className="font-sans text-sm text-ink">{fmtNumber(agent.leadsClosedWon)}</span>
+    ),
+  },
+  {
+    key: 'simulations',
+    header: 'Simulacoes',
+    align: 'right',
+    cell: (agent) => (
+      <span className="font-sans text-sm text-ink-2">{fmtNumber(agent.simulationsCreated)}</span>
+    ),
+  },
+  {
+    key: 'conversations',
+    header: 'Conversas',
+    align: 'right',
+    cell: (agent) => (
+      <span className="font-sans text-sm text-ink-2">{fmtNumber(agent.conversationsResolved)}</span>
+    ),
+  },
+  {
+    key: 'contracts',
+    header: 'Contratos',
+    align: 'right',
+    cell: (agent) => (
+      <span className="font-sans text-sm text-ink-2">{fmtNumber(agent.contractsOriginated)}</span>
+    ),
+  },
+  {
+    key: 'firstResponse',
+    header: '1a resp.',
+    align: 'right',
+    cell: (agent) => (
+      <span className="font-sans text-sm text-ink-2">{fmtDuration(agent.avgFirstResponseSec)}</span>
+    ),
+  },
+];
+
 // Gestor: ranking nominal completo, ordenado por leadsClosedWon desc
 function RankingView({ data }: { data: ProductivityResponse }): React.JSX.Element {
   if (data.agents.length === 0) return <ProductivityEmpty />;
@@ -149,60 +211,12 @@ function RankingView({ data }: { data: ProductivityResponse }): React.JSX.Elemen
   return (
     <div className="space-y-3">
       <div className="rounded-md border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-        <table className="w-full font-sans text-sm">
-          <thead>
-            <tr style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border)' }}>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-3">
-                #
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-3">
-                Agente
-              </th>
-              <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-3">
-                Leads
-              </th>
-              <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-3">
-                Simulacoes
-              </th>
-              <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-3">
-                Conversas
-              </th>
-              <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-3">
-                Contratos
-              </th>
-              <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-3">
-                1a resp.
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((agent, idx) => (
-              <tr
-                key={agent.agentId}
-                style={{
-                  borderBottom: '1px solid var(--border-subtle)',
-                  background: idx % 2 === 0 ? 'var(--surface-1)' : 'transparent',
-                }}
-              >
-                <td className="px-4 py-3 text-ink-3 text-xs">{idx + 1}</td>
-                <td className="px-4 py-3 font-semibold text-ink">{agent.displayName ?? '--'}</td>
-                <td className="px-4 py-3 text-right text-ink">{fmtNumber(agent.leadsClosedWon)}</td>
-                <td className="px-4 py-3 text-right text-ink-2">
-                  {fmtNumber(agent.simulationsCreated)}
-                </td>
-                <td className="px-4 py-3 text-right text-ink-2">
-                  {fmtNumber(agent.conversationsResolved)}
-                </td>
-                <td className="px-4 py-3 text-right text-ink-2">
-                  {fmtNumber(agent.contractsOriginated)}
-                </td>
-                <td className="px-4 py-3 text-right text-ink-2">
-                  {fmtDuration(agent.avgFirstResponseSec)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ResponsiveTable
+          columns={RANKING_COLUMNS}
+          data={sorted}
+          getRowKey={(agent) => agent.agentId}
+          aria-label="Ranking de produtividade por agente"
+        />
       </div>
     </div>
   );

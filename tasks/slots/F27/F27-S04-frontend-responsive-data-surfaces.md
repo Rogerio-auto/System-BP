@@ -3,7 +3,7 @@ id: F27-S04
 title: Frontend — superfícies densas responsivas (tabelas CRM/Relatórios → cards, forms)
 phase: F27
 task_ref: docs/24-pwa.md
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,8 @@ blocks: []
 labels: [frontend, ux, pwa]
 source_docs: [docs/24-pwa.md, docs/18-design-system.md]
 docs_required: false
+claimed_at: 2026-07-20T14:48:51Z
+completed_at: 2026-07-20T14:54:27Z
 ---
 
 # F27-S04 — Superfícies densas responsivas
