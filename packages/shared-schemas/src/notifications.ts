@@ -144,3 +144,111 @@ export type NotificationPreference = z.infer<typeof NotificationPreferenceSchema
  */
 export const NotificationPreferenceUpdateSchema = NotificationPreferenceSchema;
 export type NotificationPreferenceUpdate = z.infer<typeof NotificationPreferenceUpdateSchema>;
+
+// ---------------------------------------------------------------------------
+// Web Push subscription (F27-S06 — doc 24 §5/§8)
+//
+// Contrato compartilhado frontend×backend para o registro/remoção de uma
+// subscription de Web Push (VAPID). O shape espelha exatamente
+// `PushSubscription.toJSON()` do navegador (endpoint + keys.p256dh/auth).
+//
+// LGPD (doc 17): endpoint/p256dh/auth identificam device/usuário — DADO
+// PESSOAL. Nunca logado em claro (pino.redact); soft-delete no opt-out.
+// ---------------------------------------------------------------------------
+
+/** Chaves ECDH exigidas pelo protocolo Web Push (RFC 8291). */
+export const PushSubscriptionKeysSchema = z.object({
+  p256dh: z.string().min(1).describe('Chave pública ECDH do client (RFC 8291)'),
+  auth: z.string().min(1).describe('Segredo de autenticação do client (RFC 8291)'),
+});
+export type PushSubscriptionKeys = z.infer<typeof PushSubscriptionKeysSchema>;
+
+/**
+ * Allowlist de hosts de push service reconhecidos (anti-SSRF).
+ *
+ * O `endpoint` de uma subscription é uma URL escolhida pelo cliente para a qual
+ * o backend fará POST via `web-push`. Sem allowlist, um usuário autenticado
+ * poderia registrar um host interno (metadata da nuvem, painéis de infra) e usar
+ * o backend como proxy de requisição (SSRF). Restringimos a `https://` + os
+ * hosts dos push services padrão (FCM/Mozilla/Apple/WNS). Server-side, aplicado
+ * na borda (Zod) e reforçado no sender (defesa em profundidade).
+ */
+const ALLOWED_PUSH_HOSTS: readonly string[] = [
+  'fcm.googleapis.com',
+  'android.googleapis.com',
+  'updates.push.services.mozilla.com',
+  'web.push.apple.com',
+];
+const ALLOWED_PUSH_HOST_SUFFIXES: readonly string[] = ['.notify.windows.com', '.push.apple.com'];
+
+/** `true` se `endpoint` é uma URL HTTPS de um push service reconhecido. */
+export function isAllowedPushEndpoint(endpoint: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  const host = url.hostname.toLowerCase();
+  if (ALLOWED_PUSH_HOSTS.includes(host)) return true;
+  return ALLOWED_PUSH_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
+}
+
+const PUSH_ENDPOINT_ERROR =
+  'endpoint deve ser uma URL HTTPS de um push service reconhecido (FCM/Mozilla/Apple/WNS)';
+
+/**
+ * Body de `POST /api/notifications/push/subscription` — registra/atualiza a
+ * subscription do device do usuário autenticado. Idempotente por `endpoint`
+ * (upsert no repositório).
+ */
+export const PushSubscriptionRequestSchema = z.object({
+  endpoint: z
+    .string()
+    .url()
+    .refine(isAllowedPushEndpoint, { message: PUSH_ENDPOINT_ERROR })
+    .describe('URL do push service do browser/OS (FCM/Mozilla/Apple)'),
+  keys: PushSubscriptionKeysSchema,
+  userAgent: z
+    .string()
+    .max(500)
+    .optional()
+    .describe('User-Agent do browser — rótulo do device para a UI de gestão'),
+});
+export type PushSubscriptionRequest = z.infer<typeof PushSubscriptionRequestSchema>;
+
+/** Resposta de ack do subscribe — sem PII (nunca ecoa endpoint/keys). */
+export const PushSubscriptionAckSchema = z.object({
+  subscribed: z.literal(true),
+});
+export type PushSubscriptionAck = z.infer<typeof PushSubscriptionAckSchema>;
+
+/**
+ * Querystring de `DELETE /api/notifications/push/subscription` — remove a
+ * subscription do device (opt-out/logout). Idempotente.
+ */
+export const PushUnsubscribeQuerySchema = z.object({
+  endpoint: z
+    .string()
+    .url()
+    .refine(isAllowedPushEndpoint, { message: PUSH_ENDPOINT_ERROR })
+    .describe('Endpoint da subscription a ser removida'),
+});
+export type PushUnsubscribeQuery = z.infer<typeof PushUnsubscribeQuerySchema>;
+
+/** Resposta de ack do unsubscribe. */
+export const PushUnsubscribeAckSchema = z.object({
+  unsubscribed: z.literal(true),
+});
+export type PushUnsubscribeAck = z.infer<typeof PushUnsubscribeAckSchema>;
+
+/**
+ * Resposta de `GET /api/notifications/push/public-key`.
+ * `public_key: null` quando o Web Push não está disponível (flag/env
+ * desligados) — a UI de opt-in deve se esconder nesse caso.
+ */
+export const PushPublicKeyResponseSchema = z.object({
+  public_key: z.string().nullable().describe('Chave pública VAPID; null se push indisponível'),
+});
+export type PushPublicKeyResponse = z.infer<typeof PushPublicKeyResponseSchema>;

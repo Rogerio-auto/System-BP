@@ -190,6 +190,17 @@ export async function buildApp() {
           // Razão social PJ (F18-S08) — para ME/EI frequentemente é "NOME_TITULAR CNPJ" (LGPD art.5 I).
           'req.body.legal_name',
           '*.legal_name',
+          // Web Push subscription (F27-S06) — doc 24 §9/doc 17: endpoint/p256dh/auth
+          // identificam device/usuário (DADO PESSOAL). Nunca em log claro, mesmo em
+          // request.body do POST/DELETE /api/notifications/push/subscription.
+          'req.body.endpoint',
+          '*.endpoint',
+          'req.body.keys',
+          '*.keys',
+          'req.body.keys.p256dh',
+          'req.body.keys.auth',
+          '*.p256dh',
+          '*.auth',
         ],
         censor: '[REDACTED]',
       },
