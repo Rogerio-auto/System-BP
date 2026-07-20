@@ -589,6 +589,13 @@
       "when": 1784500001000,
       "tag": "0092_notifications_severity",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1784500002000,
+      "tag": "0093_push_subscriptions",
+      "breakpoints": true
     }
   ]
 }
