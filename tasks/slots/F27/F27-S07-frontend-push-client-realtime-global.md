@@ -3,7 +3,7 @@ id: F27-S07
 title: Frontend — push client (SW handlers + opt-in) + SocketProvider global
 phase: F27
 task_ref: docs/24-pwa.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/24-pwa.md, docs/23-notificacoes.md, docs/18-design-system.md]
 docs_required: false
 claimed_at: 2026-07-20T16:29:54Z
 completed_at: 2026-07-20T16:31:56Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/436
 ---
 
 # F27-S07 — Push no cliente + realtime global
