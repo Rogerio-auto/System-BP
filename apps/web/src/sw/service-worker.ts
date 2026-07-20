@@ -15,9 +15,13 @@
 // - `registerType: 'prompt'`: só troca de SW quando o operador confirma via
 //   `src/pwa/UpdatePrompt.tsx`, que envia a mensagem `SKIP_WAITING` abaixo.
 //
-// Handlers de `push` / `notificationclick` chegam no F27-S07 — este arquivo
-// já está pronto para recebê-los (listener de mensagens abaixo é o único
-// listener de app-level presente por enquanto).
+// Handlers de `push` / `notificationclick` (F27-S07, doc 24 §5.4):
+// - `push`: o payload publicado pelo sender `webPush` (F27-S06) é LGPD-mínimo
+//   (doc 24 §5.3) — só `title` genérico + `href` para deep-link. NUNCA espera
+//   nem lê `body`/PII do payload; o conteúdo real é buscado após o operador
+//   abrir o app autenticado.
+// - `notificationclick`: foca uma aba já aberta (navegando-a pro deep-link)
+//   ou abre uma nova via `clients.openWindow`.
 // =============================================================================
 
 /// <reference lib="webworker" />
@@ -28,6 +32,11 @@ import {
   precacheAndRoute,
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
+
+// Fonte única de verdade `entity_type` -> rota interna, compartilhada com o sino.
+// Módulo puro dedicado (sem zod/catálogo/DOM) — importável no SW sem inchar o
+// bundle. `features/notifications/navigation.ts` re-exporta o mesmo símbolo.
+import { resolveNotificationHref } from '../features/notifications/deep-link';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -59,4 +68,104 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
 
 self.addEventListener('activate', () => {
   void self.clients.claim();
+});
+
+// ─── Web Push (F27-S07, doc 24 §5.4) ────────────────────────────────────────
+//
+// Payload publicado pelo sender `webPush` (apps/api .../senders/webPush.ts):
+// `{ title, severity, entity_type, entity_id }` (LGPD-mínimo, doc 24 §5.3).
+// NÃO vem `href` pronto — resolvemos a rota interna aqui a partir de
+// `entity_type`/`entity_id` (IDs opacos, não-PII) via `resolveNotificationHref`.
+// Sem `body`, sem PII — push trafega por infra de terceiros (FCM/Apple/Mozilla)
+// e é tratado como canal não-confiável.
+
+interface PushNotificationPayload {
+  title: string;
+  /** Rota interna JÁ resolvida (nunca URL absoluta / cross-origin). */
+  href: string;
+}
+
+/** Ícones do app-shell (F27-S02) — mesmos assets do manifest.webmanifest. */
+const PUSH_ICON = '/pwa-192x192.png';
+const PUSH_BADGE = '/pwa-192x192.png';
+const DEFAULT_PUSH_TITLE = 'Nova notificação';
+const DEFAULT_PUSH_HREF = '/';
+
+/**
+ * Lê o payload JSON do evento `push` e resolve o deep-link a partir de
+ * `entity_type`/`entity_id` (mesmo mapa do sino). Tolerante a payload
+ * ausente/malformado — nunca deixa de notificar; cai no título/rota padrão.
+ */
+function parsePushPayload(event: PushEvent): PushNotificationPayload {
+  try {
+    const raw = event.data?.json() as
+      | { title?: unknown; entity_type?: unknown; entity_id?: unknown }
+      | undefined;
+    const title =
+      typeof raw?.title === 'string' && raw.title.trim().length > 0
+        ? raw.title
+        : DEFAULT_PUSH_TITLE;
+    const entityType = typeof raw?.entity_type === 'string' ? raw.entity_type : null;
+    const entityId = typeof raw?.entity_id === 'string' ? raw.entity_id : null;
+    return { title, href: resolveNotificationHref(entityType, entityId) ?? DEFAULT_PUSH_HREF };
+  } catch {
+    return { title: DEFAULT_PUSH_TITLE, href: DEFAULT_PUSH_HREF };
+  }
+}
+
+self.addEventListener('push', (event: PushEvent) => {
+  const { title, href } = parsePushPayload(event);
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      icon: PUSH_ICON,
+      badge: PUSH_BADGE,
+      data: { href },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  event.notification.close();
+
+  const data = event.notification.data as { href?: string } | undefined;
+  // Defesa em profundidade (canal não-confiável, doc 24 §5.3): só navegar para
+  // o MESMO origin. O href já deveria ser uma rota interna resolvida por nós,
+  // mas um href absoluto/cross-origin cai no default em vez de abrir externo.
+  const targetUrl = ((): string => {
+    const fallback = new URL(DEFAULT_PUSH_HREF, self.location.origin).href;
+    try {
+      const url = new URL(data?.href ?? DEFAULT_PUSH_HREF, self.location.origin);
+      return url.origin === self.location.origin ? url.href : fallback;
+    } catch {
+      return fallback;
+    }
+  })();
+
+  event.waitUntil(
+    (async () => {
+      const windowClients = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+
+      // Foca a primeira aba já aberta do app — navega pro deep-link quando o
+      // browser suporta `WindowClient.navigate` (Chrome/Edge/Firefox).
+      const existing = windowClients[0];
+      if (existing) {
+        if ('navigate' in existing) {
+          try {
+            await existing.navigate(targetUrl);
+          } catch {
+            // Navegação cross-origin ou não suportada — ainda assim foca a aba.
+          }
+        }
+        await existing.focus();
+        return;
+      }
+
+      // Nenhuma janela aberta — abre uma nova diretamente no deep-link.
+      await self.clients.openWindow(targetUrl);
+    })(),
+  );
 });

@@ -11,6 +11,16 @@
 //   *               → redireciona /login
 //
 // QueryClient: staleTime 30s, sem refetchOnWindowFocus, retry 1x.
+//
+// Realtime (F27-S07, doc 24 §5.4): `SocketProvider` é montado UMA ÚNICA VEZ,
+// envolvendo `<AppLayout />` dentro do `AuthGuard` (token já disponível) — o
+// namespace /livechat fica conectado em TODAS as rotas autenticadas, não só
+// em /conversas. O `Route` layout (AuthGuard > SocketProvider > AppLayout)
+// não remonta ao navegar entre rotas filhas (react-router mantém o elemento
+// da rota-pai montado), então não há reconexão nem duplo-mount do socket —
+// só existe este ponto de montagem em toda a árvore (grep `<SocketProvider`
+// antes de adicionar outro). `ConversasPage` deixou de montar o seu próprio
+// provider (F16-S15) — reusa este via `useSocket()`.
 // =============================================================================
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -49,6 +59,7 @@ import { RelatoriosPage } from './features/relatorios/RelatoriosPage';
 import { TasksPage } from './features/tasks';
 import { TemplateDetailPage, TemplateFormPage, TemplatesListPage } from './features/templates';
 import { ApiError } from './lib/api';
+import { SocketProvider } from './lib/realtime/SocketProvider';
 import { AgentsPage } from './pages/admin/Agents';
 import { CanaisAdminPage } from './pages/admin/Canais';
 import { CitiesPage } from './pages/admin/Cities';
@@ -133,11 +144,15 @@ function AppRoutes(): React.JSX.Element {
         {/* ── Pública ────────────────────────────────────────────────────────── */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* ── Protegidas (AuthGuard > AppLayout) ───────────────────────────── */}
+        {/* ── Protegidas (AuthGuard > SocketProvider > AppLayout) ──────────── */}
+        {/* SocketProvider global (F27-S07): único mount da árvore — ver nota de
+            cabeçalho. Sino tem realtime em toda rota; fora, poll de 60s como fallback. */}
         <Route
           element={
             <AuthGuard>
-              <AppLayout />
+              <SocketProvider>
+                <AppLayout />
+              </SocketProvider>
             </AuthGuard>
           }
         >

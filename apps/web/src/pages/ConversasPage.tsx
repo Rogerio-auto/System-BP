@@ -1,14 +1,15 @@
 // =============================================================================
 // pages/ConversasPage.tsx — Rota /conversas: Caixa de entrada Live Chat.
 //
-// Monta o SocketProvider (autenticado) envolvendo o ConversationsLayout.
-// O SocketProvider conecta ao namespace /livechat assim que o usuário entra
-// na página e desconecta no unmount — sem custo quando a rota não está ativa.
+// F27-S07: o SocketProvider deixou de ser montado aqui — subiu para App.tsx,
+// envolvendo `<AppLayout />` global (doc 24 §5.4), para o sino ter realtime em
+// TODAS as rotas autenticadas, não só nesta. Esta página só consome o socket
+// já conectado (via useSocket()/useConversationSocket, dentro de
+// ConversationsLayout/ChatList) — não abre nem fecha conexão própria.
 //
-// Estrutura de providers nesta rota:
-//   SocketProvider (conexão Socket.io /livechat)
-//     └─ ConversationsLayout (3 colunas: lista | conversa | contato)
-//          └─ ChatList (filtros, busca, scroll infinito, realtime)
+// Estrutura desta rota:
+//   ConversationsLayout (3 colunas: lista | conversa | contato)
+//     └─ ChatList (filtros, busca, scroll infinito, realtime)
 //
 // DS: Bricolage para o título, tokens sem hex hardcoded.
 // =============================================================================
@@ -16,7 +17,6 @@
 import * as React from 'react';
 
 import { ConversationsLayout } from '../features/conversations/components/ConversationsLayout';
-import { SocketProvider } from '../lib/realtime/SocketProvider';
 
 /**
  * ConversasPage — página da caixa de entrada do Live Chat.
@@ -26,22 +26,17 @@ import { SocketProvider } from '../lib/realtime/SocketProvider';
  */
 export function ConversasPage(): React.JSX.Element {
   return (
-    <SocketProvider>
-      {/*
-        h-full: ocupa todo o espaço vertical que o AppLayout concede.
-        O ConversationsLayout faz overflow:hidden internamente.
-      */}
-      {/*
-        -m-6 cancela o p-6 do AppLayout main.
-        height calc fixa o container ao viewport abaixo da topbar (h-14 = 3.5rem),
-        eliminando o overflow que esticava a página.
-      */}
-      <div
-        className="-m-6 flex flex-col overflow-hidden"
-        style={{ height: 'calc(100vh - 3.5rem)' }}
-      >
-        <ConversationsLayout />
-      </div>
-    </SocketProvider>
+    /*
+      h-full: ocupa todo o espaço vertical que o AppLayout concede.
+      O ConversationsLayout faz overflow:hidden internamente.
+    */
+    /*
+      -m-6 cancela o p-6 do AppLayout main.
+      height calc fixa o container ao viewport abaixo da topbar (h-14 = 3.5rem),
+      eliminando o overflow que esticava a página.
+    */
+    <div className="-m-6 flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 3.5rem)' }}>
+      <ConversationsLayout />
+    </div>
   );
 }

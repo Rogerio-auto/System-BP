@@ -13,6 +13,10 @@
 // F26-S04: estilo/ícone de severidade dos toasts vêm de `./severity` (fonte
 // única, reusada também por NotificationItem/NotificationMeta — sem cópia
 // local divergente). Rodapé ganhou link "ver todas" -> /notificacoes (central).
+//
+// F27-S07: rodapé ganhou o opt-in compacto de push do navegador
+// (`PushOptInCard compact`, features/pwa) — atrás da flag `pwa.enabled`; com
+// a flag off o componente retorna `null` e nada é renderizado aqui.
 // =============================================================================
 
 import * as React from 'react';
@@ -20,6 +24,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
 import { cn } from '../../lib/cn';
+import { PushOptInCard } from '../pwa/PushOptInCard';
 
 import { useMarkAllRead, useMarkRead, useNotifications } from './hooks';
 import { NotificationItem } from './NotificationItem';
@@ -410,6 +415,10 @@ export function NotificationDropdown(): React.JSX.Element {
               </button>
             </div>
           )}
+
+          {/* Opt-in de push no navegador (F27-S07) — atrás de pwa.enabled; retorna
+              null (nada renderiza) quando a flag está off. */}
+          <PushOptInCard compact />
         </div>
       )}
 
