@@ -15,9 +15,13 @@
 // - `registerType: 'prompt'`: só troca de SW quando o operador confirma via
 //   `src/pwa/UpdatePrompt.tsx`, que envia a mensagem `SKIP_WAITING` abaixo.
 //
-// Handlers de `push` / `notificationclick` chegam no F27-S07 — este arquivo
-// já está pronto para recebê-los (listener de mensagens abaixo é o único
-// listener de app-level presente por enquanto).
+// Handlers de `push` / `notificationclick` (F27-S07, doc 24 §5.4):
+// - `push`: o payload publicado pelo sender `webPush` (F27-S06) é LGPD-mínimo
+//   (doc 24 §5.3) — só `title` genérico + `href` para deep-link. NUNCA espera
+//   nem lê `body`/PII do payload; o conteúdo real é buscado após o operador
+//   abrir o app autenticado.
+// - `notificationclick`: foca uma aba já aberta (navegando-a pro deep-link)
+//   ou abre uma nova via `clients.openWindow`.
 // =============================================================================
 
 /// <reference lib="webworker" />
@@ -59,4 +63,88 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
 
 self.addEventListener('activate', () => {
   void self.clients.claim();
+});
+
+// ─── Web Push (F27-S07, doc 24 §5.4) ────────────────────────────────────────
+//
+// Payload publicado pelo sender `webPush` (apps/api .../senders/webPush.ts):
+// `{ title: string, href?: string }`. Sem `body`, sem PII — doc 24 §5.3 é
+// inviolável: push trafega por infra de terceiros (FCM/Apple/Mozilla) e é
+// tratado como canal não-confiável.
+
+interface PushNotificationPayload {
+  title: string;
+  href?: string;
+}
+
+/** Ícones do app-shell (F27-S02) — mesmos assets do manifest.webmanifest. */
+const PUSH_ICON = '/pwa-192x192.png';
+const PUSH_BADGE = '/pwa-192x192.png';
+const DEFAULT_PUSH_TITLE = 'Nova notificação';
+const DEFAULT_PUSH_HREF = '/';
+
+/**
+ * Lê o payload JSON do evento `push`. Tolerante a payload ausente/malformado
+ * (nunca deixa de notificar por causa de um payload inesperado) — cai no
+ * título genérico padrão.
+ */
+function parsePushPayload(event: PushEvent): PushNotificationPayload {
+  try {
+    const raw = event.data?.json() as Partial<PushNotificationPayload> | undefined;
+    const title =
+      typeof raw?.title === 'string' && raw.title.trim().length > 0
+        ? raw.title
+        : DEFAULT_PUSH_TITLE;
+    const href = typeof raw?.href === 'string' && raw.href.length > 0 ? raw.href : undefined;
+    return href === undefined ? { title } : { title, href };
+  } catch {
+    return { title: DEFAULT_PUSH_TITLE };
+  }
+}
+
+self.addEventListener('push', (event: PushEvent) => {
+  const { title, href } = parsePushPayload(event);
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      icon: PUSH_ICON,
+      badge: PUSH_BADGE,
+      data: { href: href ?? DEFAULT_PUSH_HREF },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  event.notification.close();
+
+  const data = event.notification.data as { href?: string } | undefined;
+  const href = data?.href ?? DEFAULT_PUSH_HREF;
+  const targetUrl = new URL(href, self.location.origin).href;
+
+  event.waitUntil(
+    (async () => {
+      const windowClients = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+
+      // Foca a primeira aba já aberta do app — navega pro deep-link quando o
+      // browser suporta `WindowClient.navigate` (Chrome/Edge/Firefox).
+      const existing = windowClients[0];
+      if (existing) {
+        if ('navigate' in existing) {
+          try {
+            await existing.navigate(targetUrl);
+          } catch {
+            // Navegação cross-origin ou não suportada — ainda assim foca a aba.
+          }
+        }
+        await existing.focus();
+        return;
+      }
+
+      // Nenhuma janela aberta — abre uma nova diretamente no deep-link.
+      await self.clients.openWindow(targetUrl);
+    })(),
+  );
 });
