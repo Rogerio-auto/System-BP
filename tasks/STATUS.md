@@ -27,7 +27,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24  | 21    | 0   | 0   | 0   | 0   | 0   | 21  |
 | F25  | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F26  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
-| F27  | 8     | 5   | 0   | 0   | 0   | 1   | 2   |
+| F27  | 8     | 4   | 0   | 0   | 0   | 2   | 2   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -399,7 +399,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ------- | ------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------------------------------- |
 | F27-S01 | Frontend — fundação PWA (vite-plugin-pwa injectManifest, manifest, SW base, página offline) | ✅ done      | high       | —                                  |
 | F27-S02 | Frontend — ícones e splash PWA (assets-generator, maskable, apple-touch)                    | 🟣 review    | medium     | F27-S01                            |
-| F27-S03 | Frontend — shell responsivo (Sidebar→drawer, Topbar mobile, AppLayout fluido)               | 🟢 available | high       | —                                  |
+| F27-S03 | Frontend — shell responsivo (Sidebar→drawer, Topbar mobile, AppLayout fluido)               | 🟣 review    | high       | —                                  |
 | F27-S04 | Frontend — superfícies densas responsivas (tabelas CRM/Relatórios → cards, forms)           | 🟢 available | medium     | F27-S03                            |
 | F27-S05 | DB — tabela push_subscriptions (migration 0093) + seed flag pwa.enabled                     | ✅ done      | high       | —                                  |
 | F27-S06 | Backend — Web Push (VAPID, sender, endpoints subscribe/unsubscribe, fan-out, LGPD)          | 🟢 available | high       | F27-S05                            |
