@@ -3,7 +3,7 @@ id: F27-S05
 title: DB — tabela push_subscriptions (migration 0093) + seed flag pwa.enabled
 phase: F27
 task_ref: docs/24-pwa.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/24-pwa.md, docs/09-feature-flags.md]
 docs_required: false
 claimed_at: 2026-07-19T23:48:05Z
 completed_at: 2026-07-20T12:03:39Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/430
 ---
 
 # F27-S05 — Schema push_subscriptions + seed da flag

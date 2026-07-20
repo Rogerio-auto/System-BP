@@ -3,7 +3,7 @@ id: F27-S01
 title: Frontend — fundação PWA (vite-plugin-pwa injectManifest, manifest, SW base, página offline)
 phase: F27
 task_ref: docs/24-pwa.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/24-pwa.md, docs/18-design-system.md]
 docs_required: false
 claimed_at: 2026-07-19T23:49:13Z
 completed_at: 2026-07-20T12:20:18Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/429
 ---
 
 # F27-S01 — Fundação PWA instalável
