@@ -3,7 +3,7 @@ id: F27-S09
 title: Docs LGPD — RoPA de push_subscriptions (doc 17 §3.3/§3.4)
 phase: F27
 task_ref: docs/24-pwa.md
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
@@ -12,6 +12,7 @@ blocks: []
 labels: [docs, lgpd]
 source_docs: [docs/17-lgpd-protecao-dados.md, docs/24-pwa.md]
 docs_required: false
+claimed_at: 2026-07-20T16:12:52Z
 ---
 
 # F27-S09 — RoPA de push_subscriptions
