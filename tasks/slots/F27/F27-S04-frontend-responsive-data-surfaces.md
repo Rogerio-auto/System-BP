@@ -3,7 +3,7 @@ id: F27-S04
 title: Frontend — superfícies densas responsivas (tabelas CRM/Relatórios → cards, forms)
 phase: F27
 task_ref: docs/24-pwa.md
-status: review
+status: done
 priority: medium
 estimated_size: M
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/24-pwa.md, docs/18-design-system.md]
 docs_required: false
 claimed_at: 2026-07-20T14:48:51Z
 completed_at: 2026-07-20T14:54:27Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/434
 ---
 
 # F27-S04 — Superfícies densas responsivas
@@ -47,7 +48,7 @@ schemas Zod; ver memória de drift de contrato).
 
 ## Arquivos permitidos
 
-- `apps/web/src/features/customers/**`
+- `apps/web/src/features/crm/**`
 - `apps/web/src/features/relatorios/**`
 - `apps/web/src/components/ui/**`
 - `apps/web/src/**/*.test.ts`
