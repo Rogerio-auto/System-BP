@@ -397,7 +397,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID      | Título                                                                                      | Status       | Prioridade | Depende de                         |
 | ------- | ------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------------------------------- |
-| F27-S01 | Frontend — fundação PWA (vite-plugin-pwa injectManifest, manifest, SW base, página offline) | 🟢 available | high       | —                                  |
+| F27-S01 | Frontend — fundação PWA (vite-plugin-pwa injectManifest, manifest, SW base, página offline) | 🟣 review    | high       | —                                  |
 | F27-S02 | Frontend — ícones e splash PWA (assets-generator, maskable, apple-touch)                    | 🟢 available | medium     | F27-S01                            |
 | F27-S03 | Frontend — shell responsivo (Sidebar→drawer, Topbar mobile, AppLayout fluido)               | 🟢 available | high       | —                                  |
 | F27-S04 | Frontend — superfícies densas responsivas (tabelas CRM/Relatórios → cards, forms)           | 🟢 available | medium     | F27-S03                            |

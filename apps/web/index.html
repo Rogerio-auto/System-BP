@@ -6,6 +6,16 @@
     <link rel="apple-touch-icon" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
+
+    <!--
+      PWA (F27-S01, doc 24 §3.2): theme-color com variante light/dark usando
+      tokens do DS v2 (--brand-azul) — cor da bandeira de Rondônia como
+      identidade do app instalado. `<link rel=manifest>` é injetado pelo
+      vite-plugin-pwa em build time.
+    -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#1B3A8C" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#5E80E0" />
+
     <title>Banco do Povo · Manager</title>
 
     <!-- Fontes: Bricolage Grotesque (display) + Geist (UI) + JetBrains Mono (dados) -->
