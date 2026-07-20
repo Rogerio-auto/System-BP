@@ -36,7 +36,7 @@ import {
   users,
 } from '../../db/schema/index.js';
 import type { PushSubscription } from '../../db/schema/pushSubscriptions.js';
-import { AppError, NotFoundError } from '../../shared/errors.js';
+import { AppError, ForbiddenError, NotFoundError } from '../../shared/errors.js';
 
 import type {
   Notification,
@@ -600,12 +600,31 @@ export interface UpsertPushSubscriptionInput {
  * mesmo device (ex.: troca de operador num terminal compartilhado) passa a
  * notificar o usuário atualmente logado — mesmo raciocínio de "subscribe
  * sempre vincula ao usuário autenticado no momento".
+ *
+ * Guarda de isolamento cross-org (F27-S06 hardening): a reatribuição só é
+ * permitida DENTRO da mesma organização. Um endpoint ativo pertencente a OUTRA
+ * organização não pode ser reivindicado — sem isso, quem conhecesse um endpoint
+ * ativo de outra org poderia "roubar" a linha (o índice único em `endpoint` não
+ * é escopado por org). Rejeita com 403 antes de qualquer escrita.
  */
 export async function upsertPushSubscription(
   db: Database,
   input: UpsertPushSubscriptionInput,
 ): Promise<{ id: string }> {
   const now = new Date();
+
+  // Isolamento cross-org: se o endpoint já tem uma linha ATIVA de outra
+  // organização, recusa (não reatribui). Dentro da mesma org, a reatribuição
+  // (terminal compartilhado entre colegas) segue permitida via onConflict.
+  const [existing] = await db
+    .select({ organizationId: pushSubscriptions.organizationId })
+    .from(pushSubscriptions)
+    .where(and(eq(pushSubscriptions.endpoint, input.endpoint), isNull(pushSubscriptions.deletedAt)))
+    .limit(1);
+
+  if (existing && existing.organizationId !== input.organizationId) {
+    throw new ForbiddenError('Endpoint de push já registrado em outra organização');
+  }
 
   const [row] = await db
     .insert(pushSubscriptions)

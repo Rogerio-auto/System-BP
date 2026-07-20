@@ -241,6 +241,24 @@ describe('POST /api/notifications/push/subscription', () => {
     expect(mockSubscribePush).not.toHaveBeenCalled();
   });
 
+  it('retorna 400 (anti-SSRF) quando endpoint é URL válida mas host não é push service', async () => {
+    // Endpoint interno/arbitrário: URL válida, mas fora da allowlist de push
+    // services. Sem isso, o backend viraria proxy de SSRF ao enviar push.
+    for (const endpoint of [
+      'http://169.254.169.254/latest/meta-data/',
+      'https://evil.example.com/hook',
+      'http://fcm.googleapis.com/fcm/send/x', // host ok mas HTTP (não HTTPS)
+    ]) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/notifications/push/subscription',
+        payload: { ...VALID_SUBSCRIPTION_BODY, endpoint },
+      });
+      expect(res.statusCode).toBe(400);
+    }
+    expect(mockSubscribePush).not.toHaveBeenCalled();
+  });
+
   it('retorna 400 quando keys.p256dh está ausente', async () => {
     const res = await app.inject({
       method: 'POST',

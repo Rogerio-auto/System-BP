@@ -39,7 +39,16 @@ describe('upsertPushSubscription', () => {
       onConflictDoUpdate: vi.fn().mockReturnThis(),
       returning: vi.fn().mockResolvedValue([{ id: 'sub-uuid-1' }]),
     };
-    const mockDb = { insert: vi.fn().mockReturnValue(chain) };
+    // Guarda cross-org: select prévio sem linha existente (endpoint livre).
+    const selectChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([]),
+    };
+    const mockDb = {
+      select: vi.fn().mockReturnValue(selectChain),
+      insert: vi.fn().mockReturnValue(chain),
+    };
 
     const result = await upsertPushSubscription(asDb(mockDb), {
       organizationId: ORG_ID,
@@ -84,7 +93,15 @@ describe('upsertPushSubscription', () => {
       onConflictDoUpdate: vi.fn().mockReturnThis(),
       returning: vi.fn().mockResolvedValue([{ id: 'sub-uuid-1' }]),
     };
-    const mockDb = { insert: vi.fn().mockReturnValue(chain) };
+    const selectChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([]),
+    };
+    const mockDb = {
+      select: vi.fn().mockReturnValue(selectChain),
+      insert: vi.fn().mockReturnValue(chain),
+    };
 
     const input = {
       organizationId: ORG_ID,
@@ -99,6 +116,65 @@ describe('upsertPushSubscription', () => {
 
     expect(first.id).toBe(second.id);
     expect(mockDb.insert).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejeita (403) reatribuição de endpoint ativo de OUTRA organização', async () => {
+    // Endpoint já pertence a outra org → não pode ser reivindicado (anti-roubo
+    // cross-tenant). O índice único em endpoint não é escopado por org, então a
+    // guarda é aplicada no app antes de qualquer escrita.
+    const selectChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi
+        .fn()
+        .mockResolvedValue([{ organizationId: 'd9999999-0000-0000-0000-000000000099' }]),
+    };
+    const insertSpy = vi.fn();
+    const mockDb = {
+      select: vi.fn().mockReturnValue(selectChain),
+      insert: insertSpy,
+    };
+
+    await expect(
+      upsertPushSubscription(asDb(mockDb), {
+        organizationId: ORG_ID,
+        userId: USER_ID,
+        endpoint: ENDPOINT,
+        p256dh: 'p256dh-key',
+        auth: 'auth-secret',
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+
+    // Nenhuma escrita ocorre quando a guarda cross-org dispara.
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it('permite reatribuição dentro da MESMA organização (terminal compartilhado)', async () => {
+    const selectChain = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([{ organizationId: ORG_ID }]),
+    };
+    const chain = {
+      values: vi.fn().mockReturnThis(),
+      onConflictDoUpdate: vi.fn().mockReturnThis(),
+      returning: vi.fn().mockResolvedValue([{ id: 'sub-uuid-1' }]),
+    };
+    const mockDb = {
+      select: vi.fn().mockReturnValue(selectChain),
+      insert: vi.fn().mockReturnValue(chain),
+    };
+
+    const result = await upsertPushSubscription(asDb(mockDb), {
+      organizationId: ORG_ID,
+      userId: 'd0000003-0000-0000-0000-000000000003',
+      endpoint: ENDPOINT,
+      p256dh: 'p256dh-key',
+      auth: 'auth-secret',
+    });
+
+    expect(result).toEqual({ id: 'sub-uuid-1' });
+    expect(mockDb.insert).toHaveBeenCalledOnce();
   });
 });
 

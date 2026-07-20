@@ -30,6 +30,7 @@
 //   mesmo contrato de sendEmail. O fan-out (fanout-notification.ts) já isola
 //   falha de canal por design; falha de push não deve derrubar in-app/email.
 // =============================================================================
+import { isAllowedPushEndpoint } from '@elemento/shared-schemas';
 import pino from 'pino';
 import { WebPushError, sendNotification, setVapidDetails } from 'web-push';
 
@@ -197,6 +198,22 @@ export async function sendWebPush(
     // ── 5. Enviar para cada subscription — falha isolada por subscription ────
     await Promise.all(
       subscriptions.map(async (subscription) => {
+        // Defesa em profundidade (anti-SSRF): mesmo com o refine na borda, uma
+        // linha legada/adulterada não pode fazer o backend postar para host
+        // arbitrário. Endpoint fora da allowlist é ignorado (não enviado).
+        if (!isAllowedPushEndpoint(subscription.endpoint)) {
+          logger.warn(
+            {
+              event: 'web_push.notification.endpoint_rejected',
+              organization_id: input.organizationId,
+              user_id: input.userId,
+              subscription_id: subscription.id,
+            },
+            'web-push-sender: endpoint fora da allowlist de push service — skip (SSRF guard)',
+          );
+          return;
+        }
+
         try {
           await sendNotification(
             {
