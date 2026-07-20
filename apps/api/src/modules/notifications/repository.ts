@@ -29,11 +29,13 @@ import type { Database } from '../../db/client.js';
 import {
   notificationPreferences,
   notifications,
+  pushSubscriptions,
   roles,
   userCityScopes,
   userRoles,
   users,
 } from '../../db/schema/index.js';
+import type { PushSubscription } from '../../db/schema/pushSubscriptions.js';
 import { AppError, NotFoundError } from '../../shared/errors.js';
 
 import type {
@@ -565,4 +567,134 @@ export async function resolveContractSignedRecipients(
     }
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Web Push subscriptions (F27-S06 — doc 24 §5/§8)
+//
+// LGPD: endpoint/p256dh/auth são DADO PESSOAL (device) — nunca logados aqui;
+// pino.redact cobre esses campos em app.ts (borda HTTP) e no sender dedicado
+// (senders/webPush.ts).
+// ---------------------------------------------------------------------------
+
+export interface UpsertPushSubscriptionInput {
+  organizationId: string;
+  userId: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent?: string | null;
+}
+
+/**
+ * Upsert idempotente de uma subscription de push por `endpoint` (índice único
+ * parcial `uq_push_subscriptions_endpoint_active WHERE deleted_at IS NULL`,
+ * F27-S05).
+ *
+ * Reenviar a mesma subscription é no-op efetivo (apenas atualiza keys/
+ * updatedAt). Se o endpoint já existia como soft-deleted, revive a linha
+ * (deletedAt=null) — cenário de reinstalação do PWA / novo opt-in.
+ *
+ * Reassoca `userId`/`organizationId` ao dono mais recente da requisição: um
+ * mesmo endpoint de browser reutilizado por outro usuário autenticado no
+ * mesmo device (ex.: troca de operador num terminal compartilhado) passa a
+ * notificar o usuário atualmente logado — mesmo raciocínio de "subscribe
+ * sempre vincula ao usuário autenticado no momento".
+ */
+export async function upsertPushSubscription(
+  db: Database,
+  input: UpsertPushSubscriptionInput,
+): Promise<{ id: string }> {
+  const now = new Date();
+
+  const [row] = await db
+    .insert(pushSubscriptions)
+    .values({
+      organizationId: input.organizationId,
+      userId: input.userId,
+      endpoint: input.endpoint,
+      p256dh: input.p256dh,
+      auth: input.auth,
+      userAgent: input.userAgent ?? null,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+    })
+    .onConflictDoUpdate({
+      target: pushSubscriptions.endpoint,
+      targetWhere: sql`${pushSubscriptions.deletedAt} IS NULL`,
+      set: {
+        organizationId: input.organizationId,
+        userId: input.userId,
+        p256dh: input.p256dh,
+        auth: input.auth,
+        userAgent: input.userAgent ?? null,
+        updatedAt: now,
+        deletedAt: null,
+      },
+    })
+    .returning({ id: pushSubscriptions.id });
+
+  if (!row) {
+    throw new AppError(500, 'INTERNAL_ERROR', 'Falha ao registrar subscription de push');
+  }
+
+  return { id: row.id };
+}
+
+/**
+ * Soft-delete de uma subscription de push por `endpoint`.
+ *
+ * Usado em dois contextos:
+ *   - Opt-out/logout do próprio usuário (rota DELETE) — escopo por
+ *     (organizationId, userId, endpoint), evitando remoção cross-user.
+ *   - Sender removendo subscription morta (404/410) — mesmo escopo,
+ *     usando o (organizationId, userId) já resolvido da subscription.
+ *
+ * Idempotente: se não encontrar linha ativa (já removida ou inexistente),
+ * retorna `null` sem lançar — o caller trata como no-op bem-sucedido.
+ *
+ * @returns UUID da subscription removida, ou `null` se nada foi removido.
+ */
+export async function softDeletePushSubscriptionByEndpoint(
+  db: Database,
+  organizationId: string,
+  userId: string,
+  endpoint: string,
+): Promise<string | null> {
+  const [row] = await db
+    .update(pushSubscriptions)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(pushSubscriptions.organizationId, organizationId),
+        eq(pushSubscriptions.userId, userId),
+        eq(pushSubscriptions.endpoint, endpoint),
+        isNull(pushSubscriptions.deletedAt),
+      ),
+    )
+    .returning({ id: pushSubscriptions.id });
+
+  return row?.id ?? null;
+}
+
+/**
+ * Retorna as subscriptions ATIVAS (deletedAt IS NULL) de um usuário —
+ * usado pelo sender de push para saber a quais devices entregar.
+ */
+export async function getActivePushSubscriptionsByUser(
+  db: Database,
+  organizationId: string,
+  userId: string,
+): Promise<PushSubscription[]> {
+  return db
+    .select()
+    .from(pushSubscriptions)
+    .where(
+      and(
+        eq(pushSubscriptions.organizationId, organizationId),
+        eq(pushSubscriptions.userId, userId),
+        isNull(pushSubscriptions.deletedAt),
+      ),
+    );
 }

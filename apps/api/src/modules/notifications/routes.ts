@@ -2,14 +2,17 @@
 // notifications/routes.ts — Rotas do módulo de notificações (F15-S06).
 //
 // Rotas:
-//   GET  /api/notifications                   — minhas notificações + unread_count
-//   POST /api/notifications/:id/read          — marcar como lida
-//   POST /api/notifications/read-all          — marcar todas como lidas
-//   GET  /api/notifications/preferences       — ver preferências de canal
-//   PUT  /api/notifications/preferences       — atualizar preferências de canal
+//   GET    /api/notifications                   — minhas notificações + unread_count
+//   POST   /api/notifications/:id/read          — marcar como lida
+//   POST   /api/notifications/read-all          — marcar todas como lidas
+//   GET    /api/notifications/preferences       — ver preferências de canal
+//   PUT    /api/notifications/preferences       — atualizar preferências de canal
+//   GET    /api/notifications/push/public-key   — chave pública VAPID (F27-S06)
+//   POST   /api/notifications/push/subscription — registrar subscription de push (F27-S06)
+//   DELETE /api/notifications/push/subscription — remover subscription de push (F27-S06)
 //
 // RBAC:
-//   - notifications:read → todas as rotas (leitura + ações sobre próprias notificações)
+//   - notifications:read → todas as rotas (leitura + ações sobre próprias notificações/devices)
 //
 // Autenticação obrigatória em todas as rotas via addHook preHandler.
 // =============================================================================
@@ -21,9 +24,12 @@ import { authorize } from '../auth/middlewares/authorize.js';
 
 import {
   getPreferencesController,
+  getPushPublicKeyController,
   listNotificationsController,
   markAllReadController,
   markReadController,
+  subscribePushController,
+  unsubscribePushController,
   updatePreferencesController,
 } from './controller.js';
 import {
@@ -33,6 +39,11 @@ import {
   NotificationPreferencesListSchema,
   NotificationSchema,
   notificationIdParamSchema,
+  PushPublicKeyResponseSchemaLocal,
+  PushSubscriptionAckResponseSchema,
+  PushSubscriptionBodySchema,
+  PushUnsubscribeAckResponseSchema,
+  PushUnsubscribeQuerySchemaLocal,
 } from './schemas.js';
 
 export const notificationsRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -180,5 +191,125 @@ export const notificationsRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorize({ permissions: ['notifications:read'] })],
     },
     updatePreferencesController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // GET /api/notifications/push/public-key
+  //
+  // Retorna a chave pública VAPID para o frontend iniciar
+  // `PushManager.subscribe({ applicationServerKey })`. Degrada graciosamente
+  // (`public_key: null`) quando o Web Push está desligado — sem erro, a UI de
+  // opt-in usa isso para se esconder (F27-S06 — doc 24 §5/§7).
+  // ---------------------------------------------------------------------------
+  app.get(
+    '/api/notifications/push/public-key',
+    {
+      schema: {
+        tags: ['Notifications'],
+        summary: 'Chave pública VAPID do Web Push',
+        description:
+          'Retorna a chave pública VAPID usada pelo frontend para `PushManager.subscribe`. ' +
+          '`public_key: null` quando o Web Push não está disponível (env ou feature flag ' +
+          '`pwa.enabled` desligados) — não é a chave privada, que nunca sai do backend.',
+        security: [{ bearerAuth: [] }],
+        response: {
+          200: PushPublicKeyResponseSchemaLocal,
+        },
+      },
+      preHandler: [authorize({ permissions: ['notifications:read'] })],
+    },
+    getPushPublicKeyController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/notifications/push/subscription
+  //
+  // Registra/atualiza a subscription de Web Push do device do usuário
+  // autenticado. Idempotente por `endpoint` (upsert). Recusa com 403 quando
+  // o Web Push está desligado (env ou flag `pwa.enabled`).
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/notifications/push/subscription',
+    {
+      schema: {
+        tags: ['Notifications'],
+        summary: 'Registrar subscription de Web Push',
+        description:
+          'Registra ou atualiza a subscription de Web Push (VAPID) do device do usuário ' +
+          'autenticado, obtida via `PushManager.subscribe()` no browser. Idempotente por ' +
+          '`endpoint`: reenviar a mesma subscription apenas atualiza as chaves. Recusa com ' +
+          '403 quando o Web Push está desligado (`pwa.enabled` ou variáveis VAPID ausentes).',
+        security: [{ bearerAuth: [] }],
+        body: PushSubscriptionBodySchema,
+        response: {
+          200: PushSubscriptionAckResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['notifications:read'] })],
+      config: {
+        // M-02 hardening pattern (ver reports/routes.ts): endpoints de
+        // subscription têm rate-limit dedicado (doc 24 §10) — device
+        // management é operação rara, 20/min por IP cobre uso legítimo
+        // (múltiplos re-subscribes numa troca de permissão) e bloqueia abuso.
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+          errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
+            const err = Object.assign(
+              new Error('Rate limit excedido: maximo 20 subscriptions de push por minuto.'),
+              {
+                statusCode: context.statusCode,
+                code: 'RATE_LIMITED',
+              },
+            );
+            return err;
+          },
+        },
+      },
+    },
+    subscribePushController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // DELETE /api/notifications/push/subscription
+  //
+  // Remove (soft-delete) a subscription de push do usuário autenticado —
+  // opt-out/logout. Idempotente: endpoint já removido responde 200 do mesmo jeito.
+  // ---------------------------------------------------------------------------
+  app.delete(
+    '/api/notifications/push/subscription',
+    {
+      schema: {
+        tags: ['Notifications'],
+        summary: 'Remover subscription de Web Push',
+        description:
+          'Remove a subscription de Web Push identificada por `endpoint` (opt-out ou ' +
+          'logout do device). Idempotente: se já removida ou inexistente, ainda responde ' +
+          '`{ unsubscribed: true }`. Recusa com 403 quando o Web Push está desligado.',
+        security: [{ bearerAuth: [] }],
+        querystring: PushUnsubscribeQuerySchemaLocal,
+        response: {
+          200: PushUnsubscribeAckResponseSchema,
+        },
+      },
+      preHandler: [authorize({ permissions: ['notifications:read'] })],
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+          errorResponseBuilder: (_req: unknown, context: { statusCode: number }) => {
+            const err = Object.assign(
+              new Error('Rate limit excedido: maximo 20 remocoes de subscription por minuto.'),
+              {
+                statusCode: context.statusCode,
+                code: 'RATE_LIMITED',
+              },
+            );
+            return err;
+          },
+        },
+      },
+    },
+    unsubscribePushController,
   );
 };

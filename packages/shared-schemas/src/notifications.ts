@@ -144,3 +144,68 @@ export type NotificationPreference = z.infer<typeof NotificationPreferenceSchema
  */
 export const NotificationPreferenceUpdateSchema = NotificationPreferenceSchema;
 export type NotificationPreferenceUpdate = z.infer<typeof NotificationPreferenceUpdateSchema>;
+
+// ---------------------------------------------------------------------------
+// Web Push subscription (F27-S06 — doc 24 §5/§8)
+//
+// Contrato compartilhado frontend×backend para o registro/remoção de uma
+// subscription de Web Push (VAPID). O shape espelha exatamente
+// `PushSubscription.toJSON()` do navegador (endpoint + keys.p256dh/auth).
+//
+// LGPD (doc 17): endpoint/p256dh/auth identificam device/usuário — DADO
+// PESSOAL. Nunca logado em claro (pino.redact); soft-delete no opt-out.
+// ---------------------------------------------------------------------------
+
+/** Chaves ECDH exigidas pelo protocolo Web Push (RFC 8291). */
+export const PushSubscriptionKeysSchema = z.object({
+  p256dh: z.string().min(1).describe('Chave pública ECDH do client (RFC 8291)'),
+  auth: z.string().min(1).describe('Segredo de autenticação do client (RFC 8291)'),
+});
+export type PushSubscriptionKeys = z.infer<typeof PushSubscriptionKeysSchema>;
+
+/**
+ * Body de `POST /api/notifications/push/subscription` — registra/atualiza a
+ * subscription do device do usuário autenticado. Idempotente por `endpoint`
+ * (upsert no repositório).
+ */
+export const PushSubscriptionRequestSchema = z.object({
+  endpoint: z.string().url().describe('URL do push service do browser/OS (FCM/Mozilla/Apple)'),
+  keys: PushSubscriptionKeysSchema,
+  userAgent: z
+    .string()
+    .max(500)
+    .optional()
+    .describe('User-Agent do browser — rótulo do device para a UI de gestão'),
+});
+export type PushSubscriptionRequest = z.infer<typeof PushSubscriptionRequestSchema>;
+
+/** Resposta de ack do subscribe — sem PII (nunca ecoa endpoint/keys). */
+export const PushSubscriptionAckSchema = z.object({
+  subscribed: z.literal(true),
+});
+export type PushSubscriptionAck = z.infer<typeof PushSubscriptionAckSchema>;
+
+/**
+ * Querystring de `DELETE /api/notifications/push/subscription` — remove a
+ * subscription do device (opt-out/logout). Idempotente.
+ */
+export const PushUnsubscribeQuerySchema = z.object({
+  endpoint: z.string().url().describe('Endpoint da subscription a ser removida'),
+});
+export type PushUnsubscribeQuery = z.infer<typeof PushUnsubscribeQuerySchema>;
+
+/** Resposta de ack do unsubscribe. */
+export const PushUnsubscribeAckSchema = z.object({
+  unsubscribed: z.literal(true),
+});
+export type PushUnsubscribeAck = z.infer<typeof PushUnsubscribeAckSchema>;
+
+/**
+ * Resposta de `GET /api/notifications/push/public-key`.
+ * `public_key: null` quando o Web Push não está disponível (flag/env
+ * desligados) — a UI de opt-in deve se esconder nesse caso.
+ */
+export const PushPublicKeyResponseSchema = z.object({
+  public_key: z.string().nullable().describe('Chave pública VAPID; null se push indisponível'),
+});
+export type PushPublicKeyResponse = z.infer<typeof PushPublicKeyResponseSchema>;
