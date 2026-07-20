@@ -18,6 +18,7 @@ build/
 *.tsbuildinfo
 *.js.map
 vite.config.js
+vite.config.d.ts
 vite.config.d.ts.map
 
 # env
