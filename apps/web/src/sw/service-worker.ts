@@ -33,6 +33,11 @@ import {
 } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 
+// Fonte única de verdade `entity_type` -> rota interna, compartilhada com o sino.
+// Módulo puro dedicado (sem zod/catálogo/DOM) — importável no SW sem inchar o
+// bundle. `features/notifications/navigation.ts` re-exporta o mesmo símbolo.
+import { resolveNotificationHref } from '../features/notifications/deep-link';
+
 declare const self: ServiceWorkerGlobalScope;
 
 // ─── Precache do app-shell ──────────────────────────────────────────────────
@@ -68,13 +73,16 @@ self.addEventListener('activate', () => {
 // ─── Web Push (F27-S07, doc 24 §5.4) ────────────────────────────────────────
 //
 // Payload publicado pelo sender `webPush` (apps/api .../senders/webPush.ts):
-// `{ title: string, href?: string }`. Sem `body`, sem PII — doc 24 §5.3 é
-// inviolável: push trafega por infra de terceiros (FCM/Apple/Mozilla) e é
-// tratado como canal não-confiável.
+// `{ title, severity, entity_type, entity_id }` (LGPD-mínimo, doc 24 §5.3).
+// NÃO vem `href` pronto — resolvemos a rota interna aqui a partir de
+// `entity_type`/`entity_id` (IDs opacos, não-PII) via `resolveNotificationHref`.
+// Sem `body`, sem PII — push trafega por infra de terceiros (FCM/Apple/Mozilla)
+// e é tratado como canal não-confiável.
 
 interface PushNotificationPayload {
   title: string;
-  href?: string;
+  /** Rota interna JÁ resolvida (nunca URL absoluta / cross-origin). */
+  href: string;
 }
 
 /** Ícones do app-shell (F27-S02) — mesmos assets do manifest.webmanifest. */
@@ -84,21 +92,24 @@ const DEFAULT_PUSH_TITLE = 'Nova notificação';
 const DEFAULT_PUSH_HREF = '/';
 
 /**
- * Lê o payload JSON do evento `push`. Tolerante a payload ausente/malformado
- * (nunca deixa de notificar por causa de um payload inesperado) — cai no
- * título genérico padrão.
+ * Lê o payload JSON do evento `push` e resolve o deep-link a partir de
+ * `entity_type`/`entity_id` (mesmo mapa do sino). Tolerante a payload
+ * ausente/malformado — nunca deixa de notificar; cai no título/rota padrão.
  */
 function parsePushPayload(event: PushEvent): PushNotificationPayload {
   try {
-    const raw = event.data?.json() as Partial<PushNotificationPayload> | undefined;
+    const raw = event.data?.json() as
+      | { title?: unknown; entity_type?: unknown; entity_id?: unknown }
+      | undefined;
     const title =
       typeof raw?.title === 'string' && raw.title.trim().length > 0
         ? raw.title
         : DEFAULT_PUSH_TITLE;
-    const href = typeof raw?.href === 'string' && raw.href.length > 0 ? raw.href : undefined;
-    return href === undefined ? { title } : { title, href };
+    const entityType = typeof raw?.entity_type === 'string' ? raw.entity_type : null;
+    const entityId = typeof raw?.entity_id === 'string' ? raw.entity_id : null;
+    return { title, href: resolveNotificationHref(entityType, entityId) ?? DEFAULT_PUSH_HREF };
   } catch {
-    return { title: DEFAULT_PUSH_TITLE };
+    return { title: DEFAULT_PUSH_TITLE, href: DEFAULT_PUSH_HREF };
   }
 }
 
@@ -109,7 +120,7 @@ self.addEventListener('push', (event: PushEvent) => {
     self.registration.showNotification(title, {
       icon: PUSH_ICON,
       badge: PUSH_BADGE,
-      data: { href: href ?? DEFAULT_PUSH_HREF },
+      data: { href },
     }),
   );
 });
@@ -118,8 +129,18 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
   event.notification.close();
 
   const data = event.notification.data as { href?: string } | undefined;
-  const href = data?.href ?? DEFAULT_PUSH_HREF;
-  const targetUrl = new URL(href, self.location.origin).href;
+  // Defesa em profundidade (canal não-confiável, doc 24 §5.3): só navegar para
+  // o MESMO origin. O href já deveria ser uma rota interna resolvida por nós,
+  // mas um href absoluto/cross-origin cai no default em vez de abrir externo.
+  const targetUrl = ((): string => {
+    const fallback = new URL(DEFAULT_PUSH_HREF, self.location.origin).href;
+    try {
+      const url = new URL(data?.href ?? DEFAULT_PUSH_HREF, self.location.origin);
+      return url.origin === self.location.origin ? url.href : fallback;
+    } catch {
+      return fallback;
+    }
+  })();
 
   event.waitUntil(
     (async () => {
