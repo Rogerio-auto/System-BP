@@ -129,3 +129,6 @@ export * from './aiFunnelSettings.js';
 // repouso (F6-S24, dark até parecer do DPO — docs/anexos/lgpd/dpia-historico-copiloto.md)
 export * from './assistantConversations.js';
 export * from './assistantTurns.js';
+
+// PWA — Web Push: destino das subscriptions do device (F27-S05)
+export * from './pushSubscriptions.js';
