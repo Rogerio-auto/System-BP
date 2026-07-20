@@ -1,8 +1,8 @@
 // =============================================================================
 // notifications/__tests__/push-routes.test.ts — Testes de rota dos endpoints
-// de Web Push (F27-S06).
+// de Web Push (F27-S06/F27-S08).
 //
-// Cobre (DoD F27-S06):
+// Cobre (DoD F27-S06 + verificação F27-S08):
 //   1. GET  /push/public-key: 200 com public_key (service resolve normalmente)
 //   2. GET  /push/public-key: 200 com public_key=null (gate off — degradação graciosa)
 //   3. GET  /push/public-key: 401 sem autenticação
@@ -14,6 +14,9 @@
 //   9. DELETE /push/subscription: 400 sem querystring `endpoint`
 //   10. DELETE /push/subscription: 403 quando service recusa (gate flag/env off)
 //   11. RBAC: sem permissão notifications:read → 403 nas 3 rotas
+//   12. (F27-S08) POST/DELETE /push/subscription: 401 sem autenticação (a GET já
+//       cobria; POST/DELETE não tinham o caso "sem sessão nenhuma" isolado do
+//       caso "com sessão mas sem permissão").
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import Fastify from 'fastify';
@@ -365,6 +368,54 @@ describe('DELETE /api/notifications/push/subscription', () => {
 
     expect(res1.statusCode).toBe(200);
     expect(res2.statusCode).toBe(200);
+  });
+});
+
+// ===========================================================================
+// POST/DELETE /push/subscription — sem autenticação (F27-S08)
+//
+// A GET /push/public-key já cobria o caso 401 (sem `request.user`). POST e
+// DELETE mutam estado (registram/removem device) — precisam do mesmo caso
+// isolado do "403 sem permissão" (que pressupõe usuário autenticado, só sem
+// a permissão notifications:read). Sem token nenhum, a rota deve barrar ANTES
+// de invocar o service (nenhuma escrita).
+// ===========================================================================
+
+describe('POST/DELETE /api/notifications/push/subscription — sem autenticação', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestApp(null);
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('POST /push/subscription → 401 quando request.user ausente (nenhuma escrita)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/push/subscription',
+      payload: VALID_SUBSCRIPTION_BODY,
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(mockSubscribePush).not.toHaveBeenCalled();
+  });
+
+  it('DELETE /push/subscription → 401 quando request.user ausente (nenhuma escrita)', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/notifications/push/subscription?endpoint=${encodeURIComponent(VALID_ENDPOINT)}`,
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(mockUnsubscribePush).not.toHaveBeenCalled();
   });
 });
 

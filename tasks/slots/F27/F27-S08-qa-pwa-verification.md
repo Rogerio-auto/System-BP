@@ -3,7 +3,7 @@ id: F27-S08
 title: QA — verificação PWA (installability/Lighthouse, offline, push e2e, auth standalone)
 phase: F27
 task_ref: docs/24-pwa.md
-status: available
+status: review
 priority: medium
 estimated_size: M
 agent_id: null
@@ -12,6 +12,8 @@ blocks: []
 labels: [qa, pwa]
 source_docs: [docs/24-pwa.md, docs/13-criterios-aceite.md]
 docs_required: false
+claimed_at: 2026-07-20T17:20:47Z
+completed_at: 2026-07-20T17:38:51Z
 ---
 
 # F27-S08 — Verificação PWA

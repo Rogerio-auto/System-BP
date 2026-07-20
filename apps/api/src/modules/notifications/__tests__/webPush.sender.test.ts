@@ -1,8 +1,8 @@
 // =============================================================================
 // notifications/__tests__/webPush.sender.test.ts — Testes do sender de Web
-// Push (VAPID, F27-S06).
+// Push (VAPID, F27-S06/F27-S08).
 //
-// Cobre (DoD F27-S06):
+// Cobre (DoD F27-S06 + verificação F27-S08):
 //   1.  no-op quando NOTIFICATIONS_PUSH_ENABLED=false (env off)
 //   2.  no-op quando pwa.enabled=false (flag off, env on)
 //   3.  fail-closed: erro ao consultar a flag → não envia
@@ -13,6 +13,9 @@
 //   8.  subscription 410 → removida (soft-delete) e não propaga
 //   9.  erro genérico (não WebPushError 404/410) → logado, não remove, não propaga
 //   10. múltiplas subscriptions: falha isolada por subscription
+//   11. (F27-S08) defesa em profundidade anti-SSRF: subscription com endpoint
+//       fora da allowlist (linha legada/adulterada) é ignorada no envio —
+//       `sendNotification` nunca chamado para ela, sem soft-delete, sem lançar.
 // =============================================================================
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // `WebPushError` importado do módulo real (mockado por vi.mock abaixo, que é
@@ -257,5 +260,51 @@ describe('sendWebPush()', () => {
     expect(mockSendNotification).toHaveBeenCalledTimes(2);
     expect(mockSoftDelete).toHaveBeenCalledWith({}, ORG_ID, USER_ID, SUBSCRIPTION_1.endpoint);
     expect(mockSoftDelete).not.toHaveBeenCalledWith({}, ORG_ID, USER_ID, SUBSCRIPTION_2.endpoint);
+  });
+
+  // ── 11. Defesa em profundidade anti-SSRF (F27-S08) ────────────────────────
+  //
+  // A borda HTTP (Zod refine com isAllowedPushEndpoint, doc 24 §10) já rejeita
+  // endpoint fora da allowlist no momento do subscribe — mas o sender aplica a
+  // MESMA checagem de novo antes de `sendNotification`, para uma linha legada
+  // ou adulterada diretamente no banco não virar proxy de SSRF via `web-push`.
+
+  it('subscription com endpoint fora da allowlist (host arbitrário) é ignorada — sem sendNotification', async () => {
+    const rogueSubscription = {
+      ...SUBSCRIPTION_1,
+      endpoint: 'https://evil.example.com/hook',
+    };
+    mockGetActiveSubscriptions.mockResolvedValue([rogueSubscription]);
+
+    await expect(sendWebPush({} as never, BASE_INPUT)).resolves.toBeUndefined();
+
+    expect(mockSendNotification).not.toHaveBeenCalled();
+  });
+
+  it('subscription com endpoint fora da allowlist não é removida (não é 404/410 — só rejeitada na borda de saída)', async () => {
+    const rogueSubscription = {
+      ...SUBSCRIPTION_1,
+      endpoint: 'http://169.254.169.254/latest/meta-data/',
+    };
+    mockGetActiveSubscriptions.mockResolvedValue([rogueSubscription]);
+
+    await expect(sendWebPush({} as never, BASE_INPUT)).resolves.toBeUndefined();
+
+    expect(mockSendNotification).not.toHaveBeenCalled();
+    expect(mockSoftDelete).not.toHaveBeenCalled();
+  });
+
+  it('endpoint fora da allowlist entre subscriptions válidas: as válidas ainda recebem o push', async () => {
+    const rogueSubscription = {
+      ...SUBSCRIPTION_2,
+      endpoint: 'https://fcm.googleapis.com.evil.com/fcm/send/spoofed', // host-suffix trick
+    };
+    mockGetActiveSubscriptions.mockResolvedValue([SUBSCRIPTION_1, rogueSubscription]);
+
+    await expect(sendWebPush({} as never, BASE_INPUT)).resolves.toBeUndefined();
+
+    expect(mockSendNotification).toHaveBeenCalledTimes(1);
+    const [subscriptionArg] = mockSendNotification.mock.calls[0] as [{ endpoint: string }];
+    expect(subscriptionArg.endpoint).toBe(SUBSCRIPTION_1.endpoint);
   });
 });
