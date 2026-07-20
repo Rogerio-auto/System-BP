@@ -4,6 +4,9 @@
 // DS:
 //   - Tabela densa (DS §9.7): th caption-style, hover de linha, avatares com
 //     --grad-rondonia, coluna de valor em JetBrains Mono (td-amount).
+//   - Responsivo (F27-S04, doc 24 §6): ResponsiveTable (components/ui) degrada
+//     a mesma LEAD_COLUMNS para cards empilhados abaixo de `md:` — tabela
+//     densa permanece no desktop, sem duplicar lógica de apresentação.
 //   - Filtros: Input + Select primitivos do DS.
 //   - Stats row: 4 KPIs em Stat primitivos (DS §9.8).
 //   - Paginação server-side (page/limit).
@@ -17,6 +20,7 @@
 //   - Sem console.log(lead).
 // =============================================================================
 
+import type { LeadResponse } from '@elemento/shared-schemas';
 import * as React from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -25,6 +29,8 @@ import { Avatar } from '../../components/ui/Avatar';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import type { ResponsiveTableColumn } from '../../components/ui/ResponsiveTable';
+import { ResponsiveTable } from '../../components/ui/ResponsiveTable';
 import { Select } from '../../components/ui/Select';
 import { Stat } from '../../components/ui/Stat';
 import type { LeadFilters, LeadStatus } from '../../hooks/crm/types';
@@ -63,65 +69,8 @@ const STATUS_OPTIONS = [
 ];
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
-
-function TableSkeleton(): React.JSX.Element {
-  return (
-    <>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <tr key={i} aria-hidden="true">
-          {/* Avatar + nome */}
-          <td className="px-4 py-3.5">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-pill shrink-0 animate-pulse"
-                style={{ background: 'var(--surface-muted)' }}
-              />
-              <div
-                className="h-4 rounded-xs animate-pulse"
-                style={{ width: 120 + ((i * 17) % 60), background: 'var(--surface-muted)' }}
-              />
-            </div>
-          </td>
-          {/* Status */}
-          <td className="px-4 py-3.5">
-            <div
-              className="h-5 w-20 rounded-pill animate-pulse"
-              style={{ background: 'var(--surface-muted)' }}
-            />
-          </td>
-          {/* Telefone */}
-          <td className="px-4 py-3.5">
-            <div
-              className="h-4 w-32 rounded-xs animate-pulse"
-              style={{ background: 'var(--surface-muted)' }}
-            />
-          </td>
-          {/* Email */}
-          <td className="px-4 py-3.5 hidden lg:table-cell">
-            <div
-              className="h-4 w-40 rounded-xs animate-pulse"
-              style={{ background: 'var(--surface-muted)' }}
-            />
-          </td>
-          {/* Canal */}
-          <td className="px-4 py-3.5 hidden md:table-cell">
-            <div
-              className="h-4 w-20 rounded-xs animate-pulse"
-              style={{ background: 'var(--surface-muted)' }}
-            />
-          </td>
-          {/* Data */}
-          <td className="px-4 py-3.5 hidden xl:table-cell">
-            <div
-              className="h-4 w-24 rounded-xs animate-pulse"
-              style={{ background: 'var(--surface-muted)' }}
-            />
-          </td>
-        </tr>
-      ))}
-    </>
-  );
-}
+// Skeleton da tabela/cards de leads é responsabilidade do ResponsiveTable
+// (mesmo componente, mesmas colunas — sem duplicar por breakpoint).
 
 function StatsSkeleton(): React.JSX.Element {
   return (
@@ -148,60 +97,182 @@ function StatsSkeleton(): React.JSX.Element {
 
 function EmptyState({ onAdd }: { onAdd: () => void }): React.JSX.Element {
   return (
-    <tr>
-      <td colSpan={6}>
-        <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-          {/* Ilustração SVG inline */}
-          <svg
-            viewBox="0 0 120 100"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-32 h-auto opacity-40"
-            aria-hidden="true"
-          >
-            {/* Fundo de mesa */}
-            <ellipse cx="60" cy="85" rx="50" ry="8" fill="var(--surface-muted)" />
-            {/* Pasta / arquivo */}
-            <rect
-              x="25"
-              y="20"
-              width="70"
-              height="55"
-              rx="6"
-              fill="var(--bg-elev-2)"
-              stroke="var(--border-strong)"
-              strokeWidth="1.5"
-            />
-            <rect x="25" y="20" width="70" height="12" rx="6" fill="var(--surface-muted)" />
-            {/* Linhas de conteúdo */}
-            <rect x="35" y="42" width="30" height="3" rx="1.5" fill="var(--border-strong)" />
-            <rect x="35" y="50" width="50" height="3" rx="1.5" fill="var(--border-strong)" />
-            <rect x="35" y="58" width="40" height="3" rx="1.5" fill="var(--border-strong)" />
-            {/* Símbolo + */}
-            <circle cx="88" cy="28" r="12" fill="var(--brand-verde)" />
-            <path d="M88 23v10M83 28h10" stroke="white" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+    <div className="flex flex-col items-center justify-center py-16 gap-4 text-center px-4">
+      {/* Ilustração SVG inline */}
+      <svg
+        viewBox="0 0 120 100"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-32 h-auto opacity-40"
+        aria-hidden="true"
+      >
+        {/* Fundo de mesa */}
+        <ellipse cx="60" cy="85" rx="50" ry="8" fill="var(--surface-muted)" />
+        {/* Pasta / arquivo */}
+        <rect
+          x="25"
+          y="20"
+          width="70"
+          height="55"
+          rx="6"
+          fill="var(--bg-elev-2)"
+          stroke="var(--border-strong)"
+          strokeWidth="1.5"
+        />
+        <rect x="25" y="20" width="70" height="12" rx="6" fill="var(--surface-muted)" />
+        {/* Linhas de conteúdo */}
+        <rect x="35" y="42" width="30" height="3" rx="1.5" fill="var(--border-strong)" />
+        <rect x="35" y="50" width="50" height="3" rx="1.5" fill="var(--border-strong)" />
+        <rect x="35" y="58" width="40" height="3" rx="1.5" fill="var(--border-strong)" />
+        {/* Símbolo + */}
+        <circle cx="88" cy="28" r="12" fill="var(--brand-verde)" />
+        <path d="M88 23v10M83 28h10" stroke="white" strokeWidth="2" strokeLinecap="round" />
+      </svg>
 
-          <div className="flex flex-col gap-1">
-            <p
-              className="font-display font-bold text-ink"
-              style={{ fontSize: 'var(--text-xl)', letterSpacing: '-0.025em' }}
-            >
-              Nenhum lead encontrado
-            </p>
-            <p className="font-sans text-sm text-ink-3 max-w-xs">
-              Ainda não há leads cadastrados. Comece adicionando o primeiro.
-            </p>
-          </div>
+      <div className="flex flex-col gap-1">
+        <p
+          className="font-display font-bold text-ink"
+          style={{ fontSize: 'var(--text-xl)', letterSpacing: '-0.025em' }}
+        >
+          Nenhum lead encontrado
+        </p>
+        <p className="font-sans text-sm text-ink-3 max-w-xs">
+          Ainda não há leads cadastrados. Comece adicionando o primeiro.
+        </p>
+      </div>
 
-          <Button variant="primary" onClick={onAdd}>
-            Adicionar primeiro lead
-          </Button>
-        </div>
-      </td>
-    </tr>
+      <Button variant="primary" onClick={onAdd}>
+        Adicionar primeiro lead
+      </Button>
+    </div>
   );
 }
+
+// ─── Error state ──────────────────────────────────────────────────────────────
+// Bloco único (não é mais linha de tabela) — substitui tabela/cards nos dois
+// modos quando `isError`, igual ao padrão já usado em features/relatorios.
+
+function LeadsErrorState({ onRetry }: { onRetry: () => void }): React.JSX.Element {
+  return (
+    <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+      <p className="font-sans text-sm text-danger">Erro ao carregar leads.</p>
+      <button
+        type="button"
+        className="font-sans text-xs font-semibold text-azul hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/20 rounded-xs"
+        onClick={onRetry}
+      >
+        Tentar novamente
+      </button>
+    </div>
+  );
+}
+
+// ─── Colunas (ResponsiveTable — DS §9.7 + doc 24 §6) ─────────────────────────
+// A MESMA definição alimenta a tabela (desktop) e os cards empilhados
+// (mobile) — sem duplicar a lógica de apresentação por breakpoint.
+
+const LEAD_COLUMNS: ResponsiveTableColumn<LeadResponse>[] = [
+  {
+    key: 'lead',
+    header: 'Lead',
+    primary: true,
+    widthClassName: 'w-[260px]',
+    cell: (lead) => (
+      <Link
+        to={`/crm/${lead.id}`}
+        className="flex items-center gap-3 hover:text-azul transition-colors group/link"
+        title={`Ver detalhes de ${lead.name}`}
+      >
+        <Avatar
+          name={lead.name}
+          variant={avatarVariantForName(lead.name)}
+          size="md"
+          className="shrink-0 transition-transform group-hover/link:scale-105 duration-fast"
+        />
+        <div className="min-w-0">
+          <p
+            className="font-sans font-semibold text-sm text-ink truncate group-hover/link:text-azul transition-colors"
+            style={{ maxWidth: 180 }}
+          >
+            {lead.name}
+          </p>
+          <p className="font-sans text-xs text-ink-4 truncate">
+            {lead.city_name ?? 'Sem cidade'}
+            {lead.agent_id ? ' · Agente atribuído' : ''}
+          </p>
+        </div>
+      </Link>
+    ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    widthClassName: 'w-[130px]',
+    cell: (lead) => {
+      const statusMeta = STATUS_META[lead.status];
+      return (
+        <div className="flex flex-col gap-1 items-start">
+          <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+          {lead.kanban_stage && (
+            <span
+              className="font-sans text-[10px] text-ink-4 truncate max-w-[120px]"
+              title={`Estágio do Kanban: ${lead.kanban_stage.name}`}
+            >
+              ◳ {lead.kanban_stage.name}
+            </span>
+          )}
+        </div>
+      );
+    },
+  },
+  {
+    key: 'phone',
+    header: 'Telefone',
+    widthClassName: 'w-[150px]',
+    // LGPD: SEMPRE maskPhone() — nunca o telefone bruto.
+    cell: (lead) => (
+      <span
+        className="font-mono text-sm text-ink-2"
+        style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', letterSpacing: '-0.01em' }}
+      >
+        {maskPhone(lead.phone_e164)}
+      </span>
+    ),
+  },
+  {
+    key: 'email',
+    header: 'E-mail',
+    hideBelow: 'lg',
+    // LGPD: SEMPRE truncateEmail() em listagens.
+    cell: (lead) =>
+      lead.email ? (
+        <span className="font-sans text-sm text-ink-3">{truncateEmail(lead.email)}</span>
+      ) : (
+        <span className="text-ink-4 text-sm">—</span>
+      ),
+  },
+  {
+    key: 'source',
+    header: 'Canal',
+    hideBelow: 'md',
+    widthClassName: 'w-[110px]',
+    cell: (lead) => (
+      <span className="font-sans text-xs text-ink-3">
+        {SOURCE_LABEL[lead.source] ?? lead.source}
+      </span>
+    ),
+  },
+  {
+    key: 'createdAt',
+    header: 'Criado',
+    hideBelow: 'xl',
+    align: 'right',
+    widthClassName: 'w-[110px]',
+    cell: (lead) => (
+      <span className="font-sans text-xs text-ink-4">{formatDate(lead.created_at)}</span>
+    ),
+  },
+];
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
@@ -485,7 +556,9 @@ export function CrmListPage(): React.JSX.Element {
               </div>
             </div>
 
-            {/* ── Tabela ────────────────────────────────────────────────────────── */}
+            {/* ── Tabela (desktop) / Cards (mobile) ────────────────────────────────
+                ResponsiveTable (components/ui): mesma definição de colunas
+                (LEAD_COLUMNS) alimenta os dois modos — DS §9.7 + doc 24 §6. */}
             <div
               className="rounded-md border border-border overflow-hidden"
               style={{
@@ -494,165 +567,22 @@ export function CrmListPage(): React.JSX.Element {
                 animation: 'fade-up var(--dur-slow) var(--ease-out) 0.15s both',
               }}
             >
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  {/* Thead */}
-                  <thead>
-                    <tr style={{ background: 'var(--bg-elev-2)' }}>
-                      {[
-                        { label: 'Lead', className: 'pl-4 pr-4 w-[260px]' },
-                        { label: 'Status', className: 'px-4 w-[130px]' },
-                        { label: 'Telefone', className: 'px-4 w-[150px]' },
-                        { label: 'E-mail', className: 'px-4 hidden lg:table-cell' },
-                        { label: 'Canal', className: 'px-4 hidden md:table-cell w-[110px]' },
-                        {
-                          label: 'Criado',
-                          className: 'px-4 hidden xl:table-cell w-[110px] text-right pr-4',
-                        },
-                      ].map((col) => (
-                        <th
-                          key={col.label}
-                          scope="col"
-                          className={cn(
-                            'py-3 font-sans font-bold text-ink-3 text-left',
-                            col.className,
-                          )}
-                          style={{
-                            fontSize: '0.7rem',
-                            letterSpacing: '0.1em',
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          {col.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-
-                  {/* Tbody */}
-                  <tbody>
-                    {isLoading ? (
-                      <TableSkeleton />
-                    ) : isError ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-12 text-center">
-                          <p className="font-sans text-sm text-danger">Erro ao carregar leads.</p>
-                          <button
-                            type="button"
-                            className="mt-2 font-sans text-xs text-azul hover:underline"
-                            onClick={() => setFilters((f) => ({ ...f }))}
-                          >
-                            Tentar novamente
-                          </button>
-                        </td>
-                      </tr>
-                    ) : leads.length === 0 ? (
-                      <EmptyState onAdd={() => setModalOpen(true)} />
-                    ) : (
-                      leads.map((lead, idx) => {
-                        const statusMeta = STATUS_META[lead.status];
-                        // LGPD: mascarar PII antes de qualquer uso em template
-                        const phoneMasked = maskPhone(lead.phone_e164);
-                        const emailTrunc = lead.email ? truncateEmail(lead.email) : null;
-
-                        return (
-                          <tr
-                            key={lead.id}
-                            className="group border-t border-border-subtle transition-colors duration-fast"
-                            style={{
-                              animationDelay: `${idx * 30}ms`,
-                            }}
-                          >
-                            {/* Lead: avatar + nome */}
-                            <td className="px-4 py-3.5">
-                              <Link
-                                to={`/crm/${lead.id}`}
-                                className="flex items-center gap-3 hover:text-azul transition-colors group/link"
-                                title={`Ver detalhes de ${lead.name}`}
-                              >
-                                <Avatar
-                                  name={lead.name}
-                                  variant={avatarVariantForName(lead.name)}
-                                  size="md"
-                                  className="shrink-0 transition-transform group-hover/link:scale-105 duration-fast"
-                                />
-                                <div className="min-w-0">
-                                  <p
-                                    className="font-sans font-semibold text-sm text-ink truncate group-hover/link:text-azul transition-colors"
-                                    style={{ maxWidth: 180 }}
-                                  >
-                                    {lead.name}
-                                  </p>
-                                  <p className="font-sans text-xs text-ink-4 truncate">
-                                    {lead.city_name ?? 'Sem cidade'}
-                                    {lead.agent_id ? ' · Agente atribuído' : ''}
-                                  </p>
-                                </div>
-                              </Link>
-                            </td>
-
-                            {/* Status de atendimento + estágio de Kanban (gestão interna) */}
-                            <td className="px-4 py-3.5">
-                              <div className="flex flex-col gap-1 items-start">
-                                <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
-                                {lead.kanban_stage && (
-                                  <span
-                                    className="font-sans text-[10px] text-ink-4 truncate max-w-[120px]"
-                                    title={`Estágio do Kanban: ${lead.kanban_stage.name}`}
-                                  >
-                                    ◳ {lead.kanban_stage.name}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-
-                            {/* Telefone — LGPD mascarado */}
-                            <td className="px-4 py-3.5">
-                              <span
-                                className="font-mono text-sm text-ink-2"
-                                style={{
-                                  fontFamily: 'var(--font-mono)',
-                                  fontSize: '0.8125rem',
-                                  letterSpacing: '-0.01em',
-                                }}
-                              >
-                                {phoneMasked}
-                              </span>
-                            </td>
-
-                            {/* Email — LGPD truncado */}
-                            <td className="px-4 py-3.5 hidden lg:table-cell">
-                              {emailTrunc ? (
-                                <span className="font-sans text-sm text-ink-3">{emailTrunc}</span>
-                              ) : (
-                                <span className="text-ink-4 text-sm">—</span>
-                              )}
-                            </td>
-
-                            {/* Canal de origem */}
-                            <td className="px-4 py-3.5 hidden md:table-cell">
-                              <span className="font-sans text-xs text-ink-3">
-                                {SOURCE_LABEL[lead.source] ?? lead.source}
-                              </span>
-                            </td>
-
-                            {/* Data de criação */}
-                            <td className="px-4 py-3.5 hidden xl:table-cell text-right pr-4">
-                              <span className="font-sans text-xs text-ink-4">
-                                {formatDate(lead.created_at)}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              {isError ? (
+                <LeadsErrorState onRetry={() => setFilters((f) => ({ ...f }))} />
+              ) : (
+                <ResponsiveTable
+                  columns={LEAD_COLUMNS}
+                  data={leads}
+                  getRowKey={(lead) => lead.id}
+                  isLoading={isLoading}
+                  emptyState={<EmptyState onAdd={() => setModalOpen(true)} />}
+                  aria-label="Lista de leads"
+                />
+              )}
 
               {/* Paginação */}
               {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border-subtle">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-border-subtle">
                   <p className="font-sans text-xs text-ink-3">
                     {(pagination.page - 1) * pagination.limit + 1}–
                     {Math.min(pagination.page * pagination.limit, pagination.total)} de{' '}

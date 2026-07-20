@@ -9,8 +9,13 @@
 import type { AiResponse, CommonReportQuery } from '@elemento/shared-schemas';
 import * as React from 'react';
 
+import type { ResponsiveTableColumn } from '../../../components/ui/ResponsiveTable';
+import { ResponsiveTable } from '../../../components/ui/ResponsiveTable';
 import { Stat } from '../../../components/ui/Stat';
 import { useReportsAi } from '../hooks/useReportsAi';
+
+type NodeRow = AiResponse['nodeDistribution'][number];
+type ModelRow = AiResponse['modelBreakdown'][number];
 
 function fmtNumber(n: number): string {
   return n.toLocaleString('pt-BR');
@@ -146,6 +151,42 @@ function HandoffReasonBars({ data }: { data: AiResponse }): React.JSX.Element | 
     </div>
   );
 }
+// Colunas (ResponsiveTable — DS §9.7 + doc 24 §6): tabela no desktop, cards
+// empilhados no mobile, a partir da MESMA definição.
+const NODE_DISTRIBUTION_COLUMNS: ResponsiveTableColumn<NodeRow>[] = [
+  {
+    key: 'node',
+    header: 'No',
+    primary: true,
+    cell: (n) => <span className="font-sans text-xs text-ink font-medium">{n.nodeName}</span>,
+  },
+  {
+    key: 'calls',
+    header: 'Chamadas',
+    align: 'right',
+    cell: (n) => <span className="font-sans text-xs text-ink-2">{fmtNumber(n.callCount)}</span>,
+  },
+  {
+    key: 'errors',
+    header: 'Erros',
+    align: 'right',
+    cell: (n) => (
+      <span
+        className="font-sans text-xs"
+        style={{ color: n.errorCount > 0 ? 'var(--danger)' : 'var(--text-3)' }}
+      >
+        {fmtNumber(n.errorCount)}
+      </span>
+    ),
+  },
+  {
+    key: 'latency',
+    header: 'Latencia media',
+    align: 'right',
+    cell: (n) => <span className="font-sans text-xs text-ink-2">{fmtMs(n.avgLatencyMs)}</span>,
+  },
+];
+
 function NodeDistributionTable({ data }: { data: AiResponse }): React.JSX.Element | null {
   if (data.nodeDistribution.length === 0) return null;
   return (
@@ -160,40 +201,46 @@ function NodeDistributionTable({ data }: { data: AiResponse }): React.JSX.Elemen
       <p className="font-sans text-xs font-semibold uppercase tracking-wider text-ink-3 mb-4">
         Distribuicao por no do grafo
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full font-sans text-xs">
-          <thead>
-            <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <th className="text-left py-2 pr-4 text-ink-3 font-semibold">No</th>
-              <th className="text-right py-2 px-2 text-ink-3 font-semibold">Chamadas</th>
-              <th className="text-right py-2 px-2 text-ink-3 font-semibold">Erros</th>
-              <th className="text-right py-2 pl-2 text-ink-3 font-semibold">Latencia media</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.nodeDistribution.map((n) => (
-              <tr
-                key={n.nodeName}
-                className="border-b last:border-0"
-                style={{ borderColor: 'var(--border-subtle)' }}
-              >
-                <td className="py-2 pr-4 text-ink font-medium">{n.nodeName}</td>
-                <td className="py-2 px-2 text-right text-ink-2">{fmtNumber(n.callCount)}</td>
-                <td
-                  className="py-2 px-2 text-right"
-                  style={{ color: n.errorCount > 0 ? 'var(--danger)' : 'var(--text-3)' }}
-                >
-                  {fmtNumber(n.errorCount)}
-                </td>
-                <td className="py-2 pl-2 text-right text-ink-2">{fmtMs(n.avgLatencyMs)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ResponsiveTable
+        columns={NODE_DISTRIBUTION_COLUMNS}
+        data={data.nodeDistribution}
+        getRowKey={(n) => n.nodeName}
+        aria-label="Distribuicao por no do grafo"
+      />
     </div>
   );
 }
+const MODEL_BREAKDOWN_COLUMNS: ResponsiveTableColumn<ModelRow>[] = [
+  {
+    key: 'model',
+    header: 'Modelo',
+    primary: true,
+    cell: (m) => <span className="font-sans text-xs text-ink font-medium">{m.model}</span>,
+  },
+  {
+    key: 'calls',
+    header: 'Chamadas',
+    align: 'right',
+    cell: (m) => <span className="font-sans text-xs text-ink-2">{fmtNumber(m.callCount)}</span>,
+  },
+  {
+    key: 'tokensIn',
+    header: 'Tokens in',
+    align: 'right',
+    cell: (m) => <span className="font-sans text-xs text-ink-2">{fmtNumber(m.tokensIn)}</span>,
+  },
+  {
+    key: 'cost',
+    header: 'Custo est.',
+    align: 'right',
+    cell: (m) => (
+      <span className="font-sans text-xs text-ink-2">
+        {m.costAvailable ? fmtCostUsd(m.estimatedCostUsd) : 'n/d'}
+      </span>
+    ),
+  },
+];
+
 function LlmMetricsBlock({ data }: { data: AiResponse }): React.JSX.Element {
   return (
     <div
@@ -246,33 +293,13 @@ function LlmMetricsBlock({ data }: { data: AiResponse }): React.JSX.Element {
         />
       </div>
       {data.modelBreakdown.length > 0 && (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full font-sans text-xs">
-            <thead>
-              <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                <th className="text-left py-2 pr-4 text-ink-3 font-semibold">Modelo</th>
-                <th className="text-right py-2 px-2 text-ink-3 font-semibold">Chamadas</th>
-                <th className="text-right py-2 px-2 text-ink-3 font-semibold">Tokens in</th>
-                <th className="text-right py-2 pl-2 text-ink-3 font-semibold">Custo est.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.modelBreakdown.map((m) => (
-                <tr
-                  key={m.model}
-                  className="border-b last:border-0"
-                  style={{ borderColor: 'var(--border-subtle)' }}
-                >
-                  <td className="py-2 pr-4 text-ink font-medium">{m.model}</td>
-                  <td className="py-2 px-2 text-right text-ink-2">{fmtNumber(m.callCount)}</td>
-                  <td className="py-2 px-2 text-right text-ink-2">{fmtNumber(m.tokensIn)}</td>
-                  <td className="py-2 pl-2 text-right text-ink-2">
-                    {m.costAvailable ? fmtCostUsd(m.estimatedCostUsd) : 'n/d'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-4">
+          <ResponsiveTable
+            columns={MODEL_BREAKDOWN_COLUMNS}
+            data={data.modelBreakdown}
+            getRowKey={(m) => m.model}
+            aria-label="Custo por modelo de LLM"
+          />
         </div>
       )}
     </div>
