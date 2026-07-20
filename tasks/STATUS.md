@@ -27,7 +27,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24  | 21    | 0   | 0   | 0   | 0   | 0   | 21  |
 | F25  | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F26  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
-| F27  | 9     | 3   | 0   | 0   | 0   | 0   | 6   |
+| F27  | 9     | 2   | 0   | 0   | 1   | 0   | 6   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -395,17 +395,17 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 27 —
 
-| ID      | Título                                                                                      | Status       | Prioridade | Depende de                         |
-| ------- | ------------------------------------------------------------------------------------------- | ------------ | ---------- | ---------------------------------- |
-| F27-S01 | Frontend — fundação PWA (vite-plugin-pwa injectManifest, manifest, SW base, página offline) | ✅ done      | high       | —                                  |
-| F27-S02 | Frontend — ícones e splash PWA (assets-generator, maskable, apple-touch)                    | ✅ done      | medium     | F27-S01                            |
-| F27-S03 | Frontend — shell responsivo (Sidebar→drawer, Topbar mobile, AppLayout fluido)               | ✅ done      | high       | —                                  |
-| F27-S04 | Frontend — superfícies densas responsivas (tabelas CRM/Relatórios → cards, forms)           | ✅ done      | medium     | F27-S03                            |
-| F27-S05 | DB — tabela push_subscriptions (migration 0093) + seed flag pwa.enabled                     | ✅ done      | high       | —                                  |
-| F27-S06 | Backend — Web Push (VAPID, sender, endpoints subscribe/unsubscribe, fan-out, LGPD)          | ✅ done      | high       | F27-S05                            |
-| F27-S07 | Frontend — push client (SW handlers + opt-in) + SocketProvider global                       | 🟢 available | high       | F27-S01, F27-S03, F27-S06          |
-| F27-S08 | QA — verificação PWA (installability/Lighthouse, offline, push e2e, auth standalone)        | 🟢 available | medium     | F27-S01, F27-S02, F27-S06, F27-S07 |
-| F27-S09 | Docs LGPD — RoPA de push_subscriptions (doc 17 §3.3/§3.4)                                   | 🟢 available | high       | F27-S06                            |
+| ID      | Título                                                                                      | Status         | Prioridade | Depende de                         |
+| ------- | ------------------------------------------------------------------------------------------- | -------------- | ---------- | ---------------------------------- |
+| F27-S01 | Frontend — fundação PWA (vite-plugin-pwa injectManifest, manifest, SW base, página offline) | ✅ done        | high       | —                                  |
+| F27-S02 | Frontend — ícones e splash PWA (assets-generator, maskable, apple-touch)                    | ✅ done        | medium     | F27-S01                            |
+| F27-S03 | Frontend — shell responsivo (Sidebar→drawer, Topbar mobile, AppLayout fluido)               | ✅ done        | high       | —                                  |
+| F27-S04 | Frontend — superfícies densas responsivas (tabelas CRM/Relatórios → cards, forms)           | ✅ done        | medium     | F27-S03                            |
+| F27-S05 | DB — tabela push_subscriptions (migration 0093) + seed flag pwa.enabled                     | ✅ done        | high       | —                                  |
+| F27-S06 | Backend — Web Push (VAPID, sender, endpoints subscribe/unsubscribe, fan-out, LGPD)          | ✅ done        | high       | F27-S05                            |
+| F27-S07 | Frontend — push client (SW handlers + opt-in) + SocketProvider global                       | 🔵 in-progress | high       | F27-S01, F27-S03, F27-S06          |
+| F27-S08 | QA — verificação PWA (installability/Lighthouse, offline, push e2e, auth standalone)        | 🟢 available   | medium     | F27-S01, F27-S02, F27-S06, F27-S07 |
+| F27-S09 | Docs LGPD — RoPA de push_subscriptions (doc 17 §3.3/§3.4)                                   | 🟢 available   | high       | F27-S06                            |
 
 ## Fase 3 — Agentes IA
 

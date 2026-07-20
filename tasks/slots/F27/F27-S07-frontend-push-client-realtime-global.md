@@ -3,7 +3,7 @@ id: F27-S07
 title: Frontend — push client (SW handlers + opt-in) + SocketProvider global
 phase: F27
 task_ref: docs/24-pwa.md
-status: available
+status: in-progress
 priority: high
 estimated_size: M
 agent_id: null
@@ -12,6 +12,7 @@ blocks: []
 labels: [frontend, notifications, pwa]
 source_docs: [docs/24-pwa.md, docs/23-notificacoes.md, docs/18-design-system.md]
 docs_required: false
+claimed_at: 2026-07-20T16:29:54Z
 ---
 
 # F27-S07 — Push no cliente + realtime global
