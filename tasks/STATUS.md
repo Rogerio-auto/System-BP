@@ -27,7 +27,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F24  | 21    | 0   | 0   | 0   | 0   | 0   | 21  |
 | F25  | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F26  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
-| F27  | 9     | 3   | 0   | 0   | 0   | 0   | 6   |
+| F27  | 9     | 2   | 0   | 0   | 0   | 1   | 6   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -405,7 +405,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F27-S06 | Backend — Web Push (VAPID, sender, endpoints subscribe/unsubscribe, fan-out, LGPD)          | ✅ done      | high       | F27-S05                            |
 | F27-S07 | Frontend — push client (SW handlers + opt-in) + SocketProvider global                       | 🟢 available | high       | F27-S01, F27-S03, F27-S06          |
 | F27-S08 | QA — verificação PWA (installability/Lighthouse, offline, push e2e, auth standalone)        | 🟢 available | medium     | F27-S01, F27-S02, F27-S06, F27-S07 |
-| F27-S09 | Docs LGPD — RoPA de push_subscriptions (doc 17 §3.3/§3.4)                                   | 🟢 available | high       | F27-S06                            |
+| F27-S09 | Docs LGPD — RoPA de push_subscriptions (doc 17 §3.3/§3.4)                                   | 🟣 review    | high       | F27-S06                            |
 
 ## Fase 3 — Agentes IA
 
