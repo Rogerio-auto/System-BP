@@ -3,7 +3,7 @@ id: F27-S02
 title: Frontend — ícones e splash PWA (assets-generator, maskable, apple-touch)
 phase: F27
 task_ref: docs/24-pwa.md
-status: in-progress
+status: review
 priority: medium
 estimated_size: S
 agent_id: null
@@ -13,6 +13,7 @@ labels: [frontend, design-system, pwa]
 source_docs: [docs/24-pwa.md, docs/18-design-system.md]
 docs_required: false
 claimed_at: 2026-07-20T13:23:07Z
+completed_at: 2026-07-20T13:46:44Z
 ---
 
 # F27-S02 — Ícones e splash PWA
