@@ -3,7 +3,7 @@ id: F28-S05
 title: Frontend — camada de dados de respostas rápidas + realtime
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: blocked
+status: available
 priority: high
 estimated_size: S
 agent_id: null

@@ -3,7 +3,7 @@ id: F28-S03
 title: Backend — módulo CRUD de respostas rápidas (RBAC, audit, realtime)
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: blocked
+status: available
 priority: critical
 estimated_size: M
 agent_id: null
