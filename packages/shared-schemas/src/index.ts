@@ -43,3 +43,7 @@ export * from './avatar.js';
 
 // Notification rules — catálogo de gatilhos + schemas de regras (F24-S04)
 export * from './notification-rules.js';
+
+// Quick replies — respostas rápidas do live chat: contrato + catálogo de
+// variáveis + interpolador puro (F28-S02)
+export * from './quick-replies.js';
