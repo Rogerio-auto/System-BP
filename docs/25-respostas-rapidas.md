@@ -97,11 +97,19 @@ Tabela `quick_replies` (migration **0094**). Segue o padrão canônico de tabela
 Migration **0095** — seed de permissões + `role_permissions`, no molde de
 `0069_seed_livechat_action_permissions.sql`.
 
-| Permissão                     | O que libera                                                            | Papéis no seed                                                     |
-| ----------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `livechat:quick_reply:read`   | Listar e usar respostas rápidas (org + as próprias).                    | `admin`, `gestor_geral`, `gestor_cidade`, `agente_admin`, `agente` |
-| `livechat:quick_reply:write`  | CRUD das **próprias** (`visibility='personal'`).                        | mesmos acima                                                       |
-| `livechat:quick_reply:manage` | CRUD das da **organização** + reordenar + ver/editar as de qualquer um. | `admin`, `gestor_geral`, `agente_admin`                            |
+| Permissão                     | O que libera                                                            | Papéis no seed                    |
+| ----------------------------- | ----------------------------------------------------------------------- | --------------------------------- |
+| `livechat:quick_reply:read`   | Listar e usar respostas rápidas (org + as próprias).                    | `admin`, `gestor_geral`, `agente` |
+| `livechat:quick_reply:write`  | CRUD das **próprias** (`visibility='personal'`).                        | `admin`, `gestor_geral`, `agente` |
+| `livechat:quick_reply:manage` | CRUD das da **organização** + reordenar + ver/editar as de qualquer um. | `admin`, `gestor_geral`           |
+
+> **Correção (F28-S01).** A primeira versão desta tabela citava `gestor_cidade` e `agente_admin` —
+> **nenhum dos dois existe** no catálogo real de papéis, que é
+> `admin | gestor_geral | gestor_regional | agente | operador | leitura | cobranca`.
+> O seed segue o precedente do próprio live chat (`0069_seed_livechat_action_permissions.sql`):
+> quem pode usar resposta rápida é exatamente quem já tem `livechat:message:send`.
+> Conceder a `gestor_regional` ou `operador` exige antes conceder-lhes o envio de mensagem — decisão
+> de produto separada, fora de F28.
 
 Regras de autorização no service (não só na rota):
 
