@@ -3,7 +3,7 @@ id: F28-S01
 title: DB — tabela quick_replies (0094) + permissões e flag (0095)
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: available
+status: in-progress
 priority: critical
 estimated_size: M
 agent_id: null
@@ -13,7 +13,7 @@ labels: [db-schema, livechat, quick-replies]
 source_docs:
   [docs/25-respostas-rapidas.md, docs/09-feature-flags.md, docs/10-seguranca-permissoes.md]
 docs_required: false
-claimed_at: null
+claimed_at: 2026-07-22T20:12:38Z
 completed_at: null
 pr_url: null
 ---
