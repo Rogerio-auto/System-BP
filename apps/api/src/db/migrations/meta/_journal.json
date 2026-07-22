@@ -596,6 +596,20 @@
       "when": 1784500002000,
       "tag": "0093_push_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1784500003000,
+      "tag": "0094_quick_replies",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1784500004000,
+      "tag": "0095_seed_quick_replies_permissions",
+      "breakpoints": true
     }
   ]
 }
