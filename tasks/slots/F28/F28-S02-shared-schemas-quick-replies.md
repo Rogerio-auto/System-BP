@@ -3,7 +3,7 @@ id: F28-S02
 title: Contrato compartilhado — schemas Zod e catálogo de variáveis
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: available
+status: in-progress
 priority: critical
 estimated_size: S
 agent_id: null
@@ -12,7 +12,7 @@ blocks: [F28-S03, F28-S05]
 labels: [backend, shared-schemas, quick-replies, contract]
 source_docs: [docs/25-respostas-rapidas.md]
 docs_required: false
-claimed_at: null
+claimed_at: 2026-07-22T20:12:42Z
 completed_at: null
 pr_url: null
 ---
