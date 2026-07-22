@@ -132,3 +132,6 @@ export * from './assistantTurns.js';
 
 // PWA — Web Push: destino das subscriptions do device (F27-S05)
 export * from './pushSubscriptions.js';
+
+// Live chat — respostas rápidas / biblioteca de mensagens pré-definidas (F28-S01)
+export * from './quickReplies.js';

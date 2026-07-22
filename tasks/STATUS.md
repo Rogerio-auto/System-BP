@@ -28,7 +28,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F25  | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F26  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F27  | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F28  | 8     | 2   | 6   | 0   | 0   | 0   | 0   |
+| F28  | 8     | 1   | 6   | 0   | 0   | 1   | 0   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -412,7 +412,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 | ID      | Título                                                             | Status       | Prioridade | Depende de       |
 | ------- | ------------------------------------------------------------------ | ------------ | ---------- | ---------------- |
-| F28-S01 | DB — tabela quick_replies (0094) + permissões e flag (0095)        | 🟢 available | critical   | —                |
+| F28-S01 | DB — tabela quick_replies (0094) + permissões e flag (0095)        | 🟣 review    | critical   | —                |
 | F28-S02 | Contrato compartilhado — schemas Zod e catálogo de variáveis       | 🟢 available | critical   | —                |
 | F28-S03 | Backend — módulo CRUD de respostas rápidas (RBAC, audit, realtime) | ⏸️ blocked   | critical   | F28-S01, F28-S02 |
 | F28-S04 | Backend — mídia da biblioteca (signed URL) e telemetria de uso     | ⏸️ blocked   | high       | F28-S03          |

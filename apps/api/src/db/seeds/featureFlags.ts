@@ -344,6 +344,20 @@ const FLAGS: SeedFlag[] = [
       'Criação automática de lead-shell no primeiro inbound de contato desconhecido no live chat',
     audience: {},
   },
+  // Live chat — respostas rápidas / biblioteca de mensagens pré-definidas (F28-S01)
+  {
+    key: 'livechat.quick_replies.enabled',
+    status: 'disabled',
+    visible: false,
+    uiLabel: 'Respostas rápidas do live chat',
+    // Default off — base da fase F28 (doc 25-respostas-rapidas.md §D7). Gateia
+    // UI/API/worker/tool. visible=false: não aparece no painel geral como
+    // "Em desenvolvimento" até a fase estar pronta para anúncio.
+    description:
+      'Biblioteca de mensagens pré-definidas (texto/mídia) que o operador dispara no ' +
+      'live chat com um clique (doc 25-respostas-rapidas.md).',
+    audience: {},
+  },
 ];
 
 export async function seedFeatureFlags(): Promise<void> {
