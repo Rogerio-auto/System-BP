@@ -3,7 +3,7 @@ id: F28-S05
 title: Frontend — camada de dados de respostas rápidas + realtime
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
@@ -12,7 +12,7 @@ blocks: [F28-S06, F28-S07]
 labels: [frontend, quick-replies, tanstack-query, realtime]
 source_docs: [docs/25-respostas-rapidas.md]
 docs_required: false
-claimed_at: null
+claimed_at: 2026-07-22T21:30:22Z
 completed_at: null
 pr_url: null
 ---
