@@ -28,6 +28,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F25  | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F26  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F27  | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
+| F28  | 8     | 2   | 6   | 0   | 0   | 0   | 0   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -406,6 +407,19 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F27-S07 | Frontend — push client (SW handlers + opt-in) + SocketProvider global                       | ✅ done | high       | F27-S01, F27-S03, F27-S06          |
 | F27-S08 | QA — verificação PWA (installability/Lighthouse, offline, push e2e, auth standalone)        | ✅ done | medium     | F27-S01, F27-S02, F27-S06, F27-S07 |
 | F27-S09 | Docs LGPD — RoPA de push_subscriptions (doc 17 §3.3/§3.4)                                   | ✅ done | high       | F27-S06                            |
+
+## Fase 28 —
+
+| ID      | Título                                                             | Status       | Prioridade | Depende de       |
+| ------- | ------------------------------------------------------------------ | ------------ | ---------- | ---------------- |
+| F28-S01 | DB — tabela quick_replies (0094) + permissões e flag (0095)        | 🟢 available | critical   | —                |
+| F28-S02 | Contrato compartilhado — schemas Zod e catálogo de variáveis       | 🟢 available | critical   | —                |
+| F28-S03 | Backend — módulo CRUD de respostas rápidas (RBAC, audit, realtime) | ⏸️ blocked   | critical   | F28-S01, F28-S02 |
+| F28-S04 | Backend — mídia da biblioteca (signed URL) e telemetria de uso     | ⏸️ blocked   | high       | F28-S03          |
+| F28-S05 | Frontend — camada de dados de respostas rápidas + realtime         | ⏸️ blocked   | high       | F28-S02          |
+| F28-S06 | Frontend — seletor de respostas rápidas no composer do live chat   | ⏸️ blocked   | critical   | F28-S04, F28-S05 |
+| F28-S07 | Frontend — administração da biblioteca de respostas rápidas        | ⏸️ blocked   | high       | F28-S04, F28-S05 |
+| F28-S08 | QA — verificação ponta a ponta e fechamento documental de F28      | ⏸️ blocked   | high       | F28-S06, F28-S07 |
 
 ## Fase 3 — Agentes IA
 
