@@ -3,7 +3,7 @@ id: F28-S01
 title: DB — tabela quick_replies (0094) + permissões e flag (0095)
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: null
@@ -15,7 +15,7 @@ source_docs:
 docs_required: false
 claimed_at: 2026-07-22T20:12:38Z
 completed_at: 2026-07-22T20:32:45Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/438
 ---
 
 # F28-S01 — Schema quick_replies + permissões + flag
