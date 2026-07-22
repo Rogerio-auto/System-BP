@@ -134,7 +134,7 @@ export async function reorderQuickRepliesController(
   const actor = getActorContext(request);
   // Body validado normalmente pelo Fastify (schema simples, sem superRefine
   // de negócio de catálogo — não precisa do bypass usado em create/update).
-  const items = typedBody<QuickReplyReorderBody>(request);
+  const { items } = typedBody<QuickReplyReorderBody>(request);
   const result = await reorderQuickRepliesService(db, actor, items);
   return reply.status(200).send(result);
 }

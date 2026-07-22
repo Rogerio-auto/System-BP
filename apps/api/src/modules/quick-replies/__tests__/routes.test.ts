@@ -412,10 +412,12 @@ describe('PATCH /api/quick-replies/reorder', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/quick-replies/reorder',
-      payload: [
-        { id: FIXTURE_QUICK_REPLY_ID, sortOrder: 1 },
-        { id: 'dddddddd-0000-0000-0000-000000000001', sortOrder: 2 },
-      ],
+      payload: {
+        items: [
+          { id: FIXTURE_QUICK_REPLY_ID, sortOrder: 1 },
+          { id: 'dddddddd-0000-0000-0000-000000000001', sortOrder: 2 },
+        ],
+      },
     });
 
     expect(res.statusCode).toBe(200);
@@ -432,7 +434,7 @@ describe('PATCH /api/quick-replies/reorder', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/quick-replies/reorder',
-      payload: [{ id: FIXTURE_QUICK_REPLY_ID, sortOrder: 1 }],
+      payload: { items: [{ id: FIXTURE_QUICK_REPLY_ID, sortOrder: 1 }] },
     });
     expect(res.statusCode).toBe(403);
     await app.close();
@@ -444,7 +446,7 @@ describe('PATCH /api/quick-replies/reorder', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/quick-replies/reorder',
-      payload: [{ id: FIXTURE_QUICK_REPLY_ID, sortOrder: 1 }],
+      payload: { items: [{ id: FIXTURE_QUICK_REPLY_ID, sortOrder: 1 }] },
     });
     expect(res.statusCode).toBe(403);
     await app.close();

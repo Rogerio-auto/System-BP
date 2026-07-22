@@ -29,8 +29,13 @@ export const quickReplyReorderItemSchema = z.object({
   sortOrder: z.number().int(),
 });
 
-export const quickReplyReorderBodySchema = z
-  .array(quickReplyReorderItemSchema)
-  .min(1, 'Informe ao menos um item para reordenar')
-  .max(500, 'Máximo de 500 itens por lote de reordenação');
+// Envelope `{ items: [...] }` em vez de array nu: é o formato que o cliente web
+// já emite (F28-S05, `api.ts` → `reorderQuickReplies`) e permite acrescentar
+// campos ao lote no futuro sem quebrar o contrato.
+export const quickReplyReorderBodySchema = z.object({
+  items: z
+    .array(quickReplyReorderItemSchema)
+    .min(1, 'Informe ao menos um item para reordenar')
+    .max(500, 'Máximo de 500 itens por lote de reordenação'),
+});
 export type QuickReplyReorderBody = z.infer<typeof quickReplyReorderBodySchema>;
