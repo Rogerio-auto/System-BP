@@ -3,7 +3,7 @@ id: F28-S07
 title: Frontend — administração da biblioteca de respostas rápidas
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: blocked
+status: available
 priority: high
 estimated_size: M
 agent_id: null

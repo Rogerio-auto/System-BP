@@ -3,7 +3,7 @@ id: F28-S04
 title: Backend — mídia da biblioteca (signed URL) e telemetria de uso
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
@@ -14,7 +14,7 @@ source_docs: [docs/25-respostas-rapidas.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
 claimed_at: 2026-07-23T15:13:31Z
 completed_at: 2026-07-23T15:29:48Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/442
 ---
 
 # F28-S04 — Mídia da biblioteca e contador de uso
