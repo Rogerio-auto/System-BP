@@ -66,7 +66,10 @@ describe('quickReplyKeys — key factory isolada e estável', () => {
 // ---------------------------------------------------------------------------
 
 function readQueriesSource(): string {
-  return fs.readFileSync(path.resolve(__dirname, '../queries.ts'), 'utf-8');
+  // Normaliza CRLF→LF: no working tree do Windows o arquivo tem CRLF, e a
+  // extração estrutural abaixo depende do delimitador '\n}\n'. Sem isso o
+  // teste passa no CI (Linux/LF) e falha localmente (Windows/CRLF).
+  return fs.readFileSync(path.resolve(__dirname, '../queries.ts'), 'utf-8').replace(/\r\n/g, '\n');
 }
 
 /**
