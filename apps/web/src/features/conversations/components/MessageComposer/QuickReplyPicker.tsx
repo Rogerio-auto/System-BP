@@ -32,10 +32,12 @@ import type { QuickReplyMediaKind, QuickReplyResponse } from '@elemento/shared-s
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 
+import { useToast } from '../../../../components/ui/Toast';
 import { useAuth } from '../../../../lib/auth-store';
 import { cn } from '../../../../lib/cn';
 import {
   interpolateQuickReply,
+  parseQuickReplyVariables,
   useMarkQuickReplyUsed,
   useQuickReplies,
   useQuickRepliesRealtime,
@@ -481,6 +483,7 @@ export const QuickReplyPicker = React.forwardRef<QuickReplyPickerHandle, QuickRe
     const searchInputRef = React.useRef<HTMLInputElement>(null);
 
     const { user } = useAuth();
+    const { toast } = useToast();
     const { data: conversation } = useConversation(conversationId);
     // LGPD: contactName é PII — permanece só nesta variável em memória, nunca
     // logado nem persistido (doc 25 §6.2).
@@ -575,6 +578,20 @@ export const QuickReplyPicker = React.forwardRef<QuickReplyPickerHandle, QuickRe
           return;
         }
 
+        // Última linha de defesa (doc 25 §D3): o backend valida o corpo na
+        // CRIAÇÃO com os dados reais do ator, mas a interpolação de ENVIO é
+        // client-side e o composer pode não ter todo o contexto (ex.: nome da
+        // organização não está no auth). Se sobrar qualquer `{{...}}` após
+        // interpolar, NÃO enviamos — um token cru jamais chega ao cidadão.
+        // Espelha assertBodyInterpolatesSafely do backend (F28-S03).
+        if (parseQuickReplyVariables(interpolatedBody).length > 0) {
+          toast(
+            'Esta resposta rápida usa uma variável que não pôde ser preenchida agora. Edite-a antes de enviar.',
+            'danger',
+          );
+          return;
+        }
+
         const idempotencyKey = crypto.randomUUID();
         const payload = buildQuickReplySendPayload(item, interpolatedBody, idempotencyKey);
         sendMutation.mutate(payload, {
@@ -585,7 +602,7 @@ export const QuickReplyPicker = React.forwardRef<QuickReplyPickerHandle, QuickRe
           },
         });
       },
-      [interpolationContext, onInsertText, onSent, sendMutation, markUsed],
+      [interpolationContext, onInsertText, onSent, sendMutation, markUsed, toast],
     );
 
     React.useImperativeHandle(

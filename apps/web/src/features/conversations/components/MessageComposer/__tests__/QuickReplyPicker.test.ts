@@ -12,6 +12,7 @@
 import type { QuickReplyResponse } from '@elemento/shared-schemas';
 import { describe, expect, it } from 'vitest';
 
+import { interpolateQuickReply, parseQuickReplyVariables } from '../../../../quick-replies';
 import {
   buildQuickReplySendPayload,
   computeQuickReplyMode,
@@ -284,5 +285,45 @@ describe('computeQuickReplyMode', () => {
         slashDismissed: false,
       }),
     ).toBeNull();
+  });
+});
+
+// ─── Guarda contra token cru no envio (doc 25 §D3, security review F28-S06) ──
+//
+// O composer não fornece organizationName ao interpolar (o front não tem essa
+// fonte). A guarda de envio de QuickReplyPicker bloqueia o disparo se
+// `parseQuickReplyVariables(interpolado)` ainda encontrar `{{...}}`. Estes
+// testes provam o INVARIANTE em que a guarda se apoia — sem renderizar.
+describe('invariante da guarda de envio — token não resolvido é detectável', () => {
+  const now = new Date('2026-07-23T10:00:00');
+
+  it('{{organizacao.nome}} sem contexto de org sobrevive à interpolação e é detectado', () => {
+    const body = 'Olá, aqui é o {{organizacao.nome}}.';
+    const interpolated = interpolateQuickReply(body, {
+      now,
+      contactName: 'Maria',
+      agentName: 'Ana',
+    });
+    // organizationName ausente → token cru permanece.
+    expect(interpolated).toContain('{{organizacao.nome}}');
+    // A guarda dispararia: parseQuickReplyVariables encontra a ocorrência.
+    expect(parseQuickReplyVariables(interpolated).length).toBeGreaterThan(0);
+  });
+
+  it('{{atendente.nome}} com agentName vazio também deixa token cru detectável', () => {
+    const body = 'Falo com você, {{atendente.nome}}.';
+    const interpolated = interpolateQuickReply(body, { now, contactName: 'Maria', agentName: '' });
+    expect(parseQuickReplyVariables(interpolated).length).toBeGreaterThan(0);
+  });
+
+  it('corpo totalmente resolvido não deixa token — a guarda deixa passar', () => {
+    const body =
+      'Olá {{contato.primeiro_nome|tudo bem}}, sou {{atendente.primeiro_nome|a equipe}}.';
+    const interpolated = interpolateQuickReply(body, {
+      now,
+      contactName: 'Maria Silva',
+      agentName: 'Ana Clara',
+    });
+    expect(parseQuickReplyVariables(interpolated).length).toBe(0);
   });
 });
