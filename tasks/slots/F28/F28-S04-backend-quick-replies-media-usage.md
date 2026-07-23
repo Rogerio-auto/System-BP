@@ -3,7 +3,7 @@ id: F28-S04
 title: Backend — mídia da biblioteca (signed URL) e telemetria de uso
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: null
@@ -13,7 +13,7 @@ labels: [backend, livechat, quick-replies, storage]
 source_docs: [docs/25-respostas-rapidas.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
 claimed_at: 2026-07-23T15:13:31Z
-completed_at: null
+completed_at: 2026-07-23T15:29:48Z
 pr_url: null
 ---
 
