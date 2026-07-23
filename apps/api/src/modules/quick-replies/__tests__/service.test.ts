@@ -330,6 +330,70 @@ describe('createQuickReplyService', () => {
     ).resolves.toBeDefined();
   });
 
+  it('9c. 400 quando mediaUrl usa ../ para escapar do prefixo da própria org (path traversal cross-org)', async () => {
+    const { createQuickReplyService } = await import('../service.js');
+    const actor = makeActor();
+    const otherOrg = '99999999-9999-9999-9999-999999999999';
+
+    await expect(
+      createQuickReplyService(mockDb as unknown as Database, actor, {
+        visibility: 'organization',
+        shortcut: 'boleto',
+        title: 'Boleto',
+        // começa com o prefixo de ORG_ID, mas `../` resolve para outra org
+        mediaUrl: `https://cdn.example.com/quick-replies/${ORG_ID}/../${otherOrg}/evil.pdf`,
+        mediaMime: 'application/pdf',
+        mediaKind: 'document',
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      details: expect.objectContaining({ code: 'QUICK_REPLY_MEDIA_URL_UNTRUSTED' }),
+    });
+    expect(mockInsertQuickReply).not.toHaveBeenCalled();
+  });
+
+  it('9d. 400 quando o host difere mas o prefixo de path coincide (userinfo/@ e host externo)', async () => {
+    const { createQuickReplyService } = await import('../service.js');
+    const actor = makeActor();
+
+    await expect(
+      createQuickReplyService(mockDb as unknown as Database, actor, {
+        visibility: 'organization',
+        shortcut: 'boleto',
+        title: 'Boleto',
+        // host real é attacker.example.com; cdn.example.com é só userinfo
+        mediaUrl: `https://cdn.example.com@attacker.example.com/quick-replies/${ORG_ID}/x.pdf`,
+        mediaMime: 'application/pdf',
+        mediaKind: 'document',
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      details: expect.objectContaining({ code: 'QUICK_REPLY_MEDIA_URL_UNTRUSTED' }),
+    });
+    expect(mockInsertQuickReply).not.toHaveBeenCalled();
+  });
+
+  it('9e. 400 quando o segmento da org é apenas um prefixo textual de outra org', async () => {
+    const { createQuickReplyService } = await import('../service.js');
+    const actor = makeActor();
+
+    await expect(
+      createQuickReplyService(mockDb as unknown as Database, actor, {
+        visibility: 'organization',
+        shortcut: 'boleto',
+        title: 'Boleto',
+        // `${ORG_ID}extra` NÃO pode passar como se fosse o segmento `${ORG_ID}`
+        mediaUrl: `https://cdn.example.com/quick-replies/${ORG_ID}extra/x.pdf`,
+        mediaMime: 'application/pdf',
+        mediaKind: 'document',
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      details: expect.objectContaining({ code: 'QUICK_REPLY_MEDIA_URL_UNTRUSTED' }),
+    });
+    expect(mockInsertQuickReply).not.toHaveBeenCalled();
+  });
+
   it('10. 422 QUICK_REPLY_UNRESOLVED_VARIABLE — interpolação real deixa {{...}} cru', async () => {
     // Nome do ator vazio — simula o cenário defensivo (nota 1 do security review):
     // mesmo variável sem fallback obrigatório no catálogo (atendente.nome), a
@@ -342,6 +406,25 @@ describe('createQuickReplyService', () => {
       createQuickReplyService(mockDb as unknown as Database, actor, {
         ...VALID_CREATE_BODY,
         body: 'Aqui é {{atendente.nome}}, da equipe.',
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 422,
+      details: expect.objectContaining({ code: 'QUICK_REPLY_UNRESOLVED_VARIABLE' }),
+    });
+  });
+
+  it('10b. 422 mesmo quando o token cru tem quebra de linha dentro das chaves', async () => {
+    // Regressão do MÉDIO do security review: um regex ad-hoc /\{\{.*\}\}/ sem
+    // flag `s` não casaria o token multi-linha e deixaria vazar. O parser
+    // canônico do pacote compartilhado casa.
+    mockFindActorDisplayNames.mockResolvedValueOnce({ agentName: '', organizationName: '' });
+    const { createQuickReplyService } = await import('../service.js');
+    const actor = makeActor();
+
+    await expect(
+      createQuickReplyService(mockDb as unknown as Database, actor, {
+        ...VALID_CREATE_BODY,
+        body: 'Aqui é {{atendente.nome\n}}, da equipe.',
       }),
     ).rejects.toMatchObject({
       statusCode: 422,

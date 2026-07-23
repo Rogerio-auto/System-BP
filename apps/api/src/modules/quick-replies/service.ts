@@ -30,6 +30,7 @@
 import {
   extractQuickReplyErrorCode,
   interpolateQuickReply,
+  parseQuickReplyVariables,
   quickReplyCreateSchema,
   quickReplyUpdateSchema,
 } from '@elemento/shared-schemas';
@@ -194,15 +195,44 @@ function assertNoPiiInBody(body: string | null | undefined): void {
 // a Meta busca essa URL diretamente no envio (doc 25 §7.4).
 // ---------------------------------------------------------------------------
 
+function rejectUntrustedMediaUrl(): never {
+  throw new AppError(
+    400,
+    'VALIDATION_ERROR',
+    'mediaUrl deve apontar para o storage de mídia desta organização',
+    { code: QUICK_REPLY_MEDIA_URL_UNTRUSTED, field: 'mediaUrl' },
+  );
+}
+
 function assertMediaUrlBelongsToOrg(organizationId: string, mediaUrl: string): void {
-  const expectedPrefix = getPublicUrl(`quick-replies/${organizationId}/`);
-  if (!mediaUrl.startsWith(expectedPrefix)) {
-    throw new AppError(
-      400,
-      'VALIDATION_ERROR',
-      'mediaUrl deve apontar para o storage de mídia desta organização',
-      { code: QUICK_REPLY_MEDIA_URL_UNTRUSTED, field: 'mediaUrl' },
-    );
+  // Comparação ESTRUTURADA, não `startsWith` sobre string crua: um path como
+  // `.../quick-replies/{orgA}/../{orgB}/x.jpg` começa com o prefixo de orgA mas
+  // resolve para orgB se qualquer camada a jusante (CDN/proxy/undici) normalizar
+  // dot-segments (RFC 3986 §5.2.4). O guard precisa parsear e comparar por segmento.
+  const expected = getPublicUrl(`quick-replies/${organizationId}/`);
+
+  let expectedUrl: URL;
+  let actualUrl: URL;
+  try {
+    expectedUrl = new URL(expected);
+    actualUrl = new URL(mediaUrl);
+  } catch {
+    rejectUntrustedMediaUrl();
+  }
+
+  // Origin exato (protocolo + host + porta) — bloqueia host externo e userinfo (`@`).
+  if (actualUrl.origin !== expectedUrl.origin) rejectUntrustedMediaUrl();
+
+  // Path por segmentos: rejeita `.`/`..`/segmento vazio e exige que os segmentos
+  // do prefixo esperado sejam prefixo EXATO dos segmentos do path recebido.
+  const actualSegments = actualUrl.pathname.split('/').filter((s) => s.length > 0);
+  if (actualSegments.some((s) => s === '.' || s === '..')) rejectUntrustedMediaUrl();
+
+  const expectedSegments = expectedUrl.pathname.split('/').filter((s) => s.length > 0);
+  // Precisa haver ao menos um segmento (nome do arquivo) além do prefixo.
+  if (actualSegments.length <= expectedSegments.length) rejectUntrustedMediaUrl();
+  for (let i = 0; i < expectedSegments.length; i += 1) {
+    if (actualSegments[i] !== expectedSegments[i]) rejectUntrustedMediaUrl();
   }
 }
 
@@ -217,8 +247,6 @@ function assertMediaUrlBelongsToOrg(organizationId: string, mediaUrl: string): v
 // cru, a operação é bloqueada aqui, na criação/edição, em vez de deixar o
 // risco vazar para o momento do envio (fora do escopo deste slot).
 // ---------------------------------------------------------------------------
-
-const RAW_VARIABLE_TOKEN_PATTERN = /\{\{.*\}\}/;
 
 async function assertBodyInterpolatesSafely(
   db: Database,
@@ -242,7 +270,10 @@ async function assertBodyInterpolatesSafely(
     organizationName: organizationName ?? '',
   });
 
-  if (RAW_VARIABLE_TOKEN_PATTERN.test(interpolated)) {
+  // Usa o MESMO parser do contrato compartilhado (casa tokens com espaço/quebra
+  // de linha dentro das chaves) — evita um regex ad-hoc paralelo que divergiria
+  // da sintaxe canônica e deixaria passar `{{ ... \n ... }}`.
+  if (parseQuickReplyVariables(interpolated).length > 0) {
     throw new AppError(
       422,
       'VALIDATION_ERROR',
