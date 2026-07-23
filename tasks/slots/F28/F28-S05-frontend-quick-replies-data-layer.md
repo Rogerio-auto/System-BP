@@ -3,7 +3,7 @@ id: F28-S05
 title: Frontend — camada de dados de respostas rápidas + realtime
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
@@ -14,7 +14,7 @@ source_docs: [docs/25-respostas-rapidas.md]
 docs_required: false
 claimed_at: 2026-07-22T21:30:22Z
 completed_at: 2026-07-22T21:51:39Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/440
 ---
 
 # F28-S05 — Camada de dados compartilhada do frontend

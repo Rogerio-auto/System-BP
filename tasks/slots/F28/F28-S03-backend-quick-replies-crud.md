@@ -3,7 +3,7 @@ id: F28-S03
 title: Backend — módulo CRUD de respostas rápidas (RBAC, audit, realtime)
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: review
+status: done
 priority: critical
 estimated_size: M
 agent_id: null
@@ -15,7 +15,7 @@ source_docs:
 docs_required: false
 claimed_at: 2026-07-22T21:30:07Z
 completed_at: 2026-07-22T22:12:03Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/441
 ---
 
 # F28-S03 — Módulo backend de respostas rápidas

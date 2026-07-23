@@ -3,7 +3,7 @@ id: F28-S04
 title: Backend — mídia da biblioteca (signed URL) e telemetria de uso
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: blocked
+status: available
 priority: high
 estimated_size: S
 agent_id: null

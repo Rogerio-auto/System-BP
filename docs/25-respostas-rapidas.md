@@ -115,8 +115,12 @@ Regras de autorização no service (não só na rota):
 
 1. Toda query filtra por `organization_id` do ator — sem exceção.
 2. Leitura retorna: `visibility='organization'` **união** `owner_user_id = actor.userId`.
-   Um operador **nunca** vê a resposta pessoal de outro, nem com `manage`, exceto na tela admin com
-   `manage` (aí é explícito e auditado).
+   Um operador **nunca** vê a resposta pessoal de outro — **nem com `manage`, em nenhuma rota**.
+   O filtro de visibilidade é aplicado em SQL e o repositório sequer recebe a permissão do ator
+   (fail-closed por construção). A resposta pessoal é privada do dono; `manage` administra apenas o
+   acervo da **organização**. (Correção F28-S03: a primeira versão previa uma exceção "tela admin com
+   `manage` vê pessoais de terceiros" — descartada por ser mais intrusiva e sem ganho operacional.
+   A tela admin lista o acervo da organização + as próprias do gestor, nunca as pessoais alheias.)
 3. Escrita em registro com `owner_user_id = actor.userId` exige `write`.
 4. Escrita em registro com `visibility='organization'` (ou de outro dono) exige `manage`.
 5. Criar com `visibility='organization'` exige `manage`. Criar `personal` exige `write` e força
