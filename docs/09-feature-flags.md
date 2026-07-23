@@ -59,6 +59,7 @@ Auditoria em `feature_flag_audit`. Toda mudança via UI requer permissão `flags
 | `notifications.sla.enabled`                  | disabled          | ✓ (badge)      | Fase F24               |
 | `notifications.email.enabled`                | disabled          | ✓ (badge)      | Fase F24 — nota abaixo |
 | `notifications.realtime.enabled`             | disabled          | ✓ (badge)      | Fase F24 — nota abaixo |
+| `livechat.quick_replies.enabled`             | disabled          | ✗              | Fase F28 — nota abaixo |
 
 > **Notificações (Fase F24) — leia antes de mexer:** as 4 flags acima foram seedadas na
 > migration `0077`. Desde 2026-07-19 **as quatro são funcionais e gateiam código real** (Fase
@@ -71,6 +72,20 @@ Auditoria em `feature_flag_audit`. Toda mudança via UI requer permissão `flags
 > em F24-S16. Detalhe completo e lacunas de UX remanescentes em
 > [`docs/23-notificacoes.md`](23-notificacoes.md) §9 e §12. Ordem de flip recomendada em
 > [`docs/19-runbook-go-live.md`](19-runbook-go-live.md) §14.
+
+> **Respostas rápidas do live chat (Fase F28) — leia antes de ligar.** Seedada na migration
+> `0095` (status `disabled`, `visible=false`) junto das 3 permissões `livechat:quick_reply:read/
+write/manage`. Gateia as 4 camadas: **UI** (botão + seletor no composer, `MessageComposer/
+QuickReplyPicker.tsx`, e a rota admin `/admin/quick-replies` — nenhum dos dois renderiza com a
+> flag off), **API** (as 8 rotas de `/api/quick-replies/**` retornam `403 feature_disabled` antes
+> de qualquer outra checagem), **worker** (não se aplica — o envio reusa o pipeline de mensagens
+> já existente, `hm.q.outbound.request`, zero mudança no worker/serializer, doc 25 §8) e **tool da
+> IA** (não se aplica — a biblioteca é exclusiva do humano, doc 25 §13, fora do agente LangGraph).
+> RBAC real (corrigido de uma primeira versão do doc que citava papéis inexistentes): `read`/
+> `write` para `admin`/`gestor_geral`/`agente`; `manage` só para `admin`/`gestor_geral` — ver doc
+> 25 §5. Ordem de flip e pré-requisitos (é atendimento direto ao cidadão — gate de aprovação
+> recomendado, no padrão das demais flags sensíveis desta base) em
+> [`docs/19-runbook-go-live.md`](19-runbook-go-live.md) §15.
 
 ## 4. Comportamento por camada
 

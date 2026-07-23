@@ -18,7 +18,9 @@
 //   10. POST sem write NEM manage (authorizeAny) → 403
 //   11. POST com write apenas (sem manage) → chega ao service (piso da rota)
 //   12. Reorder sem manage → 403
-//   13. Feature flag desabilitada → 403 em list, create e reorder
+//   13. Feature flag desabilitada → 403 em TODAS as rotas do módulo: list,
+//       create, reorder (S03), uploads/signed-url, used (S04), e — fechando
+//       a lacuna do DoD de F28-S08 — GET/PATCH/DELETE /:id (13d/13e/13f).
 //   14. POST /uploads/signed-url → 200; sem write → 403; flag off → 403 (F28-S04)
 //   15. POST /:id/used → 204; sem read → 403; flag off → 403; 404 propagado (F28-S04)
 // =============================================================================
@@ -302,6 +304,17 @@ describe('GET /api/quick-replies/:id', () => {
     });
     expect(res.statusCode).toBe(404);
   });
+
+  it('13d. feature flag desabilitada → 403 (F28-S08 — GET /:id não tinha cobertura)', async () => {
+    mockFeatureGateEnabled.mockReturnValue(false);
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/quick-replies/${FIXTURE_QUICK_REPLY_ID}`,
+    });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('FEATURE_DISABLED');
+    expect(mockGetQuickReplyService).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -386,6 +399,22 @@ describe('PATCH /api/quick-replies/:id', () => {
     expect(res.json().title).toBe('Novo título');
     await app.close();
   });
+
+  it('13e. feature flag desabilitada → 403 (F28-S08 — PATCH /:id não tinha cobertura)', async () => {
+    mockFeatureGateEnabled.mockReturnValue(false);
+    const app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/quick-replies/${FIXTURE_QUICK_REPLY_ID}`,
+      payload: { title: 'Novo título' },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('FEATURE_DISABLED');
+    expect(mockUpdateQuickReplyService).not.toHaveBeenCalled();
+    await app.close();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -403,6 +432,21 @@ describe('DELETE /api/quick-replies/:id', () => {
     });
 
     expect(res.statusCode).toBe(204);
+    await app.close();
+  });
+
+  it('13f. feature flag desabilitada → 403 (F28-S08 — DELETE /:id não tinha cobertura)', async () => {
+    mockFeatureGateEnabled.mockReturnValue(false);
+    const app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/quick-replies/${FIXTURE_QUICK_REPLY_ID}`,
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('FEATURE_DISABLED');
+    expect(mockDeleteQuickReplyService).not.toHaveBeenCalled();
     await app.close();
   });
 });
