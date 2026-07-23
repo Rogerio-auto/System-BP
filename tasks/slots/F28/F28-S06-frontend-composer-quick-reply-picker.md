@@ -3,7 +3,7 @@ id: F28-S06
 title: Frontend — seletor de respostas rápidas no composer do live chat
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: in-progress
+status: review
 priority: critical
 estimated_size: M
 agent_id: null
@@ -15,7 +15,7 @@ docs_required: true
 docs_audience: [operador]
 docs_artifacts: [docs/help/guias/livechat/respostas-rapidas.mdx]
 claimed_at: 2026-07-23T15:42:17Z
-completed_at: null
+completed_at: 2026-07-23T16:13:40Z
 pr_url: null
 ---
 
