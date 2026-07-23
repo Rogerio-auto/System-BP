@@ -3,7 +3,7 @@ id: F28-S08
 title: QA — verificação ponta a ponta e fechamento documental de F28
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: blocked
+status: available
 priority: high
 estimated_size: S
 agent_id: null
