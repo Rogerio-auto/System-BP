@@ -32,7 +32,15 @@
 // =============================================================================
 import { isAllowedPushEndpoint } from '@elemento/shared-schemas';
 import pino from 'pino';
-import { WebPushError, sendNotification, setVapidDetails } from 'web-push';
+// `web-push` é CommonJS — named imports quebram em runtime sob ESM
+// (`SyntaxError: Named export 'sendNotification' not found`). Import default +
+// destructure é o interop correto. O bug só aparece no dist compilado, no
+// worker que carrega este módulo (outbox-publisher via setupHandlers) — os
+// testes mockam `web-push`, então o CI passava verde. Derrubou o outbox no
+// deploy de F27 (2026-07-23).
+import webpush from 'web-push';
+
+const { WebPushError, sendNotification, setVapidDetails } = webpush;
 
 import { env } from '../../../config/env.js';
 import { db as defaultDb } from '../../../db/client.js';
