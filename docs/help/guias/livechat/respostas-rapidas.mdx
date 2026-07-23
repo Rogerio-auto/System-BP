@@ -1,0 +1,126 @@
+---
+title: Respostas rápidas no Live Chat
+description: Como usar a biblioteca de respostas rápidas para enviar textos e mídias pré-aprovadas durante o atendimento, com atalhos e variáveis personalizadas.
+order: 32
+keywords: [live chat, respostas rapidas, atalhos, canned responses, compositor, biblioteca, variaveis]
+audience: [operador, gestor]
+---
+
+# Respostas rápidas no Live Chat
+
+Respostas rápidas são textos e mídias pré-cadastrados que você envia com um clique durante o atendimento — sem precisar redigitar as mesmas orientações várias vezes ao dia. Use este guia quando quiser agilizar respostas repetitivas dentro de uma conversa.
+
+<Callout type="info" title="Pré-requisito">
+  Você precisa ter o papel de **atendente** ou superior, permissão para enviar mensagens na conversa e a biblioteca de respostas rápidas habilitada para a sua organização.
+
+  <Permission requires="livechat:message:send" />
+</Callout>
+
+## O que é a biblioteca de respostas rápidas
+
+A biblioteca reúne dois grupos de itens, alternáveis por uma aba dentro do painel:
+
+- **Organização** — respostas curadas pela gestão, visíveis a toda a equipe.
+- **Minhas** — respostas pessoais, visíveis só para você.
+
+Cada item tem um **atalho** (ex.: `/orientacao`), um título, um texto (ou uma mídia com legenda) e, opcionalmente, uma categoria para organização visual.
+
+<Callout type="tip">
+  O cadastro e a edição da biblioteca ficam em **Configurações → Respostas rápidas**, disponível para quem tem permissão de gestão.
+</Callout>
+
+## Como abrir o painel de respostas rápidas
+
+Existem três formas de abrir o painel, todas a partir do compositor de mensagens:
+
+<Step number={1} title="Pelo botão da barra">
+  Clique no ícone de raio, entre o clipe de anexo e o ícone de emoji, na barra do compositor.
+</Step>
+
+<Step number={2} title='Digitando "/"'>
+  Com o campo de mensagem vazio, digite **/** como primeiro caractere. O painel abre automaticamente e o que você digitar em seguida filtra a lista pelo atalho (ex.: digitar `/boas` filtra por respostas cujo atalho contém "boas").
+</Step>
+
+<Step number={3} title="Pelo atalho de teclado">
+  Pressione **Ctrl+Shift+E** (Windows/Linux) ou **Cmd+Shift+E** (Mac) a qualquer momento com o foco no compositor.
+</Step>
+
+## Como enviar uma resposta rápida
+
+<Step number={1} title="Abra o painel e localize o item">
+  Use a busca (quando abriu pelo botão ou pelo atalho de teclado) ou navegue com as setas **↑** e **↓** do teclado. O item em destaque fica realçado.
+</Step>
+
+<Step number={2} title="Clique ou pressione Enter">
+  Isso **envia a mensagem imediatamente**, já com as variáveis substituídas (nome do contato, saudação, data etc.). O painel fecha sozinho.
+
+  <Callout type="warn" title="Envio direto">
+    Diferente do rascunho normal do compositor, clicar em uma resposta rápida (ou pressionar Enter sobre ela) envia a mensagem na hora — não há uma etapa extra de confirmação. Se quiser revisar ou editar antes, use a ação "Editar antes de enviar" descrita abaixo.
+  </Callout>
+</Step>
+
+## Editar antes de enviar
+
+Se quiser ajustar o texto antes de enviar, use a ação secundária em vez do clique normal:
+
+- **Alt+clique** no item, ou
+- **Alt+Enter** com o item em destaque, ou
+- clique no ícone de lápis que aparece ao passar o mouse sobre o item.
+
+Qualquer uma das três opções insere o texto já interpolado no campo de mensagem, sem enviar — você pode editar livremente e enviar do jeito normal (Ctrl+Enter ou botão de enviar).
+
+## Navegação por teclado
+
+| Tecla | Ação |
+|---|---|
+| **↑** / **↓** | Move o destaque entre os itens da lista |
+| **Enter** | Envia o item em destaque |
+| **Alt+Enter** | Insere o item em destaque no campo, sem enviar |
+| **Esc** | Fecha o painel e devolve o foco ao campo de mensagem |
+| **Tab** | Sai do painel |
+
+## Variáveis e personalização
+
+Respostas rápidas podem conter variáveis que são substituídas automaticamente no momento do envio — por exemplo, o nome do contato ou a saudação de acordo com o horário. A substituição acontece no seu navegador, no instante do envio: o preview que você vê na lista já mostra o texto final.
+
+<Callout type="info" title="Dados do contato">
+  O nome do cidadão usado na variável de contato nunca é salvo no cadastro da resposta rápida — ele só existe no seu navegador, no momento em que você usa o item. O texto cadastrado na biblioteca continua genérico e reutilizável para qualquer conversa.
+</Callout>
+
+## Mídia nas respostas rápidas
+
+Itens com mídia (imagem, vídeo, áudio ou documento) mostram um pequeno ícone indicando o tipo de arquivo. Ao enviar, a mídia é entregue como um anexo do WhatsApp, com a legenda igual ao texto do item (já com as variáveis substituídas).
+
+## Quando o painel fica indisponível
+
+O botão de respostas rápidas fica **desabilitado** (com o motivo explicado ao passar o mouse) quando:
+
+- A **janela de 24 horas** do WhatsApp está fechada — nesse caso use um template aprovado, como em qualquer outra mensagem de texto livre.
+- Você não tem permissão para enviar mensagens na conversa.
+
+Se a sua organização não tiver essa funcionalidade habilitada, o botão simplesmente não aparece na barra do compositor.
+
+## Erros comuns
+
+### O botão de respostas rápidas não aparece
+
+**Causa:** a funcionalidade ainda não foi habilitada para a sua organização.
+
+**Solução:** fale com o administrador do sistema para verificar a liberação da biblioteca de respostas rápidas.
+
+### O botão aparece, mas está desabilitado
+
+**Causa:** a janela de 24h da conversa está fechada, ou você não tem permissão para enviar mensagens.
+
+**Solução:** passe o mouse sobre o botão para ver o motivo exato. Se for a janela fechada, use um template aprovado para retomar o contato.
+
+### Nenhuma resposta aparece na lista
+
+**Causa:** ainda não há itens cadastrados na categoria selecionada (Organização/Minhas), ou o termo buscado não encontrou nada.
+
+**Solução:** troque a aba entre "Organização" e "Minhas", limpe a busca, ou peça à gestão para cadastrar respostas rápidas em **Configurações → Respostas rápidas**.
+
+## Veja também
+
+- [Responder conversas — Live Chat](/ajuda/guias/livechat/responder-conversa) — como usar o compositor, a janela de 24h e o envio de templates.
+- [Caixa de entrada](/ajuda/guias/livechat/caixa-de-entrada) — como filtrar e gerenciar conversas no inbox.
