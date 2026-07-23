@@ -3,7 +3,7 @@ id: F28-S08
 title: QA — verificação ponta a ponta e fechamento documental de F28
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: review
+status: done
 priority: high
 estimated_size: S
 agent_id: null
@@ -15,7 +15,7 @@ source_docs:
 docs_required: false
 claimed_at: 2026-07-23T17:10:34Z
 completed_at: 2026-07-23T17:45:08Z
-pr_url: null
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/445
 ---
 
 # F28-S08 — Verificação ponta a ponta e fechamento de F28
