@@ -3,7 +3,7 @@ id: F28-S03
 title: Backend — módulo CRUD de respostas rápidas (RBAC, audit, realtime)
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: available
+status: review
 priority: critical
 estimated_size: M
 agent_id: null
@@ -13,8 +13,8 @@ labels: [backend, livechat, quick-replies, rbac]
 source_docs:
   [docs/25-respostas-rapidas.md, docs/10-seguranca-permissoes.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
-claimed_at: null
-completed_at: null
+claimed_at: 2026-07-22T21:30:07Z
+completed_at: 2026-07-22T22:12:03Z
 pr_url: null
 ---
 

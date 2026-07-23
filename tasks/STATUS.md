@@ -414,7 +414,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | ------- | ------------------------------------------------------------------ | ------------ | ---------- | ---------------- |
 | F28-S01 | DB — tabela quick_replies (0094) + permissões e flag (0095)        | ✅ done      | critical   | —                |
 | F28-S02 | Contrato compartilhado — schemas Zod e catálogo de variáveis       | ✅ done      | critical   | —                |
-| F28-S03 | Backend — módulo CRUD de respostas rápidas (RBAC, audit, realtime) | 🟢 available | critical   | F28-S01, F28-S02 |
+| F28-S03 | Backend — módulo CRUD de respostas rápidas (RBAC, audit, realtime) | 🟣 review    | critical   | F28-S01, F28-S02 |
 | F28-S04 | Backend — mídia da biblioteca (signed URL) e telemetria de uso     | ⏸️ blocked   | high       | F28-S03          |
 | F28-S05 | Frontend — camada de dados de respostas rápidas + realtime         | 🟣 review    | high       | F28-S02          |
 | F28-S06 | Frontend — seletor de respostas rápidas no composer do live chat   | ⏸️ blocked   | critical   | F28-S04, F28-S05 |
