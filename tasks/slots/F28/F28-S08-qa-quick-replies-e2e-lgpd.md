@@ -3,7 +3,7 @@ id: F28-S08
 title: QA — verificação ponta a ponta e fechamento documental de F28
 phase: F28
 task_ref: docs/25-respostas-rapidas.md
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: null
@@ -14,7 +14,7 @@ source_docs:
   [docs/25-respostas-rapidas.md, docs/09-feature-flags.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
 claimed_at: 2026-07-23T17:10:34Z
-completed_at: null
+completed_at: 2026-07-23T17:45:08Z
 pr_url: null
 ---
 
