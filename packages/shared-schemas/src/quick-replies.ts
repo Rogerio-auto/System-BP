@@ -108,11 +108,12 @@ export const QUICK_REPLY_VARIABLES = [
     label: 'Primeiro nome do atendente',
     requiresFallback: false,
   },
-  {
-    key: 'organizacao.nome',
-    label: 'Nome da organização',
-    requiresFallback: false,
-  },
+  // `organizacao.nome` foi REMOVIDA do catálogo (F28-S06): o frontend não tem
+  // fonte do nome da organização (não está no /auth/me nem no auth-store), então
+  // no envio a variável não resolveria e chegaria crua ao cidadão. Para
+  // reintroduzi-la, primeiro é preciso threadar o nome da org até o composer
+  // (slot de follow-up) e então re-adicionar a entrada aqui. O `case` em
+  // resolveQuickReplyVariable é mantido, inerte, para esse futuro.
   {
     key: 'saudacao',
     label: 'Saudação (Bom dia / Boa tarde / Boa noite)',

@@ -124,18 +124,21 @@ describe('quickReplyBodySchema', () => {
 // ---------------------------------------------------------------------------
 
 describe('QUICK_REPLY_VARIABLES', () => {
-  it('contém exatamente as 8 variáveis do doc 25 §6.1', () => {
-    expect(QUICK_REPLY_VARIABLES).toHaveLength(8);
+  it('contém exatamente as 7 variáveis resolvíveis no cliente (organizacao.nome removida — F28-S06)', () => {
+    expect(QUICK_REPLY_VARIABLES).toHaveLength(7);
     expect(QUICK_REPLY_VARIABLES.map((v) => v.key)).toEqual([
       'contato.nome',
       'contato.primeiro_nome',
       'atendente.nome',
       'atendente.primeiro_nome',
-      'organizacao.nome',
       'saudacao',
       'data',
       'hora',
     ]);
+  });
+
+  it('organizacao.nome NÃO está no catálogo — o front não tem a fonte do nome da org (F28-S06)', () => {
+    expect(QUICK_REPLY_VARIABLES.map((v) => v.key)).not.toContain('organizacao.nome');
   });
 
   it('todas as chaves são únicas', () => {
