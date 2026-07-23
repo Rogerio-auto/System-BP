@@ -410,6 +410,41 @@ export async function reorderQuickReplies(
   return updatedIds;
 }
 
+/**
+ * Telemetria de uso (doc 25 §10, F28-S04) — incrementa `usage_count` e grava
+ * `last_used_at` em um único `UPDATE` atômico (`SET usage_count = usage_count
+ * + 1`, sem read-modify-write — seguro sob concorrência). Escopado por
+ * `organization_id` E pela mesma regra de visibilidade da listagem/detalhe
+ * (`visibilityCondition`): incrementar a resposta pessoal de outro operador
+ * retorna null (o service traduz para 404, sem revelar existência — mesmo
+ * padrão de findVisibleQuickReplyById). Sem `Idempotency-Key` — contador
+ * aproximado é aceitável (doc 25 §10).
+ */
+export async function incrementQuickReplyUsage(
+  db: Database,
+  organizationId: string,
+  actorUserId: string,
+  id: string,
+): Promise<QuickReply | null> {
+  const rows = await db
+    .update(quickReplies)
+    .set({
+      usageCount: sql`${quickReplies.usageCount} + 1`,
+      lastUsedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(quickReplies.id, id),
+        eq(quickReplies.organizationId, organizationId),
+        isNull(quickReplies.deletedAt),
+        visibilityCondition(actorUserId),
+      ),
+    )
+    .returning();
+
+  return rows[0] ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Security review (F28-S01/S02, nota 1) — nomes reais para a guarda
 // defensiva pós-interpolação (service.ts assertBodyInterpolatesSafely).

@@ -26,6 +26,10 @@
 //   18. deleteQuickReplyService — remove com write (pessoal) e manage (org)
 //   19. reorderQuickRepliesService — exige manage; 404 se id não pertence à org/for pessoal
 //   20. Isolamento entre organizações — findVisibleQuickReplyById espelhado no service
+//   21. requestQuickReplyUploadSignedUrlService (F28-S04) — key sem PII com prefixo
+//       quick-replies/{orgId}/{uuid}{ext}; exige write; 422 MIME/tamanho fora do limite
+//   22. markQuickReplyUsedService (F28-S04) — incremento atômico; 404 em resposta
+//       pessoal de outro operador; nunca publica quick_reply:changed nem grava audit
 // =============================================================================
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -43,6 +47,7 @@ const mockUpdateQuickReplyById = vi.fn();
 const mockSoftDeleteQuickReplyById = vi.fn();
 const mockReorderQuickReplies = vi.fn();
 const mockFindActorDisplayNames = vi.fn();
+const mockIncrementQuickReplyUsage = vi.fn();
 
 vi.mock('../repository.js', () => ({
   findQuickReplies: (...args: unknown[]) => mockFindQuickReplies(...args),
@@ -53,6 +58,7 @@ vi.mock('../repository.js', () => ({
   softDeleteQuickReplyById: (...args: unknown[]) => mockSoftDeleteQuickReplyById(...args),
   reorderQuickReplies: (...args: unknown[]) => mockReorderQuickReplies(...args),
   findActorDisplayNames: (...args: unknown[]) => mockFindActorDisplayNames(...args),
+  incrementQuickReplyUsage: (...args: unknown[]) => mockIncrementQuickReplyUsage(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -80,10 +86,13 @@ vi.mock('../../../lib/queue/topology.js', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock storage (security review nota 2 — mediaUrl restrito ao prefixo da org)
+// Mock storage (security review nota 2 — mediaUrl restrito ao prefixo da org;
+// createSignedUploadUrl — F28-S04, signed URL de upload)
 // ---------------------------------------------------------------------------
+const mockCreateSignedUploadUrl = vi.fn();
 vi.mock('../../../lib/storage/index.js', () => ({
   getPublicUrl: (key: string) => `https://cdn.example.com/${key}`,
+  createSignedUploadUrl: (...args: unknown[]) => mockCreateSignedUploadUrl(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -669,5 +678,139 @@ describe('reorderQuickRepliesService', () => {
 
     expect(result).toEqual({ updated: 1 });
     expect(mockPublish).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// requestQuickReplyUploadSignedUrlService (F28-S04, doc 25 §7)
+// ---------------------------------------------------------------------------
+
+describe('requestQuickReplyUploadSignedUrlService', () => {
+  it('21a. exige write — 403 sem a permissão', async () => {
+    const { requestQuickReplyUploadSignedUrlService } = await import('../service.js');
+    const actor = makeActor({ permissions: [READ_PERMISSION] });
+
+    await expect(
+      requestQuickReplyUploadSignedUrlService(actor, {
+        fileName: 'brasao.png',
+        mime: 'image/png',
+        sizeBytes: 1024,
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(mockCreateSignedUploadUrl).not.toHaveBeenCalled();
+  });
+
+  it('21b. key gerada sem PII, com prefixo quick-replies/{orgId}/{uuid}{ext}', async () => {
+    mockCreateSignedUploadUrl.mockResolvedValueOnce({
+      uploadUrl: 'https://storage.example.com/upload?sig=abc',
+      publicUrl: 'https://cdn.example.com/quick-replies/aaaaaaaa-0000-0000-0000-000000000001/x.png',
+    });
+    const { requestQuickReplyUploadSignedUrlService } = await import('../service.js');
+    const actor = makeActor();
+
+    const result = await requestQuickReplyUploadSignedUrlService(actor, {
+      fileName: 'foto do cidadão joão silva.png',
+      mime: 'image/png',
+      sizeBytes: 1024,
+    });
+
+    expect(mockCreateSignedUploadUrl).toHaveBeenCalledTimes(1);
+    const [key, mime] = mockCreateSignedUploadUrl.mock.calls[0] as [string, string];
+    // Key sem PII: só prefixo fixo + orgId (UUID opaco) + UUID aleatório + extensão —
+    // nunca o fileName original (que poderia carregar nome do cidadão).
+    expect(key).toMatch(
+      /^quick-replies\/aaaaaaaa-0000-0000-0000-000000000001\/[0-9a-f-]{36}\.png$/,
+    );
+    expect(key).not.toContain('joão');
+    expect(key).not.toContain('cidadão');
+    expect(mime).toBe('image/png');
+
+    expect(result).toEqual({
+      uploadUrl: 'https://storage.example.com/upload?sig=abc',
+      publicMediaUrl:
+        'https://cdn.example.com/quick-replies/aaaaaaaa-0000-0000-0000-000000000001/x.png',
+      expiresAt: expect.any(String),
+    });
+    expect(new Date(result.expiresAt).getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('21c. 422 quando sizeBytes excede o limite do tipo (reusa maxUploadBytesForMime)', async () => {
+    const { requestQuickReplyUploadSignedUrlService } = await import('../service.js');
+    const actor = makeActor();
+
+    await expect(
+      requestQuickReplyUploadSignedUrlService(actor, {
+        fileName: 'foto.png',
+        mime: 'image/png',
+        sizeBytes: 6 * 1024 * 1024, // acima do teto de 5MB para imagem
+      }),
+    ).rejects.toMatchObject({
+      statusCode: 422,
+      details: expect.objectContaining({ code: 'QUICK_REPLY_MEDIA_TOO_LARGE' }),
+    });
+    expect(mockCreateSignedUploadUrl).not.toHaveBeenCalled();
+  });
+
+  it('21d. 400 para corpo malformado sem código estável (erro de forma comum)', async () => {
+    const { requestQuickReplyUploadSignedUrlService } = await import('../service.js');
+    const actor = makeActor();
+
+    await expect(
+      requestQuickReplyUploadSignedUrlService(actor, { fileName: '', mime: '', sizeBytes: -1 }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(mockCreateSignedUploadUrl).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// markQuickReplyUsedService (F28-S04, doc 25 §10)
+// ---------------------------------------------------------------------------
+
+describe('markQuickReplyUsedService', () => {
+  it('22a. sucesso — incrementa via repository escopado por org + visibilidade', async () => {
+    mockIncrementQuickReplyUsage.mockResolvedValueOnce(makeRow({ usageCount: 1 }));
+    const { markQuickReplyUsedService } = await import('../service.js');
+    const actor = makeActor();
+
+    await expect(
+      markQuickReplyUsedService(mockDb as unknown as Database, actor, QUICK_REPLY_ID),
+    ).resolves.toBeUndefined();
+
+    expect(mockIncrementQuickReplyUsage).toHaveBeenCalledWith(
+      mockDb,
+      actor.organizationId,
+      actor.userId,
+      QUICK_REPLY_ID,
+    );
+    // Telemetria não é uma mudança de conteúdo/visibilidade — não deve
+    // publicar quick_reply:changed nem gravar audit log (doc 25 §9/§10).
+    expect(mockPublish).not.toHaveBeenCalled();
+    expect(mockAuditLog).not.toHaveBeenCalled();
+  });
+
+  it('22b. 404 quando a resposta é pessoal de outro operador (repository retorna null)', async () => {
+    mockIncrementQuickReplyUsage.mockResolvedValueOnce(null);
+    const { markQuickReplyUsedService } = await import('../service.js');
+    const actor = makeActor({ userId: OTHER_USER_ID });
+
+    await expect(
+      markQuickReplyUsedService(mockDb as unknown as Database, actor, QUICK_REPLY_ID),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('22c. isolamento entre organizações — incrementa sempre com organizationId do ator', async () => {
+    mockIncrementQuickReplyUsage.mockResolvedValueOnce(null);
+    const { markQuickReplyUsedService } = await import('../service.js');
+    const actor = makeActor({ organizationId: OTHER_ORG_ID });
+
+    await expect(
+      markQuickReplyUsedService(mockDb as unknown as Database, actor, QUICK_REPLY_ID),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(mockIncrementQuickReplyUsage).toHaveBeenCalledWith(
+      mockDb,
+      OTHER_ORG_ID,
+      actor.userId,
+      QUICK_REPLY_ID,
+    );
   });
 });

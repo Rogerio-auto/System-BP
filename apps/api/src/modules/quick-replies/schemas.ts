@@ -39,3 +39,29 @@ export const quickReplyReorderBodySchema = z.object({
     .max(500, 'Máximo de 500 itens por lote de reordenação'),
 });
 export type QuickReplyReorderBody = z.infer<typeof quickReplyReorderBodySchema>;
+
+// ---------------------------------------------------------------------------
+// Upload de mídia — signed URL (doc 25 §7, F28-S04).
+//
+// O body (`{ fileName, mime, sizeBytes }`) já tem contrato compartilhado —
+// `quickReplySignedUrlBodySchema` de @elemento/shared-schemas (F28-S02),
+// reusando `maxUploadBytesForMime`. A RESPOSTA não tem schema compartilhado
+// (só o backend a produz) — declarada aqui, mesmo precedente de
+// `reorderResponseSchema` em routes.ts.
+// ---------------------------------------------------------------------------
+
+export const quickReplySignedUrlResponseSchema = z.object({
+  uploadUrl: z
+    .string()
+    .url()
+    .describe('URL pré-assinada (PUT) para o browser enviar o arquivo diretamente ao storage'),
+  publicMediaUrl: z
+    .string()
+    .url()
+    .describe(
+      'URL pública e estável do objeto após o upload — usada no cadastro da resposta rápida ' +
+        '(mediaUrl) e enviada por `link` para a Meta no envio da mensagem',
+    ),
+  expiresAt: z.string().datetime().describe('Expiração da uploadUrl (ISO 8601)'),
+});
+export type QuickReplySignedUrlResponse = z.infer<typeof quickReplySignedUrlResponseSchema>;

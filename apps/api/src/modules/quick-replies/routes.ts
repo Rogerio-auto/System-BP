@@ -1,13 +1,16 @@
 // =============================================================================
-// quick-replies/routes.ts — Rotas do módulo de respostas rápidas (F28-S03).
+// quick-replies/routes.ts — Rotas do módulo de respostas rápidas (F28-S03,
+// F28-S04).
 //
 // Endpoints:
-//   GET    /api/quick-replies         — lista visíveis ao ator (org ∪ próprias)
-//   GET    /api/quick-replies/:id     — detalhe
-//   POST   /api/quick-replies         — cria (organization exige manage; personal exige write)
-//   PATCH  /api/quick-replies/:id     — atualização parcial
-//   DELETE /api/quick-replies/:id     — soft-delete
-//   PATCH  /api/quick-replies/reorder — reordenação em lote (exige manage)
+//   GET    /api/quick-replies                    — lista visíveis ao ator (org ∪ próprias)
+//   GET    /api/quick-replies/:id                 — detalhe
+//   POST   /api/quick-replies                     — cria (organization exige manage; personal exige write)
+//   PATCH  /api/quick-replies/:id                  — atualização parcial
+//   DELETE /api/quick-replies/:id                  — soft-delete
+//   PATCH  /api/quick-replies/reorder              — reordenação em lote (exige manage)
+//   POST   /api/quick-replies/uploads/signed-url   — signed URL de upload de mídia (F28-S04, exige write)
+//   POST   /api/quick-replies/:id/used             — telemetria de uso (F28-S04, exige read)
 //
 // RBAC (doc 25 §5):
 //   - Leitura: livechat:quick_reply:read.
@@ -16,6 +19,9 @@
 //     do service, que conhece o dono/visibilidade do registro (authorizeAny
 //     aqui é só o piso: quem não tem NENHUMA das duas nem chega ao service).
 //   - Reordenar: manage.
+//   - Signed URL de upload: write (mesmo piso de criar/editar resposta pessoal).
+//   - Telemetria de uso: read (a regra fina de visibilidade — não tocar
+//     resposta pessoal de outro — é do service/repository, não da rota).
 //
 // Feature flag: livechat.quick_replies.enabled em TODAS as rotas — flag
 // desligada retorna 403 feature_disabled antes de qualquer outra checagem.
@@ -28,12 +34,16 @@
 // variáveis (QUICK_REPLY_UNKNOWN_VARIABLE/MISSING_FALLBACK/etc.) em vez do
 // 400 genérico que a validação automática do Fastify produziria. Mesmo
 // precedente de modules/templates/routes.ts (body validado no controller).
+// O body de /uploads/signed-url segue o MESMO padrão (quickReplySignedUrlBodySchema
+// tem superRefine para QUICK_REPLY_MEDIA_TOO_LARGE — precisa do mesmo bypass
+// para responder 422 com o código estável em vez de 400 genérico).
 // =============================================================================
 import {
   quickReplyCreateSchema,
   quickReplyListQuerySchema,
   quickReplyListResponseSchema,
   quickReplyResponseSchema,
+  quickReplySignedUrlBodySchema,
   quickReplyUpdateSchema,
 } from '@elemento/shared-schemas';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -48,14 +58,21 @@ import {
   deleteQuickReplyController,
   getQuickReplyController,
   listQuickRepliesController,
+  markQuickReplyUsedController,
+  requestQuickReplyUploadSignedUrlController,
   reorderQuickRepliesController,
   updateQuickReplyController,
 } from './controller.js';
-import { quickReplyIdParamSchema, quickReplyReorderBodySchema } from './schemas.js';
+import {
+  quickReplyIdParamSchema,
+  quickReplyReorderBodySchema,
+  quickReplySignedUrlResponseSchema,
+} from './schemas.js';
 import { MANAGE_PERMISSION, READ_PERMISSION, WRITE_PERMISSION } from './service.js';
 
 const FLAG = 'livechat.quick_replies.enabled';
 const READ_PERMS: [string, ...string[]] = [READ_PERMISSION];
+const WRITE_PERMS: [string, ...string[]] = [WRITE_PERMISSION];
 const WRITE_OR_MANAGE_PERMS: [string, ...string[]] = [WRITE_PERMISSION, MANAGE_PERMISSION];
 const MANAGE_PERMS: [string, ...string[]] = [MANAGE_PERMISSION];
 
@@ -119,6 +136,36 @@ export const quickRepliesRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorizeAny({ permissions: WRITE_OR_MANAGE_PERMS }), featureGate(FLAG)],
     },
     createQuickReplyController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/quick-replies/uploads/signed-url — assina upload de mídia (F28-S04)
+  // Path estático ("uploads") — o roteador do Fastify prioriza segmentos
+  // estáticos sobre parâmetros, então não colide com GET/PATCH/DELETE /:id.
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/quick-replies/uploads/signed-url',
+    {
+      attachValidation: true,
+      schema: {
+        tags: ['Quick Replies'],
+        summary: 'Assinar upload de mídia para a biblioteca de respostas rápidas',
+        description:
+          'Gera uma URL pré-assinada (PUT) para upload direto de mídia ao storage, para uso no ' +
+          'cadastro (criação/edição) de uma resposta rápida. Fase 1 de um upload em duas fases — ' +
+          'o browser faz o PUT diretamente na `uploadUrl` retornada, sem passar pelo backend, e ' +
+          'em seguida usa `publicMediaUrl` como `mediaUrl` no POST/PATCH da resposta rápida. ' +
+          'A key do objeto usa o prefixo `quick-replies/{organizationId}/{uuid}{ext}` — distinto ' +
+          'do prefixo `outbound/` do live chat, pois mídia de biblioteca é ativo institucional, ' +
+          'não dado de conversa sujeito a retenção de atendimento. MIME e tamanho são validados ' +
+          'contra os mesmos limites do live chat (imagem 5MB, áudio/vídeo 16MB, documento 50MB).',
+        security: [{ bearerAuth: [] }],
+        body: quickReplySignedUrlBodySchema,
+        response: { 200: quickReplySignedUrlResponseSchema },
+      },
+      preHandler: [authorize({ permissions: WRITE_PERMS }), featureGate(FLAG)],
+    },
+    requestQuickReplyUploadSignedUrlController,
   );
 
   // ---------------------------------------------------------------------------
@@ -211,5 +258,30 @@ export const quickRepliesRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: [authorizeAny({ permissions: WRITE_OR_MANAGE_PERMS }), featureGate(FLAG)],
     },
     deleteQuickReplyController,
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /api/quick-replies/:id/used — telemetria de uso (F28-S04)
+  // ---------------------------------------------------------------------------
+  app.post(
+    '/api/quick-replies/:id/used',
+    {
+      schema: {
+        tags: ['Quick Replies'],
+        summary: 'Registrar uso de uma resposta rápida',
+        description:
+          'Incrementa `usage_count` e grava `last_used_at`. Chamado pelo cliente de forma ' +
+          '"fire-and-forget" logo após o envio de uma mensagem originada de uma resposta rápida ' +
+          '— uma falha aqui nunca desfaz nem bloqueia o envio já realizado. Sem `Idempotency-Key`: ' +
+          'o contador é aproximado por natureza. Só é possível incrementar respostas visíveis ao ' +
+          'operador (da organização ou da própria biblioteca pessoal) — tentar marcar o uso de ' +
+          'uma resposta pessoal de outro operador retorna 404 (não revela existência).',
+        security: [{ bearerAuth: [] }],
+        params: quickReplyIdParamSchema,
+        response: { 204: { description: 'Uso registrado com sucesso.' } },
+      },
+      preHandler: [authorize({ permissions: READ_PERMS }), featureGate(FLAG)],
+    },
+    markQuickReplyUsedController,
   );
 };
