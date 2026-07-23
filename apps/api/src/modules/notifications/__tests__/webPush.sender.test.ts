@@ -68,11 +68,15 @@ vi.mock('web-push', () => {
       this.statusCode = statusCode;
     }
   }
-  return {
+  const api = {
     sendNotification: (...args: unknown[]) => mockSendNotification(...args),
     setVapidDetails: (...args: unknown[]) => mockSetVapidDetails(...args),
     WebPushError,
   };
+  // `web-push` é CommonJS: o SUT (senders/webPush.ts) consome via
+  // `import webpush from 'web-push'` (default). Exponha `default` além dos
+  // named (o próprio teste importa `WebPushError` por named na linha 24).
+  return { ...api, default: api };
 });
 
 // ---------------------------------------------------------------------------
