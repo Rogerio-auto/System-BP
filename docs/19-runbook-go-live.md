@@ -856,6 +856,69 @@ Doc canônico completo: [`docs/23-notificacoes.md`](23-notificacoes.md). Catálo
 
 ---
 
+## 15. Go-live — Respostas Rápidas (Fase F28)
+
+Doc canônico completo: [`docs/25-respostas-rapidas.md`](25-respostas-rapidas.md). Catálogo de
+flags: [`docs/09-feature-flags.md`](09-feature-flags.md) §3. Checklist de verificação:
+[`docs/qa/respostas-rapidas-verification.md`](qa/respostas-rapidas-verification.md).
+
+### 15.1 Pré-requisitos antes do flip
+
+- `security-reviewer` aprovado nos slots de F28 — em especial: isolamento de organização em
+  todas as rotas; **visibilidade uniforme** entre `read`/`write`/`manage` (nenhuma exceção do
+  tipo "tela admin com `manage` vê resposta pessoal de terceiro" — descartada em F28-S03, doc 25
+  §5 regra 2); guarda anti-SSRF de `mediaUrl` restrita por parse estrutural ao prefixo da própria
+  organização (`quick-replies/{organizationId}/`), não `startsWith`; guarda pós-interpolação
+  contra `{{...}}` cru sobrevivendo à criação **e** ao envio (defesa em profundidade, backend em
+  `assertBodyInterpolatesSafely` + frontend em `QuickReplyPicker`).
+- Checklist LGPD §14.2 (doc 17) revisado — RoPA já atualizado neste slot (doc 17 §3.3 item 12,
+  §3.4 `quick_replies`): a tabela em si não é dado pessoal do titular, mas **o conteúdo cadastrado
+  é disparado diretamente ao cidadão** — é atendimento ao cidadão, não uma flag puramente
+  administrativa. Recomenda-se o mesmo gate de aprovação (DPO/responsável LGPD) usado para as
+  demais flags que tocam a conversa com o cidadão nesta base, antes de ligar em produção — mesmo
+  a tabela sendo isenta de PII do titular.
+- `pnpm --filter @elemento/api test` + `pnpm --filter @elemento/web test` verdes, incluindo a
+  suíte de integração real contra Postgres
+  (`apps/api/src/modules/quick-replies/__tests__/integration.test.ts`, F28-S08).
+- O checklist manual (`docs/qa/respostas-rapidas-verification.md`, Parte B) executado por um
+  humano em navegador real — cobre atalho `/`, foco no `Esc`, tempo real ≤ 5s de propagação de
+  mudança da biblioteca e janela de 24h fechada — **e** com um número de WhatsApp de teste real,
+  confirmando envio de texto e de mídia por resposta rápida chegando com `view_status='sent'`.
+- Confirmar que nenhuma alteração reintroduziu `{{organizacao.nome}}` no catálogo de variáveis
+  (doc 25 §6.1) sem antes threadar o nome da organização até o composer (`/auth/me` + auth-store)
+  — débito conhecido, removido em F28-S06 justamente por não resolver no cliente.
+
+### 15.2 Ordem de flip recomendada
+
+1. **`livechat.quick_replies.enabled`** — flag única, sem dependências em cascata: não há
+   worker nem tool de IA novos (o envio reusa o pipeline de mensagens já existente e já testado
+   em produção, doc 25 §8 — zero mudança em `send.service.ts`/worker/serializer/contrato de fila).
+   Ligar primeiro numa organização piloto ou em staging e validar com pelo menos 2 contas de
+   teste (uma com `manage`, uma só com `write`):
+   - O botão de respostas rápidas só aparece no composer para quem tem
+     `livechat:quick_reply:read` **e** `livechat:message:send` — nunca para quem só tem uma das
+     duas.
+   - A rota `/admin/quick-replies` só aparece no hub de configurações para quem tem `manage`.
+   - Nenhuma resposta pessoal de um operador aparece para o outro — nem para o gestor com
+     `manage` — confirmar manualmente com as 2 contas.
+2. Sem segunda etapa de flip em cascata (ao contrário de Notificações, §14) — é uma flag simples
+   de UI/API que gateia um recurso autocontido.
+
+### 15.3 Checklist de validação pós-flip
+
+- [ ] Operador com a flag ligada vê o botão; com a flag desligada, o botão não renderiza (doc 25
+      §14, critério 1).
+- [ ] Envio de texto e de mídia por resposta rápida chega ao WhatsApp real com
+      `view_status='sent'` (critérios 3/4 — checklist manual, Parte B do doc de verificação).
+- [ ] Gestor edita/desativa uma resposta da organização e o operador com o chat aberto vê a
+      mudança em ≤ 5s sem recarregar (critério 7 — checklist manual).
+- [ ] Fora da janela de 24h o seletor fica desabilitado e nenhuma chamada de envio é feita
+      (critério 6).
+- [ ] `docs/qa/respostas-rapidas-verification.md` — Parte B (checklist manual) preenchida por um
+      QA humano, com WhatsApp de teste real.
+
+---
+
 ## Histórico de revisões
 
 | Data       | Versão | Autor               | Mudança                                                                                                                                                                                                                                                      |
@@ -865,3 +928,4 @@ Doc canônico completo: [`docs/23-notificacoes.md`](23-notificacoes.md). Catálo
 | 2026-05-26 | 1.2    | Slot F8-S17         | Seção 13: troubleshooting de migrations com CONCURRENTLY, journal drift e checklist de deploy com db:check-drift                                                                                                                                             |
 | 2026-07-10 | 1.3    | Slot F24-S15        | Seção 14: ordem de flip das 4 flags de notificações (Fase F24), pré-requisitos e checklist de validação pós-flip; aponta para divergências conhecidas em doc 23 §12                                                                                          |
 | 2026-07-19 | 1.4    | Sessão notificações | Seção 14 atualizada ao estado real: bug `kanban_stage:*` corrigido (F24-S16), realtime entregue (F24-S08/S13), 7 eixos de SLA com fonte de dados. Bloqueadores anteriores removidos; débito remanescente reclassificado como UX de frontend (doc 23 §13/§14) |
+| 2026-07-23 | 1.5    | Slot F28-S08        | Seção 15 (nova): ordem de flip de `livechat.quick_replies.enabled` (Fase F28 — Respostas Rápidas do Live Chat), pré-requisitos incluindo gate de aprovação por ser atendimento direto ao cidadão, e checklist de validação pós-flip                          |

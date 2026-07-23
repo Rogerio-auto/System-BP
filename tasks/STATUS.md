@@ -28,7 +28,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F25  | 11    | 0   | 0   | 0   | 0   | 0   | 11  |
 | F26  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F27  | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
-| F28  | 8     | 1   | 0   | 0   | 0   | 0   | 7   |
+| F28  | 8     | 0   | 0   | 0   | 0   | 1   | 7   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -410,16 +410,16 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 28 —
 
-| ID      | Título                                                             | Status       | Prioridade | Depende de       |
-| ------- | ------------------------------------------------------------------ | ------------ | ---------- | ---------------- |
-| F28-S01 | DB — tabela quick_replies (0094) + permissões e flag (0095)        | ✅ done      | critical   | —                |
-| F28-S02 | Contrato compartilhado — schemas Zod e catálogo de variáveis       | ✅ done      | critical   | —                |
-| F28-S03 | Backend — módulo CRUD de respostas rápidas (RBAC, audit, realtime) | ✅ done      | critical   | F28-S01, F28-S02 |
-| F28-S04 | Backend — mídia da biblioteca (signed URL) e telemetria de uso     | ✅ done      | high       | F28-S03          |
-| F28-S05 | Frontend — camada de dados de respostas rápidas + realtime         | ✅ done      | high       | F28-S02          |
-| F28-S06 | Frontend — seletor de respostas rápidas no composer do live chat   | ✅ done      | critical   | F28-S04, F28-S05 |
-| F28-S07 | Frontend — administração da biblioteca de respostas rápidas        | ✅ done      | high       | F28-S04, F28-S05 |
-| F28-S08 | QA — verificação ponta a ponta e fechamento documental de F28      | 🟢 available | high       | F28-S06, F28-S07 |
+| ID      | Título                                                             | Status    | Prioridade | Depende de       |
+| ------- | ------------------------------------------------------------------ | --------- | ---------- | ---------------- |
+| F28-S01 | DB — tabela quick_replies (0094) + permissões e flag (0095)        | ✅ done   | critical   | —                |
+| F28-S02 | Contrato compartilhado — schemas Zod e catálogo de variáveis       | ✅ done   | critical   | —                |
+| F28-S03 | Backend — módulo CRUD de respostas rápidas (RBAC, audit, realtime) | ✅ done   | critical   | F28-S01, F28-S02 |
+| F28-S04 | Backend — mídia da biblioteca (signed URL) e telemetria de uso     | ✅ done   | high       | F28-S03          |
+| F28-S05 | Frontend — camada de dados de respostas rápidas + realtime         | ✅ done   | high       | F28-S02          |
+| F28-S06 | Frontend — seletor de respostas rápidas no composer do live chat   | ✅ done   | critical   | F28-S04, F28-S05 |
+| F28-S07 | Frontend — administração da biblioteca de respostas rápidas        | ✅ done   | high       | F28-S04, F28-S05 |
+| F28-S08 | QA — verificação ponta a ponta e fechamento documental de F28      | 🟣 review | high       | F28-S06, F28-S07 |
 
 ## Fase 3 — Agentes IA
 
