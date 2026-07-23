@@ -3,7 +3,7 @@ id: F29-S02
 title: Frontend — deep-link do sino abre a conversa específica (não só o inbox)
 phase: F29
 task_ref: docs/23-notificacoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: null
@@ -13,6 +13,7 @@ labels: [frontend, notifications, livechat, deep-link]
 source_docs: [docs/23-notificacoes.md, docs/18-design-system.md]
 docs_required: false
 claimed_at: 2026-07-23T22:33:46Z
+completed_at: 2026-07-23T22:45:19Z
 ---
 
 # F29-S02 — Deep-link do sino para a conversa específica
