@@ -67,6 +67,7 @@ import { FeatureFlagsPage } from './pages/admin/FeatureFlags';
 import { NotificacoesPage } from './pages/admin/Notificacoes';
 import { ProductDetailPage } from './pages/admin/ProductDetail';
 import { ProductsPage } from './pages/admin/Products';
+import { QuickRepliesPage } from './pages/admin/QuickReplies';
 import { TutoriaisPage } from './pages/admin/Tutoriais';
 import { UsersPage } from './pages/admin/Users';
 import { ConversasPage } from './pages/ConversasPage';
@@ -207,6 +208,8 @@ function AppRoutes(): React.JSX.Element {
           <Route path="/admin/templates" element={<TemplatesListPage />} />
           <Route path="/admin/templates/new" element={<TemplateFormPage />} />
           <Route path="/admin/templates/:id" element={<TemplateDetailPage />} />
+          {/* F28-S07: Respostas rápidas — biblioteca de mensagens do live chat */}
+          <Route path="/admin/quick-replies" element={<QuickRepliesPage />} />
           {/* F16-S16: Inbox live chat — layout 3 colunas + ChatList */}
           <Route path="/conversas" element={<ConversasPage />} />
           {/* F15-S10: Painel de tarefas */}
