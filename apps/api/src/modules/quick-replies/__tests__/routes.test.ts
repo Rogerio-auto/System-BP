@@ -19,6 +19,8 @@
 //   11. POST com write apenas (sem manage) → chega ao service (piso da rota)
 //   12. Reorder sem manage → 403
 //   13. Feature flag desabilitada → 403 em list, create e reorder
+//   14. POST /uploads/signed-url → 200; sem write → 403; flag off → 403 (F28-S04)
+//   15. POST /:id/used → 204; sem read → 403; flag off → 403; 404 propagado (F28-S04)
 // =============================================================================
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -85,6 +87,8 @@ const mockCreateQuickReplyService = vi.fn();
 const mockUpdateQuickReplyService = vi.fn();
 const mockDeleteQuickReplyService = vi.fn();
 const mockReorderQuickRepliesService = vi.fn();
+const mockRequestQuickReplyUploadSignedUrlService = vi.fn();
+const mockMarkQuickReplyUsedService = vi.fn();
 
 vi.mock('../service.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -96,6 +100,9 @@ vi.mock('../service.js', async (importOriginal) => {
     updateQuickReplyService: (...args: unknown[]) => mockUpdateQuickReplyService(...args),
     deleteQuickReplyService: (...args: unknown[]) => mockDeleteQuickReplyService(...args),
     reorderQuickRepliesService: (...args: unknown[]) => mockReorderQuickRepliesService(...args),
+    requestQuickReplyUploadSignedUrlService: (...args: unknown[]) =>
+      mockRequestQuickReplyUploadSignedUrlService(...args),
+    markQuickReplyUsedService: (...args: unknown[]) => mockMarkQuickReplyUsedService(...args),
   };
 });
 
@@ -449,6 +456,145 @@ describe('PATCH /api/quick-replies/reorder', () => {
       payload: { items: [{ id: FIXTURE_QUICK_REPLY_ID, sortOrder: 1 }] },
     });
     expect(res.statusCode).toBe(403);
+    await app.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/quick-replies/uploads/signed-url (F28-S04)
+// ---------------------------------------------------------------------------
+
+describe('POST /api/quick-replies/uploads/signed-url', () => {
+  const SIGNED_URL_PAYLOAD = { fileName: 'brasao.png', mime: 'image/png', sizeBytes: 1024 };
+
+  it('14a. retorna 200 com { uploadUrl, publicMediaUrl, expiresAt }', async () => {
+    const app = await buildTestApp();
+    mockRequestQuickReplyUploadSignedUrlService.mockResolvedValueOnce({
+      uploadUrl: 'https://storage.example.com/upload?sig=abc',
+      publicMediaUrl: 'https://cdn.example.com/quick-replies/org/uuid.png',
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/quick-replies/uploads/signed-url',
+      payload: SIGNED_URL_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body).toHaveProperty('uploadUrl');
+    expect(body).toHaveProperty('publicMediaUrl');
+    expect(body).toHaveProperty('expiresAt');
+    await app.close();
+  });
+
+  it('14b. sem write → 403 (piso da rota, não chega ao service)', async () => {
+    const app = await buildTestApp(['livechat:quick_reply:read']);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/quick-replies/uploads/signed-url',
+      payload: SIGNED_URL_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(mockRequestQuickReplyUploadSignedUrlService).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('14c. feature flag desabilitada → 403', async () => {
+    mockFeatureGateEnabled.mockReturnValue(false);
+    const app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/quick-replies/uploads/signed-url',
+      payload: SIGNED_URL_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it('14d. não é capturada pela rota /:id (roteamento correto — path estático "uploads")', async () => {
+    const app = await buildTestApp();
+    mockRequestQuickReplyUploadSignedUrlService.mockResolvedValueOnce({
+      uploadUrl: 'https://storage.example.com/upload?sig=abc',
+      publicMediaUrl: 'https://cdn.example.com/quick-replies/org/uuid.png',
+      expiresAt: new Date().toISOString(),
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/quick-replies/uploads/signed-url',
+      payload: SIGNED_URL_PAYLOAD,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockRequestQuickReplyUploadSignedUrlService).toHaveBeenCalledTimes(1);
+    await app.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/quick-replies/:id/used (F28-S04)
+// ---------------------------------------------------------------------------
+
+describe('POST /api/quick-replies/:id/used', () => {
+  it('15a. retorna 204 quando o uso é registrado', async () => {
+    const app = await buildTestApp();
+    mockMarkQuickReplyUsedService.mockResolvedValueOnce(undefined);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/quick-replies/${FIXTURE_QUICK_REPLY_ID}/used`,
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(mockMarkQuickReplyUsedService).toHaveBeenCalledTimes(1);
+    await app.close();
+  });
+
+  it('15b. sem permissão de leitura → 403 (piso da rota, não chega ao service)', async () => {
+    const app = await buildTestApp([]);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/quick-replies/${FIXTURE_QUICK_REPLY_ID}/used`,
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(mockMarkQuickReplyUsedService).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('15c. feature flag desabilitada → 403', async () => {
+    mockFeatureGateEnabled.mockReturnValue(false);
+    const app = await buildTestApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/quick-replies/${FIXTURE_QUICK_REPLY_ID}/used`,
+    });
+
+    expect(res.statusCode).toBe(403);
+    await app.close();
+  });
+
+  it('15d. 404 quando a resposta é pessoal de outro operador (propaga NotFoundError)', async () => {
+    const app = await buildTestApp();
+    const { NotFoundError } = await import('../../../shared/errors.js');
+    mockMarkQuickReplyUsedService.mockRejectedValueOnce(
+      new NotFoundError('Resposta rápida não encontrada'),
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/quick-replies/${FIXTURE_QUICK_REPLY_ID}/used`,
+    });
+
+    expect(res.statusCode).toBe(404);
     await app.close();
   });
 });

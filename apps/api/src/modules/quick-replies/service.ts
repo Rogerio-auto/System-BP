@@ -1,5 +1,6 @@
 // =============================================================================
-// quick-replies/service.ts — Regras de negócio de respostas rápidas (F28-S03).
+// quick-replies/service.ts — Regras de negócio de respostas rápidas (F28-S03,
+// F28-S04).
 //
 // Autorização (doc 25 §5) — decidida AQUI, não só na rota:
 //   1. Toda query filtra por organization_id do ator — sem exceção.
@@ -14,6 +15,12 @@
 //      como campo de entrada, então não há nada vindo do body a "ignorar";
 //      o valor é sempre derivado do ator.
 //   6. Enviar (fora deste slot) exige livechat:message:send.
+//   7. Gerar signed URL de upload (F28-S04) exige `write` — mesmo piso de
+//      criar/editar resposta pessoal (a mídia só é associada a um registro
+//      depois, via create/update).
+//   8. Telemetria de uso (F28-S04, POST /:id/used) reusa a MESMA regra de
+//      visibilidade da leitura — não é uma checagem de permissão adicional
+//      além de `read` (já aplicada na rota); ver markQuickReplyUsedService.
 //
 // Notas do security review de F28-S01/S02 endereçadas aqui:
 //   1. Guarda pós-interpolação contra token cru — assertBodyInterpolatesSafely.
@@ -27,17 +34,22 @@
 // §8.4) via lib/dlp.ts — RG deliberadamente excluído (doc 25 §12 não o lista;
 // alta taxa de falso positivo, doc no próprio lib/dlp.ts).
 // =============================================================================
+import crypto from 'node:crypto';
+import path from 'node:path';
+
 import {
   extractQuickReplyErrorCode,
   interpolateQuickReply,
   parseQuickReplyVariables,
   quickReplyCreateSchema,
+  quickReplySignedUrlBodySchema,
   quickReplyUpdateSchema,
 } from '@elemento/shared-schemas';
 import type {
   QuickReplyCreate,
   QuickReplyListResponse,
   QuickReplyResponse,
+  QuickReplySignedUrlBody,
   QuickReplyUpdate,
 } from '@elemento/shared-schemas';
 import type { z } from 'zod';
@@ -49,7 +61,7 @@ import type { AuditActor, AuditTx } from '../../lib/audit.js';
 import { redactPii } from '../../lib/dlp.js';
 import { makeEnvelope, publish } from '../../lib/queue/index.js';
 import { QUEUES } from '../../lib/queue/topology.js';
-import { getPublicUrl } from '../../lib/storage/index.js';
+import { createSignedUploadUrl, getPublicUrl } from '../../lib/storage/index.js';
 import { AppError, ForbiddenError, NotFoundError } from '../../shared/errors.js';
 
 import {
@@ -57,12 +69,14 @@ import {
   findQuickReplies,
   findShortcutConflict,
   findVisibleQuickReplyById,
+  incrementQuickReplyUsage,
   insertQuickReply,
   reorderQuickReplies,
   softDeleteQuickReplyById,
   updateQuickReplyById,
 } from './repository.js';
 import type { QuickReplyListQuery, UpdateQuickReplyInput } from './repository.js';
+import type { QuickReplySignedUrlResponse } from './schemas.js';
 
 /**
  * Verifica se um erro Postgres é violação de unique constraint (code 23505).
@@ -680,4 +694,96 @@ export async function reorderQuickRepliesService(
   }
 
   return { updated: updatedIds.length };
+}
+
+// ---------------------------------------------------------------------------
+// Upload de mídia — signed URL (doc 25 §7, F28-S04)
+//
+// Mesmo mecanismo de 2 fases do live chat (modules/conversations/send.service.ts
+// generateUploadSignedUrl), copiado (não importado — módulo proibido para este
+// slot) com o prefixo de key trocado: `quick-replies/{organizationId}/{uuid}{ext}`
+// em vez de `outbound/{organizationId}/{uuid}{ext}` — mídia de biblioteca é
+// ativo institucional, não dado de conversa (doc 25 §7.2), e por isso fica
+// fora da rotina de retenção de atendimento.
+// ---------------------------------------------------------------------------
+
+/**
+ * TTL da signed URL de upload — mesmo valor usado pelo driver R2
+ * (`lib/storage/r2.ts`, `expiresIn: 15 * 60`) e documentado no endpoint
+ * irmão de conversations. O driver não devolve a expiração real (a facade
+ * `createSignedUploadUrl` só retorna `{ uploadUrl, publicUrl }`), então o
+ * valor é replicado aqui para compor a resposta do contrato (`expiresAt`).
+ */
+const SIGNED_UPLOAD_TTL_MS = 15 * 60 * 1000;
+
+function parseQuickReplySignedUrlBody(raw: unknown): QuickReplySignedUrlBody {
+  const result = quickReplySignedUrlBodySchema.safeParse(raw);
+  if (!result.success) handleQuickReplyParseFailure(result.error);
+  return result.data;
+}
+
+/**
+ * Gera uma URL pré-assinada para upload direto de mídia da biblioteca de
+ * respostas rápidas. Exige `write` (mesmo piso de criar/editar resposta
+ * pessoal) — a mídia só é de fato associada a um registro depois, via
+ * create/update, onde `assertMediaUrlBelongsToOrg` valida que o
+ * `mediaUrl` informado pertence ao prefixo desta organização.
+ *
+ * MIME/tamanho: validados pelo próprio `quickReplySignedUrlBodySchema`
+ * (reusa `maxUploadBytesForMime` — mesmos limites do live chat, doc 25 §7.3).
+ * Débito herdado (fora de escopo, ver cabeçalho do arquivo): esse limite é
+ * um teto de bytes por PREFIXO de MIME, não uma allowlist real de tipos —
+ * um MIME desconhecido cai no balde "document" de 50 MB.
+ */
+export async function requestQuickReplyUploadSignedUrlService(
+  actor: ActorContext,
+  rawBody: unknown,
+): Promise<QuickReplySignedUrlResponse> {
+  requirePermission(actor, WRITE_PERMISSION);
+
+  const body = parseQuickReplySignedUrlBody(rawBody);
+
+  // Key LGPD-safe: UUID aleatório, não derivado do nome do arquivo nem do
+  // ator — mesmo padrão de generateUploadSignedUrl (send.service.ts:733).
+  const ext =
+    path
+      .extname(body.fileName)
+      .toLowerCase()
+      .replace(/[^a-z0-9.]/g, '') || '.bin';
+  const objectId = crypto.randomUUID();
+  const key = `quick-replies/${actor.organizationId}/${objectId}${ext}`;
+
+  const { uploadUrl, publicUrl } = await createSignedUploadUrl(key, body.mime);
+
+  return {
+    uploadUrl,
+    publicMediaUrl: publicUrl,
+    expiresAt: new Date(Date.now() + SIGNED_UPLOAD_TTL_MS).toISOString(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Telemetria de uso (doc 25 §10, F28-S04)
+// ---------------------------------------------------------------------------
+
+/**
+ * Incrementa `usage_count` e grava `last_used_at` (fire-and-forget do front,
+ * disparado após o envio bem-sucedido — doc 25 §8). A permissão de piso
+ * (`read`) já é aplicada na rota; aqui a única regra adicional é a MESMA
+ * condição de visibilidade da leitura (org ∪ próprias), reusada via
+ * `incrementQuickReplyUsage` — um operador não consegue incrementar o
+ * contador da resposta pessoal de outro (404 uniforme, não revela
+ * existência, mesmo padrão de findVisibleQuickReplyById).
+ *
+ * Sem `Idempotency-Key` (contador aproximado é aceitável, doc 25 §10) e sem
+ * publish em `quick_reply:changed` — esse evento é só para mudanças de
+ * conteúdo/visibilidade (doc 25 §9), não para telemetria.
+ */
+export async function markQuickReplyUsedService(
+  db: Database,
+  actor: ActorContext,
+  id: string,
+): Promise<void> {
+  const updated = await incrementQuickReplyUsage(db, actor.organizationId, actor.userId, id);
+  if (updated === null) throw new NotFoundError('Resposta rápida não encontrada');
 }

@@ -1,5 +1,5 @@
 // =============================================================================
-// quick-replies/controller.ts — Handlers HTTP do módulo (F28-S03).
+// quick-replies/controller.ts — Handlers HTTP do módulo (F28-S03, F28-S04).
 //
 // Responsabilidades:
 //   - Extrair params/query do request (validados pelo Fastify normalmente).
@@ -29,6 +29,8 @@ import {
   deleteQuickReplyService,
   getQuickReplyService,
   listQuickRepliesService,
+  markQuickReplyUsedService,
+  requestQuickReplyUploadSignedUrlService,
   reorderQuickRepliesService,
   updateQuickReplyService,
 } from './service.js';
@@ -137,4 +139,31 @@ export async function reorderQuickRepliesController(
   const { items } = typedBody<QuickReplyReorderBody>(request);
   const result = await reorderQuickRepliesService(db, actor, items);
   return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/quick-replies/uploads/signed-url (F28-S04, doc 25 §7)
+// ---------------------------------------------------------------------------
+
+export async function requestQuickReplyUploadSignedUrlController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const result = await requestQuickReplyUploadSignedUrlService(actor, request.body);
+  return reply.status(200).send(result);
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/quick-replies/:id/used (F28-S04, doc 25 §10)
+// ---------------------------------------------------------------------------
+
+export async function markQuickReplyUsedController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const actor = getActorContext(request);
+  const { id } = typedParams<QuickReplyIdParam>(request);
+  await markQuickReplyUsedService(db, actor, id);
+  return reply.status(204).send();
 }
