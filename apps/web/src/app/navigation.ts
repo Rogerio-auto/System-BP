@@ -46,18 +46,9 @@ export const APP_NAV: NavSection[] = [
         iconKey: 'conversas',
         permission: 'livechat:conversation:read',
       },
-      // Respostas rápidas: biblioteca de mensagens do live chat (F28-S07).
-      // livechat:quick_reply:read cobre admin/gestor_geral/agente (também usam
-      // a tela para gerenciar as próprias respostas pessoais, doc 25 §5) —
-      // iconKey reaproveitado de 'conversas' (sidebar-icons.tsx é compartilhado,
-      // fora de files_allowed deste slot).
-      {
-        href: '/admin/quick-replies',
-        label: 'Respostas rápidas',
-        iconKey: 'conversas',
-        permission: 'livechat:quick_reply:read',
-        featureFlag: 'livechat.quick_replies.enabled',
-      },
+      // Respostas rápidas NÃO fica na sidebar (decisão do Rogério 2026-07-23) —
+      // é uma tela de administração, acessada pelo hub de Configurações
+      // (ConfiguracoesPage.tsx). A rota /admin/quick-replies segue registrada.
     ],
   },
   {
