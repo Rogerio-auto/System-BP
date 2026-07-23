@@ -1,0 +1,177 @@
+---
+title: Biblioteca de Respostas Rápidas
+description: Como criar, editar, organizar e anexar mídia a modelos de mensagem reutilizáveis no atendimento via WhatsApp.
+order: 30
+keywords: [respostas rapidas, quick replies, atalho, template, mensagem, whatsapp, variavel, biblioteca, admin, live chat]
+---
+
+# Biblioteca de Respostas Rápidas
+
+<Permission required="livechat:quick_reply:read">
+  Esta seção é exclusiva para quem tem a permissão **livechat:quick_reply:read** — o
+  mesmo grupo que já pode enviar mensagens no live chat (administradores, gestores e
+  agentes). Se o menu **Respostas rápidas** não aparece em Configurações, fale com o
+  responsável pelo sistema.
+</Permission>
+
+Respostas rápidas são modelos de mensagem que o atendente insere no chat digitando
+`/` seguido de um **atalho** — sem precisar redigitar a mesma orientação dezenas de
+vezes por dia. Cada resposta pode ter texto, uma variável que personaliza a mensagem
+(nome do contato, saudação, data) e um anexo de mídia.
+
+## Organização × Minhas
+
+A tela tem duas abas:
+
+- **Organização** — o acervo compartilhado com toda a equipe. Só quem tem a
+  permissão **livechat:quick_reply:manage** (administradores e gestores gerais) pode
+  criar, editar ou reordenar respostas deste acervo.
+- **Minhas** — as respostas pessoais do seu próprio usuário. Qualquer pessoa com
+  permissão de envio no live chat pode criar e gerenciar as suas.
+
+<Callout type="info" title="Ninguém vê a resposta pessoal de outra pessoa">
+  Mesmo administradores com `manage` **não** enxergam nem editam as respostas
+  pessoais de outros atendentes em nenhuma tela — a regra é aplicada no banco de
+  dados, não apenas escondida na interface.
+</Callout>
+
+## Passo a passo
+
+<Step number={1} title="Acesse a biblioteca">
+  No menu lateral, clique em **Respostas rápidas** (ou acesse via
+  **Configurações** &rarr; **Respostas rápidas**, se você não tiver o item no menu
+  principal).
+</Step>
+
+<Step number={2} title="Clique em Nova resposta">
+  Botão azul no canto superior direito. Um painel lateral se abre com o formulário
+  de cadastro.
+</Step>
+
+<Step number={3} title="Preencha título e atalho">
+  - **Título**: nome descritivo, só para você reconhecer a resposta na lista.
+  - **Atalho**: como você vai chamar a resposta no chat, digitando
+    `/nome-do-atalho`. Use apenas letras minúsculas, números, `-` ou `_` — o campo
+    normaliza automaticamente o que você digitar.
+
+  Se o atalho já existir no mesmo escopo (organização ou pessoal), o formulário
+  mostra o erro diretamente no campo **Atalho** ao tentar salvar.
+</Step>
+
+<Step number={4} title="(Opcional) Escolha uma categoria">
+  Agrupa a resposta no seletor do composer (ex.: "Documentação", "Prazos",
+  "Saudação"). Deixe em branco se não precisar agrupar.
+</Step>
+
+<Step number={5} title="Escreva o corpo da mensagem">
+  Digite o texto que será enviado. Use os botões de variável acima do campo para
+  inserir dados que são preenchidos automaticamente no momento do envio — veja a
+  seção [Variáveis](#variáveis) abaixo.
+
+  O contador no canto mostra quantos caracteres faltam até o limite de 4096 (limite
+  da própria API do WhatsApp).
+</Step>
+
+<Step number={6} title="(Opcional) Anexe uma mídia">
+  Clique em **Anexar imagem, vídeo, áudio ou documento**. O upload mostra o
+  progresso em tempo real e pode ser cancelado a qualquer momento antes de
+  concluir. Uma resposta rápida precisa ter **corpo de texto ou mídia** (ou os
+  dois) — nunca os dois vazios.
+</Step>
+
+<Step number={7} title="Confira o preview ao vivo">
+  A seção **Preview ao vivo** mostra exatamente o texto que o cidadão vai receber,
+  com as variáveis já resolvidas usando dados de exemplo.
+</Step>
+
+<Step number={8} title="(Opcional) Restrinja a cidades específicas">
+  Por padrão, a resposta aparece em qualquer cidade atendida. Se ela só faz
+  sentido para um município específico (ex.: um documento local), adicione a
+  cidade no campo **Cidades**.
+</Step>
+
+<Step number={9} title="(Somente com `manage`) Escolha a visibilidade">
+  Quem tem a permissão **livechat:quick_reply:manage** vê um campo extra:
+  - **Organização** — visível para toda a equipe.
+  - **Pessoal** — só para você.
+
+  Quem não tem `manage` sempre cria respostas pessoais — o campo nem aparece.
+</Step>
+
+<Step number={10} title="Salve">
+  Clique em **Criar resposta rápida**. Ela já aparece na lista e, se for da
+  organização, os atendentes com o chat aberto veem a novidade em poucos segundos,
+  sem precisar recarregar a página.
+</Step>
+
+## Variáveis
+
+O corpo aceita um catálogo fechado de variáveis, no formato `{{chave}}` ou
+`{{chave|valor padrão}}`:
+
+| Variável | O que insere |
+|---|---|
+| `{{contato.nome}}` | Nome completo do contato da conversa |
+| `{{contato.primeiro_nome}}` | Primeiro nome do contato |
+| `{{atendente.nome}}` | Nome completo de quem está enviando |
+| `{{atendente.primeiro_nome}}` | Primeiro nome de quem está enviando |
+| `{{organizacao.nome}}` | Nome da organização |
+| `{{saudacao}}` | "Bom dia" / "Boa tarde" / "Boa noite" conforme o horário |
+| `{{data}}` | Data atual (dd/mm/aaaa) |
+| `{{hora}}` | Hora atual (hh:mm) |
+
+<Callout type="warn" title="Fallback obrigatório para dados do contato">
+  `{{contato.nome}}` e `{{contato.primeiro_nome}}` exigem um valor padrão —
+  escreva `{{contato.nome|tudo bem}}`. Isso evita que a mensagem saia quebrada
+  quando a conversa ainda não tem um nome de contato salvo. O formulário avisa
+  no próprio campo enquanto você digita, antes mesmo de tentar salvar.
+</Callout>
+
+As variáveis são substituídas **no momento do envio**, no navegador do atendente —
+o nome do cidadão nunca fica gravado no cadastro da resposta rápida.
+
+## Nunca inclua dado pessoal do cidadão no texto
+
+<Callout type="warn" title="Proteção de dados (LGPD)">
+  Não digite CPF, CNPJ, e-mail ou telefone de um cidadão específico no corpo de
+  uma resposta rápida — o cadastro é **bloqueado automaticamente** se detectar
+  esses padrões. Para personalizar a mensagem com dados da conversa, use as
+  variáveis (`{{contato.nome}}` etc.) em vez de digitar o dado diretamente.
+</Callout>
+
+Se você tentar salvar um texto com esses padrões, o erro aparece diretamente no
+campo **Corpo da mensagem**, explicando o motivo.
+
+## Reordenar (aba Organização)
+
+Quem tem `manage` vê duas setas ao lado de cada resposta da organização, para
+subir ou descer a posição na lista — essa ordem é a mesma usada no seletor do
+composer. A aba **Minhas** não tem reordenação (a ordem é sempre por uso mais
+recente).
+
+## Ativar, desativar e remover
+
+No menu **⋮** de cada linha:
+
+- **Ativar / Desativar** — uma resposta inativa continua cadastrada, mas some do
+  seletor do composer imediatamente.
+- **Remover** — soft-delete com confirmação. O registro fica preservado para fins
+  de auditoria, mas não aparece mais para ninguém.
+
+Você só vê essas ações em respostas que pode editar — respostas da organização
+exigem `manage`; respostas pessoais de outra pessoa nunca aparecem na sua lista.
+
+## Erros comuns
+
+| Problema | Causa provável | Correção |
+|---|---|---|
+| Erro no campo Atalho ao salvar | Já existe um atalho igual no mesmo escopo (organização ou pessoal) | Escolha outro atalho, ou edite a resposta existente |
+| Erro no campo Corpo mencionando dado pessoal | O texto contém um padrão de CPF, CNPJ, e-mail ou telefone | Remova o dado e, se precisar personalizar, use uma variável |
+| Aviso de variável abaixo dos botões de inserção | Uma variável do tipo `{{contato.*}}` está sem valor padrão, ou não existe no catálogo | Adicione `|valor padrão` à variável, ou use apenas as variáveis listadas na seção acima |
+| Upload de mídia recusado | Arquivo acima do limite do tipo (imagem 5 MB, vídeo/áudio 16 MB, documento 50 MB) | Reduza o arquivo ou envie em outro formato |
+| Não vejo a opção "Organização" na visibilidade | Sua conta não tem a permissão `livechat:quick_reply:manage` | Peça a um administrador para criar a resposta da organização, ou peça a permissão |
+| Menu "Respostas rápidas" não aparece | Falta a permissão `livechat:quick_reply:read` ou a funcionalidade está desativada para a organização | Fale com um administrador |
+
+## Veja também
+
+- [Central de Ajuda — visão geral](/ajuda) — outros guias de administração.

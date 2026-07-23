@@ -26,6 +26,8 @@
 //   - Templates WhatsApp   : templates:read (templates/routes.ts L47)
 //   - IA no funil          : ai_actions:read + flag internal_assistant.actions.enabled
 //                            (ai-actions/routes.ts — F25-S06/S07)
+//   - Respostas rápidas    : livechat:quick_reply:read + flag livechat.quick_replies.enabled
+//                            (quick-replies/routes.ts — F28-S07)
 // =============================================================================
 
 import * as React from 'react';
@@ -277,6 +279,24 @@ function IconTemplates(): React.JSX.Element {
     >
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       <path d="M8 9h8M8 13h5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Respostas rápidas (F28-S07) — balão de chat com raio (atalho/agilidade).
+function IconRespostasRapidas(): React.JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="w-6 h-6 shrink-0"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="13" rx="3" />
+      <path d="M8 17l-1.5 3.5V17" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13 7.5l-3 4h2.2l-1.2 3 3-4h-2.2l1.2-3Z" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -548,6 +568,20 @@ function AdminSection(): React.JSX.Element {
             description: 'Gerencie modelos de mensagem aprovados pelo Meta para envios em massa.',
             icon: <IconTemplates />,
             href: '/admin/templates',
+          },
+        ]
+      : []),
+    // Respostas rápidas: livechat:quick_reply:read + flag livechat.quick_replies.enabled
+    // (F28-S07). read cobre admin/gestor_geral/agente — quem só tem `write` gerencia
+    // apenas as próprias; a opção "Organização" exige `manage` (gating dentro da tela).
+    ...(hasPermission('livechat:quick_reply:read') && flagEnabled('livechat.quick_replies.enabled')
+      ? [
+          {
+            title: 'Respostas rápidas',
+            description:
+              'Biblioteca de modelos de mensagem para agilizar o atendimento no WhatsApp.',
+            icon: <IconRespostasRapidas />,
+            href: '/admin/quick-replies',
           },
         ]
       : []),

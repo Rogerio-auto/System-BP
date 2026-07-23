@@ -140,7 +140,6 @@ Nenhuma variável fora desta lista é aceita. Validação na **criação/ediçã
 | `{{contato.primeiro_nome}}`   | idem, primeiro token         |                                                            |
 | `{{atendente.nome}}`          | usuário autenticado          |                                                            |
 | `{{atendente.primeiro_nome}}` | idem                         |                                                            |
-| `{{organizacao.nome}}`        | organização do ator          |                                                            |
 | `{{saudacao}}`                | hora local                   | "Bom dia" / "Boa tarde" / "Boa noite"                      |
 | `{{data}}`                    | hora local                   | `dd/MM/yyyy`                                               |
 | `{{hora}}`                    | hora local                   | `HH:mm`                                                    |
@@ -148,6 +147,14 @@ Nenhuma variável fora desta lista é aceita. Validação na **criação/ediçã
 Sintaxe: `{{chave|fallback}}`. O **fallback é obrigatório** para `contato.*` (D3) — o backend rejeita
 `{{contato.nome}}` sem fallback com `422 QUICK_REPLY_MISSING_FALLBACK`.
 Exemplo válido: `Olá {{contato.primeiro_nome|tudo bem}}, aqui é {{atendente.primeiro_nome|a equipe}}.`
+
+> **`{{organizacao.nome}}` removida (F28-S06).** Estava no catálogo original, mas o frontend não tem
+> a fonte do nome da organização (não vem no `/auth/me` nem no auth-store), então no **envio** —
+> onde a interpolação é client-side — a variável não resolveria e o token cru chegaria ao cidadão.
+> Além da remoção, o composer ganhou uma guarda que bloqueia o envio se sobrar qualquer `{{...}}`
+> após interpolar (última linha de defesa de D3). Para reintroduzir a variável, um follow-up precisa
+> threadar o nome da organização até o composer (via `/auth/me` + auth-store) e re-adicionar a
+> entrada no catálogo.
 
 ### 6.2 Resolução
 
