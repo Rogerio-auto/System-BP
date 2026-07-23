@@ -21,16 +21,22 @@
 import { formatMaxBytes, maxUploadBytesForMime } from '@elemento/shared-schemas';
 import * as React from 'react';
 
+import { useFeatureFlag } from '../../../../hooks/useFeatureFlag';
 import { useAuth } from '../../../../lib/auth-store';
 import { cn } from '../../../../lib/cn';
 import { detectMediaKind, formatBytes, useUploadMedia } from '../../hooks/useUploadMedia';
 import type { MediaKind } from '../../hooks/useUploadMedia';
 
 import { AudioRecorder } from './AudioRecorder';
+import type { QuickReplyPickerHandle } from './QuickReplyPicker';
+import { computeQuickReplyMode, QuickReplyPicker } from './QuickReplyPicker';
 import { TemplateSelector } from './TemplateSelector';
 import { useSendMessage } from './useSendMessage';
 import { useWindowState } from './useWindowState';
 import { WindowNotice } from './WindowNotice';
+
+/** Feature flag do seletor de respostas rápidas (doc 25 §14, F28). */
+const QUICK_REPLIES_FLAG = 'livechat.quick_replies.enabled';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -275,12 +281,22 @@ export function MessageComposer({
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // ── Respostas rápidas (F28-S06) ────────────────────────────────────────────
+  const [manualQuickReplyOpen, setManualQuickReplyOpen] = React.useState(false);
+  const [slashDismissed, setSlashDismissed] = React.useState(false);
+  const [quickReplyActiveDescendant, setQuickReplyActiveDescendant] = React.useState<string | null>(
+    null,
+  );
+  const quickReplyButtonRef = React.useRef<HTMLButtonElement>(null);
+  const quickReplyPickerRef = React.useRef<QuickReplyPickerHandle>(null);
+
   useAutoResize(textareaRef, text);
 
   const { windowOpen, windowKind, isLoading } = useWindowState(conversationId);
   const sendMutation = useSendMessage(conversationId);
   const { upload, progress, abort } = useUploadMedia(conversationId);
   const { hasPermission } = useAuth();
+  const quickRepliesFlag = useFeatureFlag(QUICK_REPLIES_FLAG);
 
   const canSendMessages = hasPermission('livechat:message:send');
   const isUploading = progress.phase === 'uploading' || progress.phase === 'signing';
@@ -290,6 +306,34 @@ export function MessageComposer({
   // canSend: tem texto OU tem preview pronto (e não está em fase de erro nem uploading)
   const hasMedia = mediaPreview !== null && !isUploading && progress.phase !== 'error';
   const canSend = (!isDisabled && text.trim().length > 0) || hasMedia;
+
+  // Motivo visível de indisponibilidade (doc 25 §11.1) — independente de
+  // `isDisabled` (que outros botões já usam) para não alterar o comportamento
+  // deles; a flag controla só a RENDERIZAÇÃO do botão (doc 25 §14 item 1).
+  const quickRepliesDisabledReason: 'permission' | 'window' | 'loading' | null = !canSendMessages
+    ? 'permission'
+    : isLoading
+      ? 'loading'
+      : !windowOpen
+        ? 'window'
+        : null;
+  const quickRepliesAvailable = quickRepliesFlag.enabled && quickRepliesDisabledReason === null;
+
+  // Modo do painel: manual (botão/atalho) tem prioridade; "/" como primeiro
+  // caractere do textarea abre no modo slash (doc 25 §11.1). Ambos exigem
+  // `quickRepliesAvailable` — garante que NENHUM envio parte com a janela
+  // fechada, pois o QuickReplyPicker só monta quando o modo é não-nulo.
+  const quickReplyMode = computeQuickReplyMode({
+    available: quickRepliesAvailable,
+    manualOpen: manualQuickReplyOpen,
+    text,
+    slashDismissed,
+  });
+
+  // Fecha o painel se a disponibilidade cair (ex.: janela fechou durante o uso).
+  React.useEffect(() => {
+    if (!quickRepliesAvailable) setManualQuickReplyOpen(false);
+  }, [quickRepliesAvailable]);
 
   // Callback interno do seletor de template (S19)
   const handleUseTemplate = React.useCallback(() => {
@@ -318,9 +362,88 @@ export function MessageComposer({
 
   function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>): void {
     setText(e.target.value);
+    // Qualquer digitação reabilita o modo slash (ex.: reabrir depois de Tab
+    // ter dispensado o painel — ver handleKeyDown / caso 'Tab').
+    setSlashDismissed(false);
+  }
+
+  // ── Respostas rápidas (F28-S06) ──────────────────────────────────────────
+
+  function handleToggleQuickReplyPicker(): void {
+    if (quickRepliesDisabledReason !== null) return;
+    setManualQuickReplyOpen((v) => !v);
+    setSlashDismissed(false);
+  }
+
+  function handleQuickReplyClose(): void {
+    setManualQuickReplyOpen(false);
+    // Modo slash: a query É o texto do campo — sem limpar, o painel reabriria
+    // no próximo render (text ainda começa com "/").
+    if (quickReplyMode === 'slash') setText('');
+    setSlashDismissed(false);
+    setQuickReplyActiveDescendant(null);
+    textareaRef.current?.focus();
+  }
+
+  function handleQuickReplyInsertText(insertedText: string): void {
+    setText(insertedText);
+    setManualQuickReplyOpen(false);
+    setSlashDismissed(false);
+    setQuickReplyActiveDescendant(null);
+    // Foco após o próximo paint — o painel acabou de desmontar.
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }
+
+  function handleQuickReplySent(): void {
+    setText('');
+    setManualQuickReplyOpen(false);
+    setSlashDismissed(false);
+    setQuickReplyActiveDescendant(null);
+    textareaRef.current?.focus();
+  }
+
+  function handleComposerShortcut(e: React.KeyboardEvent<HTMLDivElement>): void {
+    // Ctrl/Cmd+Shift+E — abre/fecha o painel manual (doc 25 §11.1).
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'E' || e.key === 'e')) {
+      if (quickRepliesDisabledReason !== null || !quickRepliesFlag.enabled) return;
+      e.preventDefault();
+      setManualQuickReplyOpen((v) => !v);
+      setSlashDismissed(false);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
+    // Modo slash: foco permanece no textarea — encaminha a navegação para o
+    // painel via ref (padrão de acessibilidade de ChatListFilters.tsx).
+    if (quickReplyMode === 'slash') {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          quickReplyPickerRef.current?.moveActive(1);
+          return;
+        case 'ArrowUp':
+          e.preventDefault();
+          quickReplyPickerRef.current?.moveActive(-1);
+          return;
+        case 'Enter':
+          e.preventDefault();
+          quickReplyPickerRef.current?.activateSelected(e.altKey ? 'insert' : 'send');
+          return;
+        case 'Escape':
+          e.preventDefault();
+          setText('');
+          setSlashDismissed(false);
+          textareaRef.current?.focus();
+          return;
+        case 'Tab':
+          // Não bloqueia o Tab padrão — só dispensa o painel.
+          setSlashDismissed(true);
+          return;
+        default:
+          break;
+      }
+    }
+
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       if (canSend) void handleSend();
@@ -433,6 +556,7 @@ export function MessageComposer({
         '[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06)]',
       )}
       aria-label="Compositor de mensagem"
+      onKeyDown={handleComposerShortcut}
     >
       {/* Seletor de template (S19) — aparece acima do compositor */}
       {showTemplateSelector && (
@@ -440,6 +564,21 @@ export function MessageComposer({
           conversationId={conversationId}
           onClose={() => setShowTemplateSelector(false)}
           onSend={handleTemplateSend}
+        />
+      )}
+
+      {/* Respostas rápidas (F28-S06) — aparece acima do compositor */}
+      {quickReplyMode !== null && (
+        <QuickReplyPicker
+          ref={quickReplyPickerRef}
+          conversationId={conversationId}
+          mode={quickReplyMode}
+          slashQuery={quickReplyMode === 'slash' ? text.slice(1) : ''}
+          triggerRef={quickReplyButtonRef}
+          onClose={handleQuickReplyClose}
+          onInsertText={handleQuickReplyInsertText}
+          onSent={handleQuickReplySent}
+          onActiveDescendantChange={setQuickReplyActiveDescendant}
         />
       )}
 
@@ -540,6 +679,52 @@ export function MessageComposer({
             onChange={handleFileChange}
           />
 
+          {/* Botão de respostas rápidas (F28-S06) — nem renderiza com a flag desligada */}
+          {quickRepliesFlag.enabled && (
+            <button
+              ref={quickReplyButtonRef}
+              type="button"
+              onClick={handleToggleQuickReplyPicker}
+              disabled={isDisabled || mediaPreview !== null}
+              aria-label="Respostas rápidas"
+              aria-haspopup="dialog"
+              aria-expanded={quickReplyMode !== null}
+              title={
+                quickRepliesDisabledReason === 'permission'
+                  ? 'Sem permissão para enviar mensagens.'
+                  : quickRepliesDisabledReason === 'window'
+                    ? 'Janela de 24h fechada — respostas rápidas indisponíveis.'
+                    : quickRepliesDisabledReason === 'loading'
+                      ? 'Carregando...'
+                      : 'Respostas rápidas (/ ou Ctrl+Shift+E)'
+              }
+              className={cn(
+                'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+                'text-ink-3 transition-colors duration-fast ease',
+                'hover:bg-surface-hover hover:text-ink',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+                'active:bg-surface-muted',
+                quickReplyMode !== null && 'bg-azul/10 text-azul',
+                'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',
+              )}
+            >
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                className="w-5 h-5"
+                aria-hidden="true"
+              >
+                <path
+                  d="M11 2L4 12h5l-1 6 7-10h-5l1-6z"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
+
           {/* Textarea auto-resize */}
           <div className="flex-1 min-w-0 relative">
             <textarea
@@ -557,11 +742,16 @@ export function MessageComposer({
                       ? 'Janela expirada — use um template'
                       : mediaPreview !== null
                         ? 'Pronto para enviar arquivo...'
-                        : 'Digite uma mensagem... (Ctrl+Enter para enviar)'
+                        : 'Digite uma mensagem... (Ctrl+Enter para enviar, / para respostas rápidas)'
               }
               rows={1}
               aria-label="Campo de mensagem"
               aria-describedby={!windowOpen ? 'composer-window-notice' : undefined}
+              role={quickReplyMode === 'slash' ? 'combobox' : undefined}
+              aria-expanded={quickReplyMode === 'slash' ? true : undefined}
+              aria-activedescendant={
+                quickReplyMode === 'slash' ? (quickReplyActiveDescendant ?? undefined) : undefined
+              }
               className={cn(
                 'w-full resize-none rounded-sm px-3 py-2',
                 'font-sans text-sm text-ink',
