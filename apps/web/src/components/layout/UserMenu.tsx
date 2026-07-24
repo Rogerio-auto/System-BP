@@ -111,7 +111,7 @@ export function UserMenu({ fullName, email, onLogout }: UserMenuProps): React.JS
           src={profile?.avatarUrl ?? null}
           size="sm"
           className={cn(
-            'w-8 h-8',
+            'w-7 h-7',
             // Scale hover (DS §8)
             'transition-transform duration-fast ease group-hover:scale-105',
           )}
