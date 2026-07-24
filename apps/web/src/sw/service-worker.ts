@@ -49,12 +49,41 @@ precacheAndRoute(self.__WB_MANIFEST);
 // Remove caches de precache de builds antigos assim que o novo SW assume.
 cleanupOutdatedCaches();
 
-// ─── Navigation fallback (SPA) ───────────────────────────────────────────────
-// Toda navegação (troca de rota, refresh, cold start com shell em cache) cai
-// no `index.html` precacheado — o roteamento real é feito client-side pelo
-// React Router em `App.tsx`. Isso é o que torna o app abrível offline.
-const navigationHandler = createHandlerBoundToURL('index.html');
-registerRoute(new NavigationRoute(navigationHandler));
+// ─── Navigation (SPA) — network-first, precache só como fallback offline ─────
+//
+// Toda navegação tenta a REDE primeiro e só cai no `index.html` precacheado
+// quando a rede falha/expira. O roteamento real continua client-side (React
+// Router em `App.tsx`), e o app segue abrível offline.
+//
+// Por que NÃO é cache-first (bug de produção 2026-07-24): com
+// `registerType:'prompt'` o SW antigo permanece no controle até o operador
+// confirmar a atualização. Servindo o shell do cache, o app carregava um
+// `index.html` de um build anterior, que referencia hashes de assets
+// (`/assets/index-<hash>.js`) que não existem mais no servidor depois de um
+// deploy — o app nunca inicializava ("carregando infinitamente"), inclusive na
+// tela de login. Network-first garante shell sempre coerente com o servidor
+// quando há rede, sem abrir mão do offline.
+const precachedShellHandler = createHandlerBoundToURL('index.html');
+
+/** Teto para a tentativa de rede antes de cair no shell offline. */
+const NAVIGATION_NETWORK_TIMEOUT_MS = 4_000;
+
+registerRoute(
+  new NavigationRoute(async (params) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), NAVIGATION_NETWORK_TIMEOUT_MS);
+    try {
+      const fresh = await fetch(params.request, { signal: controller.signal });
+      if (fresh.ok) return fresh;
+      throw new Error(`shell indisponível (status ${fresh.status})`);
+    } catch {
+      // Sem rede (ou shell indisponível) — serve o app-shell precacheado.
+      return precachedShellHandler(params);
+    } finally {
+      clearTimeout(timer);
+    }
+  }),
+);
 
 // ─── Ciclo de vida ───────────────────────────────────────────────────────────
 // `registerType: 'prompt'` (src/pwa/register.ts): o novo SW fica em `waiting`
