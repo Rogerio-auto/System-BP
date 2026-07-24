@@ -37,6 +37,10 @@ RUN pnpm --filter @elemento/api build
 RUN pnpm --filter @elemento/api deploy --prod /out
 
 FROM node:20-alpine AS runner
+# ffmpeg: remuxagem de áudio webm→ogg antes do envio ao WhatsApp (F29-S03) —
+# usado pelo worker livechat-outbound via apps/api/src/lib/media. Alpine =
+# apk, não apt-get. --no-cache evita persistir o índice de pacotes na imagem.
+RUN apk add --no-cache ffmpeg
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 ENV NODE_ENV=production
