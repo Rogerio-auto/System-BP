@@ -29,6 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F26  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F27  | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
 | F28  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
+| F29  | 2     | 1   | 0   | 0   | 0   | 1   | 0   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -420,6 +421,13 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F28-S06 | Frontend — seletor de respostas rápidas no composer do live chat   | ✅ done | critical   | F28-S04, F28-S05 |
 | F28-S07 | Frontend — administração da biblioteca de respostas rápidas        | ✅ done | high       | F28-S04, F28-S05 |
 | F28-S08 | QA — verificação ponta a ponta e fechamento documental de F28      | ✅ done | high       | F28-S06, F28-S07 |
+
+## Fase 29 —
+
+| ID      | Título                                                                                 | Status       | Prioridade | Depende de |
+| ------- | -------------------------------------------------------------------------------------- | ------------ | ---------- | ---------- |
+| F29-S01 | Backend — enriquecer notificação de handoff (cidade via lead + nome do cliente in-app) | 🟢 available | high       | —          |
+| F29-S02 | Frontend — deep-link do sino abre a conversa específica (não só o inbox)               | 🟣 review    | high       | —          |
 
 ## Fase 3 — Agentes IA
 

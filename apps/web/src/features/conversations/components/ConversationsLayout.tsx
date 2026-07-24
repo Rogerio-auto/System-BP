@@ -18,10 +18,20 @@
 // e useConversationCounts vivem dentro do ChatList (dropdown é parte do seu
 // próprio header — sem prop-drilling).
 //
+// Deep-link (F29-S02): `selectedId` é sincronizado (não substituído) com o
+// query param `?conversation=<id>` da própria rota `/conversas` — no mount,
+// se o param existir, inicializa `selectedId` com ele; ao selecionar/fechar
+// uma conversa, o param é atualizado via `replace` (não empurra histórico a
+// cada clique). Isso NÃO remonta o socket nem duplica estado: é só leitura
+// no mount + escrita no mesmo setter que já existia.
+//
 // DS: light-first, tokens sem hex hardcoded.
 // =============================================================================
 
 import * as React from 'react';
+import { useSearchParams } from 'react-router-dom';
+
+import { useConversation } from '../queries';
 
 import { ChatList } from './ChatList';
 import { ContactPanel } from './ContactPanel';
@@ -132,10 +142,47 @@ function ContactToggleButton({ isOpen, onClick }: ContactToggleButtonProps): Rea
  * Delega: statusFilter + contagens + busca ao próprio ChatList.
  */
 export function ConversationsLayout(): React.JSX.Element {
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  // Deep-link (F29-S02): `?conversation=<id>` inicializa a seleção no mount.
+  // Lazy initializer — lido uma única vez, sem efeito adicional na primeira
+  // pintura (evita flash lista→conversa).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedId, setSelectedIdState] = React.useState<string | null>(() =>
+    searchParams.get('conversation'),
+  );
   const [isMobile, setIsMobile] = React.useState(false);
   const [isLarge, setIsLarge] = React.useState(false);
   const [contactOpen, setContactOpen] = React.useState(true);
+
+  // Seleciona/limpa a conversa E reflete na URL (`replace` — não polui o
+  // histórico a cada clique; o "voltar" do navegador continua coerente).
+  const selectConversation = React.useCallback(
+    (id: string | null) => {
+      setSelectedIdState(id);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (id !== null) {
+            next.set('conversation', id);
+          } else {
+            next.delete('conversation');
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  // Id inexistente/inacessível (404/403) degrada para a lista sem quebrar —
+  // cobre tanto o deep-link vindo da notificação quanto qualquer seleção
+  // que aponte para uma conversa que não existe mais/está fora do escopo.
+  const conversationCheck = useConversation(selectedId ?? '');
+  React.useEffect(() => {
+    if (selectedId !== null && conversationCheck.isError) {
+      selectConversation(null);
+    }
+  }, [selectedId, conversationCheck.isError, selectConversation]);
 
   React.useEffect(() => {
     const mqMobile = window.matchMedia('(max-width: 767px)');
@@ -182,7 +229,7 @@ export function ConversationsLayout(): React.JSX.Element {
         >
           <ChatList
             selectedConversationId={selectedId}
-            onSelectConversation={(id) => setSelectedId(id)}
+            onSelectConversation={(id) => selectConversation(id)}
           />
         </aside>
       )}
@@ -206,7 +253,7 @@ export function ConversationsLayout(): React.JSX.Element {
             >
               <button
                 type="button"
-                onClick={() => setSelectedId(null)}
+                onClick={() => selectConversation(null)}
                 className="flex items-center gap-2 font-sans font-medium transition-opacity duration-fast hover:opacity-70 focus:outline-none focus:ring-2 focus:ring-azul rounded-xs"
                 style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-azul)' }}
                 aria-label="Voltar para a lista"

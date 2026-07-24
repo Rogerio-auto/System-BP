@@ -9,8 +9,13 @@
 // Pegadinha documentada (doc 23 §13): o fan-out de `chatwoot.handoff_requested`
 // carimba `entity_type='lead'`/`entity_id=leadId` mesmo o catálogo rotulando o
 // gatilho como `entityType: 'conversation'`. O mapeamento abaixo reflete os
-// `entity_type` efetivamente persistidos pelos produtores atuais; evoluir para
-// o registro exato (ex.: conversa específica) é débito futuro (doc 23 §14).
+// `entity_type` efetivamente persistidos pelos produtores atuais.
+//
+// F29-S02: para `entity_type='conversation'` com `entity_id` presente (ex.:
+// handoff), `resolveNotificationHref` (em `./deep-link`) já resolve para a
+// conversa específica via `?conversation=<id>` — não cai mais "na lista mais
+// próxima". `ConversationsLayout` lê o parâmetro no mount e abre o painel
+// direto na conversa certa.
 //
 // F26-S04: `resolveNotificationCategory`/`getNotificationCategoryLabel` — a
 // linha `notifications` NÃO persiste `category` (só `entity_type`+`severity`,

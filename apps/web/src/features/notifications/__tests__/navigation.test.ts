@@ -52,8 +52,14 @@ describe('resolveNotificationHref', () => {
     expect(resolveNotificationHref('contract', 'c-1')).toBe('/contratos');
   });
 
-  it('conversation -> /conversas (lista, doc 23 §14)', () => {
-    expect(resolveNotificationHref('conversation', 'conv-1')).toBe('/conversas');
+  it('conversation com id -> /conversas?conversation=:id (F29-S02)', () => {
+    expect(resolveNotificationHref('conversation', 'conv-1')).toBe(
+      '/conversas?conversation=conv-1',
+    );
+  });
+
+  it('conversation sem id -> /conversas (lista)', () => {
+    expect(resolveNotificationHref('conversation', null)).toBe('/conversas');
   });
 
   it('kanban_card -> /crm?view=kanban', () => {

@@ -10,8 +10,11 @@
 
 /**
  * Resolve a rota de deep-link a partir de `entity_type`/`entity_id`.
- * Entidades sem rota endereçável por id (drawer inline, ex.: contract/conversation)
- * caem na lista mais próxima. Tipo desconhecido/nulo → sem link (item só expande).
+ * Entidades sem rota endereçável por id (drawer inline, ex.: contract) caem
+ * na lista mais próxima. `conversation` é endereçável via query param
+ * (`?conversation=<id>`, F29-S02) — o painel de 3 colunas do live chat lê o
+ * parâmetro e abre a conversa certa. Tipo desconhecido/nulo → sem link (item
+ * só expande).
  */
 export function resolveNotificationHref(
   entityType: string | null,
@@ -29,7 +32,7 @@ export function resolveNotificationHref(
     case 'contract':
       return '/contratos';
     case 'conversation':
-      return '/conversas';
+      return entityId !== null ? `/conversas?conversation=${entityId}` : '/conversas';
     case 'kanban_card':
       return '/crm?view=kanban';
     case 'payment_due':
