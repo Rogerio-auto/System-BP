@@ -16,18 +16,20 @@ import {
 // referenciou em `vite.config.ts` — não renomear sem atualizar os dois
 // lugares.
 
-/**
- * `padding: 0` em todo o pipeline (transparent/maskable/apple): a
- * arte-fonte já é full-bleed (fundo `--grad-rondonia` cobre 0,0→512,512) e
- * já contém a safe-zone da estrela embutida. Deixar o gerador aplicar um
- * padding adicional criaria uma faixa morta (branca/transparente) nas
- * bordas — quebra o "full bleed" exigido pelo maskable e destoa da
- * identidade nos ícones "any".
- */
-const fullBleed = {
-  padding: 0,
-  resizeOptions: { fit: 'contain' as const },
-};
+// Arte-fonte = logo do Banco do Povo (`public/pwa-source.png`, o brasão das três
+// figuras nas cores de Rondônia — copiado de `src/assets/brand/icone-bp.png`). A
+// logo NÃO é full-bleed (tem transparência ao redor), então compositamos sobre
+// fundo branco com um respiro. O maskable ganha padding maior (safe-zone: a
+// máscara do SO pode recortar ~10% de cada borda) para a logo não ser cortada.
+const BRAND_BG = '#FFFFFF';
+
+/** Logo sobre fundo branco com `padding` (fração da borda que vira margem). */
+function onBrandBg(padding: number) {
+  return {
+    padding,
+    resizeOptions: { fit: 'contain' as const, background: BRAND_BG },
+  };
+}
 
 /**
  * Nomes exatos referenciados pelo manifesto do F27-S01
@@ -75,16 +77,16 @@ const splashDevices: AppleDeviceName[] = [
 const preset = combinePresetAndAppleSplashScreens(
   {
     transparent: {
-      ...fullBleed,
+      ...onBrandBg(0.1),
       sizes: [192, 512],
       favicons: [[48, 'favicon.ico']],
     },
     maskable: {
-      ...fullBleed,
+      ...onBrandBg(0.2),
       sizes: [512],
     },
     apple: {
-      ...fullBleed,
+      ...onBrandBg(0.12),
       sizes: [180],
     },
     assetName,
@@ -100,5 +102,5 @@ export default defineConfig({
     preset: '2023',
   },
   preset,
-  images: ['public/pwa-source.svg'],
+  images: ['public/pwa-source.png'],
 });
