@@ -28,14 +28,33 @@
 //   - Logs não incluem content nem telefone — apenas IDs opacos.
 //   - Audit log sem PII bruta (apenas IDs + reason).
 //   - Idempotência de envio via idempotency_keys (ai_fallback_<messageId>).
-//   - Notificação ao humano: body sem PII do cidadão (nome/telefone/CPF) —
-//     no máximo o nome do município (dado público, não PII).
+//   - Notificação ao humano: body sem PII do cidadão do WhatsApp/relay/audit —
+//     cidade (dado público) sempre pode ir a qualquer canal. EXCEÇÃO
+//     controlada (F29-S01): o nome de exibição do contato/lead é PII e é
+//     incluído SOMENTE no body do canal in-app (ver guarda em
+//     `dispatchHandoffNotifications`) — nunca no log, no relay de socket,
+//     no e-mail, no Web Push nem no audit.
+//
+// F29-S01 — checklist §14.2 do doc 17 (PR `lgpd-impact`):
+//   - Finalidade: informar ao atendente humano QUEM e ONDE está o cidadão
+//     aguardando, para priorizar/rotear o atendimento (Art. 7º IX — legítimo
+//     interesse no exercício regular de atividade, escopo interno).
+//   - Base legal: Art. 7º IX (interesse legítimo do controlador na prestação
+//     do atendimento) / Art. 7º V (execução de contrato/procedimento
+//     preliminar a pedido do titular).
+//   - Minimização: nome só é lido para o body in-app; nunca persistido em
+//     outro lugar novo, nunca propagado a log/relay/audit/e-mail/Web Push.
+//   - Retenção: acompanha a retenção já existente de `notifications` (sem
+//     job dedicado hoje — gap pré-existente, fora do escopo deste slot).
+//   - Redação de log: nenhum log novo referencia nome/cidade do cliente;
+//     `pino.redact` global já cobre os campos padrão da lista canônica.
 // =============================================================================
 import { and, eq, isNull } from 'drizzle-orm';
 
 import type { Database } from '../../db/client.js';
 import { cities } from '../../db/schema/cities.js';
 import { conversations } from '../../db/schema/conversations.js';
+import { leads } from '../../db/schema/leads.js';
 import { users } from '../../db/schema/users.js';
 import { auditLog } from '../../lib/audit.js';
 import { logger } from '../../lib/logger.js';
@@ -153,6 +172,34 @@ async function resolveCityName(db: Database, cityId: string | null): Promise<str
   return rows[0]?.name ?? null;
 }
 
+/**
+ * Fallback pelo lead vinculado à conversa (F29-S01) — usado só quando a
+ * própria conversa ainda não tem `cityId` e/ou `contactName`. Um lead novo
+ * de WhatsApp em pré-atendimento normalmente ainda não tem cidade
+ * identificada na conversa (o nó `identify_city` do grafo preenche o lead
+ * antes da conversa); a cidade "mora" no lead nesse momento.
+ *
+ * `name` é PII (LGPD §8.1) — o chamador é responsável por só usá-lo no body
+ * do canal in-app (ver guarda em `dispatchHandoffNotifications`).
+ * `cityId` é dado público — pode circular por qualquer canal.
+ *
+ * Único select, escopado por organizationId (mesma defesa de tenant que o
+ * restante do módulo).
+ */
+async function resolveLeadFallback(
+  db: Database,
+  organizationId: string,
+  leadId: string,
+): Promise<{ cityId: string | null; name: string | null }> {
+  const rows = await db
+    .select({ cityId: leads.cityId, name: leads.name })
+    .from(leads)
+    .where(and(eq(leads.id, leadId), eq(leads.organizationId, organizationId)))
+    .limit(1);
+  const row = rows[0];
+  return { cityId: row?.cityId ?? null, name: row?.name ?? null };
+}
+
 // ---------------------------------------------------------------------------
 // Enriquecimento do corpo da notificação (F26-S02, doc 23 §12.3/§14 — G4)
 // ---------------------------------------------------------------------------
@@ -202,12 +249,23 @@ function formatWaitDuration(sinceMs: number): string {
 /**
  * Despacha a notificação in-app de handoff a cada destinatário.
  *
- * LGPD §8.5: body cita, no máximo, o nome do município (dado público), o
- * motivo do handoff (catálogo fechado — não é PII) e o tempo de espera
- * (derivado de `conversations.last_inbound_at`, um timestamp operacional) —
- * NUNCA telefone, CPF ou nome do contato. try/catch isolado por
- * destinatário: falha de notificação não deve derrubar o handoff (já
- * concluído — fallback enviado, status atualizado, audit registrado).
+ * LGPD §8.5: cidade é dado público (pode ir a qualquer canal); motivo do
+ * handoff vem de catálogo fechado (não é PII); tempo de espera é derivado de
+ * `conversations.last_inbound_at` (timestamp operacional, não PII).
+ *
+ * F29-S01 — EXCEÇÃO CONTROLADA: `contactName`/`leadId` habilitam incluir o
+ * nome de exibição do cliente no `body`. Isso só é seguro porque esta função
+ * despacha EXCLUSIVAMENTE via `sendInApp` (nunca `sendWebPush`/`sendEmail` —
+ * ver cabeçalho do arquivo) e `sendInApp` não propaga `body` ao payload do
+ * socket em tempo real (só `title`, sem PII). O nome NUNCA deve ser incluído
+ * em `log.*`, no payload do socket relay (`publish(QUEUES.socketRelay, …)`
+ * em `triggerLivechatHandoff`) ou no `auditLog`. Se esta função algum dia
+ * passar a despachar outro canal (email/WhatsApp/Web Push), o nome NÃO pode
+ * acompanhar — mantenha-o restrito ao `body` do `sendInApp` abaixo.
+ *
+ * try/catch isolado por destinatário: falha de notificação não deve
+ * derrubar o handoff (já concluído — fallback enviado, status atualizado,
+ * audit registrado).
  */
 async function dispatchHandoffNotifications(
   db: Database,
@@ -215,6 +273,14 @@ async function dispatchHandoffNotifications(
     organizationId: string;
     conversationId: string;
     cityId: string | null;
+    /** Lead vinculado à conversa — usado só como fallback de cidade/nome. */
+    leadId: string | null;
+    /**
+     * Nome de exibição do contato (PII — LGPD §8.1). Vem da própria
+     * conversa; fallback pelo lead ocorre abaixo quando ausente. Usado
+     * SOMENTE no `body` do `sendInApp` (ver guarda acima).
+     */
+    contactName: string | null;
     reason: string;
     /** Último inbound do cidadão — base do "tempo esperando". null = desconhecido. */
     waitingSince: Date | null;
@@ -223,7 +289,18 @@ async function dispatchHandoffNotifications(
 ): Promise<void> {
   if (params.recipients.length === 0) return;
 
-  const cityName = await resolveCityName(db, params.cityId);
+  // Fallback pelo lead: cidade (dado público) e nome (PII, só body in-app) —
+  // preferir sempre os dados já presentes na conversa; lead é só reserva.
+  // Um único select condicional (não roda se conversa já tem os dois dados).
+  let effectiveCityId = params.cityId;
+  let leadName: string | null = null;
+  if (params.leadId !== null && (effectiveCityId === null || params.contactName === null)) {
+    const fallback = await resolveLeadFallback(db, params.organizationId, params.leadId);
+    if (effectiveCityId === null) effectiveCityId = fallback.cityId;
+    leadName = fallback.name;
+  }
+
+  const cityName = await resolveCityName(db, effectiveCityId);
   const reasonLabel = describeHandoffReason(params.reason);
   const waitLabel =
     params.waitingSince !== null
@@ -233,9 +310,19 @@ async function dispatchHandoffNotifications(
   const title = 'Atendimento precisa de humano';
   const locationPart = cityName !== null ? ` (${cityName})` : '';
   const waitPart = waitLabel !== null ? ` — aguardando há ${waitLabel}` : '';
+
+  // ---------------------------------------------------------------------
+  // GUARDA LGPD (doc 17 §8.1/§8.5, F29-S01): `customerName` é PII. A partir
+  // daqui ele só pode alimentar `body` — não retorne, não logue, não
+  // publique este valor em nenhum outro lugar desta função ou do chamador.
+  // ---------------------------------------------------------------------
+  const customerName = params.contactName ?? leadName;
   const body =
-    `Uma conversa no WhatsApp${locationPart} precisa de atendimento humano. ` +
-    `Motivo: ${reasonLabel}${waitPart}.`;
+    customerName !== null
+      ? `${customerName} — conversa no WhatsApp${locationPart} precisa de atendimento humano. ` +
+        `Motivo: ${reasonLabel}${waitPart}.`
+      : `Uma conversa no WhatsApp${locationPart} precisa de atendimento humano. ` +
+        `Motivo: ${reasonLabel}${waitPart}.`;
 
   for (const recipient of params.recipients) {
     try {
@@ -250,6 +337,7 @@ async function dispatchHandoffNotifications(
         severity: 'warning',
       });
     } catch (err) {
+      // NÃO incluir `customerName`/`body` aqui — guarda LGPD acima.
       log.error(
         {
           err,
@@ -311,6 +399,11 @@ export async function triggerLivechatHandoff(db: Database, opts: HandoffOptions)
       // disparou o handoff, no caso do gatilho do grafo). Timestamp
       // operacional, não PII.
       lastInboundAt: conversations.lastInboundAt,
+      // Fallback de cidade/nome pelo lead (F29-S01) — leadId é FK opaca,
+      // contactName é PII (só usado no body do canal in-app, ver
+      // dispatchHandoffNotifications).
+      leadId: conversations.leadId,
+      contactName: conversations.contactName,
     });
 
   const claim = claimed[0];
@@ -407,6 +500,8 @@ export async function triggerLivechatHandoff(db: Database, opts: HandoffOptions)
       organizationId,
       conversationId,
       cityId: claim.cityId,
+      leadId: claim.leadId,
+      contactName: claim.contactName,
       reason,
       waitingSince: claim.lastInboundAt,
       recipients,

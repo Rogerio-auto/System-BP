@@ -15,13 +15,17 @@
 //      comportamento "geral" — TODOS os gestores regionais da org recebem
 //      (não filtrados por cidade).
 //   4. Conversa com cidade: gestor_regional de OUTRA cidade não é notificado.
-//   5. LGPD: body da notificação nunca contém nome/telefone do contato —
-//      no máximo o nome do município.
+//   5. F29-S01: nome do contato aparece no body IN-APP (persistido em
+//      `notifications`), mas nunca em log/socket-relay/audit.
+//   6. F29-S01: conversa sem cityId e sem contactName resolve os dois pelo
+//      lead vinculado (fallback) — cidade e nome do lead aparecem no body
+//      in-app; nome do lead nunca em log/socket-relay/audit.
 //
-// Apenas `lib/queue/index.js` (publish/makeEnvelope) e
-// `conversations/send.service.js` (sendMessage) são mockados — dependem de
-// infraestrutura externa (RabbitMQ) indisponível no ambiente de teste. Tudo
-// o mais (conversations, audit_logs, notifications, roles/user_roles/
+// Apenas `lib/queue/index.js` (publish/makeEnvelope), `lib/logger.js`
+// (child logger espiado) e `conversations/send.service.js` (sendMessage)
+// são mockados — dependem de infraestrutura externa (RabbitMQ) ou precisam
+// ser observáveis em teste (spies de log, F29-S01). Tudo o mais
+// (conversations, leads, audit_logs, notifications, roles/user_roles/
 // user_city_scopes) usa o Postgres real, mesmo padrão de
 // assistant-escalation.integration.test.ts.
 //
@@ -32,7 +36,8 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
-// Mocks — apenas dependências que exigem infraestrutura externa (RabbitMQ).
+// Mocks — infraestrutura externa (RabbitMQ) + spies de log (F29-S01: prova
+// que o nome do contato/lead nunca é logado).
 // ---------------------------------------------------------------------------
 const mockPublish = vi.fn().mockResolvedValue(undefined);
 const mockMakeEnvelope = vi.fn((..._args: unknown[]) => _args[2]);
@@ -46,6 +51,31 @@ vi.mock('../../conversations/send.service.js', () => ({
   sendMessage: (...args: unknown[]) => mockSendMessage(...args),
 }));
 
+const { mockLogInfo, mockLogWarn, mockLogError } = vi.hoisted(() => ({
+  mockLogInfo: vi.fn(),
+  mockLogWarn: vi.fn(),
+  mockLogError: vi.fn(),
+}));
+// Mock completo: além do `logger.child(...)` usado por ai-handoff.ts (espiado
+// para provar ausência de PII), expõe `info/warn/error/debug` também no nível
+// raiz — outros módulos no mesmo grafo de import desta suíte (ex.:
+// notifications/senders/inApp.ts, requireFlag) chamam `logger.warn(...)`
+// diretamente, sem `.child()`.
+vi.mock('../../../lib/logger.js', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    child: () => ({
+      info: mockLogInfo,
+      warn: mockLogWarn,
+      error: mockLogError,
+      debug: vi.fn(),
+    }),
+  },
+}));
+
 // ---------------------------------------------------------------------------
 // Import das dependências REAIS (db real, sem mock) — após os vi.mock acima.
 // ---------------------------------------------------------------------------
@@ -55,6 +85,7 @@ import {
   channels,
   cities,
   conversations,
+  leads,
   notifications,
   organizations,
   roles,
@@ -63,6 +94,12 @@ import {
   users,
 } from '../../../db/schema/index.js';
 import { triggerLivechatHandoff } from '../ai-handoff.js';
+
+/** Concatena todos os args de todas as chamadas dos spies de log em uma string única, para asserção "não contém PII". */
+function allLoggedText(): string {
+  const calls = [...mockLogInfo.mock.calls, ...mockLogWarn.mock.calls, ...mockLogError.mock.calls];
+  return calls.map((args) => JSON.stringify(args)).join(' | ');
+}
 
 // ---------------------------------------------------------------------------
 // Probe de disponibilidade do DB
@@ -100,6 +137,11 @@ const USER_AGENT_ASSIGNED_ID = makeUuid('ac600005'); // atribuído à conversa (
 const CONV_CITY_A_ID = makeUuid('ac400001'); // cityId=CITY_A, assignedUserId=agente
 const CONV_NO_CITY_ID = makeUuid('ac400002'); // cityId=null, sem assignee
 const CONV_WAIT_ID = makeUuid('ac400003'); // lastInboundAt setado — testa enriquecimento (F26-S02)
+// cityId=null, contactName=null, leadId=LEAD_FALLBACK_ID — testa fallback
+// pelo lead (cidade + nome) do F29-S01.
+const CONV_LEAD_FALLBACK_ID = makeUuid('ac400004');
+
+const LEAD_FALLBACK_ID = makeUuid('ac700001'); // lead com cityId=CITY_B, name preenchido
 
 const roleIdByKey = new Map<string, string>();
 
@@ -248,6 +290,22 @@ beforeAll(async () => {
     ])
     .onConflictDoNothing();
 
+  // Lead usado só como fallback de cidade/nome (F29-S01) — cidade DIFERENTE
+  // de CITY_A para deixar claro que o valor veio do lead, não de um default.
+  await db
+    .insert(leads)
+    .values({
+      id: LEAD_FALLBACK_ID,
+      organizationId: ORG_ID,
+      cityId: CITY_B_ID,
+      name: 'AH IntLead FallbackCityB',
+      phoneE164: '+5569' + RUN_SUFFIX,
+      phoneNormalized: '5569' + RUN_SUFFIX,
+      source: 'whatsapp',
+      status: 'new',
+    })
+    .onConflictDoNothing();
+
   await db
     .insert(conversations)
     .values([
@@ -283,6 +341,17 @@ beforeAll(async () => {
         // 2h atrás — base do "tempo esperando" no corpo enriquecido (F26-S02).
         lastInboundAt: new Date(Date.now() - 2 * 60 * 60 * 1_000),
       },
+      {
+        id: CONV_LEAD_FALLBACK_ID,
+        organizationId: ORG_ID,
+        cityId: null,
+        channelId: CHANNEL_ID,
+        contactRemoteId: '5569' + RUN_SUFFIX + '3',
+        contactName: null, // força fallback de nome pelo lead (F29-S01)
+        leadId: LEAD_FALLBACK_ID,
+        assignedUserId: null,
+        status: 'open',
+      },
     ])
     .onConflictDoNothing();
 }, 30_000);
@@ -307,7 +376,15 @@ afterAll(async () => {
     await db.delete(auditLogs).where(inArray(auditLogs.organizationId, [ORG_ID]));
     await db
       .delete(conversations)
-      .where(inArray(conversations.id, [CONV_CITY_A_ID, CONV_NO_CITY_ID, CONV_WAIT_ID]));
+      .where(
+        inArray(conversations.id, [
+          CONV_CITY_A_ID,
+          CONV_NO_CITY_ID,
+          CONV_WAIT_ID,
+          CONV_LEAD_FALLBACK_ID,
+        ]),
+      );
+    await db.delete(leads).where(eq(leads.id, LEAD_FALLBACK_ID));
     await db.delete(userCityScopes).where(inArray(userCityScopes.userId, userIds));
     await db.delete(userRoles).where(inArray(userRoles.userId, userIds));
     await db.delete(users).where(inArray(users.id, userIds));
@@ -358,17 +435,20 @@ describe.runIf(dbAvailable)(
           );
         expect(auditRows).toHaveLength(1);
 
-        const notifiedUserIds = (
-          await db
-            .select({ userId: notifications.userId, body: notifications.body })
-            .from(notifications)
-            .where(
-              and(
-                eq(notifications.organizationId, ORG_ID),
-                eq(notifications.entityId, CONV_CITY_A_ID),
-              ),
-            )
-        ).map((r) => r.userId);
+        const notificationRows = await db
+          .select({
+            userId: notifications.userId,
+            title: notifications.title,
+            body: notifications.body,
+          })
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.organizationId, ORG_ID),
+              eq(notifications.entityId, CONV_CITY_A_ID),
+            ),
+          );
+        const notifiedUserIds = notificationRows.map((r) => r.userId);
 
         expect(new Set(notifiedUserIds)).toEqual(
           new Set([
@@ -380,6 +460,21 @@ describe.runIf(dbAvailable)(
         );
         // Gestor regional de OUTRA cidade não deve ser notificado.
         expect(notifiedUserIds).not.toContain(USER_REGIONAL_B_ID);
+
+        // -----------------------------------------------------------------
+        // F29-S01: nome do contato aparece no body IN-APP; título inalterado;
+        // nome nunca aparece em audit / socket-relay / log.
+        // -----------------------------------------------------------------
+        for (const row of notificationRows) {
+          expect(row.body).toContain('AH IntContato A');
+          expect(row.title).toBe('Atendimento precisa de humano');
+          expect(row.body).not.toContain(RUN_SUFFIX); // fragmento do telefone de teste
+        }
+
+        expect(JSON.stringify(auditRows)).not.toContain('AH IntContato A');
+        expect(JSON.stringify(mockMakeEnvelope.mock.calls)).not.toContain('AH IntContato A');
+        expect(JSON.stringify(mockPublish.mock.calls)).not.toContain('AH IntContato A');
+        expect(allLoggedText()).not.toContain('AH IntContato A');
       },
     );
 
@@ -452,28 +547,12 @@ describe.runIf(dbAvailable)(
       },
     );
 
-    it('LGPD: body da notificação cita no máximo o nome do município — sem PII do contato', async () => {
-      const rows = await db
-        .select({ title: notifications.title, body: notifications.body })
-        .from(notifications)
-        .where(
-          and(eq(notifications.organizationId, ORG_ID), eq(notifications.entityId, CONV_CITY_A_ID)),
-        );
-
-      expect(rows.length).toBeGreaterThan(0);
-      for (const row of rows) {
-        expect(row.body).not.toContain('AH IntContato A'); // nome do contato
-        expect(row.body).not.toContain(RUN_SUFFIX); // fragmento do telefone de teste
-        expect(row.title).toBe('Atendimento precisa de humano');
-      }
-    });
-
     // -------------------------------------------------------------------------
     // F26-S02 — enriquecimento do corpo (motivo + tempo esperando)
     // -------------------------------------------------------------------------
     it(
       'F26-S02: body enriquecido com motivo do handoff + tempo esperando ' +
-        '(derivado de last_inbound_at) — sem PII do contato',
+        '(derivado de last_inbound_at) — nome in-app, sem telefone',
       async () => {
         await triggerLivechatHandoff(db, {
           organizationId: ORG_ID,
@@ -497,9 +576,67 @@ describe.runIf(dbAvailable)(
           // trava em um valor exato (execução assíncrona do teste), só
           // confirma que o texto de espera foi incluído.
           expect(row.body).toContain('aguardando há');
-          expect(row.body).not.toContain('AH IntContato Wait'); // nome do contato
+          // Nome do contato aparece no body in-app (F29-S01).
+          expect(row.body).toContain('AH IntContato Wait');
           expect(row.body).not.toContain(RUN_SUFFIX); // fragmento do telefone de teste
         }
+
+        expect(allLoggedText()).not.toContain('AH IntContato Wait');
+      },
+    );
+
+    // -------------------------------------------------------------------------
+    // F29-S01 — fallback de cidade + nome pelo lead vinculado à conversa
+    // -------------------------------------------------------------------------
+    it(
+      'F29-S01: conversa sem cityId e sem contactName resolve os dois pelo ' +
+        'lead vinculado — cidade e nome do lead aparecem no body in-app; ' +
+        'nome do lead nunca em log/socket-relay/audit',
+      async () => {
+        await triggerLivechatHandoff(db, {
+          organizationId: ORG_ID,
+          conversationId: CONV_LEAD_FALLBACK_ID,
+          messageId: makeUuid('ac500005'),
+          reason: 'ai_requested',
+        });
+
+        const rows = await db
+          .select({ title: notifications.title, body: notifications.body })
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.organizationId, ORG_ID),
+              eq(notifications.entityId, CONV_LEAD_FALLBACK_ID),
+            ),
+          );
+
+        expect(rows.length).toBeGreaterThan(0);
+        for (const row of rows) {
+          // Cidade resolvida pelo lead (conversa não tinha cityId).
+          expect(row.body).toContain('AH IntCity B');
+          // Nome resolvido pelo lead (conversa não tinha contactName).
+          expect(row.body).toContain('AH IntLead FallbackCityB');
+          expect(row.title).toBe('Atendimento precisa de humano');
+        }
+
+        const auditRows = await db
+          .select({ after: auditLogs.after })
+          .from(auditLogs)
+          .where(
+            and(
+              eq(auditLogs.organizationId, ORG_ID),
+              eq(auditLogs.action, 'livechat.ai_handoff'),
+              eq(auditLogs.resourceId, CONV_LEAD_FALLBACK_ID),
+            ),
+          );
+        for (const row of auditRows) {
+          expect(JSON.stringify(row.after)).not.toContain('AH IntLead FallbackCityB');
+        }
+
+        const relayCallsText = JSON.stringify(mockMakeEnvelope.mock.calls);
+        expect(relayCallsText).not.toContain('AH IntLead FallbackCityB');
+
+        expect(allLoggedText()).not.toContain('AH IntLead FallbackCityB');
       },
     );
   },
