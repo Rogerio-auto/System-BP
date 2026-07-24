@@ -3,7 +3,7 @@ id: F29-S03
 title: Backend — transcodificar áudio webm→ogg antes de enviar ao WhatsApp
 phase: F29
 task_ref: docs/05-modulos-funcionais.md
-status: review
+status: done
 priority: high
 estimated_size: M
 agent_id: null
@@ -14,6 +14,7 @@ source_docs: [docs/05-modulos-funcionais.md]
 docs_required: false
 claimed_at: 2026-07-24T17:23:14Z
 completed_at: 2026-07-24T17:46:21Z
+pr_url: https://github.com/Rogerio-auto/System-BP/pull/456
 ---
 
 # F29-S03 — Transcodificar áudio webm→ogg no envio (WhatsApp não aceita webm)
