@@ -3,7 +3,7 @@ id: F29-S01
 title: Backend — enriquecer notificação de handoff (cidade via lead + nome do cliente in-app)
 phase: F29
 task_ref: docs/23-notificacoes.md
-status: in-progress
+status: review
 priority: high
 estimated_size: S
 agent_id: null
@@ -13,8 +13,9 @@ labels: [backend, livechat, notifications, handoff, lgpd]
 source_docs: [docs/23-notificacoes.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
 claimed_at: 2026-07-24T00:58:08Z
-
+completed_at: 2026-07-24T01:29:39Z
 ---
+
 # F29-S01 — Enriquecer a notificação de handoff (cidade + nome in-app)
 
 ## Objetivo
@@ -50,7 +51,7 @@ arquivo é `files_forbidden` aqui.
   município é dado público (não PII) — pode ir em qualquer canal.
 - **Nome do cliente (in-app only):** resolver o nome de exibição do contato/lead da conversa e
   incluí-lo no corpo da notificação in-app de handoff. Ex.: `"Maria S. — conversa no WhatsApp
-  (Porto Velho) precisa de atendimento humano. Motivo: … — aguardando há …"`. Manter o **título**
+(Porto Velho) precisa de atendimento humano. Motivo: … — aguardando há …"`. Manter o **título**
   como está (`Atendimento precisa de humano`).
 - **Contenção LGPD (obrigatório):** o nome só entra no `body` passado a `sendInApp`. Não pode ser
   logado (usar apenas em memória), não pode ir para o payload do socket/relay, nem para audit. Se no
