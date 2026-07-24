@@ -101,6 +101,15 @@ export async function prepareOutboundAudio(
   const putObject = deps.putObject ?? storage.putObject;
   const getPublicUrl = deps.getPublicUrl ?? storage.getPublicUrl;
 
+  // Defesa anti-SSRF (fail-closed): só baixamos de uma URL na MESMA origem que
+  // o nosso próprio storage gera. `publicMediaUrl` chega do corpo do request
+  // (validado apenas como `z.string().url()` — qualquer host); sem esta trava,
+  // um usuário com `livechat:message:send` poderia apontar a URL para um host
+  // interno do Swarm (Postgres, RabbitMQ, gateway de storage…) e usar o worker
+  // como proxy de requisição. A origem permitida é derivada do próprio
+  // `getPublicUrl` — sempre em sincronia com o driver de storage ativo.
+  assertUrlOnStorageOrigin(input.publicMediaUrl, getPublicUrl);
+
   const sourceBytes = await wrapErrors(
     () => downloadBytes(input.publicMediaUrl),
     'Falha ao baixar áudio de origem para transcodificação',
@@ -133,9 +142,39 @@ async function wrapErrors<T>(fn: () => Promise<T>, fallbackMessage: string): Pro
   }
 }
 
+/** Origem (scheme+host+port) de uma URL http(s); `null` se inválida/outro scheme. */
+function safeOrigin(rawUrl: string): string | null {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Rejeita (fail-closed) qualquer `publicMediaUrl` cuja origem não seja a mesma
+ * que o storage ativo gera. A origem permitida vem de `getPublicUrl` — assim a
+ * allowlist acompanha automaticamente o driver (R2/Supabase) e o domínio
+ * configurado, sem constante duplicada.
+ */
+function assertUrlOnStorageOrigin(url: string, getPublicUrl: (key: string) => string): void {
+  const allowedOrigin = safeOrigin(getPublicUrl('__ssrf_probe__/probe.ogg'));
+  const actualOrigin = safeOrigin(url);
+  if (allowedOrigin === null || actualOrigin === null || actualOrigin !== allowedOrigin) {
+    throw new AudioTranscodeError('URL de mídia de origem fora do storage permitido');
+  }
+}
+
 /**
  * Baixa os bytes de uma URL pública (o storage do envio já expõe a mídia
  * publicamente — não requer credenciais adicionais).
+ *
+ * Lê em STREAMING contando os bytes e aborta assim que ultrapassa
+ * `MAX_SOURCE_BYTES` — nunca bufferiza uma resposta inteira antes de checar o
+ * tamanho (um host lento/malicioso poderia empurrar bytes até o timeout).
+ * `Content-Length` NÃO é usado como fonte de verdade (pode ser omitido/mentir).
  *
  * LGPD: nunca loga a URL nem os bytes baixados.
  */
@@ -149,12 +188,31 @@ async function defaultDownloadBytes(url: string): Promise<Buffer> {
       throw new AudioTranscodeError(`Download da mídia de origem falhou (status ${res.status})`);
     }
 
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > MAX_SOURCE_BYTES) {
-      throw new AudioTranscodeError('Áudio de origem excede o limite de tamanho permitido');
+    if (res.body === null) {
+      // Sem stream disponível — fallback com corte após o buffer completo.
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > MAX_SOURCE_BYTES) {
+        throw new AudioTranscodeError('Áudio de origem excede o limite de tamanho permitido');
+      }
+      return buf;
     }
 
-    return buf;
+    const reader = res.body.getReader();
+    const chunks: Buffer[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value === undefined) continue;
+      total += value.byteLength;
+      if (total > MAX_SOURCE_BYTES) {
+        controller.abort();
+        throw new AudioTranscodeError('Áudio de origem excede o limite de tamanho permitido');
+      }
+      chunks.push(Buffer.from(value));
+    }
+
+    return Buffer.concat(chunks);
   } finally {
     clearTimeout(timer);
   }

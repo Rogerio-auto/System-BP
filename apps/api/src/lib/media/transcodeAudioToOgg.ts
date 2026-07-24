@@ -100,6 +100,12 @@ function buildArgs(codec: 'copy' | 'libopus'): readonly string[] {
     '-hide_banner',
     '-loglevel',
     'error',
+    // Fixa o demuxer de ENTRADA em webm (o único formato que chamamos aqui —
+    // isWebmAudio garante isso). Sem `-f webm`, o ffmpeg faz auto-probe do
+    // container sobre bytes potencialmente hostis (defesa em profundidade:
+    // reduz a superfície a UM demuxer em vez de todos os parsers do ffmpeg).
+    '-f',
+    'webm',
     '-i',
     'pipe:0',
     '-c:a',

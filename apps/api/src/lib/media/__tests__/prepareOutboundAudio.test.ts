@@ -16,12 +16,21 @@
 //   8. Falha no upload (putObject) → lança AudioTranscodeError.
 //   9. isWebmAudio: detecção por mime e por extensão da URL.
 // =============================================================================
+import { WHATSAPP_MEDIA_MAX_BYTES } from '@elemento/shared-schemas';
 import { describe, expect, it, vi } from 'vitest';
 
 import { isWebmAudio, prepareOutboundAudio } from '../prepareOutboundAudio.js';
 import { AudioTranscodeError } from '../transcodeAudioToOgg.js';
 
 const ORG_ID = '00000000-0000-0000-0000-000000000001';
+
+/**
+ * getPublicUrl na MESMA origem das publicMediaUrl de teste
+ * (`storage.example.com`) — o guard anti-SSRF exige que a origem da URL de
+ * origem bata com a que o storage gera. Testes que só querem exercitar as
+ * etapas seguintes (download/transcode/upload) injetam este.
+ */
+const sameOriginPublicUrl = (): string => 'https://storage.example.com/new/audio.ogg';
 
 describe('isWebmAudio', () => {
   it('9. detecta por mime audio/webm (com ou sem parâmetros)', () => {
@@ -161,7 +170,7 @@ describe('prepareOutboundAudio', () => {
           publicMediaUrl: 'https://storage.example.com/orig/audio.webm',
           organizationId: ORG_ID,
         },
-        { downloadBytes, transcode, putObject },
+        { downloadBytes, transcode, putObject, getPublicUrl: sameOriginPublicUrl },
       ),
     ).rejects.toBeInstanceOf(AudioTranscodeError);
 
@@ -182,7 +191,7 @@ describe('prepareOutboundAudio', () => {
           publicMediaUrl: 'https://storage.example.com/orig/audio.webm',
           organizationId: ORG_ID,
         },
-        { downloadBytes, transcode, putObject },
+        { downloadBytes, transcode, putObject, getPublicUrl: sameOriginPublicUrl },
       ),
     ).rejects.toBeInstanceOf(AudioTranscodeError);
 
@@ -202,8 +211,71 @@ describe('prepareOutboundAudio', () => {
           publicMediaUrl: 'https://storage.example.com/orig/audio.webm',
           organizationId: ORG_ID,
         },
-        { downloadBytes, transcode, putObject },
+        { downloadBytes, transcode, putObject, getPublicUrl: sameOriginPublicUrl },
       ),
     ).rejects.toBeInstanceOf(AudioTranscodeError);
+  });
+
+  it('10. publicMediaUrl fora da origem do storage → rejeita (anti-SSRF), sem download', async () => {
+    const downloadBytes = vi.fn();
+    const transcode = vi.fn();
+    const putObject = vi.fn();
+    // getPublicUrl gera em storage.example.com; a URL de origem é OUTRO host
+    // (ex.: metadata endpoint interno) → deve ser barrada antes do download.
+    const getPublicUrl = vi.fn().mockReturnValue('https://storage.example.com/x.ogg');
+
+    await expect(
+      prepareOutboundAudio(
+        {
+          mediaKind: 'audio',
+          mime: 'audio/webm',
+          publicMediaUrl: 'http://169.254.169.254/latest/meta-data/audio.webm',
+          organizationId: ORG_ID,
+        },
+        { downloadBytes, transcode, putObject, getPublicUrl },
+      ),
+    ).rejects.toBeInstanceOf(AudioTranscodeError);
+
+    expect(downloadBytes).not.toHaveBeenCalled();
+    expect(transcode).not.toHaveBeenCalled();
+    expect(putObject).not.toHaveBeenCalled();
+  });
+
+  it('11. download de origem excede o limite → rejeita (corte em streaming)', async () => {
+    const oneMb = new Uint8Array(1024 * 1024);
+    const chunkCount = Math.ceil(WHATSAPP_MEDIA_MAX_BYTES.audio / oneMb.byteLength) + 1;
+    let emitted = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (emitted < chunkCount) {
+          emitted += 1;
+          controller.enqueue(oneMb);
+        } else {
+          controller.close();
+        }
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, body });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      await expect(
+        prepareOutboundAudio(
+          {
+            mediaKind: 'audio',
+            mime: 'audio/webm',
+            publicMediaUrl: 'https://storage.example.com/orig/audio.webm',
+            organizationId: ORG_ID,
+          },
+          // downloadBytes NÃO injetado → exercita o defaultDownloadBytes real.
+          { getPublicUrl: sameOriginPublicUrl },
+        ),
+      ).rejects.toBeInstanceOf(AudioTranscodeError);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
