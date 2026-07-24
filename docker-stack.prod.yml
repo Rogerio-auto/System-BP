@@ -65,6 +65,13 @@ services:
       SUPABASE_STORAGE_PUBLIC_URL: ${SUPABASE_STORAGE_PUBLIC_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
       SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET}
+      # Web Push (VAPID / RFC 8292) — notificações do navegador (doc 24 §5).
+      # Valores vêm de /root/elemento-secrets/api.env (nunca commitados). O
+      # NOTIFICATIONS_PUSH_ENABLED=true exige as 3 VAPID_* (guard do envSchema).
+      NOTIFICATIONS_PUSH_ENABLED: ${NOTIFICATIONS_PUSH_ENABLED}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT}
     networks:
       - elemento_net
     healthcheck:
