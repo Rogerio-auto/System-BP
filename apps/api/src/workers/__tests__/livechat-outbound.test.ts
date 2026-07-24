@@ -21,6 +21,11 @@
 //  12. ig_private_reply → nack sem requeue
 //  13. OutboundJob inválido (type=text sem content) → nack sem requeue
 //  14. Lock FIFO chamado com a key correta por conversa
+//  15. Áudio webm → prepareOutboundAudio transcodifica; serializer recebe job atualizado (F29-S03)
+//  16. Áudio mp4/ogg → prepareOutboundAudio retorna null; job passa direto (F29-S03)
+//  17. Falha na transcodificação → mensagem marcada como failed, Meta API não chamada (F29-S03)
+//  18. Job de texto → prepareOutboundAudio nunca é chamado (F29-S03)
+//  19. Mídia imagem → nunca transcodificada, passa direto (F29-S03)
 // =============================================================================
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -272,6 +277,15 @@ vi.mock('../../integrations/channels/shared/errors.js', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Mock lib/media/prepareOutboundAudio (F29-S03)
+// ---------------------------------------------------------------------------
+const mockPrepareOutboundAudio = vi.fn().mockResolvedValue(null);
+
+vi.mock('../../lib/media/prepareOutboundAudio.js', () => ({
+  prepareOutboundAudio: (...args: unknown[]) => mockPrepareOutboundAudio(...args),
+}));
+
+// ---------------------------------------------------------------------------
 // Mock livechat service
 // ---------------------------------------------------------------------------
 const mockFindChannel = vi.fn();
@@ -392,6 +406,22 @@ function makeTextJob(overrides: Record<string, unknown> = {}): Record<string, un
   };
 }
 
+/** Cria um OutboundJob de mídia (audio por padrão). */
+function makeMediaJob(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    type: 'media',
+    organizationId: ORG_ID,
+    channelId: CHANNEL_ID,
+    conversationId: CONVERSATION_ID,
+    messageId: MESSAGE_ID,
+    contactRemoteId: '5511999999999',
+    mediaKind: 'audio',
+    publicMediaUrl: 'https://storage.example.com/orig/audio.webm',
+    mime: 'audio/webm;codecs=opus',
+    ...overrides,
+  };
+}
+
 /** Cria um OutboundJob de template. */
 function makeTemplateJob(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -485,6 +515,9 @@ beforeEach(() => {
 
   // updateViewStatus: sucesso silencioso
   mockUpdateViewStatus.mockResolvedValue(undefined);
+
+  // prepareOutboundAudio: por padrão, nada muda (job passa direto)
+  mockPrepareOutboundAudio.mockResolvedValue(null);
 });
 
 // ---------------------------------------------------------------------------
@@ -844,5 +877,124 @@ describe('processOutboundJob', () => {
       expect.any(Function),
       expect.objectContaining({ maxWaitMs: expect.any(Number) }),
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // Cenários F29-S03: transcodificação de áudio webm→ogg antes do envio
+  // -------------------------------------------------------------------------
+
+  it('15. áudio webm → prepareOutboundAudio transcodifica; serializer recebe job atualizado', async () => {
+    mockPrepareOutboundAudio.mockResolvedValueOnce({
+      publicMediaUrl: 'https://storage.example.com/new/audio.ogg',
+      mime: 'audio/ogg',
+    });
+
+    const job = makeMediaJob();
+    mockEnvelopeSuccess(job);
+    const buf = makeEnvelopeBuffer(job);
+
+    const result = await processOutboundJob(buf, mockDbSingleton as never);
+
+    expect(result).toEqual({ action: 'ack' });
+    expect(mockPrepareOutboundAudio).toHaveBeenCalledWith({
+      mediaKind: 'audio',
+      mime: 'audio/webm;codecs=opus',
+      publicMediaUrl: 'https://storage.example.com/orig/audio.webm',
+      organizationId: ORG_ID,
+    });
+    // O serializer deve receber o job JÁ transcodificado (url + mime ogg)
+    expect(mockSerializeOutboundJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publicMediaUrl: 'https://storage.example.com/new/audio.ogg',
+        mime: 'audio/ogg',
+      }),
+    );
+    expect(mockClientPost).toHaveBeenCalled();
+  });
+
+  it('16. áudio mp4/ogg (já compatível) → prepareOutboundAudio retorna null; job passa direto', async () => {
+    mockPrepareOutboundAudio.mockResolvedValueOnce(null);
+
+    const job = makeMediaJob({
+      publicMediaUrl: 'https://storage.example.com/orig/audio.mp4',
+      mime: 'audio/mp4',
+    });
+    mockEnvelopeSuccess(job);
+    const buf = makeEnvelopeBuffer(job);
+
+    const result = await processOutboundJob(buf, mockDbSingleton as never);
+
+    expect(result).toEqual({ action: 'ack' });
+    expect(mockPrepareOutboundAudio).toHaveBeenCalledTimes(1);
+    // Job inalterado repassado ao serializer — nenhuma URL/mime nova
+    expect(mockSerializeOutboundJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publicMediaUrl: 'https://storage.example.com/orig/audio.mp4',
+        mime: 'audio/mp4',
+      }),
+    );
+    expect(mockClientPost).toHaveBeenCalled();
+  });
+
+  it('17. falha na transcodificação → mensagem marcada como failed (ack); Meta API não chamada', async () => {
+    mockPrepareOutboundAudio.mockRejectedValueOnce(
+      new Error('Falha ao transcodificar áudio webm→ogg (remux e re-encode falharam)'),
+    );
+
+    const job = makeMediaJob();
+    mockEnvelopeSuccess(job);
+    const buf = makeEnvelopeBuffer(job);
+
+    const result = await processOutboundJob(buf, mockDbSingleton as never);
+
+    expect(result).toEqual({ action: 'ack' });
+    expect(mockUpdateViewStatus).toHaveBeenCalledWith(mockDbSingleton, MESSAGE_ID, 'failed');
+    expect(mockPublish).toHaveBeenCalledWith(
+      'hm.q.socket.relay',
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          event: 'message:status_changed',
+          data: expect.objectContaining({ viewStatus: 'failed', messageId: MESSAGE_ID }),
+        }),
+      }),
+    );
+    expect(mockClientPost).not.toHaveBeenCalled();
+  });
+
+  it('18. job de texto → prepareOutboundAudio NUNCA é chamado (só afeta mídia)', async () => {
+    const job = makeTextJob();
+    mockEnvelopeSuccess(job);
+    const buf = makeEnvelopeBuffer(job);
+
+    const result = await processOutboundJob(buf, mockDbSingleton as never);
+
+    expect(result).toEqual({ action: 'ack' });
+    expect(mockPrepareOutboundAudio).not.toHaveBeenCalled();
+  });
+
+  it('19. mídia imagem → prepareOutboundAudio é chamado mas com mediaKind=image (helper decide passthrough)', async () => {
+    mockPrepareOutboundAudio.mockResolvedValueOnce(null);
+
+    const job = makeMediaJob({
+      mediaKind: 'image',
+      publicMediaUrl: 'https://storage.example.com/orig/photo.jpg',
+      mime: 'image/jpeg',
+    });
+    mockEnvelopeSuccess(job);
+    const buf = makeEnvelopeBuffer(job);
+
+    const result = await processOutboundJob(buf, mockDbSingleton as never);
+
+    expect(result).toEqual({ action: 'ack' });
+    expect(mockPrepareOutboundAudio).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaKind: 'image' }),
+    );
+    expect(mockSerializeOutboundJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publicMediaUrl: 'https://storage.example.com/orig/photo.jpg',
+        mime: 'image/jpeg',
+      }),
+    );
+    expect(mockClientPost).toHaveBeenCalled();
   });
 });

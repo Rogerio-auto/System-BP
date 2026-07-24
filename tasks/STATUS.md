@@ -29,7 +29,7 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 | F26  | 4     | 0   | 0   | 0   | 0   | 0   | 4   |
 | F27  | 9     | 0   | 0   | 0   | 0   | 0   | 9   |
 | F28  | 8     | 0   | 0   | 0   | 0   | 0   | 8   |
-| F29  | 2     | 0   | 0   | 0   | 0   | 0   | 2   |
+| F29  | 3     | 0   | 0   | 0   | 0   | 1   | 2   |
 | F3   | 38    | 0   | 0   | 0   | 0   | 0   | 38  |
 | F4   | 7     | 0   | 0   | 0   | 0   | 0   | 7   |
 | F5   | 16    | 0   | 0   | 0   | 0   | 0   | 16  |
@@ -424,10 +424,11 @@ Legenda: `available` 🟢 · `blocked` ⏸️ · `claimed` 🟡 · `in-progress`
 
 ## Fase 29 —
 
-| ID      | Título                                                                                 | Status  | Prioridade | Depende de |
-| ------- | -------------------------------------------------------------------------------------- | ------- | ---------- | ---------- |
-| F29-S01 | Backend — enriquecer notificação de handoff (cidade via lead + nome do cliente in-app) | ✅ done | high       | —          |
-| F29-S02 | Frontend — deep-link do sino abre a conversa específica (não só o inbox)               | ✅ done | high       | —          |
+| ID      | Título                                                                                 | Status    | Prioridade | Depende de |
+| ------- | -------------------------------------------------------------------------------------- | --------- | ---------- | ---------- |
+| F29-S01 | Backend — enriquecer notificação de handoff (cidade via lead + nome do cliente in-app) | ✅ done   | high       | —          |
+| F29-S02 | Frontend — deep-link do sino abre a conversa específica (não só o inbox)               | ✅ done   | high       | —          |
+| F29-S03 | Backend — transcodificar áudio webm→ogg antes de enviar ao WhatsApp                    | 🟣 review | high       | —          |
 
 ## Fase 3 — Agentes IA
 

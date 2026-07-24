@@ -17,6 +17,9 @@
 //        - `closed`        → não enviar; marcar `failed`, ack.
 //   5. Decifra `access_token_enc` via `decryptPii` e cria `GraphClient`.
 //   6. Decifra `contact_phone_enc` da conversa (quando disponível).
+//   6.5 Se o job for mídia audio/voice em container webm (gravador do app no
+//       Chrome/Android), transcodifica para ogg via `prepareOutboundAudio`
+//       (F29-S03) — WhatsApp não aceita webm. Demais formatos passam direto.
 //   7. Serializa o job via `serializeOutboundJob` (S05).
 //   8. Envia via `GraphClient.post('/{phoneNumberId}/messages', payload)` (S04).
 //   9. Persiste com `updateViewStatus(messageId, 'sent', externalId)` (S07).
@@ -38,6 +41,9 @@
 //   - access_token_enc decifrado só em memória e descartado após uso.
 //   - contact_phone_enc decifrado só em memória para o envio — não logado.
 //   - socket.relay payload: apenas IDs + tipo + timestamp (sem content).
+//   - Transcodificação de áudio (prepareOutboundAudio): nunca loga a URL da
+//     mídia, o nome do arquivo nem os bytes; o áudio só existe em memória
+//     efêmera (sem arquivo temporário em disco).
 // =============================================================================
 
 import { OutboundJobSchema } from '@elemento/shared-schemas';
@@ -55,6 +61,7 @@ import { ProviderError } from '../integrations/channels/shared/errors.js';
 import { createGraphClient } from '../integrations/channels/shared/graphClient.js';
 import { decryptPii } from '../lib/crypto/pii.js';
 import { logger } from '../lib/logger.js';
+import { prepareOutboundAudio } from '../lib/media/prepareOutboundAudio.js';
 import { envelopeSchema } from '../lib/queue/envelope.js';
 import {
   closeRabbitMQ,
@@ -350,11 +357,59 @@ async function sendWithinLock(
   }
 
   // ------------------------------------------------------------------
+  // 9.5. Transcodifica áudio webm→ogg antes do envio (F29-S03)
+  //
+  //   O gravador do app (Chrome/Android) só grava audio/webm;codecs=opus —
+  //   o WhatsApp não aceita webm (só aac/amr/mpeg/mp4/ogg-Opus). Só age
+  //   quando mediaKind é audio/voice E o container de origem é webm; demais
+  //   tipos/formatos passam direto, sem download nem chamada de rede extra.
+  //
+  //   LGPD: prepareOutboundAudio nunca loga URL/nome de arquivo/bytes — o
+  //   log abaixo usa apenas a mensagem estática do erro (sem PII).
+  // ------------------------------------------------------------------
+  let sendJob = job;
+  if (job.type === 'media') {
+    try {
+      const transcoded = await prepareOutboundAudio({
+        mediaKind: job.mediaKind,
+        mime: job.mime,
+        publicMediaUrl: job.publicMediaUrl,
+        organizationId,
+      });
+      if (transcoded !== null) {
+        sendJob = { ...job, publicMediaUrl: transcoded.publicMediaUrl, mime: transcoded.mime };
+      }
+    } catch (err) {
+      log.error(
+        {
+          organizationId,
+          channelId,
+          conversationId,
+          messageId,
+          mediaKind: job.mediaKind,
+          reason: err instanceof Error ? err.message : 'erro desconhecido',
+        },
+        'livechat-outbound: falha ao transcodificar áudio para envio — mensagem marcada como failed (ack)',
+      );
+
+      await updateViewStatus(db, messageId, 'failed');
+      await publishSocketStatusChanged(
+        organizationId,
+        conversationId,
+        channelId,
+        messageId,
+        'failed',
+      );
+      return { action: 'ack' };
+    }
+  }
+
+  // ------------------------------------------------------------------
   // 10. Serializa o payload via serializer Meta (S05)
   // ------------------------------------------------------------------
   let metaPayload: ReturnType<typeof serializeOutboundJob>;
   try {
-    metaPayload = serializeOutboundJob(job);
+    metaPayload = serializeOutboundJob(sendJob);
   } catch (err) {
     log.error(
       { organizationId, channelId, conversationId, messageId, err },
