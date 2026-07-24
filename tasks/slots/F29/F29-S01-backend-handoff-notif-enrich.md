@@ -3,7 +3,7 @@ id: F29-S01
 title: Backend — enriquecer notificação de handoff (cidade via lead + nome do cliente in-app)
 phase: F29
 task_ref: docs/23-notificacoes.md
-status: available
+status: in-progress
 priority: high
 estimated_size: S
 agent_id: null
@@ -12,8 +12,9 @@ blocks: []
 labels: [backend, livechat, notifications, handoff, lgpd]
 source_docs: [docs/23-notificacoes.md, docs/17-lgpd-protecao-dados.md]
 docs_required: false
----
+claimed_at: 2026-07-24T00:58:08Z
 
+---
 # F29-S01 — Enriquecer a notificação de handoff (cidade + nome in-app)
 
 ## Objetivo
