@@ -636,7 +636,7 @@ export function MessageComposer({
           onCancel={() => setIsRecording(false)}
         />
       ) : (
-        <div className="flex items-end gap-2 px-3 py-2 min-w-0">
+        <div className="flex flex-wrap sm:flex-nowrap items-end gap-2 px-3 py-2 min-w-0">
           {/* Botão de attach */}
           <button
             type="button"
@@ -644,7 +644,7 @@ export function MessageComposer({
             disabled={isDisabled || mediaPreview !== null}
             aria-label="Anexar arquivo"
             className={cn(
-              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'order-1 sm:order-none shrink-0 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-sm',
               'text-ink-3 transition-colors duration-fast ease',
               'hover:bg-surface-hover hover:text-ink',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
@@ -699,7 +699,7 @@ export function MessageComposer({
                       : 'Respostas rápidas (/ ou Ctrl+Shift+E)'
               }
               className={cn(
-                'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+                'order-2 sm:order-none shrink-0 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-sm',
                 'text-ink-3 transition-colors duration-fast ease',
                 'hover:bg-surface-hover hover:text-ink',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
@@ -726,7 +726,7 @@ export function MessageComposer({
           )}
 
           {/* Textarea auto-resize */}
-          <div className="flex-1 min-w-0 relative">
+          <div className="order-6 sm:order-none basis-full sm:basis-auto flex-1 min-w-0 relative">
             <textarea
               ref={textareaRef}
               value={text}
@@ -776,7 +776,7 @@ export function MessageComposer({
             aria-label="Inserir emoji (em breve)"
             title="Emoji (em breve)"
             className={cn(
-              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'order-3 sm:order-none shrink-0 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-sm',
               'text-ink-3 transition-colors duration-fast ease',
               'hover:bg-surface-hover hover:text-ink',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
@@ -807,7 +807,7 @@ export function MessageComposer({
             aria-label="Gravar áudio"
             title="Gravar áudio (push-to-talk)"
             className={cn(
-              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'order-4 sm:order-none shrink-0 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-sm',
               'text-ink-3 transition-colors duration-fast ease',
               'hover:bg-surface-hover hover:text-ink',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
@@ -839,7 +839,7 @@ export function MessageComposer({
             disabled={!canSend}
             aria-label={mediaPreview ? 'Enviar arquivo' : 'Enviar mensagem'}
             className={cn(
-              'shrink-0 w-9 h-9 flex items-center justify-center rounded-sm',
+              'order-5 sm:order-none ml-auto sm:ml-0 shrink-0 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-sm',
               'transition-[transform,box-shadow,background,color] duration-fast ease',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
               'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none',

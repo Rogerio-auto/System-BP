@@ -64,9 +64,18 @@ function ProviderBadge({ provider }: { provider: ChannelProvider }): React.JSX.E
 
 interface ConversationHeaderProps {
   conversationId: string;
+  /**
+   * Se fornecido, o bloco nome+avatar vira um botão que abre o painel de
+   * contato. Usado principalmente no mobile (toque no nome do cliente), onde
+   * o painel lateral não cabe — no desktop ele já fica visível/togglável.
+   */
+  onOpenContact?: (() => void) | undefined;
 }
 
-function ConversationHeader({ conversationId }: ConversationHeaderProps): React.JSX.Element {
+function ConversationHeader({
+  conversationId,
+  onOpenContact,
+}: ConversationHeaderProps): React.JSX.Element {
   const { data } = useConversation(conversationId);
 
   const contactName = data?.data.contactName ?? data?.data.contactRemoteId ?? '…';
@@ -82,32 +91,48 @@ function ConversationHeader({ conversationId }: ConversationHeaderProps): React.
         boxShadow: 'var(--elev-1)',
       }}
     >
-      {/* Avatar */}
-      <span
-        className="flex-shrink-0 inline-flex items-center justify-center rounded-full font-sans font-bold select-none"
-        style={{
-          width: 36,
-          height: 36,
-          background: 'var(--grad-azul)',
-          color: 'var(--brand-branco)',
-          fontSize: 'var(--text-sm)',
-          boxShadow: 'var(--elev-2)',
-        }}
-        aria-hidden="true"
+      {/* Nome + avatar — clicável para abrir os dados do contato (doc: mobile) */}
+      <button
+        type="button"
+        onClick={onOpenContact}
+        disabled={onOpenContact === undefined}
+        className={cn(
+          'flex items-center gap-3 min-w-0 flex-1 text-left rounded-sm -mx-1 px-1 py-0.5',
+          'transition-colors duration-fast ease',
+          'enabled:cursor-pointer enabled:hover:bg-surface-hover',
+          'disabled:cursor-default',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30',
+        )}
+        aria-label={onOpenContact !== undefined ? `Ver informações de ${contactName}` : undefined}
+        title={onOpenContact !== undefined ? 'Ver informações do contato' : undefined}
       >
-        {initial}
-      </span>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+        {/* Avatar */}
         <span
-          className="font-sans font-semibold truncate"
-          style={{ fontSize: 'var(--text-sm)', color: 'var(--text)', letterSpacing: '-0.01em' }}
+          className="flex-shrink-0 inline-flex items-center justify-center rounded-full font-sans font-bold select-none"
+          style={{
+            width: 36,
+            height: 36,
+            background: 'var(--grad-azul)',
+            color: 'var(--brand-branco)',
+            fontSize: 'var(--text-sm)',
+            boxShadow: 'var(--elev-2)',
+          }}
+          aria-hidden="true"
         >
-          {contactName}
+          {initial}
         </span>
-        {provider !== undefined && <ProviderBadge provider={provider} />}
-      </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5 items-start">
+          <span
+            className="font-sans font-semibold truncate max-w-full"
+            style={{ fontSize: 'var(--text-sm)', color: 'var(--text)', letterSpacing: '-0.01em' }}
+          >
+            {contactName}
+          </span>
+          {provider !== undefined && <ProviderBadge provider={provider} />}
+        </div>
+      </button>
     </div>
   );
 }
@@ -336,6 +361,8 @@ interface ConversationPanelProps {
   conversationId: string;
   /** Callback para CTA de "usar template" no WindowNotice */
   onUseTemplate?: () => void;
+  /** Abre o painel de contato (mobile: toque no nome do cliente no header). */
+  onOpenContact?: (() => void) | undefined;
 }
 
 /**
@@ -346,6 +373,7 @@ interface ConversationPanelProps {
 export function ConversationPanel({
   conversationId,
   onUseTemplate,
+  onOpenContact,
 }: ConversationPanelProps): React.JSX.Element {
   // ── Dados ──────────────────────────────────────────────────────────────────
   const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage, refetch } =
@@ -408,7 +436,7 @@ export function ConversationPanel({
   if (isLoading) {
     return (
       <div className="flex flex-col h-full bg-surface-1">
-        <ConversationHeader conversationId={conversationId} />
+        <ConversationHeader conversationId={conversationId} onOpenContact={onOpenContact} />
         <div className="flex-1 overflow-hidden">
           <MessageSkeleton />
         </div>
@@ -421,7 +449,7 @@ export function ConversationPanel({
   if (isError) {
     return (
       <div className="flex flex-col h-full bg-surface-1">
-        <ConversationHeader conversationId={conversationId} />
+        <ConversationHeader conversationId={conversationId} onOpenContact={onOpenContact} />
         <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
           <div
             className="w-10 h-10 rounded-md flex items-center justify-center"
@@ -472,7 +500,7 @@ export function ConversationPanel({
   if (allMessages.length === 0) {
     return (
       <div className="flex flex-col h-full bg-surface-1">
-        <ConversationHeader conversationId={conversationId} />
+        <ConversationHeader conversationId={conversationId} onOpenContact={onOpenContact} />
         <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
           <div
             className="w-12 h-12 rounded-lg flex items-center justify-center"
