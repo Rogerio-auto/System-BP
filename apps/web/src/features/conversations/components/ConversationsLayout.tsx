@@ -283,7 +283,10 @@ export function ConversationsLayout(): React.JSX.Element {
           )}
 
           {selectedId !== null ? (
-            <ConversationPanel conversationId={selectedId} />
+            <ConversationPanel
+              conversationId={selectedId}
+              onOpenContact={() => setContactOpen(true)}
+            />
           ) : (
             <ConversationPlaceholder />
           )}
@@ -332,6 +335,53 @@ export function ConversationsLayout(): React.JSX.Element {
             <ContactPanel conversationId={selectedId!} />
           </aside>
         </>
+      )}
+
+      {/* Col 3: Contato full-screen (mobile < 768px) — aberto ao tocar no nome
+          do cliente no header da conversa. No mobile o painel lateral não cabe;
+          este overlay cobre a tela com um botão "Voltar" para a conversa. */}
+      {isMobile && selectedId !== null && contactOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Dados do contato"
+          className="absolute inset-0 z-30 flex flex-col"
+          style={{ background: 'var(--bg-elev-1)' }}
+        >
+          <div
+            className="flex items-center px-4 py-3 flex-shrink-0"
+            style={{
+              borderBottom: '1px solid var(--border-subtle)',
+              background: 'var(--bg-elev-1)',
+              boxShadow: 'var(--elev-1)',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setContactOpen(false)}
+              className="flex items-center gap-2 font-sans font-medium transition-opacity duration-fast hover:opacity-70 focus:outline-none focus:ring-2 focus:ring-azul rounded-xs"
+              style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-azul)' }}
+              aria-label="Voltar para a conversa"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-4 h-4"
+                aria-hidden="true"
+              >
+                <path d="M10 13L5 8l5-5" />
+              </svg>
+              Voltar
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <ContactPanel conversationId={selectedId} />
+          </div>
+        </div>
       )}
     </div>
   );
