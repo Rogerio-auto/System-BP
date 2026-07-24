@@ -79,7 +79,12 @@ export function Avatar({
         role="img"
         aria-label={name}
         className={cn(
-          'inline-flex shrink-0 items-center justify-center overflow-hidden',
+          // `relative` + img `absolute inset-0`: a foto é pinada ao box e nunca
+          // pode estourá-lo. Um <img> como item flex (inline-flex) pode
+          // ultrapassar o container por causa do min-size automático de itens
+          // flex / dimensões intrínsecas da imagem — isso vazava a foto pra
+          // fora do círculo e da topbar. `overflow-hidden` garante o recorte.
+          'relative inline-block shrink-0 overflow-hidden',
           'rounded-pill select-none',
           sizes[size],
           className,
@@ -90,7 +95,12 @@ export function Avatar({
         }}
       >
         {/* aria-hidden: o span já tem o aria-label do usuário */}
-        <img src={src} alt="" aria-hidden="true" className="w-full h-full object-cover" />
+        <img
+          src={src}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
       </span>
     );
   }
