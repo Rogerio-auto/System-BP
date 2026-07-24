@@ -133,6 +133,35 @@ function ConversationHeader({
           {provider !== undefined && <ProviderBadge provider={provider} />}
         </div>
       </button>
+
+      {/* Botão "i" — abre os dados do contato no MOBILE (o desktop usa o botão
+          flutuante do ConversationsLayout). `md:hidden` esconde ≥768px. Mesmo
+          ícone do toggle do desktop. */}
+      {onOpenContact !== undefined && (
+        <button
+          type="button"
+          onClick={onOpenContact}
+          aria-label="Ver informações do contato"
+          title="Ver informações do contato"
+          className="md:hidden shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-sm transition-colors duration-fast ease hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azul/30"
+          style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-3)' }}
+        >
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-4 h-4"
+            aria-hidden="true"
+          >
+            <circle cx="8" cy="8" r="6.5" />
+            <path d="M8 7v4" />
+            <circle cx="8" cy="5" r=".5" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

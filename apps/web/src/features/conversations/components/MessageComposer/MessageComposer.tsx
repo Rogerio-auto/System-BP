@@ -554,6 +554,9 @@ export function MessageComposer({
       className={cn(
         'relative flex flex-col border-t border-border bg-surface-1',
         '[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06)]',
+        // Afasta o input da borda inferior no mobile (home indicator / PWA
+        // standalone) — respeita a safe-area do dispositivo; 0 no desktop.
+        'pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-0',
       )}
       aria-label="Compositor de mensagem"
       onKeyDown={handleComposerShortcut}
