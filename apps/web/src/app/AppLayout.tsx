@@ -21,6 +21,7 @@ import { Topbar } from '../components/layout/Topbar';
 import { useAuth } from '../features/auth/useAuth';
 import { ContextualHelpDrawer } from '../features/help/contextual';
 import { SearchPalette } from '../features/help/SearchPalette';
+import { InstallAppCard } from '../features/pwa/InstallAppCard';
 
 // ─── Zustand: estado da sidebar ───────────────────────────────────────────────
 
@@ -85,6 +86,9 @@ export function AppLayout(): React.JSX.Element {
           className="flex-1 overflow-auto p-6 focus:outline-none"
           style={{ minHeight: 'calc(100vh - 3.5rem)' }}
         >
+          {/* Banner "instale no celular" — atrás de pwa.enabled; some quando o
+              app já roda instalado ou após "Já instalei" (por dispositivo). */}
+          <InstallAppCard />
           <Outlet />
         </main>
       </div>
